@@ -26,9 +26,9 @@ export async function createPreparedAction(params: CreateActionParams) {
       organizationId: params.organizationId,
       type: params.type,
       title: params.title,
-      description: params.description,
-      content: params.content,
-      sourceInsightId: params.sourceInsightId ?? null,
+      
+content: params.content as Prisma.InputJsonValue,   
+content: params.content as Prisma.InputJsonValue,sourceInsightId: params.sourceInsightId ?? null,
       confidence: params.confidence,
       reasoning: params.reasoning,
     },
