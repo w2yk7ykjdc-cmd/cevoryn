@@ -1,0 +1,465 @@
+// =============================================================================
+// Atlas — Prisma Schema
+// Sprint 004: Atlas Brain Foundation
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// =============================================================================
+// Organization
+// =============================================================================
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  logoUrl   String?  @map("logo_url")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  members        Member[]
+  invites        Invite[]
+  conversations  Conversation[]
+  usageRecords   UsageRecord[]
+  memories       Memory[]
+  insights       Insight[]
+  pulseSnapshots PulseSnapshot[]
+  briefs          Brief[]
+  preparedActions PreparedAction[]
+  decisions           Decision[]
+  outcomeEvaluations  OutcomeEvaluation[]
+  learningPatterns    LearningPattern[]
+
+  @@map("organizations")
+}
+
+// =============================================================================
+// Member
+// =============================================================================
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model Member {
+  id             String     @id @default(cuid())
+  userId         String     @map("user_id")
+  organizationId String     @map("organization_id")
+  role           MemberRole @default(MEMBER)
+  displayName    String     @map("display_name")
+  avatarUrl      String?    @map("avatar_url")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([userId])
+  @@index([organizationId])
+  @@map("members")
+}
+
+// =============================================================================
+// Invite
+// =============================================================================
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+model Invite {
+  id             String       @id @default(cuid())
+  email          String
+  organizationId String       @map("organization_id")
+  role           MemberRole   @default(MEMBER)
+  status         InviteStatus @default(PENDING)
+  invitedBy      String       @map("invited_by")
+  token          String       @unique @default(cuid())
+  expiresAt      DateTime     @map("expires_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([email])
+  @@index([organizationId])
+  @@index([token])
+  @@map("invites")
+}
+
+// =============================================================================
+// Conversation
+// =============================================================================
+
+model Conversation {
+  id             String   @id @default(cuid())
+  title          String   @default("New conversation")
+  organizationId String   @map("organization_id")
+  createdById    String   @map("created_by_id")
+  isArchived     Boolean  @default(false) @map("is_archived")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  messages     Message[]
+
+  @@index([organizationId, createdById])
+  @@index([organizationId, updatedAt(sort: Desc)])
+  @@map("conversations")
+}
+
+// =============================================================================
+// Message
+// =============================================================================
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+model Message {
+  id             String      @id @default(cuid())
+  conversationId String      @map("conversation_id")
+  role           MessageRole
+  content        String
+  model          String?
+  inputTokens    Int?        @map("input_tokens")
+  outputTokens   Int?        @map("output_tokens")
+  durationMs     Int?        @map("duration_ms")
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
+// =============================================================================
+// Usage Tracking
+// =============================================================================
+
+model UsageRecord {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  userId         String   @map("user_id")
+  conversationId String?  @map("conversation_id")
+  model          String
+  inputTokens    Int      @map("input_tokens")
+  outputTokens   Int      @map("output_tokens")
+  totalTokens    Int      @map("total_tokens")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([userId, createdAt])
+  @@map("usage_records")
+}
+
+// =============================================================================
+// Brain: Company Memory
+// =============================================================================
+
+enum MemoryCategory {
+  DECISION
+  PREFERENCE
+  TEAM_DYNAMIC
+  PROJECT_STATUS
+  PROCESS
+  GOAL
+  FACT
+}
+
+enum MemorySource {
+  CONVERSATION
+  MANUAL
+  INSIGHT
+}
+
+model Memory {
+  id             String         @id @default(cuid())
+  organizationId String         @map("organization_id")
+  category       MemoryCategory
+  content        String
+  source         MemorySource   @default(MANUAL)
+  sourceId       String?        @map("source_id")
+  confidence     Float          @default(1.0)
+  isActive       Boolean        @default(true) @map("is_active")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, isActive])
+  @@index([organizationId, category])
+  @@map("memories")
+}
+
+// =============================================================================
+// Brain: Insights
+// =============================================================================
+
+enum InsightCategory {
+  STRATEGIC
+  OPERATIONAL
+  TEAM
+  FINANCIAL
+  RISK
+}
+
+enum InsightSeverity {
+  INFO
+  SUGGESTION
+  WARNING
+  CRITICAL
+}
+
+enum InsightStatus {
+  NEW
+  ACKNOWLEDGED
+  ACTED_ON
+  DISMISSED
+}
+
+model Insight {
+  id                String          @id @default(cuid())
+  organizationId    String          @map("organization_id")
+  category          InsightCategory
+  severity          InsightSeverity @default(INFO)
+  status            InsightStatus   @default(NEW)
+  title             String
+  summary           String          @default("")
+  description       String
+  impact            String          @default("")
+  confidence        Float           @default(0.5)
+  evidence          Json            @default("[]")
+  reasoning         String          @default("")
+  recommendedAction String          @default("") @map("recommended_action")
+  priority          Int             @default(5)
+  actionItems       Json            @default("[]") @map("action_items")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@map("insights")
+}
+
+// =============================================================================
+// Brain: Company Pulse
+// =============================================================================
+
+enum PulsePeriod {
+  DAILY
+  WEEKLY
+}
+
+model PulseSnapshot {
+  id             String      @id @default(cuid())
+  organizationId String      @map("organization_id")
+  period         PulsePeriod
+  metrics        Json
+  periodStart    DateTime    @map("period_start")
+  periodEnd      DateTime    @map("period_end")
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, period, periodStart])
+  @@index([organizationId, period, createdAt(sort: Desc)])
+  @@map("pulse_snapshots")
+}
+
+// =============================================================================
+// Brain: CEO Brief
+// =============================================================================
+
+enum BriefType {
+  DAILY
+  WEEKLY
+}
+
+model Brief {
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
+  type           BriefType
+  title          String
+  sections       Json
+  periodStart    DateTime  @map("period_start")
+  periodEnd      DateTime  @map("period_end")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, type, createdAt(sort: Desc)])
+  @@map("briefs")
+}
+
+// =============================================================================
+// Brain: Action Center
+// =============================================================================
+
+enum ActionType {
+  EMAIL_DRAFT
+  TASK
+  CALENDAR_PROPOSAL
+  FOLLOW_UP
+}
+
+enum ActionStatus {
+  PENDING
+  APPROVED
+  DISMISSED
+}
+
+model PreparedAction {
+  id              String       @id @default(cuid())
+  organizationId  String       @map("organization_id")
+  type            ActionType
+  title           String
+  description     String
+  content         Json
+  status          ActionStatus @default(PENDING)
+  sourceInsightId String?      @map("source_insight_id")
+  confidence      Float        @default(0.5)
+  reasoning       String       @default("")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@map("prepared_actions")
+}
+
+// =============================================================================
+// Brain: Decision Intelligence
+// =============================================================================
+
+enum DecisionStatus {
+  PROPOSED
+  ACCEPTED
+  REJECTED
+  IGNORED
+  EXECUTED
+  COMPLETED
+  SUCCESSFUL
+  FAILED
+  UNKNOWN
+}
+
+model Decision {
+  id             String         @id @default(cuid())
+  organizationId String         @map("organization_id")
+  status         DecisionStatus @default(PROPOSED)
+  canvas         Json
+  priorityScore  Float          @map("priority_score")
+  resolvedAt     DateTime?      @map("resolved_at")
+  outcome        String?
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  timelineEvents DecisionTimelineEvent[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@map("decisions")
+}
+
+enum TimelineEventType {
+  PROBLEM_DETECTED
+  CANVAS_GENERATED
+  RECOMMENDATION_MADE
+  USER_ACCEPTED
+  USER_REJECTED
+  USER_IGNORED
+  EXECUTION_STARTED
+  OUTCOME_RECORDED
+  OUTCOME_EVALUATED
+  LEARNING_EXTRACTED
+  FOLLOW_UP_DUE
+}
+
+model DecisionTimelineEvent {
+  id         String            @id @default(cuid())
+  decisionId String            @map("decision_id")
+  type       TimelineEventType
+  content    String
+  metadata   Json?
+  createdAt  DateTime          @default(now()) @map("created_at")
+
+  decision Decision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+
+  @@index([decisionId, createdAt])
+  @@map("decision_timeline_events")
+}
+
+// =============================================================================
+// Brain: Outcome Evaluation
+// =============================================================================
+
+enum OutcomeResult {
+  SUCCESS
+  FAILURE
+  PARTIAL_SUCCESS
+  NO_OUTCOME_YET
+}
+
+model OutcomeEvaluation {
+  id             String        @id @default(cuid())
+  organizationId String        @map("organization_id")
+  decisionId     String        @map("decision_id")
+  result         OutcomeResult
+  outcomeScore   Float         @map("outcome_score")
+  confidence     Float         @default(0.5)
+  explanation    String
+  evidence       Json          @default("[]")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([decisionId])
+  @@map("outcome_evaluations")
+}
+
+// =============================================================================
+// Brain: Learning Engine
+// =============================================================================
+
+model LearningPattern {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  patternType    String   @map("pattern_type")
+  category       String
+  pattern        String
+  frequency      Int      @default(1)
+  confidence     Float    @default(0.5)
+  metadata       Json     @default("{}")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, patternType])
+  @@index([organizationId, category])
+  @@map("learning_patterns")
+}
