@@ -30,8 +30,9 @@ export default async function BriefPage() {
 
   const pulseScore = computePulseScore(pulseMetrics, null);
 
-  const sections: BriefSection[] = brief
-    ? (brief.sections as BriefSection[])
+  const sections: BriefSection[] =
+  brief && Array.isArray(brief.sections)
+    ? (brief.sections as unknown as BriefSection[])
     : [];
 
   const briefDate = brief
