@@ -86,7 +86,7 @@ export async function executePipeline(
 
   // ── Stage 3: UNDERSTAND — compute pulse score ──
   const previousMetrics = previousSnapshot
-    ? (previousSnapshot.metrics as PulseMetrics)
+    ? (previousSnapshot.metrics as unknown as PulseMetrics)
     : null;
   const pulseScore = computePulseScore(currentPulseMetrics, previousMetrics);
 
