@@ -23,11 +23,10 @@ interface CreateActionParams {
 export async function createPreparedAction(params: CreateActionParams) {
   return prisma.preparedAction.create({
     data: {
-      organizationId: params.organizationId,
-      type: params.type,
-      title: params.title,
-      description: params.description,
-      
+organizationId: params.organizationId,
+type: params.type,
+title: params.title,
+description: params.description,
 content: params.content as Prisma.InputJsonValue,
 sourceInsightId: params.sourceInsightId ?? null,
 
