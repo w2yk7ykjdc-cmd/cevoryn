@@ -54,7 +54,7 @@ export async function evaluateOutcome(
 
   if (!decision || !decision.outcome) return null;
 
-  const canvas = decision.canvas as DecisionCanvas;
+const canvas = decision.canvas as unknown as DecisionCanvas;
 
   // Build evidence from timeline
   const timelineEvents = await prisma.decisionTimelineEvent.findMany({
