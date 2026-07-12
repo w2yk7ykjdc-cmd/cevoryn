@@ -89,7 +89,7 @@ export async function loadExecutiveHome(
 
   // Pulse
   const previousMetrics = previousSnapshot
-    ? (previousSnapshot.metrics as PulseMetrics)
+    ? previousSnapshot.metrics as unknown as PulseMetrics
     : null;
   const pulseScore = computePulseScore(pulseMetrics, previousMetrics);
 
