@@ -78,7 +78,7 @@ export async function computeRecommendationMetrics(
     { count: number; successCount: number }
   >();
   for (const d of decisions) {
-    const canvas = d.canvas as DecisionCanvas;
+  const canvas = d.canvas as unknown as DecisionCanvas;
     const cat = canvas.scoringBreakdown?.[0]?.name ?? "General";
     const entry = categoryMap.get(cat) ?? { count: 0, successCount: 0 };
     entry.count++;
