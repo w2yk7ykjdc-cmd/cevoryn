@@ -1,7 +1,7 @@
 import "server-only";
 
 import { toActionStatus } from "@/lib/enum-validators";
-
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 /**
