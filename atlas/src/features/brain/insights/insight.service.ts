@@ -211,7 +211,7 @@ export async function getInsightWithTrust(
 
   return createTrustEnvelope({
     data: insight,
-    evidence: (insight.evidence as Evidence[]) || [],
+    evidence: (insight.evidence as unknown as Evidence[]) || [],
     reasoning: insight.reasoning,
     dataWindowHours: 168,
   });
