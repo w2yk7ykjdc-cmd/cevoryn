@@ -123,7 +123,8 @@ export async function getDecisionTimeline(
 
   if (!decision) return null;
 
-  const canvas = decision.canvas as DecisionCanvas;
+  const canvas = decision.canvas as unknown as DecisionCanvas;
+
 
   const events: TimelineEvent[] = decision.timelineEvents.map(
     (e: {
