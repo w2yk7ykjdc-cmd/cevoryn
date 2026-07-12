@@ -238,7 +238,11 @@ function buildTopPriority(
   const topDecision = decisions[0];
   const topInsight = insights[0];
 
-  if (topDecision && (!topInsight || topDecision.priorityScore >= ((topInsight.confidence ?? 0))) {
+  if (
+  topDecision &&
+  (!topInsight ||
+    topDecision.priorityScore >= (topInsight.confidence ?? 0))
+) {
     const canvas = topDecision.canvas as unknown as DecisionCanvas;
     return {
       id: topDecision.id,
