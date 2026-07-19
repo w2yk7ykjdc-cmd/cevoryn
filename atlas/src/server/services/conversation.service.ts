@@ -25,19 +25,22 @@ export async function createConversation(params: {
 
 export async function getConversation(
   id: string,
-  organizationId: string
+  organizationId: string,
+  createdById: string
 ) {
   return prisma.conversation.findFirst({
-    where: { id, organizationId, isArchived: false },
+    where: { id, organizationId, createdById, isArchived: false },
   });
 }
 
 export async function getConversationWithMessages(
   id: string,
-  organizationId: string
+  organizationId: string,
+  createdById: string
 ) {
-  return prisma.conversation.findFirst({
-    where: { id, organizationId, isArchived: false },
+  return 
+prisma.conversation.findFirst({
+  where: { id, organizationId, createdById, isArchived: false },
     include: {
       messages: {
         orderBy: { createdAt: "asc" },
@@ -72,29 +75,32 @@ export async function listConversations(
 export async function renameConversation(
   id: string,
   organizationId: string,
-  title: string
+  title: string,
+  createdById: string
 ) {
   return prisma.conversation.updateMany({
-    where: { id, organizationId },
+    where: { id, organizationId, createdById },
     data: { title: title.slice(0, CONVERSATION_CONFIG.maxTitleLength) },
   });
 }
 
 export async function deleteConversation(
   id: string,
-  organizationId: string
+  organizationId: string,
+  createdById: string
 ) {
   return prisma.conversation.deleteMany({
-    where: { id, organizationId },
+    where: { id, organizationId, createdById },
   });
 }
 
 export async function archiveConversation(
   id: string,
-  organizationId: string
+  organizationId: string,
+  createdById: string
 ) {
   return prisma.conversation.updateMany({
-    where: { id, organizationId },
+    where: { id, organizationId, createdById },
     data: { isArchived: true },
   });
 }
