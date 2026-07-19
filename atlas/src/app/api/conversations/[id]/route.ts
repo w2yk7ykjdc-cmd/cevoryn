@@ -22,7 +22,11 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     const membership = await getMembership(user.id);
     if (!membership) return forbiddenResponse();
 
-    const conversation = await getConversationWithMessages(id, membership.organizationId);
+   const conversation = await getConversationWithMessages(
+  id,
+  membership.organizationId,
+  membership.userId
+);
     if (!conversation) return notFoundResponse("Conversation not found");
 
     return NextResponse.json({
@@ -58,11 +62,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return badRequestResponse("Invalid request body");
     }
 
-    if (!body.title || typeof body.title !== "string") {
-      return badRequestResponse("Title is required");
-    }
+    await renameConversation(
+  id,
+  membership.organizationId,
+  body.title.trim(),
+  membership.userId
 
-    await renameConversation(id, membership.organizationId, body.title.trim());
     return NextResponse.json({ data: { id, title: body.title.trim() } });
   } catch (error) {
     console.error("Conversation PATCH error:", error instanceof Error ? error.message : "unknown");
@@ -79,7 +84,11 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     const membership = await getMembership(user.id);
     if (!membership) return forbiddenResponse();
 
-    await deleteConversation(id, membership.organizationId);
+    await deleteConversation(
+  id,
+  membership.organizationId,
+  membership.userId
+);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     console.error("Conversation DELETE error:", error instanceof Error ? error.message : "unknown");
