@@ -22,9 +22,10 @@ export default async function ChatConversationPage({ params }: PageProps) {
   const membership = await requireMembership(user.id);
 
   const conversation = await getConversationWithMessages(
-    id,
-    membership.organizationId
-  );
+  id,
+  membership.organizationId,
+  membership.userId
+);
 
   if (!conversation) {
     notFound();
