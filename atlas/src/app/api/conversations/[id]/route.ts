@@ -62,14 +62,20 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return badRequestResponse("Invalid request body");
     }
 
-    await renameConversation(
+    const title = body.title?.trim();
+
+if (!title) {
+  return badRequestResponse("Title is required");
+}
+
+await renameConversation(
   id,
   membership.organizationId,
-  body.title.trim(),
+  title,
   membership.userId
-  );
+);
 
-    return NextResponse.json({ data: { id, title: body.title.trim() } });
+return NextResponse.json({ data: { id, title } });
   } catch (error) {
     console.error("Conversation PATCH error:", error instanceof Error ? error.message : "unknown");
     return NextResponse.json({ error: { code: "INTERNAL_ERROR", message: "Failed to update conversation" } }, { status: 500 });
