@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, Loader2, Mail, UserPlus } from "lucide-react";
+import { Check, Clock, Copy, Loader2, Mail, UserPlus } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -24,6 +24,7 @@ interface PendingInvite {
   email: string;
   role: string;
   expiresAt: string;
+  acceptPath?: string;
 }
 
 interface TeamClientProps {
@@ -50,6 +51,7 @@ export function TeamClient({
   const [invites, setInvites] = useState(initialInvites);
   const [email, setEmail] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null);
 
   function handleInvite() {
     if (!email.trim()) return;
@@ -87,7 +89,6 @@ export function TeamClient({
         </p>
       </div>
 
-      {/* Invite form */}
       {canInvite && (
         <Card>
           <CardHeader className="pb-3">
@@ -126,7 +127,6 @@ export function TeamClient({
         </Card>
       )}
 
-      {/* Pending invites */}
       {invites.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
@@ -153,9 +153,30 @@ export function TeamClient({
                     }).format(new Date(invite.expiresAt))}
                   </p>
                 </div>
-                <Badge variant="outline" className="text-[10px]">
-                  {invite.role}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  {invite.acceptPath && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={async () => {
+                        const inviteUrl = `${window.location.origin}${invite.acceptPath}`;
+                        await navigator.clipboard.writeText(inviteUrl);
+                        setCopiedInviteId(invite.id);
+                        toast.success("Invite link copied");
+                      }}
+                    >
+                      {copiedInviteId === invite.id ? (
+                        <Check className="h-3.5 w-3.5" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                      Copy link
+                    </Button>
+                  )}
+                  <Badge variant="outline" className="text-[10px]">
+                    {invite.role}
+                  </Badge>
+                </div>
               </div>
             ))}
           </CardContent>
@@ -164,7 +185,6 @@ export function TeamClient({
 
       <Separator />
 
-      {/* Members */}
       <Card>
         <CardContent className="p-0">
           {members.map((member, i) => (
