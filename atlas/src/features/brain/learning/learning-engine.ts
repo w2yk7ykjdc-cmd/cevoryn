@@ -35,13 +35,7 @@ export async function extractLearningPatterns(
       organizationId,
       createdAt: { gte: since },
       status: {
-        in: [
-          "ACCEPTED",
-          "REJECTED",
-          "SUCCESSFUL",
-          "FAILED",
-          "COMPLETED",
-        ],
+        in: ["ACCEPTED", "REJECTED", "SUCCESSFUL", "FAILED", "COMPLETED"],
       },
     },
     select: {
@@ -59,22 +53,13 @@ export async function extractLearningPatterns(
   let patternsCreated = 0;
 
   // ── Pattern: Acceptance rates by category ──
-  patternsCreated += await detectAcceptancePatterns(
-    organizationId,
-    decisions
-  );
+  patternsCreated += await detectAcceptancePatterns(organizationId, decisions);
 
   // ── Pattern: Success/failure rates ──
-  patternsCreated += await detectOutcomePatterns(
-    organizationId,
-    decisions
-  );
+  patternsCreated += await detectOutcomePatterns(organizationId, decisions);
 
   // ── Pattern: Recurring problems ──
-  patternsCreated += await detectRepeatPatterns(
-    organizationId,
-    decisions
-  );
+  patternsCreated += await detectRepeatPatterns(organizationId, decisions);
 
   return patternsCreated;
 }

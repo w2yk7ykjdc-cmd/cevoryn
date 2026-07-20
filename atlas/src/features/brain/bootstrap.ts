@@ -20,7 +20,7 @@ export function initializeBrain(): void {
   if (initialized) return;
 
   brainRegistry.register(new MemoryModule());
-brainRegistry.register(new PulseModule());
+  brainRegistry.register(new PulseModule());
   // Future modules:
   // brainRegistry.register(new TaskModule());
   // brainRegistry.register(new CalendarModule());

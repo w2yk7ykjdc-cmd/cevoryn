@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { getMembership, getUser } from "@/lib/auth";
-import { unauthorizedResponse, forbiddenResponse } from "@/lib/api-utils";
 import {
   getDecisionStats,
   listDecisions,
 } from "@/features/brain/decisions/decision.service";
 import type { DecisionCanvas } from "@/features/brain/decisions/types";
+import { unauthorizedResponse, forbiddenResponse } from "@/lib/api-utils";
+import { getMembership, getUser } from "@/lib/auth";
 
 export async function GET() {
   try {
@@ -17,12 +17,21 @@ export async function GET() {
     if (!membership) return forbiddenResponse();
 
     const [pendingDecisions, stats] = await Promise.all([
-      listDecisions(membership.organizationId, { status: "PROPOSED", limit: 10 }),
+      listDecisions(membership.organizationId, {
+        status: "PROPOSED",
+        limit: 10,
+      }),
       getDecisionStats(membership.organizationId),
     ]);
 
     const recommendations = pendingDecisions.map(
-      (d: { id: string; canvas: unknown; priorityScore: number; status: string; createdAt: Date }) => {
+      (d: {
+        id: string;
+        canvas: unknown;
+        priorityScore: number;
+        status: string;
+        createdAt: Date;
+      }) => {
         const canvas = d.canvas as DecisionCanvas;
         return {
           id: d.id,
@@ -41,7 +50,12 @@ export async function GET() {
     const msg = error instanceof Error ? error.message : "Internal error";
     console.error("Recommendations error:", msg);
     return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to load recommendations" } },
+      {
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to load recommendations",
+        },
+      },
       { status: 500 }
     );
   }

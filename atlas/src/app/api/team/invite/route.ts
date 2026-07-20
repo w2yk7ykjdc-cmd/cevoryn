@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-
-import { getMembership, getUser } from "@/lib/auth";
-import { unauthorizedResponse, forbiddenResponse, badRequestResponse } from "@/lib/api-utils";
-import { hasPermission } from "@/lib/rbac";
-import { prisma } from "@/lib/prisma";
-import { APP_CONFIG } from "@/lib/constants";
-
 import { z } from "zod";
+
+import {
+  unauthorizedResponse,
+  forbiddenResponse,
+  badRequestResponse,
+} from "@/lib/api-utils";
+import { getMembership, getUser } from "@/lib/auth";
+import { APP_CONFIG } from "@/lib/constants";
+import { prisma } from "@/lib/prisma";
+import { hasPermission } from "@/lib/rbac";
 
 const inviteSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
@@ -59,14 +62,6 @@ export async function POST(request: NextRequest) {
     if (existingInvite) {
       return badRequestResponse("An invite for this email is already pending");
     }
-
-    // Check if already a member
-    const existingMember = await prisma.member.findFirst({
-      where: {
-        organizationId: membership.organizationId,
-        userId: parsed.data.email, // Won't match directly, but check by invite email
-      },
-    });
 
     const invite = await prisma.invite.create({
       data: {

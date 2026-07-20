@@ -5,6 +5,7 @@ import { MessageSquare } from "lucide-react";
 import type { MessageDetail } from "@/types";
 
 import { useScrollAnchor } from "../hooks/use-scroll-anchor";
+
 import { MessageBubble } from "./message-bubble";
 
 interface ChatMessagesProps {

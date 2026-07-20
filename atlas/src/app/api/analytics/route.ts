@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-import { getMembership, getUser } from "@/lib/auth";
-import { trackEvent } from "@/lib/analytics";
 import type { AnalyticsEventName } from "@/features/executive/types";
 import { ANALYTICS_EVENTS } from "@/features/executive/types";
+import { trackEvent } from "@/lib/analytics";
+import { getMembership, getUser } from "@/lib/auth";
 
 const VALID_EVENTS = new Set(Object.values(ANALYTICS_EVENTS));
 
@@ -19,7 +19,10 @@ export async function POST(request: NextRequest) {
     return new NextResponse(null, { status: 403 });
   }
 
-  let body: { event?: string; metadata?: Record<string, string | number | boolean> };
+  let body: {
+    event?: string;
+    metadata?: Record<string, string | number | boolean>;
+  };
   try {
     body = await request.json();
   } catch (_error) {

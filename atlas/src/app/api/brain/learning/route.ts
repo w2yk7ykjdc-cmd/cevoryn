@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { getMembership, getUser } from "@/lib/auth";
-import { unauthorizedResponse, forbiddenResponse } from "@/lib/api-utils";
+import { computeCalibration } from "@/features/brain/learning/confidence-calibrator";
 import {
   extractLearningPatterns,
   getLearningPatterns,
 } from "@/features/brain/learning/learning-engine";
-import { computeCalibration } from "@/features/brain/learning/confidence-calibrator";
+import { unauthorizedResponse, forbiddenResponse } from "@/lib/api-utils";
+import { getMembership, getUser } from "@/lib/auth";
 
 export async function GET() {
   try {
@@ -35,7 +35,12 @@ export async function GET() {
     const msg = error instanceof Error ? error.message : "Internal error";
     console.error("Learning GET error:", msg);
     return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to load learning data" } },
+      {
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to load learning data",
+        },
+      },
       { status: 500 }
     );
   }
@@ -49,13 +54,20 @@ export async function POST() {
     const membership = await getMembership(user.id);
     if (!membership) return forbiddenResponse();
 
-    const patternsCreated = await extractLearningPatterns(membership.organizationId);
+    const patternsCreated = await extractLearningPatterns(
+      membership.organizationId
+    );
     return NextResponse.json({ data: { patternsExtracted: patternsCreated } });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Internal error";
     console.error("Learning POST error:", msg);
     return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to extract patterns" } },
+      {
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to extract patterns",
+        },
+      },
       { status: 500 }
     );
   }

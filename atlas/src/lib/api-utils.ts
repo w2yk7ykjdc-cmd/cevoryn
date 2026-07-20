@@ -4,12 +4,10 @@ import { NextResponse } from "next/server";
  * Wrap an API handler with consistent error handling.
  * Catches unhandled errors, logs them, returns safe error response.
  */
-export function apiHandler(
-  handler: (
-    ...args: any[]
-  ) => Promise<NextResponse | Response>
-): (...args: any[]) => Promise<NextResponse | Response> {
-  return async (...args) => {
+export function apiHandler<TArgs extends unknown[]>(
+  handler: (...args: TArgs) => Promise<NextResponse | Response>
+): (...args: TArgs) => Promise<NextResponse | Response> {
+  return async (...args: TArgs) => {
     try {
       return await handler(...args);
     } catch (error) {

@@ -69,50 +69,50 @@ export function Header({
 
         {/* User menu */}
         <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            className="relative h-9 w-9 rounded-full"
-            aria-label="User menu"
-          >
-            <Avatar className="h-9 w-9">
-              <AvatarFallback className="text-xs">
-                {getInitials(membership.displayName)}
-              </AvatarFallback>
-            </Avatar>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel className="font-normal">
-            <div className="flex flex-col space-y-1">
-              <p className="text-sm font-medium leading-none">
-                {membership.displayName}
-              </p>
-              <p className="text-xs leading-none text-muted-foreground">
-                {userEmail}
-              </p>
-            </div>
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
-            <button className="w-full cursor-pointer" disabled>
-              <User className="mr-2 h-4 w-4" />
-              Profile
-            </button>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
-            <button
-              className="w-full cursor-pointer text-destructive focus:text-destructive"
-              onClick={handleSignOut}
-              disabled={isPending}
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              className="relative h-9 w-9 rounded-full"
+              aria-label="User menu"
             >
-              <LogOut className="mr-2 h-4 w-4" />
-              Sign out
-            </button>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+              <Avatar className="h-9 w-9">
+                <AvatarFallback className="text-xs">
+                  {getInitials(membership.displayName)}
+                </AvatarFallback>
+              </Avatar>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel className="font-normal">
+              <div className="flex flex-col space-y-1">
+                <p className="text-sm font-medium leading-none">
+                  {membership.displayName}
+                </p>
+                <p className="text-xs leading-none text-muted-foreground">
+                  {userEmail}
+                </p>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <button className="w-full cursor-pointer" disabled>
+                <User className="mr-2 h-4 w-4" />
+                Profile
+              </button>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <button
+                className="w-full cursor-pointer text-destructive focus:text-destructive"
+                onClick={handleSignOut}
+                disabled={isPending}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign out
+              </button>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );
