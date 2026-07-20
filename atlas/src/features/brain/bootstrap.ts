@@ -2,7 +2,7 @@ import "server-only";
 
 import { brainRegistry } from "./core/module-registry";
 import { MemoryModule } from "./memory/memory.module";
-
+import { PulseModule } from "./pulse/pulse.module";
 /**
  * Initialize the Atlas Brain.
  * Call once at app startup (e.g. in a layout or instrumentation file).
@@ -20,7 +20,7 @@ export function initializeBrain(): void {
   if (initialized) return;
 
   brainRegistry.register(new MemoryModule());
-
+brainRegistry.register(new PulseModule());
   // Future modules:
   // brainRegistry.register(new TaskModule());
   // brainRegistry.register(new CalendarModule());
