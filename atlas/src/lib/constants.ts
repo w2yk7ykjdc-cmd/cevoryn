@@ -7,6 +7,7 @@ export const ROUTES = {
   LOGIN: "/login",
   SIGNUP: "/signup",
   FORGOT_PASSWORD: "/forgot-password",
+  RESET_PASSWORD: "/reset-password",
   AUTH_CALLBACK: "/auth/callback",
   DASHBOARD: "/dashboard",
   ONBOARDING: "/onboarding",
@@ -20,6 +21,7 @@ export const PUBLIC_ROUTES: readonly string[] = [
   ROUTES.LOGIN,
   ROUTES.SIGNUP,
   ROUTES.FORGOT_PASSWORD,
+  ROUTES.RESET_PASSWORD,
   ROUTES.AUTH_CALLBACK,
 ];
 
@@ -27,6 +29,7 @@ export const AUTH_ROUTES: readonly string[] = [
   ROUTES.LOGIN,
   ROUTES.SIGNUP,
   ROUTES.FORGOT_PASSWORD,
+  ROUTES.RESET_PASSWORD,
 ];
 
 export const APP_CONFIG = {

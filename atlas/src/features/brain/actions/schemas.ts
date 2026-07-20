@@ -13,6 +13,4 @@ export const updateActionStatusSchema = z.object({
   status: z.enum(["APPROVED", "DISMISSED"]),
 });
 
-export type UpdateActionStatusInput = z.infer<
-  typeof updateActionStatusSchema
->;
+export type UpdateActionStatusInput = z.infer<typeof updateActionStatusSchema>;

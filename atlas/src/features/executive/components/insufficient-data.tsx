@@ -16,17 +16,16 @@ export function InsufficientData({ reasons }: InsufficientDataProps) {
           <Database className="h-7 w-7 text-muted-foreground" />
         </div>
         <div>
-          <p className="text-lg font-medium">
-            Atlas needs more context
-          </p>
+          <p className="text-lg font-medium">Atlas needs more context</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Before Atlas can identify reliable priorities, it needs to learn about your business.
+            Before Atlas can identify reliable priorities, it needs to learn
+            about your business.
           </p>
         </div>
 
         {reasons.length > 0 && (
           <div className="w-full max-w-sm text-left">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
               What would help
             </p>
             <ul className="space-y-1.5 text-sm text-muted-foreground">

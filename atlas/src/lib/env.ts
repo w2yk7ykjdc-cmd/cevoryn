@@ -3,8 +3,11 @@ import { z } from "zod";
 const serverSchema = z.object({
   DATABASE_URL: z.string().url(),
   DIRECT_URL: z.string().url().optional(),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional() ,
-  OPENAI_API_KEY: z.string().startsWith("sk-").optional() ,
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
+  OPENAI_API_KEY: z.string().startsWith("sk-").optional(),
+  OPENAI_MODEL: z.string().min(1).optional(),
+  OPENAI_MAX_TOKENS: z.coerce.number().int().positive().optional(),
+  DAILY_TOKEN_LIMIT_PER_ORG: z.coerce.number().int().positive().optional(),
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
@@ -16,7 +19,7 @@ const clientSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.string().url(),
   NEXT_PUBLIC_APP_NAME: z.string().default("Atlas"),
   NEXT_PUBLIC_ENABLE_AI: z
-    .string()
+    .enum(["true", "false"])
     .transform((v) => v === "true")
     .default("true"),
 });

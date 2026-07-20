@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-
-import { getMembership, getUser } from "@/lib/auth";
-import { unauthorizedResponse, forbiddenResponse, badRequestResponse } from "@/lib/api-utils";
-import { hasPermission } from "@/lib/rbac";
-import { prisma } from "@/lib/prisma";
-import { APP_CONFIG } from "@/lib/constants";
-
 import { z } from "zod";
+
+import {
+  unauthorizedResponse,
+  forbiddenResponse,
+  badRequestResponse,
+} from "@/lib/api-utils";
+import { getMembership, getUser } from "@/lib/auth";
+import { APP_CONFIG } from "@/lib/constants";
+import { prisma } from "@/lib/prisma";
+import { hasPermission } from "@/lib/rbac";
 
 const inviteSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
@@ -48,25 +51,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check for existing pending invite
+    // Check for existing active invite in this tenant. Member records only store
+    // Supabase user ids, so invite email comparisons must remain on Invite rows.
     const existingInvite = await prisma.invite.findFirst({
       where: {
         organizationId: membership.organizationId,
         email: parsed.data.email,
-        status: "PENDING",
+        status: { in: ["PENDING", "ACCEPTED"] },
       },
     });
-    if (existingInvite) {
+    if (existingInvite?.status === "PENDING") {
       return badRequestResponse("An invite for this email is already pending");
     }
 
-    // Check if already a member
-    const existingMember = await prisma.member.findFirst({
-      where: {
-        organizationId: membership.organizationId,
-        userId: parsed.data.email, // Won't match directly, but check by invite email
-      },
-    });
+    if (existingInvite?.status === "ACCEPTED") {
+      return badRequestResponse("This email has already accepted an invite");
+    }
 
     const invite = await prisma.invite.create({
       data: {

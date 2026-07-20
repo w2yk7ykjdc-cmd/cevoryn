@@ -66,7 +66,7 @@ export function computePulseScore(
   );
 
   const trend = computeTrend(score, previous);
-  const topContributors = identifyContributors(current, dimensions);
+  const topContributors = summarizeRecordedFactors(current, dimensions);
 
   return { score, trend, dimensions, topContributors };
 }
@@ -108,33 +108,17 @@ function computeTrend(
   return "stable";
 }
 
-function identifyContributors(
+function summarizeRecordedFactors(
   metrics: PulseMetrics,
   dimensions: PulseDimension[]
 ): PulseContributor[] {
-  const contributors: PulseContributor[] = [];
+  const contributors = dimensions.map((dimension) => ({
+    factor: dimension.name,
+    impact: "neutral" as const,
+    value: dimension.description,
+  }));
 
-  // Find strongest and weakest dimensions
-  const sorted = [...dimensions].sort((a, b) => b.score - a.score);
-
-  if (sorted[0] && sorted[0].score > 60) {
-    contributors.push({
-      factor: sorted[0].name,
-      impact: "positive",
-      value: sorted[0].description,
-    });
-  }
-
-  const weakest = sorted[sorted.length - 1];
-  if (weakest && weakest.score < 40) {
-    contributors.push({
-      factor: weakest.name,
-      impact: "negative",
-      value: weakest.description,
-    });
-  }
-
-  if (metrics.tokenUsage.total > 100000) {
+  if (metrics.tokenUsage.total > 0) {
     contributors.push({
       factor: "AI Usage",
       impact: "neutral",

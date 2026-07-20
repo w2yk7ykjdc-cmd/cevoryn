@@ -5,7 +5,7 @@ import type { NextRequest } from "next/server";
 import { AUTH_ROUTES, PUBLIC_ROUTES, ROUTES } from "@/lib/constants";
 
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
 
   let response = NextResponse.next({ request });
 
@@ -17,13 +17,13 @@ export async function middleware(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-setAll(
-  cookiesToSet: {
-    name: string;
-    value: string;
-    options?: Record<string, unknown>;
-  }[],
-) {
+        setAll(
+          cookiesToSet: {
+            name: string;
+            value: string;
+            options?: Record<string, unknown>;
+          }[]
+        ) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
@@ -57,7 +57,7 @@ setAll(
   // Unauthenticated user on protected route → send to login
   if (!user && !isPublicRoute) {
     const loginUrl = new URL(ROUTES.LOGIN, request.url);
-    loginUrl.searchParams.set("next", pathname);
+    loginUrl.searchParams.set("next", `${pathname}${search}`);
     return NextResponse.redirect(loginUrl);
   }
 

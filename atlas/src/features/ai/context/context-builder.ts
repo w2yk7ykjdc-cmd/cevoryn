@@ -49,10 +49,12 @@ export async function buildContext(params: {
   });
 
   // Reverse to chronological order
-  const history: ChatMessage[] = historyMessages.reverse().map((m: { role: string; content: string }) => ({
-    role: m.role.toLowerCase() as ChatMessage["role"],
-    content: m.content,
-  }));
+  const history: ChatMessage[] = historyMessages
+    .reverse()
+    .map((m: { role: string; content: string }) => ({
+      role: m.role.toLowerCase() as ChatMessage["role"],
+      content: m.content,
+    }));
 
   return [
     { role: "system", content: systemPrompt },

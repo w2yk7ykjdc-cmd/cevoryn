@@ -83,8 +83,7 @@ export function TeamClient({
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Team</h1>
         <p className="text-sm text-muted-foreground">
-          {members.length} member{members.length === 1 ? "" : "s"} in{" "}
-          {orgName}
+          {members.length} member{members.length === 1 ? "" : "s"} in {orgName}
         </p>
       </div>
 
@@ -110,8 +109,16 @@ export function TeamClient({
                 disabled={isPending}
                 className="flex-1"
               />
-              <Button onClick={handleInvite} disabled={isPending || !email.trim()} size="sm">
-                {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+              <Button
+                onClick={handleInvite}
+                disabled={isPending || !email.trim()}
+                size="sm"
+              >
+                {isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Mail className="h-4 w-4" />
+                )}
                 Invite
               </Button>
             </div>
@@ -178,7 +185,7 @@ export function TeamClient({
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium truncate">
+                <p className="truncate text-sm font-medium">
                   {member.displayName}
                   {member.userId === currentUserId && (
                     <span className="ml-1.5 text-xs text-muted-foreground">

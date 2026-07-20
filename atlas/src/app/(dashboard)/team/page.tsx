@@ -46,19 +46,29 @@ export default async function TeamPage() {
       orgName={membership.organizationName}
       currentUserId={membership.userId}
       canInvite={canInvite}
-      members={members.map((m: { id: string; userId: string; displayName: string; role: string; createdAt: Date }) => ({
-        id: m.id,
-        userId: m.userId,
-        displayName: m.displayName,
-        role: m.role,
-        joinedAt: m.createdAt.toISOString(),
-      }))}
-      pendingInvites={pendingInvites.map((i: { id: string; email: string; role: string; expiresAt: Date }) => ({
-        id: i.id,
-        email: i.email,
-        role: i.role,
-        expiresAt: i.expiresAt.toISOString(),
-      }))}
+      members={members.map(
+        (m: {
+          id: string;
+          userId: string;
+          displayName: string;
+          role: string;
+          createdAt: Date;
+        }) => ({
+          id: m.id,
+          userId: m.userId,
+          displayName: m.displayName,
+          role: m.role,
+          joinedAt: m.createdAt.toISOString(),
+        })
+      )}
+      pendingInvites={pendingInvites.map(
+        (i: { id: string; email: string; role: string; expiresAt: Date }) => ({
+          id: i.id,
+          email: i.email,
+          role: i.role,
+          expiresAt: i.expiresAt.toISOString(),
+        })
+      )}
     />
   );
 }

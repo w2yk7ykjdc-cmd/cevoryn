@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
-import { getMembership, getUser } from "@/lib/auth";
-import { unauthorizedResponse, forbiddenResponse } from "@/lib/api-utils";
 import {
   getDecisionStats,
   listDecisions,
 } from "@/features/brain/decisions/decision.service";
-import type { DecisionCanvas } from "@/features/brain/decisions/types";
+import { unauthorizedResponse, forbiddenResponse } from "@/lib/api-utils";
+import { getMembership, getUser } from "@/lib/auth";
+
+const decisionCanvasSummarySchema = z.object({
+  problemStatement: z.string().default("Decision details unavailable"),
+  recommendedDecision: z.string().default("No recommendation recorded"),
+  confidenceScore: z.number().min(0).max(1).default(0),
+});
 
 export async function GET() {
   try {
@@ -17,19 +23,31 @@ export async function GET() {
     if (!membership) return forbiddenResponse();
 
     const [pendingDecisions, stats] = await Promise.all([
-      listDecisions(membership.organizationId, { status: "PROPOSED", limit: 10 }),
+      listDecisions(membership.organizationId, {
+        status: "PROPOSED",
+        limit: 10,
+      }),
       getDecisionStats(membership.organizationId),
     ]);
 
     const recommendations = pendingDecisions.map(
-      (d: { id: string; canvas: unknown; priorityScore: number; status: string; createdAt: Date }) => {
-        const canvas = d.canvas as DecisionCanvas;
+      (d: {
+        id: string;
+        canvas: unknown;
+        priorityScore: number;
+        status: string;
+        createdAt: Date;
+      }) => {
+        const canvas = decisionCanvasSummarySchema.safeParse(d.canvas);
+        const summary = canvas.success
+          ? canvas.data
+          : decisionCanvasSummarySchema.parse({});
         return {
           id: d.id,
-          problemStatement: canvas.problemStatement,
-          recommendedDecision: canvas.recommendedDecision,
+          problemStatement: summary.problemStatement,
+          recommendedDecision: summary.recommendedDecision,
           priorityScore: d.priorityScore,
-          confidenceScore: canvas.confidenceScore,
+          confidenceScore: summary.confidenceScore,
           status: d.status,
           createdAt: d.createdAt.toISOString(),
         };
@@ -41,7 +59,12 @@ export async function GET() {
     const msg = error instanceof Error ? error.message : "Internal error";
     console.error("Recommendations error:", msg);
     return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to load recommendations" } },
+      {
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to load recommendations",
+        },
+      },
       { status: 500 }
     );
   }

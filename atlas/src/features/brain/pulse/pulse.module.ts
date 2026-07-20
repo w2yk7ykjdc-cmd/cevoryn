@@ -5,32 +5,19 @@ import type {
   BrainExchangeParams,
   BrainModule,
 } from "../core/types";
-import {
-  getLatestPulse,
-  refreshDailyPulse,
-} from "./pulse.service";
+
+import { getLatestPulse, refreshDailyPulse } from "./pulse.service";
 
 export class PulseModule implements BrainModule {
   readonly name = "pulse";
 
-  async getContext(
-    params: BrainContextParams
-  ): Promise<string> {
-    let snapshot = await getLatestPulse(
-      params.organizationId,
-      "DAILY"
-    );
+  async getContext(params: BrainContextParams): Promise<string> {
+    const snapshot = await getLatestPulse(params.organizationId, "DAILY");
 
     if (!snapshot) {
-      const metrics = await refreshDailyPulse(
-        params.organizationId
-      );
+      const metrics = await refreshDailyPulse(params.organizationId);
 
-      return this.formatContext(
-        metrics,
-        new Date(),
-        new Date()
-      );
+      return this.formatContext(metrics, new Date(), new Date());
     }
 
     return this.formatContext(
@@ -40,9 +27,7 @@ export class PulseModule implements BrainModule {
     );
   }
 
-  async afterExchange(
-    _params: BrainExchangeParams
-  ): Promise<void> {
+  async afterExchange(_params: BrainExchangeParams): Promise<void> {
     // Pulse is calculated periodically, not after every message.
   }
 
@@ -59,9 +44,9 @@ export class PulseModule implements BrainModule {
       "Do not claim that company information is unavailable when these metrics are present.",
       "Metrics:",
       "Do not infer beta status, customer activity, business performance, or company health from zero or low metrics alone.",
-      
+
       "Zero values only mean zero activity was recorded during the stated measurement period; report them without explaining why, and do not make recommendations unless explicitly asked.",
-      
+
       JSON.stringify(metrics, null, 2),
     ].join("\n");
   }

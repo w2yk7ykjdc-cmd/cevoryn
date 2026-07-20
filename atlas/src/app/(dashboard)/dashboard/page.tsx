@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
-import { requireMembership, requireUser } from "@/lib/auth";
 import { loadExecutiveHome } from "@/features/executive/services/executive-home.service";
+import { requireMembership, requireUser } from "@/lib/auth";
 
 import { ExecutiveHomeClient } from "./executive-home-client";
 

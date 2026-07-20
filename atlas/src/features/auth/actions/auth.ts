@@ -22,6 +22,19 @@ import type {
 // =============================================================================
 
 /** Sanitize Supabase error messages to avoid leaking internals */
+function sanitizeRedirectPath(
+  value: string | undefined,
+  fallback: string
+): string {
+  if (!value?.startsWith("/") || value.startsWith("//")) return fallback;
+  try {
+    const parsed = new URL(value, "https://atlas.local");
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch (_error) {
+    return fallback;
+  }
+}
+
 function sanitizeAuthError(message: string): string {
   const safeMessages: Record<string, string> = {
     "Invalid login credentials": "Invalid email or password.",
@@ -64,13 +77,11 @@ export async function loginAction(
   }
 
   // Use ?next param if provided, otherwise default to dashboard
-  const target = redirectTo && redirectTo.startsWith("/") ? redirectTo : ROUTES.DASHBOARD;
+  const target = sanitizeRedirectPath(redirectTo, ROUTES.DASHBOARD);
   redirect(target);
 }
 
-export async function signupAction(
-  input: SignupInput
-): Promise<ActionResult> {
+export async function signupAction(input: SignupInput): Promise<ActionResult> {
   const parsed = signupSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -117,7 +128,7 @@ export async function forgotPasswordAction(
   const supabase = await createClient();
   // Always return success to prevent email enumeration
   await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}${ROUTES.AUTH_CALLBACK}?next=${ROUTES.DASHBOARD}`,
+    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}${ROUTES.AUTH_CALLBACK}?next=${ROUTES.RESET_PASSWORD}`,
   });
 
   return { success: true, data: undefined };

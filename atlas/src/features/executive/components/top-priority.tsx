@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { sendAnalyticsEvent } from "@/lib/analytics";
 
 import type { TopPriorityItem } from "../types";
+
 import { TrustDisclosure } from "./trust-disclosure";
 
 interface TopPriorityProps {
@@ -37,7 +38,10 @@ export function TopPriority({ item, onApproveAction }: TopPriorityProps) {
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" aria-hidden="true" />
+            <AlertTriangle
+              className="h-4 w-4 shrink-0 text-amber-500"
+              aria-hidden="true"
+            />
             <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Top Priority
             </span>
@@ -47,7 +51,9 @@ export function TopPriority({ item, onApproveAction }: TopPriorityProps) {
               {item.category}
             </Badge>
             <Badge
-              variant={item.severity === "CRITICAL" ? "destructive" : "secondary"}
+              variant={
+                item.severity === "CRITICAL" ? "destructive" : "secondary"
+              }
               className="text-xs"
             >
               {item.severity}
@@ -61,12 +67,14 @@ export function TopPriority({ item, onApproveAction }: TopPriorityProps) {
 
       <CardContent className="space-y-4">
         {/* Summary */}
-        <p className="text-sm leading-relaxed">{item.summary || item.description}</p>
+        <p className="text-sm leading-relaxed">
+          {item.summary || item.description}
+        </p>
 
         {/* Impact */}
         {item.impact && (
           <div className="rounded-lg bg-muted/50 p-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">
+            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Business Impact
             </p>
             <p className="text-sm">{item.impact}</p>
@@ -76,7 +84,7 @@ export function TopPriority({ item, onApproveAction }: TopPriorityProps) {
         {/* Recommended action */}
         {item.recommendedAction && (
           <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-primary mb-1">
+            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-primary">
               Recommended Action
             </p>
             <p className="text-sm">{item.recommendedAction}</p>

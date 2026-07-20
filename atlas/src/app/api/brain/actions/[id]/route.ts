@@ -1,18 +1,15 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-import { getMembership, getUser } from "@/lib/auth";
 import { updateActionStatus } from "@/features/brain/actions/action.service";
 import { updateActionStatusSchema } from "@/features/brain/actions/schemas";
+import { getMembership, getUser } from "@/lib/auth";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
-export async function PATCH(
-  request: NextRequest,
-  context: RouteContext
-) {
+export async function PATCH(request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
 
   const user = await getUser();
@@ -49,11 +46,7 @@ export async function PATCH(
     );
   }
 
-  await updateActionStatus(
-    membership.organizationId,
-    id,
-    parsed.data.status
-  );
+  await updateActionStatus(membership.organizationId, id, parsed.data.status);
 
   return NextResponse.json({
     data: { id, status: parsed.data.status },

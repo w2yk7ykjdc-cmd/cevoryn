@@ -1,23 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
 
 import { Providers } from "@/components/providers";
 
 import "./globals.css";
 
-const fontSans = Inter({
-  subsets: ["latin"],
-  variable: "--font-sans",
-  display: "swap",
-});
-
-const fontMono = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
-  display: "swap",
-});
-
 export const metadata: Metadata = {
+  manifest: "/site.webmanifest",
   title: {
     default: "Atlas",
     template: "%s — Atlas",
@@ -54,9 +42,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${fontSans.variable} ${fontMono.variable} font-sans`}
-      >
+      <body className="font-sans">
         <Providers>{children}</Providers>
       </body>
     </html>

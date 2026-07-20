@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -15,6 +15,7 @@ import { ROUTES } from "@/lib/constants";
 import { loginAction } from "../actions/auth";
 import { loginSchema } from "../schemas/auth";
 import type { LoginInput } from "../schemas/auth";
+
 import { AuthCard } from "./auth-card";
 
 interface LoginFormProps {
@@ -24,6 +25,13 @@ interface LoginFormProps {
 
 export function LoginForm({ redirectTo, authError }: LoginFormProps) {
   const [isPending, setIsPending] = useState(false);
+
+  useEffect(() => {
+    if (authError)
+      toast.error(
+        "Your sign-in link expired or is invalid. Please sign in again."
+      );
+  }, [authError]);
 
   const {
     register,

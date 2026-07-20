@@ -5,7 +5,7 @@
   "description": "Atlas — AI Chief of Staff for small teams",
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "prisma db push && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",

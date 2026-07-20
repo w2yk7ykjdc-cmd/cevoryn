@@ -1,12 +1,13 @@
 import "server-only";
 
-import { prisma } from "@/lib/prisma";
 import { getAIProvider } from "@/features/ai/providers";
 import { AI_CONFIG } from "@/lib/constants";
+import { prisma } from "@/lib/prisma";
 
 import type { BrainExchangeParams } from "../core/types";
-import type { CreateMemoryInput } from "./schemas";
+
 import { createMemory } from "./memory.service";
+import type { CreateMemoryInput } from "./schemas";
 
 const EXTRACTION_PROMPT = `You are analyzing a conversation exchange between a user and Atlas AI.
 Extract any important facts, decisions, preferences, goals, team dynamics, project updates, or processes mentioned.

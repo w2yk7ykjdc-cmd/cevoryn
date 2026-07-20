@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-import { getMembership, getUser } from "@/lib/auth";
-import { hasPermission } from "@/lib/rbac";
-import { checkRateLimit } from "@/server/services/rate-limit.service";
 import {
   generateBrief,
   getLatestBrief,
   listBriefs,
 } from "@/features/brain/brief/brief.service";
+import { getMembership, getUser } from "@/lib/auth";
+import { hasPermission } from "@/lib/rbac";
+import { checkRateLimit } from "@/server/services/rate-limit.service";
 
 export async function GET(request: NextRequest) {
   const user = await getUser();
@@ -31,8 +31,7 @@ export async function GET(request: NextRequest) {
   const mode = url.searchParams.get("mode");
 
   if (mode === "latest") {
-    const type =
-      url.searchParams.get("type") === "WEEKLY" ? "WEEKLY" : "DAILY";
+    const type = url.searchParams.get("type") === "WEEKLY" ? "WEEKLY" : "DAILY";
     const brief = await getLatestBrief(
       membership.organizationId,
       type as "DAILY" | "WEEKLY"

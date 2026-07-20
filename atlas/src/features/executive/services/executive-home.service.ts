@@ -1,12 +1,12 @@
 import "server-only";
 
-import { prisma } from "@/lib/prisma";
-import type { MembershipContext } from "@/types";
-import { computePulse } from "@/features/brain/pulse/pulse.service";
-import { computePulseScore } from "@/features/brain/pulse/pulse-scorer";
 import type { PulseMetrics } from "@/features/brain/core/types";
 import type { DecisionCanvas } from "@/features/brain/decisions/types";
+import { computePulseScore } from "@/features/brain/pulse/pulse-scorer";
+import { computePulse } from "@/features/brain/pulse/pulse.service";
 import type { Evidence } from "@/features/brain/trust/types";
+import { prisma } from "@/lib/prisma";
+import type { MembershipContext } from "@/types";
 
 import type {
   ActionItem,
@@ -83,13 +83,14 @@ export async function loadExecutiveHome(
 
   // Determine state
   const state = determineState(messageCount, memoryCount, topInsights.length);
-  const insufficientDataReasons = state === "insufficient_data"
-    ? buildInsufficientReasons(messageCount, memoryCount)
-    : [];
+  const insufficientDataReasons =
+    state === "insufficient_data"
+      ? buildInsufficientReasons(messageCount, memoryCount)
+      : [];
 
   // Pulse
   const previousMetrics = previousSnapshot
-    ? previousSnapshot.metrics as unknown as PulseMetrics
+    ? (previousSnapshot.metrics as unknown as PulseMetrics)
     : null;
   const pulseScore = computePulseScore(pulseMetrics, previousMetrics);
 
@@ -98,7 +99,11 @@ export async function loadExecutiveHome(
       ? {
           score: pulseScore.score,
           trend: pulseScore.trend,
-          statement: buildPulseStatement(pulseScore.score, pulseScore.trend, topInsights.length),
+          statement: buildPulseStatement(
+            pulseScore.score,
+            pulseScore.trend,
+            topInsights.length
+          ),
         }
       : null;
 
@@ -106,7 +111,11 @@ export async function loadExecutiveHome(
   const topPriority = buildTopPriority(topInsights, pendingDecisions);
 
   // Attention queue — max 3, excluding top priority
-  const attentionItems = buildAttentionQueue(topInsights, pendingDecisions, topPriority?.id);
+  const attentionItems = buildAttentionQueue(
+    topInsights,
+    pendingDecisions,
+    topPriority?.id
+  );
 
   // Actions
   const actions: ActionItem[] = pendingActions.map(
@@ -133,7 +142,8 @@ export async function loadExecutiveHome(
 
   // Greeting
   const hour = now.getHours();
-  const timeOfDay = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const timeOfDay =
+    hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const greeting = `${timeOfDay}, ${membership.displayName}`;
 
   const dateLabel = now.toLocaleDateString("en-US", {
@@ -204,9 +214,10 @@ function buildPulseStatement(
   if (insightCount === 0) return "Everything is under control.";
   if (insightCount === 1) return "One issue needs your attention today.";
 
-  const urgency = score < 40
-    ? `${insightCount} issues need your attention.`
-    : `${insightCount} items to review.`;
+  const urgency =
+    score < 40
+      ? `${insightCount} issues need your attention.`
+      : `${insightCount} items to review.`;
 
   const trendNote =
     trend === "improving"
@@ -239,21 +250,31 @@ function buildTopPriority(
   const topInsight = insights[0];
 
   if (
-  topDecision &&
-  (!topInsight ||
-    topDecision.priorityScore >= (topInsight.confidence ?? 0))
-) {
+    topDecision &&
+    (!topInsight || topDecision.priorityScore >= (topInsight.confidence ?? 0))
+  ) {
     const canvas = topDecision.canvas as unknown as DecisionCanvas;
     return {
       id: topDecision.id,
       title: canvas.problemStatement,
       category: canvas.scoringBreakdown?.[0]?.name ?? "General",
-      severity: canvas.priorityScore >= 8 ? "CRITICAL" : canvas.priorityScore >= 6 ? "WARNING" : "SUGGESTION",
+      severity:
+        canvas.priorityScore >= 8
+          ? "CRITICAL"
+          : canvas.priorityScore >= 6
+            ? "WARNING"
+            : "SUGGESTION",
       summary: canvas.executiveSummary,
       description: canvas.businessImpact,
       impact: canvas.businessImpact,
       confidence: canvas.confidenceScore,
-      reasoning: canvas.scoringBreakdown?.map((d: { name: string; reasoning: string }) => `${d.name}: ${d.reasoning}`).join(". ") ?? "",
+      reasoning:
+        canvas.scoringBreakdown
+          ?.map(
+            (d: { name: string; reasoning: string }) =>
+              `${d.name}: ${d.reasoning}`
+          )
+          .join(". ") ?? "",
       recommendedAction: canvas.recommendedDecision,
       evidence: canvas.evidence ?? [],
       missingInformation: canvas.followUpPlan ?? [],

@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
@@ -14,6 +13,7 @@ import type { MessageDetail } from "@/types";
 
 import { useChat } from "../hooks/use-chat";
 import { useConversations } from "../hooks/use-conversations";
+
 import { ChatHeader } from "./chat-header";
 import { ChatInput } from "./chat-input";
 import { ChatMessages } from "./chat-messages";
@@ -30,7 +30,6 @@ export function ChatLayout({
   conversationTitle,
   initialMessages,
 }: ChatLayoutProps) {
-  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { invalidate } = useConversations();
 

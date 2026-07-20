@@ -5,6 +5,7 @@ import type {
   BrainExchangeParams,
   BrainModule,
 } from "../core/types";
+
 import { extractMemories } from "./memory-extractor";
 import { getMemoriesForContext } from "./memory.service";
 

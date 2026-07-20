@@ -1,12 +1,12 @@
 import "server-only";
 
-import { prisma } from "@/lib/prisma";
-import { AI_CONFIG } from "@/lib/constants";
 import { getAIProvider } from "@/features/ai/providers";
+import { AI_CONFIG } from "@/lib/constants";
+import { prisma } from "@/lib/prisma";
 
-import type { BriefSection } from "../core/types";
 import { executePipeline } from "../core/pipeline";
 import type { IntelligenceReport } from "../core/pipeline";
+import type { BriefSection } from "../core/types";
 import { getConfidenceLevel } from "../trust/types";
 import type { TrustEnvelope } from "../trust/types";
 
@@ -80,7 +80,9 @@ export async function generateBrief(
     });
 
     const parsed = JSON.parse(content.trim());
-    sections = Array.isArray(parsed) ? parsed : buildFallbackSections(report, intelligence);
+    sections = Array.isArray(parsed)
+      ? parsed
+      : buildFallbackSections(report, intelligence);
   } catch (_error) {
     sections = buildFallbackSections(report, intelligence);
   }
@@ -150,10 +152,7 @@ export async function getLatestBrief(
   });
 }
 
-export async function listBriefs(
-  organizationId: string,
-  limit: number = 14
-) {
+export async function listBriefs(organizationId: string, limit: number = 14) {
   return prisma.brief.findMany({
     where: { organizationId },
     orderBy: { createdAt: "desc" },

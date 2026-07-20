@@ -40,8 +40,7 @@ export async function completeOnboardingAction(
       displayName: parsed.data.displayName,
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
+    const message = error instanceof Error ? error.message : "Unknown error";
     console.error("Onboarding error:", message);
 
     if (message === "User already belongs to an organization") {
