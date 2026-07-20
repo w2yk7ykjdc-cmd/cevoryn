@@ -38,8 +38,7 @@ export async function getConversationWithMessages(
   organizationId: string,
   createdById: string
 ) {
-  return 
-prisma.conversation.findFirst({
+  return prisma.conversation.findFirst({
   where: { id, organizationId, createdById, isArchived: false },
     include: {
       messages: {
