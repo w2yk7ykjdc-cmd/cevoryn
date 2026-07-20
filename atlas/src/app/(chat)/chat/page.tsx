@@ -18,10 +18,10 @@ export default async function ChatPage() {
   );
 
   // If recent conversations exist, redirect to the latest
-  if (conversations.length > 0 && conversations[0]) {
-    const { redirect } = await import("next/navigation");
-    redirect(`/chat/${conversations[0].id}`);
-  }
+if (conversations.length > 0 && conversations[0]) {
+  const { redirect } = await import("next/navigation");
+  redirect(`/chat/${conversations[0].id}`);
+}
 
   // No conversations — show welcome state with create button
   return (
