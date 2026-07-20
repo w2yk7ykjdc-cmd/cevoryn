@@ -30,4 +30,8 @@ export function getAIProvider(name: ProviderName = "openai"): AIProvider {
   return cachedProvider;
 }
 
-export type { AIProvider, CompletionParams, ProviderStreamChunk } from "./types";
+export type {
+  AIProvider,
+  CompletionParams,
+  ProviderStreamChunk,
+} from "./types";

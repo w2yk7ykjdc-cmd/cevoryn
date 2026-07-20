@@ -54,10 +54,10 @@ export async function POST(request: NextRequest) {
 
   // 3. Verify conversation belongs to this organization
   const conversation = await getConversation(
-  parsed.data.conversationId,
-  membership.organizationId,
-  membership.userId
-);
+    parsed.data.conversationId,
+    membership.organizationId,
+    membership.userId
+  );
   if (!conversation) {
     return NextResponse.json(
       { error: { code: "NOT_FOUND", message: "Conversation not found" } },

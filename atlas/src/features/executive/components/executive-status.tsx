@@ -10,12 +10,24 @@ interface ExecutiveStatusProps {
 }
 
 const TREND_CONFIG = {
-  improving: { icon: TrendingUp, label: "Improving", color: "text-emerald-600 dark:text-emerald-400" },
+  improving: {
+    icon: TrendingUp,
+    label: "Improving",
+    color: "text-emerald-600 dark:text-emerald-400",
+  },
   stable: { icon: Minus, label: "Stable", color: "text-muted-foreground" },
-  declining: { icon: TrendingDown, label: "Declining", color: "text-amber-600 dark:text-amber-400" },
+  declining: {
+    icon: TrendingDown,
+    label: "Declining",
+    color: "text-amber-600 dark:text-amber-400",
+  },
 } as const;
 
-export function ExecutiveStatus({ greeting, dateLabel, pulse }: ExecutiveStatusProps) {
+export function ExecutiveStatus({
+  greeting,
+  dateLabel,
+  pulse,
+}: ExecutiveStatusProps) {
   return (
     <div className="space-y-4">
       <div>
@@ -45,12 +57,21 @@ export function ExecutiveStatus({ greeting, dateLabel, pulse }: ExecutiveStatusP
   );
 }
 
-function TrendBadge({ trend }: { trend: "improving" | "stable" | "declining" }) {
+function TrendBadge({
+  trend,
+}: {
+  trend: "improving" | "stable" | "declining";
+}) {
   const config = TREND_CONFIG[trend];
   const Icon = config.icon;
 
   return (
-    <span className={cn("inline-flex items-center gap-1 text-xs font-medium", config.color)}>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 text-xs font-medium",
+        config.color
+      )}
+    >
       <Icon className="h-3 w-3" aria-hidden="true" />
       {config.label}
     </span>

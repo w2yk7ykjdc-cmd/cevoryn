@@ -64,7 +64,9 @@ export async function transitionDecision(
     await tx.decisionTimelineEvent.create({
       data: {
         decisionId,
-        type: toTimelineEventType(timelineTypeMap[newStatus] ?? "OUTCOME_RECORDED"),
+        type: toTimelineEventType(
+          timelineTypeMap[newStatus] ?? "OUTCOME_RECORDED"
+        ),
         content: outcome ?? `Status changed to ${newStatus}`,
         metadata: {
           previousStatus: currentStatus,

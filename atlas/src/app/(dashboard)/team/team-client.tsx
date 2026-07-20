@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, Loader2, Mail, UserPlus } from "lucide-react";
+import { Check, Clock, Copy, Loader2, Mail, UserPlus } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -24,6 +24,7 @@ interface PendingInvite {
   email: string;
   role: string;
   expiresAt: string;
+  acceptPath?: string;
 }
 
 interface TeamClientProps {
@@ -50,6 +51,7 @@ export function TeamClient({
   const [invites, setInvites] = useState(initialInvites);
   const [email, setEmail] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null);
 
   function handleInvite() {
     if (!email.trim()) return;
@@ -83,8 +85,7 @@ export function TeamClient({
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Team</h1>
         <p className="text-sm text-muted-foreground">
-          {members.length} member{members.length === 1 ? "" : "s"} in{" "}
-          {orgName}
+          {members.length} member{members.length === 1 ? "" : "s"} in {orgName}
         </p>
       </div>
 
@@ -110,8 +111,16 @@ export function TeamClient({
                 disabled={isPending}
                 className="flex-1"
               />
-              <Button onClick={handleInvite} disabled={isPending || !email.trim()} size="sm">
-                {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+              <Button
+                onClick={handleInvite}
+                disabled={isPending || !email.trim()}
+                size="sm"
+              >
+                {isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Mail className="h-4 w-4" />
+                )}
                 Invite
               </Button>
             </div>
@@ -146,9 +155,30 @@ export function TeamClient({
                     }).format(new Date(invite.expiresAt))}
                   </p>
                 </div>
-                <Badge variant="outline" className="text-[10px]">
-                  {invite.role}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  {invite.acceptPath && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={async () => {
+                        const inviteUrl = `${window.location.origin}${invite.acceptPath}`;
+                        await navigator.clipboard.writeText(inviteUrl);
+                        setCopiedInviteId(invite.id);
+                        toast.success("Invite link copied");
+                      }}
+                    >
+                      {copiedInviteId === invite.id ? (
+                        <Check className="h-3.5 w-3.5" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                      Copy link
+                    </Button>
+                  )}
+                  <Badge variant="outline" className="text-[10px]">
+                    {invite.role}
+                  </Badge>
+                </div>
               </div>
             ))}
           </CardContent>
@@ -178,7 +208,7 @@ export function TeamClient({
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium truncate">
+                <p className="truncate text-sm font-medium">
                   {member.displayName}
                   {member.userId === currentUserId && (
                     <span className="ml-1.5 text-xs text-muted-foreground">

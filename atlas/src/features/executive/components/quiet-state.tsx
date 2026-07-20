@@ -25,12 +25,11 @@ export function QuietState({
             {resolvedRecently > 0 && (
               <p className="flex items-center gap-1.5">
                 <TrendingUp className="h-3.5 w-3.5" />
-                {resolvedRecently} issue{resolvedRecently === 1 ? "" : "s"} resolved this week
+                {resolvedRecently} issue{resolvedRecently === 1 ? "" : "s"}{" "}
+                resolved this week
               </p>
             )}
-            {memoryCount > 0 && (
-              <p>{memoryCount} company memories stored</p>
-            )}
+            {memoryCount > 0 && <p>{memoryCount} company memories stored</p>}
           </div>
         </div>
       </CardContent>

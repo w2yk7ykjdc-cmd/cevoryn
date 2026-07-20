@@ -89,7 +89,9 @@ export function computeDecisionScore(input: ScoringInput): {
  * Parse AI-generated scoring into structured ScoringInput.
  * Validates and clamps all values to valid ranges.
  */
-export function parseScoringResponse(raw: Record<string, unknown>): ScoringInput {
+export function parseScoringResponse(
+  raw: Record<string, unknown>
+): ScoringInput {
   return {
     businessImpact: extractDimension(raw, "businessImpact"),
     urgency: extractDimension(raw, "urgency"),

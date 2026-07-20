@@ -61,9 +61,7 @@ class ModuleRegistry {
           await m.afterExchange!(params);
         } catch (error) {
           const msg = error instanceof Error ? error.message : "unknown";
-          console.error(
-            `Brain module "${m.name}" afterExchange error: ${msg}`
-          );
+          console.error(`Brain module "${m.name}" afterExchange error: ${msg}`);
         }
       });
 

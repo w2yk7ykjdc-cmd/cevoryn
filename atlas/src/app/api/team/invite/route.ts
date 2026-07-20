@@ -1,13 +1,20 @@
+import { z } from "zod";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+import {
+  canCreateInvite,
+  getInviteAcceptPath,
+  getInviteExpiresAt,
+} from "@/features/team/invites";
+import {
+  badRequestResponse,
+  forbiddenResponse,
+  unauthorizedResponse,
+} from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
-import { unauthorizedResponse, forbiddenResponse, badRequestResponse } from "@/lib/api-utils";
-import { hasPermission } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
-import { APP_CONFIG } from "@/lib/constants";
-
-import { z } from "zod";
+import { hasPermission } from "@/lib/rbac";
 
 const inviteSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
@@ -38,35 +45,34 @@ export async function POST(request: NextRequest) {
       return badRequestResponse("Valid email is required");
     }
 
-    // Check member limit
-    const memberCount = await prisma.member.count({
-      where: { organizationId: membership.organizationId },
-    });
-    if (memberCount >= APP_CONFIG.maxMembersPerOrg) {
-      return badRequestResponse(
-        `Maximum ${APP_CONFIG.maxMembersPerOrg} members per organization`
-      );
-    }
+    const [memberCount, existingInvite, existingMember] = await Promise.all([
+      prisma.member.count({
+        where: { organizationId: membership.organizationId },
+      }),
+      prisma.invite.findFirst({
+        where: {
+          organizationId: membership.organizationId,
+          email: parsed.data.email,
+          status: "PENDING",
+        },
+      }),
+      prisma.member.findFirst({
+        where: {
+          organizationId: membership.organizationId,
+          userId: parsed.data.email,
+        },
+      }),
+    ]);
 
-    // Check for existing pending invite
-    const existingInvite = await prisma.invite.findFirst({
-      where: {
-        organizationId: membership.organizationId,
-        email: parsed.data.email,
-        status: "PENDING",
-      },
+    const eligibility = canCreateInvite({
+      memberCount,
+      existingPendingInvite: Boolean(existingInvite),
+      existingMember: Boolean(existingMember),
     });
-    if (existingInvite) {
-      return badRequestResponse("An invite for this email is already pending");
-    }
 
-    // Check if already a member
-    const existingMember = await prisma.member.findFirst({
-      where: {
-        organizationId: membership.organizationId,
-        userId: parsed.data.email, // Won't match directly, but check by invite email
-      },
-    });
+    if (!eligibility.ok) {
+      return badRequestResponse(eligibility.message);
+    }
 
     const invite = await prisma.invite.create({
       data: {
@@ -74,9 +80,7 @@ export async function POST(request: NextRequest) {
         email: parsed.data.email,
         role: parsed.data.role,
         invitedBy: membership.userId,
-        expiresAt: new Date(
-          Date.now() + APP_CONFIG.inviteExpirationDays * 24 * 60 * 60 * 1000
-        ),
+        expiresAt: getInviteExpiresAt(),
       },
     });
 
@@ -87,6 +91,7 @@ export async function POST(request: NextRequest) {
           email: invite.email,
           role: invite.role,
           expiresAt: invite.expiresAt.toISOString(),
+          acceptPath: getInviteAcceptPath(invite.token),
         },
       },
       { status: 201 }

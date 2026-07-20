@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import { getMembership, getUser } from "@/lib/auth";
-import { unauthorizedResponse, forbiddenResponse, badRequestResponse, notFoundResponse } from "@/lib/api-utils";
+import {
+  unauthorizedResponse,
+  forbiddenResponse,
+  badRequestResponse,
+  notFoundResponse,
+} from "@/lib/api-utils";
 import { getDecisionTimeline } from "@/features/brain/decisions/decision.service";
 
 export async function GET(request: NextRequest) {
@@ -17,7 +22,10 @@ export async function GET(request: NextRequest) {
     const decisionId = url.searchParams.get("decisionId");
     if (!decisionId) return badRequestResponse("decisionId is required");
 
-    const timeline = await getDecisionTimeline(membership.organizationId, decisionId);
+    const timeline = await getDecisionTimeline(
+      membership.organizationId,
+      decisionId
+    );
     if (!timeline) return notFoundResponse("Decision not found");
 
     return NextResponse.json({ data: timeline });

@@ -12,13 +12,17 @@ export async function GET() {
     const membership = await getMembership(user.id);
     if (!membership) return forbiddenResponse();
 
-    const metrics = await computeRecommendationMetrics(membership.organizationId);
+    const metrics = await computeRecommendationMetrics(
+      membership.organizationId
+    );
     return NextResponse.json({ data: metrics });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Internal error";
     console.error("Recommendation metrics error:", msg);
     return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to compute metrics" } },
+      {
+        error: { code: "INTERNAL_ERROR", message: "Failed to compute metrics" },
+      },
       { status: 500 }
     );
   }

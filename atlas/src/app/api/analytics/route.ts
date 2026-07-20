@@ -19,7 +19,10 @@ export async function POST(request: NextRequest) {
     return new NextResponse(null, { status: 403 });
   }
 
-  let body: { event?: string; metadata?: Record<string, string | number | boolean> };
+  let body: {
+    event?: string;
+    metadata?: Record<string, string | number | boolean>;
+  };
   try {
     body = await request.json();
   } catch (_error) {

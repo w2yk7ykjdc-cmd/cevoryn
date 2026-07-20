@@ -31,8 +31,7 @@ export async function GET(request: NextRequest) {
   const mode = url.searchParams.get("mode");
 
   if (mode === "latest") {
-    const type =
-      url.searchParams.get("type") === "WEEKLY" ? "WEEKLY" : "DAILY";
+    const type = url.searchParams.get("type") === "WEEKLY" ? "WEEKLY" : "DAILY";
     const brief = await getLatestBrief(
       membership.organizationId,
       type as "DAILY" | "WEEKLY"

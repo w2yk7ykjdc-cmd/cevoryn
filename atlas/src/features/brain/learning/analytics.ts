@@ -4,7 +4,10 @@ import { prisma } from "@/lib/prisma";
 
 import type { DecisionCanvas } from "../decisions/types";
 
-import type { RecommendationHistoryEntry, RecommendationMetrics } from "../outcomes/types";
+import type {
+  RecommendationHistoryEntry,
+  RecommendationMetrics,
+} from "../outcomes/types";
 
 /**
  * Compute recommendation performance metrics.
@@ -41,9 +44,8 @@ export async function computeRecommendationMetrics(
     (d: { status: string }) =>
       !["PROPOSED", "REJECTED", "IGNORED"].includes(d.status)
   );
-  const resolved = decisions.filter(
-    (d: { status: string }) =>
-      ["SUCCESSFUL", "FAILED", "COMPLETED"].includes(d.status)
+  const resolved = decisions.filter((d: { status: string }) =>
+    ["SUCCESSFUL", "FAILED", "COMPLETED"].includes(d.status)
   );
   const successful = decisions.filter(
     (d: { status: string }) =>
@@ -78,21 +80,17 @@ export async function computeRecommendationMetrics(
     { count: number; successCount: number }
   >();
   for (const d of decisions) {
-  const canvas = d.canvas as unknown as DecisionCanvas;
+    const canvas = d.canvas as unknown as DecisionCanvas;
     const cat = canvas.scoringBreakdown?.[0]?.name ?? "General";
     const entry = categoryMap.get(cat) ?? { count: 0, successCount: 0 };
     entry.count++;
-    if (
-      d.status === "SUCCESSFUL" ||
-      d.status === "COMPLETED"
-    ) {
+    if (d.status === "SUCCESSFUL" || d.status === "COMPLETED") {
       entry.successCount++;
     }
     categoryMap.set(cat, entry);
   }
 
-  const byCategory: Record<string, { count: number; successRate: number }> =
-    {};
+  const byCategory: Record<string, { count: number; successRate: number }> = {};
   for (const [cat, data] of categoryMap) {
     byCategory[cat] = {
       count: data.count,
@@ -140,12 +138,10 @@ export async function getRecommendationHistory(
   });
 
   const evalMap = new Map(
-    evaluations.map(
-      (e: { decisionId: string; outcomeScore: number }) => [
-        e.decisionId,
-        e.outcomeScore,
-      ]
-    )
+    evaluations.map((e: { decisionId: string; outcomeScore: number }) => [
+      e.decisionId,
+      e.outcomeScore,
+    ])
   );
 
   return decisions.map(

@@ -43,7 +43,11 @@ export function useScrollAnchor() {
       }
     });
 
-    observer.observe(el, { childList: true, subtree: true, characterData: true });
+    observer.observe(el, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
     return () => observer.disconnect();
   }, [scrollToBottom]);
 

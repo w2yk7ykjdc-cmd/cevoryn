@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { getInviteAcceptPath } from "@/features/team/invites";
 import { requireMembership, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isRoleAtLeast } from "@/lib/rbac";
@@ -35,6 +36,7 @@ export default async function TeamPage() {
         email: true,
         role: true,
         expiresAt: true,
+        token: true,
       },
     }),
   ]);
@@ -46,19 +48,36 @@ export default async function TeamPage() {
       orgName={membership.organizationName}
       currentUserId={membership.userId}
       canInvite={canInvite}
-      members={members.map((m: { id: string; userId: string; displayName: string; role: string; createdAt: Date }) => ({
-        id: m.id,
-        userId: m.userId,
-        displayName: m.displayName,
-        role: m.role,
-        joinedAt: m.createdAt.toISOString(),
-      }))}
-      pendingInvites={pendingInvites.map((i: { id: string; email: string; role: string; expiresAt: Date }) => ({
-        id: i.id,
-        email: i.email,
-        role: i.role,
-        expiresAt: i.expiresAt.toISOString(),
-      }))}
+      members={members.map(
+        (m: {
+          id: string;
+          userId: string;
+          displayName: string;
+          role: string;
+          createdAt: Date;
+        }) => ({
+          id: m.id,
+          userId: m.userId,
+          displayName: m.displayName,
+          role: m.role,
+          joinedAt: m.createdAt.toISOString(),
+        })
+      )}
+      pendingInvites={pendingInvites.map(
+        (i: {
+          id: string;
+          email: string;
+          role: string;
+          expiresAt: Date;
+          token: string;
+        }) => ({
+          id: i.id,
+          email: i.email,
+          role: i.role,
+          expiresAt: i.expiresAt.toISOString(),
+          acceptPath: getInviteAcceptPath(i.token),
+        })
+      )}
     />
   );
 }

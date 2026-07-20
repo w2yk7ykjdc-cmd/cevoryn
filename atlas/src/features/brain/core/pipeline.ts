@@ -122,38 +122,42 @@ export async function executePipeline(
   const priorities = insights
     .filter((i: { priority: number }) => i.priority >= 7)
     .slice(0, 3)
-    .map((i: {
-      title: string;
-      description: string;
-      reasoning: string;
-      confidence: number;
-      priority: number;
-    }) => ({
-      title: i.title,
-      description: i.description,
-      reasoning: i.reasoning,
-      confidence: i.confidence,
-      priority: i.priority,
-    }));
+    .map(
+      (i: {
+        title: string;
+        description: string;
+        reasoning: string;
+        confidence: number;
+        priority: number;
+      }) => ({
+        title: i.title,
+        description: i.description,
+        reasoning: i.reasoning,
+        confidence: i.confidence,
+        priority: i.priority,
+      })
+    );
 
   // ── Stage 7: RECOMMEND — surface top insights ──
-  const insightSummaries = insights.slice(0, 5).map(
-    (i: {
-      id: string;
-      title: string;
-      summary: string;
-      category: string;
-      severity: string;
-      confidence: number;
-    }) => ({
-      id: i.id,
-      title: i.title,
-      summary: i.summary,
-      category: i.category,
-      severity: i.severity,
-      confidence: i.confidence,
-    })
-  );
+  const insightSummaries = insights
+    .slice(0, 5)
+    .map(
+      (i: {
+        id: string;
+        title: string;
+        summary: string;
+        category: string;
+        severity: string;
+        confidence: number;
+      }) => ({
+        id: i.id,
+        title: i.title,
+        summary: i.summary,
+        category: i.category,
+        severity: i.severity,
+        confidence: i.confidence,
+      })
+    );
 
   // ── Stage 8: PREPARE — generate actions from top insights ──
   for (const insight of insights.slice(0, 3)) {
@@ -175,21 +179,23 @@ export async function executePipeline(
   }
 
   const pendingActions = await listPreparedActions(organizationId, "PENDING");
-  const actionSummaries = pendingActions.slice(0, 5).map(
-    (a: {
-      id: string;
-      type: string;
-      title: string;
-      description: string;
-      confidence: number;
-    }) => ({
-      id: a.id,
-      type: a.type,
-      title: a.title,
-      description: a.description,
-      confidence: a.confidence,
-    })
-  );
+  const actionSummaries = pendingActions
+    .slice(0, 5)
+    .map(
+      (a: {
+        id: string;
+        type: string;
+        title: string;
+        description: string;
+        confidence: number;
+      }) => ({
+        id: a.id,
+        type: a.type,
+        title: a.title,
+        description: a.description,
+        confidence: a.confidence,
+      })
+    );
 
   // ── Assemble report ──
   const report: IntelligenceReport = {

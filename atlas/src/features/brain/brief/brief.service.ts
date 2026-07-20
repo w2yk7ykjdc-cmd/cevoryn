@@ -80,7 +80,9 @@ export async function generateBrief(
     });
 
     const parsed = JSON.parse(content.trim());
-    sections = Array.isArray(parsed) ? parsed : buildFallbackSections(report, intelligence);
+    sections = Array.isArray(parsed)
+      ? parsed
+      : buildFallbackSections(report, intelligence);
   } catch (_error) {
     sections = buildFallbackSections(report, intelligence);
   }
@@ -150,10 +152,7 @@ export async function getLatestBrief(
   });
 }
 
-export async function listBriefs(
-  organizationId: string,
-  limit: number = 14
-) {
+export async function listBriefs(organizationId: string, limit: number = 14) {
   return prisma.brief.findMany({
     where: { organizationId },
     orderBy: { createdAt: "desc" },

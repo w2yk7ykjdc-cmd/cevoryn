@@ -1,7 +1,11 @@
 import "server-only";
 
 import { prisma } from "@/lib/prisma";
-import { toInsightCategory, toInsightSeverity, toInsightStatus } from "@/lib/enum-validators";
+import {
+  toInsightCategory,
+  toInsightSeverity,
+  toInsightStatus,
+} from "@/lib/enum-validators";
 import { AI_CONFIG } from "@/lib/constants";
 import { getAIProvider } from "@/features/ai/providers";
 import {
@@ -114,8 +118,19 @@ export async function generateInsights(
 
     if (!Array.isArray(insights)) return 0;
 
-    const validCategories = new Set(["STRATEGIC", "OPERATIONAL", "TEAM", "FINANCIAL", "RISK"]);
-    const validSeverities = new Set(["INFO", "SUGGESTION", "WARNING", "CRITICAL"]);
+    const validCategories = new Set([
+      "STRATEGIC",
+      "OPERATIONAL",
+      "TEAM",
+      "FINANCIAL",
+      "RISK",
+    ]);
+    const validSeverities = new Set([
+      "INFO",
+      "SUGGESTION",
+      "WARNING",
+      "CRITICAL",
+    ]);
 
     let created = 0;
     for (const insight of insights) {
@@ -133,14 +148,16 @@ export async function generateInsights(
       });
       if (existing) continue;
 
-      const evidence: Evidence[] = recentMessages.slice(0, 3).map(
-        (m: { conversationId: string; content: string; createdAt: Date }) =>
-          conversationEvidence(
-            m.conversationId,
-            m.content.slice(0, 200),
-            m.createdAt.toISOString()
-          )
-      );
+      const evidence: Evidence[] = recentMessages
+        .slice(0, 3)
+        .map(
+          (m: { conversationId: string; content: string; createdAt: Date }) =>
+            conversationEvidence(
+              m.conversationId,
+              m.content.slice(0, 200),
+              m.createdAt.toISOString()
+            )
+        );
 
       const confidence = computeInsightConfidence(insight, evidence.length);
 
@@ -192,7 +209,9 @@ export async function listInsights(
   return prisma.insight.findMany({
     where: {
       organizationId,
-      ...(options.status && { status: toInsightStatus(options.status) ?? undefined }),
+      ...(options.status && {
+        status: toInsightStatus(options.status) ?? undefined,
+      }),
     },
     orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
     take: options.limit ?? 20,
@@ -236,7 +255,10 @@ export async function getInsightCounts(organizationId: string) {
   });
 
   return results.reduce(
-    (acc: Record<string, number>, r: { status: string; _count: { id: number } }) => {
+    (
+      acc: Record<string, number>,
+      r: { status: string; _count: { id: number } }
+    ) => {
       acc[r.status] = r._count.id;
       return acc;
     },

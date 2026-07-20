@@ -16,10 +16,16 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url);
     const status = url.searchParams.get("status") ?? undefined;
 
-    const actions = await listPreparedActions(membership.organizationId, status);
+    const actions = await listPreparedActions(
+      membership.organizationId,
+      status
+    );
     return NextResponse.json({ data: actions });
   } catch (error) {
-    console.error("Actions GET error:", error instanceof Error ? error.message : "unknown");
+    console.error(
+      "Actions GET error:",
+      error instanceof Error ? error.message : "unknown"
+    );
     return NextResponse.json(
       { error: { code: "INTERNAL_ERROR", message: "Failed to load actions" } },
       { status: 500 }

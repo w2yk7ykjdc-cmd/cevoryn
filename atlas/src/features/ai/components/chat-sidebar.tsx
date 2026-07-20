@@ -96,10 +96,7 @@ export function ChatSidebar({ activeId, onNavigate }: ChatSidebarProps) {
 
       <Separator />
 
-      <nav
-        className="flex-1 overflow-y-auto p-2"
-        aria-label="Conversations"
-      >
+      <nav className="flex-1 overflow-y-auto p-2" aria-label="Conversations">
         {conversations.length === 0 ? (
           <p className="px-3 py-6 text-center text-sm text-muted-foreground">
             No conversations yet

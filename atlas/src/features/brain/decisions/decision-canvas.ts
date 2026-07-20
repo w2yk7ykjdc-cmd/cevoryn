@@ -71,24 +71,19 @@ export async function generateDecisionCanvas(params: {
   if (memories.length > 0) {
     contextLines.push(
       "Company knowledge: " +
-        memories
-          .map((m: { content: string }) => m.content)
-          .join("; ")
+        memories.map((m: { content: string }) => m.content).join("; ")
     );
   }
   if (insights.length > 0) {
     contextLines.push(
       "Active insights: " +
-        insights
-          .map((i: { title: string }) => i.title)
-          .join("; ")
+        insights.map((i: { title: string }) => i.title).join("; ")
     );
   }
 
-  const userMessage = [
-    `Problem: ${problemDescription}`,
-    ...contextLines,
-  ].join("\n\n");
+  const userMessage = [`Problem: ${problemDescription}`, ...contextLines].join(
+    "\n\n"
+  );
 
   try {
     const provider = getAIProvider();
@@ -149,7 +144,8 @@ export async function generateDecisionCanvas(params: {
       dataWindowHours: 168,
     });
   } catch (error) {
-    const msg = error instanceof Error ? error.message : "Canvas generation failed";
+    const msg =
+      error instanceof Error ? error.message : "Canvas generation failed";
     console.error(`Decision canvas error: ${msg}`);
 
     // Return minimal canvas rather than failing
@@ -171,7 +167,8 @@ export async function generateDecisionCanvas(params: {
     return createTrustEnvelope({
       data: fallbackCanvas,
       evidence: params.evidence,
-      reasoning: "Canvas generation encountered an error. Fallback analysis provided.",
+      reasoning:
+        "Canvas generation encountered an error. Fallback analysis provided.",
       missingInformation: ["Full AI analysis unavailable"],
       dataWindowHours: 0,
     });

@@ -31,15 +31,15 @@ function AttentionCard({ item }: { item: AttentionItem }) {
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <Badge variant="outline" className="text-[10px] shrink-0">
+            <div className="mb-1 flex items-center gap-2">
+              <Badge variant="outline" className="shrink-0 text-[10px]">
                 {item.type}
               </Badge>
               <ConfidenceBadge confidence={item.confidence} />
             </div>
             <p className="text-sm font-medium leading-tight">{item.title}</p>
             {item.summary && (
-              <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
+              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
                 {item.summary}
               </p>
             )}

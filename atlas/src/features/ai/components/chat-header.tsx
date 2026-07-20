@@ -32,9 +32,7 @@ export function ChatHeader({ title, onToggleSidebar }: ChatHeaderProps) {
         <span className="sr-only">Toggle conversations</span>
       </Button>
 
-      <h1 className="min-w-0 flex-1 truncate text-sm font-medium">
-        {title}
-      </h1>
+      <h1 className="min-w-0 flex-1 truncate text-sm font-medium">{title}</h1>
 
       {/* Mobile: conversation list trigger */}
       <Button

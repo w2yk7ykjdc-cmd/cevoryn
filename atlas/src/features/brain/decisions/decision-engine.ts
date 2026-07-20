@@ -1,7 +1,10 @@
 import "server-only";
 
 import { prisma } from "@/lib/prisma";
-import { conversationEvidence, createTrustEnvelope } from "../trust/trust-engine";
+import {
+  conversationEvidence,
+  createTrustEnvelope,
+} from "../trust/trust-engine";
 import type { Evidence, TrustEnvelope } from "../trust/types";
 import { getMemoriesForContext } from "../memory/memory.service";
 import { listInsights } from "../insights/insight.service";
@@ -45,7 +48,10 @@ export async function executeDecisionPipeline(params: {
       conversation: { organizationId },
       role: "USER",
       createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
-      content: { contains: problemDescription.split(" ").slice(0, 3).join(" "), mode: "insensitive" },
+      content: {
+        contains: problemDescription.split(" ").slice(0, 3).join(" "),
+        mode: "insensitive",
+      },
     },
     take: 5,
     select: { conversationId: true, content: true, createdAt: true },
