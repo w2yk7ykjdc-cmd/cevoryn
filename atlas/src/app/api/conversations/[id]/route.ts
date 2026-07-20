@@ -67,6 +67,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   membership.organizationId,
   body.title.trim(),
   membership.userId
+  );
 
     return NextResponse.json({ data: { id, title: body.title.trim() } });
   } catch (error) {
