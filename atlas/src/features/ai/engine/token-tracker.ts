@@ -61,8 +61,10 @@ export async function getOrgUsageByUser(
     orderBy: { _sum: { totalTokens: "desc" } },
   });
 
-  return results.map((r: { userId: string; _sum: { totalTokens: number | null } }) => ({
-    userId: r.userId,
-    totalTokens: r._sum.totalTokens ?? 0,
-  }));
+  return results.map(
+    (r: { userId: string; _sum: { totalTokens: number | null } }) => ({
+      userId: r.userId,
+      totalTokens: r._sum.totalTokens ?? 0,
+    })
+  );
 }

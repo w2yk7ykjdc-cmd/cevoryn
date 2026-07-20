@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Lock } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -67,7 +67,10 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <AuthCard title="Set new password" description="Enter your new password below">
+    <AuthCard
+      title="Set new password"
+      description="Enter your new password below"
+    >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="password">New password</Label>
@@ -79,7 +82,9 @@ export default function ResetPasswordPage() {
             {...register("password")}
           />
           {errors.password && (
-            <p className="text-sm text-destructive">{errors.password.message}</p>
+            <p className="text-sm text-destructive">
+              {errors.password.message}
+            </p>
           )}
         </div>
 

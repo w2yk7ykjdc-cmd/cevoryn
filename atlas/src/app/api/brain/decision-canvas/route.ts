@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-import { getMembership, getUser } from "@/lib/auth";
 import { generateDecisionCanvas } from "@/features/brain/decisions/decision-canvas";
 import { createDecisionSchema } from "@/features/brain/decisions/schemas";
+import { getMembership, getUser } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 
 export async function POST(request: NextRequest) {

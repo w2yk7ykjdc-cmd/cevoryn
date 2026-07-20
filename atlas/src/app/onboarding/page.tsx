@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
-import { requireUser } from "@/lib/auth";
 import { OnboardingForm } from "@/features/onboarding/components/onboarding-form";
+import { requireUser } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "Set up your workspace" };
 

@@ -56,7 +56,10 @@ function ActionCard({
   onDismiss: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
-  const config = TYPE_CONFIG[action.type] ?? { icon: ListTodo, label: action.type };
+  const config = TYPE_CONFIG[action.type] ?? {
+    icon: ListTodo,
+    label: action.type,
+  };
   const Icon = config.icon;
 
   function handleApprove() {
@@ -68,7 +71,9 @@ function ActionCard({
           body: JSON.stringify({ status: "APPROVED" }),
         });
         if (res.ok) {
-          sendAnalyticsEvent("recommended_action_approved", { type: action.type });
+          sendAnalyticsEvent("recommended_action_approved", {
+            type: action.type,
+          });
           toast.success("Action approved");
           onDismiss();
         } else {
@@ -89,7 +94,9 @@ function ActionCard({
           body: JSON.stringify({ status: "DISMISSED" }),
         });
         if (res.ok) {
-          sendAnalyticsEvent("recommended_action_rejected", { type: action.type });
+          sendAnalyticsEvent("recommended_action_rejected", {
+            type: action.type,
+          });
           onDismiss();
         }
       } catch (_error) {
@@ -112,7 +119,7 @@ function ActionCard({
             </p>
             <p className="text-sm font-medium">{action.title}</p>
             {action.description && (
-              <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">
+              <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
                 {action.description}
               </p>
             )}

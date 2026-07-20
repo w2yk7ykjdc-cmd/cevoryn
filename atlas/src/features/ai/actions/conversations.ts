@@ -61,11 +61,11 @@ export async function renameConversationAction(
 
   try {
     await renameConversation(
-  parsed.data.id,
-  membership.organizationId,
-  parsed.data.title,
-  membership.userId
-);
+      parsed.data.id,
+      membership.organizationId,
+      parsed.data.title,
+      membership.userId
+    );
 
     revalidatePath(ROUTES.CHAT);
 
@@ -88,10 +88,10 @@ export async function deleteConversationAction(
 
   try {
     await deleteConversation(
-  parsed.data.id,
-  membership.organizationId,
-  membership.userId
-);
+      parsed.data.id,
+      membership.organizationId,
+      membership.userId
+    );
 
     revalidatePath(ROUTES.CHAT);
 

@@ -24,9 +24,7 @@ import type { CalibrationData } from "./types";
  *
  * Pure function output — no side effects.
  */
-export async function computeCalibration(
-  organizationId: string
-): Promise<{
+export async function computeCalibration(organizationId: string): Promise<{
   adjustmentFactor: number;
   dataPoints: CalibrationData[];
   isCalibrated: boolean;

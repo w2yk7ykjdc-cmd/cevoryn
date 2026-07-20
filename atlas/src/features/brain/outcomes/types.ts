@@ -45,10 +45,7 @@ export interface RecommendationMetrics {
   failureRate: number;
   avgTimeToCompletionHours: number;
   avgPriorityScore: number;
-  byCategory: Record<
-    string,
-    { count: number; successRate: number }
-  >;
+  byCategory: Record<string, { count: number; successRate: number }>;
 }
 
 /** A single record in recommendation history */

@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+import {
+  unauthorizedResponse,
+  forbiddenResponse,
+  notFoundResponse,
+  badRequestResponse,
+} from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
-import { unauthorizedResponse, forbiddenResponse, notFoundResponse, badRequestResponse } from "@/lib/api-utils";
 import {
   deleteConversation,
   getConversationWithMessages,
@@ -22,11 +27,11 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     const membership = await getMembership(user.id);
     if (!membership) return forbiddenResponse();
 
-   const conversation = await getConversationWithMessages(
-  id,
-  membership.organizationId,
-  membership.userId
-);
+    const conversation = await getConversationWithMessages(
+      id,
+      membership.organizationId,
+      membership.userId
+    );
     if (!conversation) return notFoundResponse("Conversation not found");
 
     return NextResponse.json({
@@ -35,14 +40,37 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         title: conversation.title,
         createdAt: conversation.createdAt.toISOString(),
         updatedAt: conversation.updatedAt.toISOString(),
-        messages: conversation.messages.map((m: { id: string; role: string; content: string; model: string | null; createdAt: Date }) => ({
-          id: m.id, role: m.role, content: m.content, model: m.model, createdAt: m.createdAt.toISOString(),
-        })),
+        messages: conversation.messages.map(
+          (m: {
+            id: string;
+            role: string;
+            content: string;
+            model: string | null;
+            createdAt: Date;
+          }) => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            model: m.model,
+            createdAt: m.createdAt.toISOString(),
+          })
+        ),
       },
     });
   } catch (error) {
-    console.error("Conversation GET error:", error instanceof Error ? error.message : "unknown");
-    return NextResponse.json({ error: { code: "INTERNAL_ERROR", message: "Failed to load conversation" } }, { status: 500 });
+    console.error(
+      "Conversation GET error:",
+      error instanceof Error ? error.message : "unknown"
+    );
+    return NextResponse.json(
+      {
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to load conversation",
+        },
+      },
+      { status: 500 }
+    );
   }
 }
 
@@ -64,21 +92,32 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const title = body.title?.trim();
 
-if (!title) {
-  return badRequestResponse("Title is required");
-}
+    if (!title) {
+      return badRequestResponse("Title is required");
+    }
 
-await renameConversation(
-  id,
-  membership.organizationId,
-  title,
-  membership.userId
-);
+    await renameConversation(
+      id,
+      membership.organizationId,
+      title,
+      membership.userId
+    );
 
-return NextResponse.json({ data: { id, title } });
+    return NextResponse.json({ data: { id, title } });
   } catch (error) {
-    console.error("Conversation PATCH error:", error instanceof Error ? error.message : "unknown");
-    return NextResponse.json({ error: { code: "INTERNAL_ERROR", message: "Failed to update conversation" } }, { status: 500 });
+    console.error(
+      "Conversation PATCH error:",
+      error instanceof Error ? error.message : "unknown"
+    );
+    return NextResponse.json(
+      {
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to update conversation",
+        },
+      },
+      { status: 500 }
+    );
   }
 }
 
@@ -91,14 +130,21 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     const membership = await getMembership(user.id);
     if (!membership) return forbiddenResponse();
 
-    await deleteConversation(
-  id,
-  membership.organizationId,
-  membership.userId
-);
+    await deleteConversation(id, membership.organizationId, membership.userId);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
-    console.error("Conversation DELETE error:", error instanceof Error ? error.message : "unknown");
-    return NextResponse.json({ error: { code: "INTERNAL_ERROR", message: "Failed to delete conversation" } }, { status: 500 });
+    console.error(
+      "Conversation DELETE error:",
+      error instanceof Error ? error.message : "unknown"
+    );
+    return NextResponse.json(
+      {
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to delete conversation",
+        },
+      },
+      { status: 500 }
+    );
   }
 }

@@ -5,10 +5,8 @@ import { NextResponse } from "next/server";
  * Catches unhandled errors, logs them, returns safe error response.
  */
 export function apiHandler(
-  handler: (
-    ...args: any[]
-  ) => Promise<NextResponse | Response>
-): (...args: any[]) => Promise<NextResponse | Response> {
+  handler: (...args: unknown[]) => Promise<NextResponse | Response>
+): (...args: unknown[]) => Promise<NextResponse | Response> {
   return async (...args) => {
     try {
       return await handler(...args);

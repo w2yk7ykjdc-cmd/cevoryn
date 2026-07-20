@@ -26,10 +26,7 @@ export async function getUserMemberships(userId: string) {
   });
 }
 
-export async function updateMemberRole(
-  memberId: string,
-  role: MemberRole
-) {
+export async function updateMemberRole(memberId: string, role: MemberRole) {
   return prisma.member.update({
     where: { id: memberId },
     data: { role },

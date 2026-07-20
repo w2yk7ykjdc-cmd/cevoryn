@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 
-import { getMembership, getUser } from "@/lib/auth";
-import { unauthorizedResponse, forbiddenResponse } from "@/lib/api-utils";
 import { getRecommendationHistory } from "@/features/brain/learning/analytics";
+import { unauthorizedResponse, forbiddenResponse } from "@/lib/api-utils";
+import { getMembership, getUser } from "@/lib/auth";
 
 export async function GET() {
   try {

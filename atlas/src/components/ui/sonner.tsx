@@ -13,7 +13,10 @@ interface ToasterProps {
     | "bottom-center";
 }
 
-function Toaster({ richColors = true, position = "bottom-right" }: ToasterProps) {
+function Toaster({
+  richColors = true,
+  position = "bottom-right",
+}: ToasterProps) {
   return (
     <SonnerToaster
       position={position}

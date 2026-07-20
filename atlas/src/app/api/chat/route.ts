@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-import { getMembership, getUser } from "@/lib/auth";
 import { sendMessageSchema } from "@/features/ai/schemas/message";
-import { getConversation } from "@/server/services/conversation.service";
+import { getMembership, getUser } from "@/lib/auth";
 import { sendMessage } from "@/server/services/ai.service";
+import { getConversation } from "@/server/services/conversation.service";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -54,10 +54,10 @@ export async function POST(request: NextRequest) {
 
   // 3. Verify conversation belongs to this organization
   const conversation = await getConversation(
-  parsed.data.conversationId,
-  membership.organizationId,
-  membership.userId
-);
+    parsed.data.conversationId,
+    membership.organizationId,
+    membership.userId
+  );
   if (!conversation) {
     return NextResponse.json(
       { error: { code: "NOT_FOUND", message: "Conversation not found" } },

@@ -1,8 +1,8 @@
 import "server-only";
 
+import { toTimelineEventType, toDecisionStatus } from "@/lib/enum-validators";
 import { prisma } from "@/lib/prisma";
 
-import { toTimelineEventType, toDecisionStatus } from "@/lib/enum-validators";
 import type { DecisionCanvas, DecisionTimeline, TimelineEvent } from "./types";
 
 /**
@@ -94,7 +94,9 @@ export async function listDecisions(
   return prisma.decision.findMany({
     where: {
       organizationId,
-      ...(options.status && { status: toDecisionStatus(options.status) ?? undefined }),
+      ...(options.status && {
+        status: toDecisionStatus(options.status) ?? undefined,
+      }),
     },
     orderBy: [{ priorityScore: "desc" }, { createdAt: "desc" }],
     take: options.limit ?? 20,
@@ -124,7 +126,6 @@ export async function getDecisionTimeline(
   if (!decision) return null;
 
   const canvas = decision.canvas as unknown as DecisionCanvas;
-
 
   const events: TimelineEvent[] = decision.timelineEvents.map(
     (e: {

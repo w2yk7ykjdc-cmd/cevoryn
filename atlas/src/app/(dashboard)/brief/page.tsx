@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 
-import { requireMembership, requireUser } from "@/lib/auth";
-import { getLatestBrief } from "@/features/brain/brief/brief.service";
-import { computePulse } from "@/features/brain/pulse/pulse.service";
-import { computePulseScore } from "@/features/brain/pulse/pulse-scorer";
-import { listInsights } from "@/features/brain/insights/insight.service";
 import { listPreparedActions } from "@/features/brain/actions/action.service";
-import type { PulseMetrics, BriefSection } from "@/features/brain/core/types";
+import { getLatestBrief } from "@/features/brain/brief/brief.service";
+import type { BriefSection } from "@/features/brain/core/types";
+import { listInsights } from "@/features/brain/insights/insight.service";
+import { computePulseScore } from "@/features/brain/pulse/pulse-scorer";
+import { computePulse } from "@/features/brain/pulse/pulse.service";
+import { requireMembership, requireUser } from "@/lib/auth";
 
 import { MorningBriefClient } from "./morning-brief-client";
 
@@ -31,9 +31,9 @@ export default async function BriefPage() {
   const pulseScore = computePulseScore(pulseMetrics, null);
 
   const sections: BriefSection[] =
-  brief && Array.isArray(brief.sections)
-    ? (brief.sections as unknown as BriefSection[])
-    : [];
+    brief && Array.isArray(brief.sections)
+      ? (brief.sections as unknown as BriefSection[])
+      : [];
 
   const briefDate = brief
     ? new Intl.DateTimeFormat("en-US", {

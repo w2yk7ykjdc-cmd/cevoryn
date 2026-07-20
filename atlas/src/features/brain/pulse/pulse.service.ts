@@ -86,9 +86,8 @@ export async function computePulse(
         },
         _avg: { durationMs: true },
       })
-      .then(
-        (r: { _avg: { durationMs: number | null } }) =>
-          Math.round(r._avg.durationMs ?? 0)
+      .then((r: { _avg: { durationMs: number | null } }) =>
+        Math.round(r._avg.durationMs ?? 0)
       ),
   ]);
 

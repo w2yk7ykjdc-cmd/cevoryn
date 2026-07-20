@@ -1,10 +1,8 @@
 import { MessageSquare } from "lucide-react";
 import type { Metadata } from "next";
 
-import {
-  requireMembership,
-  requireUser,
-} from "@/lib/auth";
+import { requireMembership, requireUser } from "@/lib/auth";
+
 import { NewChatRedirect } from "./new-chat-redirect";
 
 export const metadata: Metadata = {
@@ -22,9 +20,7 @@ export default async function ChatPage() {
       </div>
 
       <div>
-        <h1 className="text-xl font-semibold">
-          Welcome to Atlas Chat
-        </h1>
+        <h1 className="text-xl font-semibold">Welcome to Atlas Chat</h1>
 
         <p className="mt-1 text-sm text-muted-foreground">
           Ask Atlas about strategy, operations, or your team.

@@ -53,7 +53,8 @@ const sheetVariants = cva(
 );
 
 interface SheetContentProps
-  extends ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
+  extends
+    ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
     VariantProps<typeof sheetVariants> {}
 
 const SheetContent = forwardRef<
@@ -77,10 +78,7 @@ const SheetContent = forwardRef<
 ));
 SheetContent.displayName = SheetPrimitive.Content.displayName;
 
-function SheetHeader({
-  className,
-  ...props
-}: HTMLAttributes<HTMLDivElement>) {
+function SheetHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={cn(
@@ -93,10 +91,7 @@ function SheetHeader({
 }
 SheetHeader.displayName = "SheetHeader";
 
-function SheetFooter({
-  className,
-  ...props
-}: HTMLAttributes<HTMLDivElement>) {
+function SheetFooter({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={cn(
