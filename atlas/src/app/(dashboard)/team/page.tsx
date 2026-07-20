@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { getInviteAcceptPath } from "@/features/team/invites";
 import { requireMembership, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isRoleAtLeast } from "@/lib/rbac";
@@ -35,6 +36,7 @@ export default async function TeamPage() {
         email: true,
         role: true,
         expiresAt: true,
+        token: true,
       },
     }),
   ]);
@@ -62,11 +64,18 @@ export default async function TeamPage() {
         })
       )}
       pendingInvites={pendingInvites.map(
-        (i: { id: string; email: string; role: string; expiresAt: Date }) => ({
+        (i: {
+          id: string;
+          email: string;
+          role: string;
+          expiresAt: Date;
+          token: string;
+        }) => ({
           id: i.id,
           email: i.email,
           role: i.role,
           expiresAt: i.expiresAt.toISOString(),
+          acceptPath: getInviteAcceptPath(i.token),
         })
       )}
     />
