@@ -15,6 +15,7 @@ import { ROUTES } from "@/lib/constants";
 import { forgotPasswordAction } from "../actions/auth";
 import { forgotPasswordSchema } from "../schemas/auth";
 import type { ForgotPasswordInput } from "../schemas/auth";
+
 import { AuthCard } from "./auth-card";
 
 export function ForgotPasswordForm() {

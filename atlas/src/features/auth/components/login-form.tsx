@@ -15,6 +15,7 @@ import { ROUTES } from "@/lib/constants";
 import { loginAction } from "../actions/auth";
 import { loginSchema } from "../schemas/auth";
 import type { LoginInput } from "../schemas/auth";
+
 import { AuthCard } from "./auth-card";
 
 interface LoginFormProps {
@@ -22,7 +23,10 @@ interface LoginFormProps {
   authError?: string;
 }
 
-export function LoginForm({ redirectTo, authError }: LoginFormProps) {
+export function LoginForm({
+  redirectTo,
+  authError: _authError,
+}: LoginFormProps) {
   const [isPending, setIsPending] = useState(false);
 
   const {

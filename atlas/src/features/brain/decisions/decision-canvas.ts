@@ -1,14 +1,15 @@
 import "server-only";
 
-import { AI_CONFIG } from "@/lib/constants";
 import { getAIProvider } from "@/features/ai/providers";
-import { getMemoriesForContext } from "../memory/memory.service";
+import { AI_CONFIG } from "@/lib/constants";
+
 import { listInsights } from "../insights/insight.service";
+import { getMemoriesForContext } from "../memory/memory.service";
 import { createTrustEnvelope } from "../trust/trust-engine";
 import type { Evidence, TrustEnvelope } from "../trust/types";
 
-import type { DecisionCanvas, DecisionOption } from "./types";
 import { computeDecisionScore, parseScoringResponse } from "./decision-scorer";
+import type { DecisionCanvas, DecisionOption } from "./types";
 
 const CANVAS_GENERATION_PROMPT = `You are Atlas, a Management Intelligence Platform.
 Transform the given business problem into a structured Decision Canvas.
@@ -71,24 +72,19 @@ export async function generateDecisionCanvas(params: {
   if (memories.length > 0) {
     contextLines.push(
       "Company knowledge: " +
-        memories
-          .map((m: { content: string }) => m.content)
-          .join("; ")
+        memories.map((m: { content: string }) => m.content).join("; ")
     );
   }
   if (insights.length > 0) {
     contextLines.push(
       "Active insights: " +
-        insights
-          .map((i: { title: string }) => i.title)
-          .join("; ")
+        insights.map((i: { title: string }) => i.title).join("; ")
     );
   }
 
-  const userMessage = [
-    `Problem: ${problemDescription}`,
-    ...contextLines,
-  ].join("\n\n");
+  const userMessage = [`Problem: ${problemDescription}`, ...contextLines].join(
+    "\n\n"
+  );
 
   try {
     const provider = getAIProvider();
@@ -149,7 +145,8 @@ export async function generateDecisionCanvas(params: {
       dataWindowHours: 168,
     });
   } catch (error) {
-    const msg = error instanceof Error ? error.message : "Canvas generation failed";
+    const msg =
+      error instanceof Error ? error.message : "Canvas generation failed";
     console.error(`Decision canvas error: ${msg}`);
 
     // Return minimal canvas rather than failing
@@ -171,7 +168,8 @@ export async function generateDecisionCanvas(params: {
     return createTrustEnvelope({
       data: fallbackCanvas,
       evidence: params.evidence,
-      reasoning: "Canvas generation encountered an error. Fallback analysis provided.",
+      reasoning:
+        "Canvas generation encountered an error. Fallback analysis provided.",
       missingInformation: ["Full AI analysis unavailable"],
       dataWindowHours: 0,
     });

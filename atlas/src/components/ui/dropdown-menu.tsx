@@ -2,7 +2,11 @@
 
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { Check, ChevronRight, Circle } from "lucide-react";
-import type { ComponentPropsWithoutRef, ElementRef, HTMLAttributes } from "react";
+import type {
+  ComponentPropsWithoutRef,
+  ElementRef,
+  HTMLAttributes,
+} from "react";
 import { forwardRef } from "react";
 
 import { cn } from "@/lib/utils";
@@ -132,8 +136,7 @@ const DropdownMenuRadioItem = forwardRef<
     {children}
   </DropdownMenuPrimitive.RadioItem>
 ));
-DropdownMenuRadioItem.displayName =
-  DropdownMenuPrimitive.RadioItem.displayName;
+DropdownMenuRadioItem.displayName = DropdownMenuPrimitive.RadioItem.displayName;
 
 const DropdownMenuLabel = forwardRef<
   ElementRef<typeof DropdownMenuPrimitive.Label>,
@@ -163,8 +166,7 @@ const DropdownMenuSeparator = forwardRef<
     {...props}
   />
 ));
-DropdownMenuSeparator.displayName =
-  DropdownMenuPrimitive.Separator.displayName;
+DropdownMenuSeparator.displayName = DropdownMenuPrimitive.Separator.displayName;
 
 function DropdownMenuShortcut({
   className,

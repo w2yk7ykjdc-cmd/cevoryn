@@ -64,13 +64,12 @@ export async function loginAction(
   }
 
   // Use ?next param if provided, otherwise default to dashboard
-  const target = redirectTo && redirectTo.startsWith("/") ? redirectTo : ROUTES.DASHBOARD;
+  const target =
+    redirectTo && redirectTo.startsWith("/") ? redirectTo : ROUTES.DASHBOARD;
   redirect(target);
 }
 
-export async function signupAction(
-  input: SignupInput
-): Promise<ActionResult> {
+export async function signupAction(input: SignupInput): Promise<ActionResult> {
   const parsed = signupSchema.safeParse(input);
   if (!parsed.success) {
     return {

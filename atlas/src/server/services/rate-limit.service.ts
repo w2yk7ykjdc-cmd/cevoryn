@@ -1,9 +1,8 @@
 import "server-only";
 
+import { getOrgUsage } from "@/features/ai/engine/token-tracker";
 import { AI_CONFIG } from "@/lib/constants";
 import type { RateLimitResult } from "@/types";
-
-import { getOrgUsage } from "@/features/ai/engine/token-tracker";
 
 /**
  * Check whether an organization is within its daily token budget.

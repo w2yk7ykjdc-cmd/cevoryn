@@ -3,10 +3,10 @@
 import { ChevronDown, ChevronUp, Info } from "lucide-react";
 import { useState } from "react";
 
-import { cn } from "@/lib/utils";
-import { sendAnalyticsEvent } from "@/lib/analytics";
 import type { Evidence } from "@/features/brain/trust/types";
 import { getConfidenceLevel } from "@/features/brain/trust/types";
+import { sendAnalyticsEvent } from "@/lib/analytics";
+import { cn } from "@/lib/utils";
 
 interface TrustDisclosureProps {
   confidence: number;
@@ -17,7 +17,8 @@ interface TrustDisclosureProps {
 
 const CONFIDENCE_STYLES = {
   high: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
-  medium: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+  medium:
+    "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
   low: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
   insufficient: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
 } as const;
@@ -47,7 +48,10 @@ export function TrustDisclosure({
         className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
         aria-expanded={isOpen}
       >
-        <Info className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <Info
+          className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+          aria-hidden="true"
+        />
         <span className="flex-1 text-muted-foreground">
           Why Atlas thinks this
         </span>
@@ -67,11 +71,11 @@ export function TrustDisclosure({
       </button>
 
       {isOpen && (
-        <div className="space-y-3 border-t px-3 py-3 text-sm animate-fade-in">
+        <div className="animate-fade-in space-y-3 border-t px-3 py-3 text-sm">
           {/* Reasoning */}
           {reasoning && (
             <div>
-              <p className="font-medium text-xs uppercase tracking-wide text-muted-foreground mb-1">
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Reasoning
               </p>
               <p className="text-foreground">{reasoning}</p>
@@ -81,12 +85,15 @@ export function TrustDisclosure({
           {/* Evidence */}
           {evidence.length > 0 && (
             <div>
-              <p className="font-medium text-xs uppercase tracking-wide text-muted-foreground mb-1">
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Evidence ({evidence.length})
               </p>
               <ul className="space-y-1.5">
                 {evidence.map((e, i) => (
-                  <li key={i} className="rounded-md bg-background px-2.5 py-1.5 text-xs">
+                  <li
+                    key={i}
+                    className="rounded-md bg-background px-2.5 py-1.5 text-xs"
+                  >
                     <span className="font-medium capitalize">{e.source}</span>
                     <span className="text-muted-foreground"> — </span>
                     <span>{e.excerpt}</span>
@@ -99,7 +106,7 @@ export function TrustDisclosure({
           {/* Missing information */}
           {missingInformation.length > 0 && (
             <div>
-              <p className="font-medium text-xs uppercase tracking-wide text-muted-foreground mb-1">
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Missing information
               </p>
               <ul className="space-y-0.5 text-xs text-muted-foreground">

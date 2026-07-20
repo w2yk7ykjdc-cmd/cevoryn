@@ -39,7 +39,7 @@ export async function getConversationWithMessages(
   createdById: string
 ) {
   return prisma.conversation.findFirst({
-  where: { id, organizationId, createdById, isArchived: false },
+    where: { id, organizationId, createdById, isArchived: false },
     include: {
       messages: {
         orderBy: { createdAt: "asc" },

@@ -15,6 +15,7 @@ import { ROUTES } from "@/lib/constants";
 import { signupAction } from "../actions/auth";
 import { signupSchema } from "../schemas/auth";
 import type { SignupInput } from "../schemas/auth";
+
 import { AuthCard } from "./auth-card";
 
 export function SignupForm() {

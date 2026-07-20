@@ -1,9 +1,8 @@
 import "server-only";
 
-import type { MembershipContext, StreamChunk } from "@/types";
-
 import { streamResponse } from "@/features/ai/engine/conversation-engine";
 import { checkRateLimit } from "@/server/services/rate-limit.service";
+import type { MembershipContext, StreamChunk } from "@/types";
 
 /**
  * Send a message and get a streaming AI response.

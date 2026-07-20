@@ -13,22 +13,21 @@ export default async function SettingsPage() {
   const user = await requireUser();
   const membership = await requireMembership(user.id);
 
-  const [org, memberCount, memoryCount, conversationCount] =
-    await Promise.all([
-      prisma.organization.findUnique({
-        where: { id: membership.organizationId },
-        select: { name: true, slug: true, createdAt: true },
-      }),
-      prisma.member.count({
-        where: { organizationId: membership.organizationId },
-      }),
-      prisma.memory.count({
-        where: { organizationId: membership.organizationId, isActive: true },
-      }),
-      prisma.conversation.count({
-        where: { organizationId: membership.organizationId },
-      }),
-    ]);
+  const [org, memberCount, memoryCount, conversationCount] = await Promise.all([
+    prisma.organization.findUnique({
+      where: { id: membership.organizationId },
+      select: { name: true, slug: true, createdAt: true },
+    }),
+    prisma.member.count({
+      where: { organizationId: membership.organizationId },
+    }),
+    prisma.memory.count({
+      where: { organizationId: membership.organizationId, isActive: true },
+    }),
+    prisma.conversation.count({
+      where: { organizationId: membership.organizationId },
+    }),
+  ]);
 
   if (!org) return null;
 
@@ -36,9 +35,7 @@ export default async function SettingsPage() {
     <div className="mx-auto max-w-2xl space-y-6 pb-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground">
-          Manage your workspace
-        </p>
+        <p className="text-sm text-muted-foreground">Manage your workspace</p>
       </div>
 
       {/* Organization */}
@@ -111,13 +108,7 @@ export default async function SettingsPage() {
   );
 }
 
-function Row({
-  label,
-  value,
-}: {
-  label: string;
-  value: React.ReactNode;
-}) {
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between">
       <span className="text-sm text-muted-foreground">{label}</span>

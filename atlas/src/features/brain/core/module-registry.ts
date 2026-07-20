@@ -34,15 +34,17 @@ class ModuleRegistry {
   async gatherContext(params: BrainContextParams): Promise<string[]> {
     const contexts: string[] = [];
 
-    for (const module of this.modules.values()) {
+    for (const brainModule of this.modules.values()) {
       try {
-        const ctx = await module.getContext(params);
+        const ctx = await brainModule.getContext(params);
         if (ctx.length > 0) {
           contexts.push(ctx);
         }
       } catch (error) {
         const msg = error instanceof Error ? error.message : "unknown";
-        console.error(`Brain module "${module.name}" context error: ${msg}`);
+        console.error(
+          `Brain module "${brainModule.name}" context error: ${msg}`
+        );
       }
     }
 
@@ -61,9 +63,7 @@ class ModuleRegistry {
           await m.afterExchange!(params);
         } catch (error) {
           const msg = error instanceof Error ? error.message : "unknown";
-          console.error(
-            `Brain module "${m.name}" afterExchange error: ${msg}`
-          );
+          console.error(`Brain module "${m.name}" afterExchange error: ${msg}`);
         }
       });
 

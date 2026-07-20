@@ -2,14 +2,14 @@
 
 import { useEffect } from "react";
 
-import { sendAnalyticsEvent } from "@/lib/analytics";
-import type { ExecutiveHomeData } from "@/features/executive/types";
-import { ExecutiveStatus } from "@/features/executive/components/executive-status";
-import { TopPriority } from "@/features/executive/components/top-priority";
 import { AttentionQueue } from "@/features/executive/components/attention-queue";
-import { TodayActions } from "@/features/executive/components/today-actions";
-import { QuietState } from "@/features/executive/components/quiet-state";
+import { ExecutiveStatus } from "@/features/executive/components/executive-status";
 import { InsufficientData } from "@/features/executive/components/insufficient-data";
+import { QuietState } from "@/features/executive/components/quiet-state";
+import { TodayActions } from "@/features/executive/components/today-actions";
+import { TopPriority } from "@/features/executive/components/top-priority";
+import type { ExecutiveHomeData } from "@/features/executive/types";
+import { sendAnalyticsEvent } from "@/lib/analytics";
 
 interface ExecutiveHomeClientProps {
   data: ExecutiveHomeData;

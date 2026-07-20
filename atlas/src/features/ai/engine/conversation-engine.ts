@@ -1,17 +1,18 @@
 import "server-only";
 
-import { AI_CONFIG } from "@/lib/constants";
-import { prisma } from "@/lib/prisma";
+import { initializeBrain } from "@/features/brain/bootstrap";
 import {
   gatherBrainContext,
   processExchange,
 } from "@/features/brain/core/atlas-engine";
-import { initializeBrain } from "@/features/brain/bootstrap";
+import { AI_CONFIG } from "@/lib/constants";
+import { prisma } from "@/lib/prisma";
 import type { MembershipContext, StreamChunk } from "@/types";
 
 import { buildContext } from "../context/context-builder";
 import { TITLE_GENERATION_PROMPT } from "../context/prompts";
 import { getAIProvider } from "../providers";
+
 import { recordUsage } from "./token-tracker";
 
 // Ensure brain modules are registered

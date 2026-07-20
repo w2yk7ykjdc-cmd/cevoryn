@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-import { getMembership, getUser } from "@/lib/auth";
 import { executeDecisionPipeline } from "@/features/brain/decisions/decision-engine";
 import { listDecisions } from "@/features/brain/decisions/decision.service";
-import { checkRateLimit } from "@/server/services/rate-limit.service";
 import { createDecisionSchema } from "@/features/brain/decisions/schemas";
+import { getMembership, getUser } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
+import { checkRateLimit } from "@/server/services/rate-limit.service";
 
 export async function GET(request: NextRequest) {
   const user = await getUser();

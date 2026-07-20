@@ -3,8 +3,8 @@ import { z } from "zod";
 const serverSchema = z.object({
   DATABASE_URL: z.string().url(),
   DIRECT_URL: z.string().url().optional(),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional() ,
-  OPENAI_API_KEY: z.string().startsWith("sk-").optional() ,
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
+  OPENAI_API_KEY: z.string().startsWith("sk-").optional(),
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
