@@ -58,6 +58,7 @@ export class PulseModule implements BrainModule {
       "Use these real company metrics when answering questions about the company's current state.",
       "Do not claim that company information is unavailable when these metrics are present.",
       "Metrics:",
+      "Do not infer beta status, customer activity, business performance, or company health from zero or low metrics alone.",
       JSON.stringify(metrics, null, 2),
     ].join("\n");
   }
