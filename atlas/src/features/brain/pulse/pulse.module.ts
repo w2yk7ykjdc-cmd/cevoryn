@@ -59,6 +59,9 @@ export class PulseModule implements BrainModule {
       "Do not claim that company information is unavailable when these metrics are present.",
       "Metrics:",
       "Do not infer beta status, customer activity, business performance, or company health from zero or low metrics alone.",
+      
+      "Zero values only mean zero activity was recorded during the stated measurement period; report them without explaining why, and do not make recommendations unless explicitly asked.",
+      
       JSON.stringify(metrics, null, 2),
     ].join("\n");
   }
