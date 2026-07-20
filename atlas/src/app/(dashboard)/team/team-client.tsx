@@ -80,6 +80,36 @@ export function TeamClient({
     });
   }
 
+  async function copyInviteLink(invite: PendingInvite) {
+    try {
+      let acceptPath = invite.acceptPath;
+
+      if (!acceptPath) {
+        const res = await fetch(`/api/team/invite/${invite.id}`);
+        const data = await res.json().catch(() => null);
+
+        if (!res.ok || !data?.data?.acceptPath) {
+          toast.error(data?.error?.message ?? "Invite link could not be loaded");
+          return;
+        }
+
+        acceptPath = data.data.acceptPath;
+        setInvites((prev) =>
+          prev.map((item) =>
+            item.id === invite.id ? { ...item, acceptPath } : item
+          )
+        );
+      }
+
+      const inviteUrl = `${window.location.origin}${acceptPath}`;
+      await navigator.clipboard.writeText(inviteUrl);
+      setCopiedInviteId(invite.id);
+      toast.success("Invite link copied");
+    } catch (_error) {
+      toast.error("Invite link could not be copied");
+    }
+  }
+
   return (
     <div className="mx-auto max-w-2xl space-y-6 pb-8">
       <div>
@@ -139,12 +169,12 @@ export function TeamClient({
             {invites.map((invite, i) => (
               <div
                 key={invite.id}
-                className={`flex items-center justify-between px-4 py-3 ${
+                className={`flex items-center justify-between gap-2 px-4 py-3 ${
                   i < invites.length - 1 ? "border-b" : ""
                 }`}
               >
-                <div>
-                  <p className="text-sm">{invite.email}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm">{invite.email}</p>
                   <p className="text-xs text-muted-foreground">
                     Expires{" "}
                     {new Intl.DateTimeFormat("en-US", {
@@ -153,26 +183,19 @@ export function TeamClient({
                     }).format(new Date(invite.expiresAt))}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  {invite.acceptPath && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={async () => {
-                        const inviteUrl = `${window.location.origin}${invite.acceptPath}`;
-                        await navigator.clipboard.writeText(inviteUrl);
-                        setCopiedInviteId(invite.id);
-                        toast.success("Invite link copied");
-                      }}
-                    >
-                      {copiedInviteId === invite.id ? (
-                        <Check className="h-3.5 w-3.5" />
-                      ) : (
-                        <Copy className="h-3.5 w-3.5" />
-                      )}
-                      Copy link
-                    </Button>
-                  )}
+                <div className="flex shrink-0 items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyInviteLink(invite)}
+                  >
+                    {copiedInviteId === invite.id ? (
+                      <Check className="h-3.5 w-3.5" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
+                    )}
+                    Copy link
+                  </Button>
                   <Badge variant="outline" className="text-[10px]">
                     {invite.role}
                   </Badge>
