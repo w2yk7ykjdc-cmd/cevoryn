@@ -8,9 +8,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // =============================================================================
@@ -445,21 +444,30 @@ model OutcomeEvaluation {
 // Brain: Learning Engine
 // =============================================================================
 
+enum LearningPatternType {
+  SUCCESS_PATTERN
+  FAILURE_PATTERN
+  DECISION_BIAS
+  ORGANIZATIONAL_TREND
+  RECOMMENDATION_RULE
+}
+
 model LearningPattern {
-  id             String   @id @default(cuid())
-  organizationId String   @map("organization_id")
-  patternType    String   @map("pattern_type")
-  category       String
-  pattern        String
-  frequency      Int      @default(1)
-  confidence     Float    @default(0.5)
-  metadata       Json     @default("{}")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id             String              @id @default(cuid())
+  organizationId String              @map("organization_id")
+  type           LearningPatternType
+  title          String
+  description    String
+  confidence     Float               @default(0.5)
+  evidence       Json                @default("[]")
+  metadata       Json?
+  isActive       Boolean             @default(true) @map("is_active")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@index([organizationId, patternType])
-  @@index([organizationId, category])
+  @@index([organizationId, isActive])
+  @@index([organizationId, type])
   @@map("learning_patterns")
 }
