@@ -6,6 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { handleUnauthorized } from "@/lib/client-auth";
 
 export function NewChatRedirect() {
   const router = useRouter();
@@ -15,8 +16,10 @@ export function NewChatRedirect() {
     setIsCreating(true);
     try {
       const res = await fetch("/api/conversations", { method: "POST" });
+      if (handleUnauthorized(res)) return;
       if (!res.ok) {
-        toast.error("Failed to create conversation");
+        const body = await res.json().catch(() => null);
+        toast.error(body?.error?.message ?? "Failed to create conversation");
         return;
       }
       const json = await res.json();
