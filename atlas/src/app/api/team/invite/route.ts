@@ -45,6 +45,10 @@ export async function POST(request: NextRequest) {
       return badRequestResponse("Valid email is required");
     }
 
+    if (parsed.data.role === "ADMIN" && membership.role !== "OWNER") {
+      return forbiddenResponse("Only owners can invite administrators");
+    }
+
     const [memberCount, existingInvite] = await Promise.all([
       prisma.member.count({
         where: { organizationId: membership.organizationId },
