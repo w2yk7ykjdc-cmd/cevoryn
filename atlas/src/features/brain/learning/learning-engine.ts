@@ -52,13 +52,8 @@ export async function extractLearningPatterns(
 
   let patternsCreated = 0;
 
-  // ── Pattern: Acceptance rates by category ──
   patternsCreated += await detectAcceptancePatterns(organizationId, decisions);
-
-  // ── Pattern: Success/failure rates ──
   patternsCreated += await detectOutcomePatterns(organizationId, decisions);
-
-  // ── Pattern: Recurring problems ──
   patternsCreated += await detectRepeatPatterns(organizationId, decisions);
 
   return patternsCreated;
@@ -81,8 +76,6 @@ async function detectAcceptancePatterns(
   if (total < 3) return 0;
 
   const acceptanceRate = accepted.length / total;
-
-  // Check if high-priority decisions get accepted more often
   const highPri = decisions.filter((d) => d.priorityScore >= 7);
   const highPriAccepted = highPri.filter(
     (d) => d.status !== "REJECTED" && d.status !== "IGNORED"
@@ -148,7 +141,6 @@ async function detectOutcomePatterns(
       confidence: Math.min(failed.length / 5, 0.7),
     });
 
-    // Store failures as company memory for future context
     await createMemory(
       organizationId,
       {
@@ -166,7 +158,6 @@ async function detectRepeatPatterns(
   organizationId: string,
   decisions: Array<{ canvas: unknown }>
 ): Promise<number> {
-  // Group by problem keywords to find recurring themes
   const problemWords = new Map<string, number>();
 
   for (const d of decisions) {
@@ -210,12 +201,14 @@ async function upsertPattern(
     confidence: number;
   }
 ): Promise<number> {
+  const patternWhere = {
+    organizationId,
+    patternType: data.patternType,
+    category: data.category,
+  };
+
   const existing = await prisma.learningPattern.findFirst({
-    where: {
-      organizationId,
-      patternType: data.patternType,
-      category: data.category,
-    },
+    where: patternWhere as never,
     select: { id: true },
   });
 
@@ -231,15 +224,17 @@ async function upsertPattern(
     return 0;
   }
 
+  const createData = {
+    organizationId,
+    patternType: data.patternType,
+    category: data.category,
+    pattern: data.pattern,
+    frequency: data.frequency,
+    confidence: data.confidence,
+  };
+
   await prisma.learningPattern.create({
-    data: {
-      organizationId,
-      patternType: data.patternType,
-      category: data.category,
-      pattern: data.pattern,
-      frequency: data.frequency,
-      confidence: data.confidence,
-    },
+    data: createData as never,
   });
 
   return 1;
