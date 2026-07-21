@@ -67,6 +67,7 @@ export interface ActionItem {
 export const ANALYTICS_EVENTS = {
   EXECUTIVE_HOME_VIEWED: "executive_home_viewed",
   TOP_PRIORITY_OPENED: "top_priority_opened",
+  TOP_PRIORITY_DISCUSS_CLICKED: "top_priority_discuss_clicked",
   EVIDENCE_OPENED: "evidence_opened",
   ATTENTION_ITEM_DISCUSSED: "attention_item_discussed",
   ACTION_APPROVED: "recommended_action_approved",
