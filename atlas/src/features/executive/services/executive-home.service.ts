@@ -239,19 +239,21 @@ function buildTopPriority(
     description: string;
     impact: string;
     confidence: number;
+    priority: number;
     reasoning: string;
     recommendedAction: string;
     evidence: unknown;
   }>,
   decisions: Array<{ id: string; canvas: unknown; priorityScore: number }>
 ): TopPriorityItem | null {
-  // Check highest-priority decision first
   const topDecision = decisions[0];
   const topInsight = insights[0];
 
+  // Both values use the same 0–10 priority scale. Comparing decision priority
+  // against insight confidence (0–1) made decisions win almost every time.
   if (
     topDecision &&
-    (!topInsight || topDecision.priorityScore >= (topInsight.confidence ?? 0))
+    (!topInsight || topDecision.priorityScore >= topInsight.priority)
   ) {
     const canvas = topDecision.canvas as unknown as DecisionCanvas;
     return {
