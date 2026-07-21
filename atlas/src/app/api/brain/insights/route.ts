@@ -14,6 +14,7 @@ import {
 } from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
+import { checkRateLimit } from "@/server/services/rate-limit.service";
 
 export async function GET(request: NextRequest) {
   try {
@@ -47,6 +48,14 @@ export async function POST() {
 
     if (!hasPermission(membership.role, "settings:update")) {
       return forbiddenResponse("Insufficient permissions");
+    }
+
+    const rateLimit = await checkRateLimit(membership.organizationId);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: { code: "RATE_LIMITED", message: "Daily token limit reached" } },
+        { status: 429 }
+      );
     }
 
     const created = await generateInsights(membership.organizationId);
