@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { redirectToLoginOnUnauthorized } from "@/lib/client-auth";
+import { handleUnauthorized } from "@/lib/client-auth";
 
 interface Member {
   id: string;
@@ -81,7 +81,7 @@ export function TeamClient({
           body: JSON.stringify({ email: email.trim() }),
         });
 
-        if (redirectToLoginOnUnauthorized(res)) return;
+        if (handleUnauthorized(res)) return;
 
         const data = await res.json().catch(() => null);
         if (!res.ok) {
@@ -107,7 +107,7 @@ export function TeamClient({
         body: JSON.stringify({ role }),
       });
 
-      if (redirectToLoginOnUnauthorized(res)) return;
+      if (handleUnauthorized(res)) return;
 
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -137,7 +137,7 @@ export function TeamClient({
         method: "DELETE",
       });
 
-      if (redirectToLoginOnUnauthorized(res)) return;
+      if (handleUnauthorized(res)) return;
 
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -160,7 +160,7 @@ export function TeamClient({
 
       if (!acceptPath) {
         const res = await fetch(`/api/team/invite/${invite.id}`);
-        if (redirectToLoginOnUnauthorized(res)) return;
+        if (handleUnauthorized(res)) return;
         const data = await res.json().catch(() => null);
 
         if (!res.ok || !data?.data?.acceptPath) {
