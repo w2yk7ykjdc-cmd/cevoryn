@@ -9,87 +9,97 @@ import { hasPermission } from "@/lib/rbac";
 import { checkRateLimit } from "@/server/services/rate-limit.service";
 
 export async function GET(request: NextRequest) {
-  const user = await getUser();
-  if (!user) {
+  try {
+    const user = await getUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
+        { status: 401 }
+      );
+    }
+
+    const membership = await getMembership(user.id);
+    if (!membership) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "No organization" } },
+        { status: 403 }
+      );
+    }
+
+    const url = new URL(request.url);
+    const status = url.searchParams.get("status") ?? undefined;
+    const decisions = await listDecisions(membership.organizationId, { status });
+
+    return NextResponse.json({ data: decisions });
+  } catch (error) {
+    console.error(
+      "Decisions GET error:",
+      error instanceof Error ? error.message : "unknown"
+    );
     return NextResponse.json(
-      { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
-      { status: 401 }
+      { error: { code: "INTERNAL_ERROR", message: "Failed to load decisions" } },
+      { status: 500 }
     );
   }
-
-  const membership = await getMembership(user.id);
-  if (!membership) {
-    return NextResponse.json(
-      { error: { code: "FORBIDDEN", message: "No organization" } },
-      { status: 403 }
-    );
-  }
-
-  const url = new URL(request.url);
-  const status = url.searchParams.get("status") ?? undefined;
-
-  const decisions = await listDecisions(membership.organizationId, { status });
-
-  return NextResponse.json({ data: decisions });
 }
 
 export async function POST(request: NextRequest) {
-  const user = await getUser();
-  if (!user) {
-    return NextResponse.json(
-      { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
-      { status: 401 }
-    );
-  }
-
-  const membership = await getMembership(user.id);
-  if (!membership) {
-    return NextResponse.json(
-      { error: { code: "FORBIDDEN", message: "No organization" } },
-      { status: 403 }
-    );
-  }
-
-  let body: unknown;
   try {
-    body = await request.json();
-  } catch (_error) {
-    return NextResponse.json(
-      { error: { code: "INVALID_JSON", message: "Invalid body" } },
-      { status: 400 }
-    );
-  }
+    const user = await getUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
+        { status: 401 }
+      );
+    }
 
-  if (!hasPermission(membership.role, "settings:update")) {
-    return NextResponse.json(
-      { error: { code: "FORBIDDEN", message: "Insufficient permissions" } },
-      { status: 403 }
-    );
-  }
+    const membership = await getMembership(user.id);
+    if (!membership) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "No organization" } },
+        { status: 403 }
+      );
+    }
 
-  const rateLimit = await checkRateLimit(membership.organizationId);
-  if (!rateLimit.allowed) {
-    return NextResponse.json(
-      { error: { code: "RATE_LIMITED", message: "Daily token limit reached" } },
-      { status: 429 }
-    );
-  }
+    if (!hasPermission(membership.role, "settings:update")) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "Insufficient permissions" } },
+        { status: 403 }
+      );
+    }
 
-  const parsed = createDecisionSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      {
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "Invalid input",
-          details: parsed.error.flatten().fieldErrors,
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch (_error) {
+      return NextResponse.json(
+        { error: { code: "INVALID_JSON", message: "Invalid body" } },
+        { status: 400 }
+      );
+    }
+
+    const parsed = createDecisionSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Invalid input",
+            details: parsed.error.flatten().fieldErrors,
+          },
         },
-      },
-      { status: 400 }
-    );
-  }
+        { status: 400 }
+      );
+    }
 
-  try {
+    const rateLimit = await checkRateLimit(membership.organizationId);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: { code: "RATE_LIMITED", message: "Daily token limit reached" } },
+        { status: 429 }
+      );
+    }
+
     const result = await executeDecisionPipeline({
       organizationId: membership.organizationId,
       problemDescription: parsed.data.problemDescription,
@@ -113,9 +123,17 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    const msg = error instanceof Error ? error.message : "Pipeline failed";
+    console.error(
+      "Decisions POST error:",
+      error instanceof Error ? error.message : "unknown"
+    );
     return NextResponse.json(
-      { error: { code: "PIPELINE_ERROR", message: msg } },
+      {
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to process decision request",
+        },
+      },
       { status: 500 }
     );
   }
