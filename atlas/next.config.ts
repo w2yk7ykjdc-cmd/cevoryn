@@ -2,9 +2,6 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  eslint: {
-  ignoreDuringBuilds: true,
-},
   poweredByHeader: false,
   images: {
     formats: ["image/avif", "image/webp"],
