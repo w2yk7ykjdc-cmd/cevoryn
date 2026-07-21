@@ -25,7 +25,7 @@ interface LoginFormProps {
 
 export function LoginForm({
   redirectTo,
-  authError: _authError,
+  authError,
 }: LoginFormProps) {
   const [isPending, setIsPending] = useState(false);
 
@@ -41,9 +41,9 @@ export function LoginForm({
 
   async function onSubmit(data: LoginInput) {
     setIsPending(true);
+
     try {
       const result = await loginAction(data, redirectTo);
-      // If loginAction succeeds, it redirects — we only get here on error
       if (!result.success) {
         toast.error(result.error);
         if (result.fieldErrors) {
@@ -54,8 +54,17 @@ export function LoginForm({
           });
         }
       }
-    } catch (_error) {
-      // Server action redirect throws NEXT_REDIRECT — expected on success
+    } catch (error) {
+      const digest =
+        error && typeof error === "object" && "digest" in error
+          ? String(error.digest)
+          : "";
+
+      // Next.js implements successful server-action redirects by throwing.
+      if (digest.startsWith("NEXT_REDIRECT")) throw error;
+
+      console.error("Login failed:", error);
+      toast.error("Unable to sign in. Please try again.");
     } finally {
       setIsPending(false);
     }
@@ -77,6 +86,12 @@ export function LoginForm({
         </>
       }
     >
+      {authError && (
+        <p role="alert" className="mb-4 text-sm text-destructive">
+          {authError}
+        </p>
+      )}
+
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
