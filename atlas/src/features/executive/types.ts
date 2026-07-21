@@ -68,6 +68,7 @@ export const ANALYTICS_EVENTS = {
   EXECUTIVE_HOME_VIEWED: "executive_home_viewed",
   TOP_PRIORITY_OPENED: "top_priority_opened",
   EVIDENCE_OPENED: "evidence_opened",
+  ATTENTION_ITEM_DISCUSSED: "attention_item_discussed",
   ACTION_APPROVED: "recommended_action_approved",
   ACTION_REJECTED: "recommended_action_rejected",
   MORNING_REVIEW_COMPLETED: "morning_review_completed",
