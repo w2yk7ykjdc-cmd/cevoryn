@@ -10,7 +10,6 @@ import type { AuthUser, MembershipContext } from "@/types";
 // User Authentication
 // =============================================================================
 
-/** Get current authenticated user, or null */
 export async function getUser(): Promise<AuthUser | null> {
   const supabase = await createClient();
   const {
@@ -28,7 +27,6 @@ export async function getUser(): Promise<AuthUser | null> {
   };
 }
 
-/** Get current user or redirect to login */
 export async function requireUser(): Promise<AuthUser> {
   const user = await getUser();
   if (!user) redirect(ROUTES.LOGIN);
@@ -39,39 +37,56 @@ export async function requireUser(): Promise<AuthUser> {
 // Organization Membership
 // =============================================================================
 
-/** Get user's first organization membership, or null */
 export async function getMembership(
   userId: string
 ): Promise<MembershipContext | null> {
-  const member = await prisma.member.findFirst({
-    where: { userId },
-    include: {
-      organization: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
+  try {
+    const member = await prisma.member.findFirst({
+      where: { userId },
+      include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
         },
       },
-    },
-    orderBy: { createdAt: "asc" },
-  });
+      orderBy: { createdAt: "asc" },
+    });
 
-  if (!member) return null;
+    if (!member) return null;
 
-  return {
-    memberId: member.id,
-    userId: member.userId,
-    organizationId: member.organization.id,
-    organizationName: member.organization.name,
-    organizationSlug: member.organization.slug,
-    role: member.role,
-    displayName: member.displayName,
-    avatarUrl: member.avatarUrl,
-  };
+    return {
+      memberId: member.id,
+      userId: member.userId,
+      organizationId: member.organization.id,
+      organizationName: member.organization.name,
+      organizationSlug: member.organization.slug,
+      role: member.role,
+      displayName: member.displayName,
+      avatarUrl: member.avatarUrl,
+    };
+  } catch (error) {
+    const prismaError = error as { code?: string; meta?: { modelName?: string } };
+    console.error("[atlas:auth] getMembership failed", {
+      prismaCode: prismaError.code ?? "UNKNOWN",
+      model: prismaError.meta?.modelName ?? "member",
+      userId: userId.slice(0, 8) + "...",
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
+
+    if (prismaError.code === "P2021" || prismaError.code === "P2010") {
+      console.error(
+        "[atlas:auth] Database schema not migrated. Run: npx prisma migrate deploy"
+      );
+      return null;
+    }
+
+    throw error;
+  }
 }
 
-/** Get membership or redirect to onboarding */
 export async function requireMembership(
   userId: string
 ): Promise<MembershipContext> {
