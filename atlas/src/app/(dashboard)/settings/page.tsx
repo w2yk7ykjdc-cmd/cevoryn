@@ -6,6 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { requireMembership, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { hasPermission } from "@/lib/rbac";
+
+import { OrganizationNameForm } from "./organization-name-form";
 
 export const metadata: Metadata = { title: "Settings — Atlas" };
 
@@ -31,6 +34,8 @@ export default async function SettingsPage() {
 
   if (!org) return null;
 
+  const canUpdateOrganization = hasPermission(membership.role, "org:update");
+
   return (
     <div className="mx-auto max-w-2xl space-y-6 pb-8">
       <div>
@@ -38,7 +43,6 @@ export default async function SettingsPage() {
         <p className="text-sm text-muted-foreground">Manage your workspace</p>
       </div>
 
-      {/* Organization */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
@@ -47,7 +51,14 @@ export default async function SettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Row label="Name" value={org.name} />
+          {canUpdateOrganization ? (
+            <div className="space-y-2">
+              <span className="text-sm text-muted-foreground">Name</span>
+              <OrganizationNameForm initialName={org.name} />
+            </div>
+          ) : (
+            <Row label="Name" value={org.name} />
+          )}
           <Separator />
           <Row label="Slug" value={org.slug} />
           <Separator />
@@ -60,7 +71,6 @@ export default async function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Your Role */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
@@ -82,7 +92,6 @@ export default async function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Usage */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Workspace Usage</CardTitle>
