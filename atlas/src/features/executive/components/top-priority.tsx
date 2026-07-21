@@ -1,11 +1,13 @@
 "use client";
 
-import { AlertTriangle, ArrowRight } from "lucide-react";
+import { AlertTriangle, ArrowRight, MessageSquare } from "lucide-react";
+import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { sendAnalyticsEvent } from "@/lib/analytics";
+import { ROUTES } from "@/lib/constants";
 
 import type { TopPriorityItem } from "../types";
 
@@ -28,6 +30,10 @@ export function TopPriority({ item, onApproveAction }: TopPriorityProps) {
     sendAnalyticsEvent("top_priority_opened", { id: item.id });
   }
 
+  function handleDiscuss() {
+    sendAnalyticsEvent("top_priority_discuss_clicked", { id: item.id });
+  }
+
   return (
     <Card
       className={SEVERITY_STYLES[item.severity] ?? ""}
@@ -43,7 +49,7 @@ export function TopPriority({ item, onApproveAction }: TopPriorityProps) {
               aria-hidden="true"
             />
             <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Top Priority
+              Needs your attention today
             </span>
           </div>
           <div className="flex gap-1.5">
@@ -66,45 +72,54 @@ export function TopPriority({ item, onApproveAction }: TopPriorityProps) {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Summary */}
         <p className="text-sm leading-relaxed">
           {item.summary || item.description}
         </p>
 
-        {/* Impact */}
         {item.impact && (
           <div className="rounded-lg bg-muted/50 p-3">
             <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Business Impact
+              Why this matters
             </p>
             <p className="text-sm">{item.impact}</p>
           </div>
         )}
 
-        {/* Recommended action */}
         {item.recommendedAction && (
           <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
             <p className="mb-1 text-xs font-medium uppercase tracking-wide text-primary">
-              Recommended Action
+              Today&apos;s move
             </p>
-            <p className="text-sm">{item.recommendedAction}</p>
-            {onApproveAction && (
-              <Button
-                size="sm"
-                className="mt-3"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onApproveAction();
-                }}
-              >
-                Take Action
-                <ArrowRight className="h-3.5 w-3.5" />
+            <p className="text-sm font-medium">{item.recommendedAction}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {onApproveAction && (
+                <Button
+                  size="sm"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onApproveAction();
+                  }}
+                >
+                  Take action
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              <Button size="sm" variant="outline" asChild>
+                <Link
+                  href={ROUTES.CHAT}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleDiscuss();
+                  }}
+                >
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  Discuss with Atlas
+                </Link>
               </Button>
-            )}
+            </div>
           </div>
         )}
 
-        {/* Trust disclosure */}
         <TrustDisclosure
           confidence={item.confidence}
           reasoning={item.reasoning}
