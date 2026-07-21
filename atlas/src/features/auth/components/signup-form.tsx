@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ROUTES } from "@/lib/constants";
 
-import { signupAction } from "../actions/auth";
+import { resendConfirmationAction, signupAction } from "../actions/auth";
 import { signupSchema } from "../schemas/auth";
 import type { SignupInput } from "../schemas/auth";
 
@@ -20,7 +20,9 @@ import { AuthCard } from "./auth-card";
 
 export function SignupForm() {
   const [isPending, setIsPending] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const [isConfirmation, setIsConfirmation] = useState(false);
+  const [confirmationEmail, setConfirmationEmail] = useState("");
 
   const {
     register,
@@ -37,6 +39,7 @@ export function SignupForm() {
     try {
       const result = await signupAction(data);
       if (result.success) {
+        setConfirmationEmail(data.email);
         setIsConfirmation(true);
       } else {
         toast.error(result.error);
@@ -55,6 +58,27 @@ export function SignupForm() {
     }
   }
 
+  async function onResendConfirmation() {
+    if (!confirmationEmail) return;
+
+    setIsResending(true);
+    try {
+      const result = await resendConfirmationAction({
+        email: confirmationEmail,
+      });
+
+      if (result.success) {
+        toast.success("A new confirmation email was sent.");
+      } else {
+        toast.error(result.error);
+      }
+    } catch (_error) {
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setIsResending(false);
+    }
+  }
+
   if (isConfirmation) {
     return (
       <AuthCard
@@ -64,11 +88,21 @@ export function SignupForm() {
         <div className="flex flex-col items-center gap-4 py-4">
           <CheckCircle2 className="h-12 w-12 text-green-500" />
           <p className="text-center text-sm text-muted-foreground">
-            Click the link in your email to activate your account, then return
-            here to sign in.
+            Click the link sent to <strong>{confirmationEmail}</strong> to
+            activate your account. The link can expire, so open the newest
+            email.
           </p>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onResendConfirmation}
+            disabled={isResending}
+          >
+            {isResending && <Loader2 className="animate-spin" />}
+            Resend confirmation email
+          </Button>
           <Link href={ROUTES.LOGIN}>
-            <Button variant="outline">Back to sign in</Button>
+            <Button variant="ghost">Back to sign in</Button>
           </Link>
         </div>
       </AuthCard>
