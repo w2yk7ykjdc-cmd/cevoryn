@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { unauthorizedResponse, forbiddenResponse } from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
+import { hasPermission } from "@/lib/rbac";
 import {
   createConversation,
   listConversations,
@@ -51,6 +52,10 @@ export async function POST() {
 
     const membership = await getMembership(user.id);
     if (!membership) return forbiddenResponse();
+
+    if (!hasPermission(membership.role, "ai:use")) {
+      return forbiddenResponse("Insufficient permissions");
+    }
 
     const conversation = await createConversation({
       organizationId: membership.organizationId,
