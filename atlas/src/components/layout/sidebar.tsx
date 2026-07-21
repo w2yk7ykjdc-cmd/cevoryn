@@ -75,7 +75,7 @@ export function Sidebar({ membership }: SidebarProps) {
       </nav>
 
       <div className="border-t px-4 py-3">
-        <p className="text-xs text-muted-foreground">Atlas RC1</p>
+        <p className="text-xs text-muted-foreground">Atlas RC3</p>
       </div>
     </aside>
   );
