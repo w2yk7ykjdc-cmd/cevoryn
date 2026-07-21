@@ -46,7 +46,7 @@ export async function POST() {
     const membership = await getMembership(user.id);
     if (!membership) return forbiddenResponse();
 
-    if (!hasPermission(membership.role, "settings:update")) {
+    if (!hasPermission(membership.role, "ai:use")) {
       return forbiddenResponse("Insufficient permissions");
     }
 
@@ -83,6 +83,10 @@ export async function PATCH(request: NextRequest) {
     if (!user) return unauthorizedResponse();
     const membership = await getMembership(user.id);
     if (!membership) return forbiddenResponse();
+
+    if (!hasPermission(membership.role, "ai:use")) {
+      return forbiddenResponse("Insufficient permissions");
+    }
 
     let body: unknown;
     try {
