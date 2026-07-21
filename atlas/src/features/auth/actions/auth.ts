@@ -113,6 +113,41 @@ export async function signupAction(input: SignupInput): Promise<ActionResult> {
   return { success: true, data: undefined };
 }
 
+export async function resendConfirmationAction(
+  input: ForgotPasswordInput
+): Promise<ActionResult> {
+  const parsed = forgotPasswordSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: "Enter a valid email address.",
+      fieldErrors: parsed.error.flatten().fieldErrors as Record<
+        string,
+        string[]
+      >,
+    };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email: parsed.data.email,
+    options: {
+      emailRedirectTo: `${getAppUrl()}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(ROUTES.ONBOARDING)}`,
+    },
+  });
+
+  if (error) {
+    console.error("Confirmation resend error:", error.message);
+    return {
+      success: false,
+      error: "Confirmation email could not be resent yet. Please wait and try again.",
+    };
+  }
+
+  return { success: true, data: undefined };
+}
+
 export async function forgotPasswordAction(
   input: ForgotPasswordInput
 ): Promise<ActionResult> {
