@@ -58,7 +58,7 @@ export async function updateDecisionStatus(
   decisionId: string,
   status: "ACCEPTED" | "REJECTED" | "IGNORED" | "COMPLETED",
   outcome?: string
-) {
+): Promise<boolean> {
   const typeMap: Record<string, string> = {
     ACCEPTED: "USER_ACCEPTED",
     REJECTED: "USER_REJECTED",
@@ -67,7 +67,7 @@ export async function updateDecisionStatus(
   };
 
   return prisma.$transaction(async (tx) => {
-    await tx.decision.updateMany({
+    const updated = await tx.decision.updateMany({
       where: { id: decisionId, organizationId },
       data: {
         status,
@@ -75,6 +75,8 @@ export async function updateDecisionStatus(
         ...(outcome && { outcome }),
       },
     });
+
+    if (updated.count === 0) return false;
 
     await tx.decisionTimelineEvent.create({
       data: {
@@ -84,6 +86,8 @@ export async function updateDecisionStatus(
         metadata: outcome ? { outcome } : undefined,
       },
     });
+
+    return true;
   });
 }
 
