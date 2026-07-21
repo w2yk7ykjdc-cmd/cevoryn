@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 
+import { handleUnauthorized } from "@/lib/client-auth";
 import type { MessageDetail, StreamChunk } from "@/types";
 
 interface UseChatOptions {
@@ -63,13 +64,9 @@ export function useChat({
           signal: abortRef.current.signal,
         });
 
-        if (!response.ok) {
-          if (response.status === 401) {
-            const next = `${window.location.pathname}${window.location.search}`;
-            window.location.href = `/login?next=${encodeURIComponent(next)}`;
-            return;
-          }
+        if (handleUnauthorized(response)) return;
 
+        if (!response.ok) {
           const errorBody = await response.json().catch(() => null);
           throw new Error(
             errorBody?.error?.message ?? `Request failed (${response.status})`
