@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { getInviteAcceptPath } from "@/features/team/invites";
 import { requireMembership, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { isRoleAtLeast } from "@/lib/rbac";
+import { hasPermission } from "@/lib/rbac";
 
 import { TeamClient } from "./team-client";
 
@@ -41,43 +41,28 @@ export default async function TeamPage() {
     }),
   ]);
 
-  const canInvite = isRoleAtLeast(membership.role, "ADMIN");
-
   return (
     <TeamClient
       orgName={membership.organizationName}
       currentUserId={membership.userId}
-      canInvite={canInvite}
-      members={members.map(
-        (m: {
-          id: string;
-          userId: string;
-          displayName: string;
-          role: string;
-          createdAt: Date;
-        }) => ({
-          id: m.id,
-          userId: m.userId,
-          displayName: m.displayName,
-          role: m.role,
-          joinedAt: m.createdAt.toISOString(),
-        })
-      )}
-      pendingInvites={pendingInvites.map(
-        (i: {
-          id: string;
-          email: string;
-          role: string;
-          expiresAt: Date;
-          token: string;
-        }) => ({
-          id: i.id,
-          email: i.email,
-          role: i.role,
-          expiresAt: i.expiresAt.toISOString(),
-          acceptPath: getInviteAcceptPath(i.token),
-        })
-      )}
+      currentUserRole={membership.role}
+      canInvite={hasPermission(membership.role, "members:invite")}
+      canRemoveMembers={hasPermission(membership.role, "members:remove")}
+      canUpdateRoles={hasPermission(membership.role, "members:update-role")}
+      members={members.map((member) => ({
+        id: member.id,
+        userId: member.userId,
+        displayName: member.displayName,
+        role: member.role,
+        joinedAt: member.createdAt.toISOString(),
+      }))}
+      pendingInvites={pendingInvites.map((invite) => ({
+        id: invite.id,
+        email: invite.email,
+        role: invite.role,
+        expiresAt: invite.expiresAt.toISOString(),
+        acceptPath: getInviteAcceptPath(invite.token),
+      }))}
     />
   );
 }
