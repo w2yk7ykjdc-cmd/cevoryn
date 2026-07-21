@@ -98,11 +98,19 @@ export async function PATCH(request: NextRequest) {
     const parsed = updateInsightStatusSchema.safeParse(body);
     if (!parsed.success) return badRequestResponse("Invalid input");
 
-    await updateInsightStatus(
+    const result = await updateInsightStatus(
       membership.organizationId,
       parsed.data.id,
       parsed.data.status
     );
+
+    if (result.count === 0) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Insight not found" } },
+        { status: 404 }
+      );
+    }
+
     return NextResponse.json({
       data: { id: parsed.data.id, status: parsed.data.status },
     });
