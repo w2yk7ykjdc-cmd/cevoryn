@@ -33,6 +33,24 @@ function sanitizeAuthError(message: string): string {
   return safeMessages[message] ?? "Authentication failed. Please try again.";
 }
 
+function getAppUrl(): string {
+  const configuredUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (configuredUrl) return configuredUrl.replace(/\/$/, "");
+
+  const vercelUrl = process.env.VERCEL_URL?.trim();
+  if (vercelUrl) return `https://${vercelUrl.replace(/\/$/, "")}`;
+
+  return "http://localhost:3000";
+}
+
+function getSafeRedirectPath(path: string | undefined, fallback: string): string {
+  if (!path || !path.startsWith("/") || path.startsWith("//")) {
+    return fallback;
+  }
+
+  return path;
+}
+
 // =============================================================================
 // Actions
 // =============================================================================
@@ -63,10 +81,7 @@ export async function loginAction(
     return { success: false, error: sanitizeAuthError(error.message) };
   }
 
-  // Use ?next param if provided, otherwise default to dashboard
-  const target =
-    redirectTo && redirectTo.startsWith("/") ? redirectTo : ROUTES.DASHBOARD;
-  redirect(target);
+  redirect(getSafeRedirectPath(redirectTo, ROUTES.DASHBOARD));
 }
 
 export async function signupAction(input: SignupInput): Promise<ActionResult> {
@@ -87,7 +102,7 @@ export async function signupAction(input: SignupInput): Promise<ActionResult> {
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}${ROUTES.AUTH_CALLBACK}?next=${ROUTES.ONBOARDING}`,
+      emailRedirectTo: `${getAppUrl()}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(ROUTES.ONBOARDING)}`,
     },
   });
 
@@ -114,9 +129,9 @@ export async function forgotPasswordAction(
   }
 
   const supabase = await createClient();
-  // Always return success to prevent email enumeration
+  // Always return success to prevent email enumeration.
   await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}${ROUTES.AUTH_CALLBACK}?next=${ROUTES.DASHBOARD}`,
+    redirectTo: `${getAppUrl()}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(ROUTES.RESET_PASSWORD)}`,
   });
 
   return { success: true, data: undefined };
