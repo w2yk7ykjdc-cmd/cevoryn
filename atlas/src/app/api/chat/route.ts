@@ -77,11 +77,16 @@ export async function POST(request: NextRequest) {
             );
           }
         } catch (error) {
-          const message =
-            error instanceof Error ? error.message : "Stream failed";
+          console.error(
+            "Chat stream error:",
+            error instanceof Error ? error.message : "unknown"
+          );
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ type: "error", content: message })}\n\n`
+              `data: ${JSON.stringify({
+                type: "error",
+                content: "The response could not be completed. Please try again.",
+              })}\n\n`
             )
           );
         } finally {
