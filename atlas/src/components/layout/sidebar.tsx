@@ -2,6 +2,7 @@
 
 import {
   Activity,
+  BarChart3,
   BrainCircuit,
   Building2,
   LayoutDashboard,
@@ -28,12 +29,15 @@ const NAV_ITEMS = [
   { label: "Intelligence", href: "/intelligence", icon: BrainCircuit },
   { label: "Health", href: "/health", icon: Activity },
   { label: "Chat", href: "/chat", icon: MessageSquare },
+  { label: "Analytics", href: "/analytics", icon: BarChart3, adminOnly: true },
   { label: "Team", href: "/team", icon: Users },
   { label: "Settings", href: "/settings", icon: Settings },
 ] as const;
 
 export function Sidebar({ membership }: SidebarProps) {
   const pathname = usePathname();
+  const canViewAnalytics =
+    membership.role === "OWNER" || membership.role === "ADMIN";
 
   return (
     <aside className="flex h-full w-64 flex-col border-r bg-card">
@@ -54,7 +58,9 @@ export function Sidebar({ membership }: SidebarProps) {
       <Separator />
 
       <nav className="flex-1 space-y-1 px-3 py-4" aria-label="Main navigation">
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.filter(
+          (item) => !("adminOnly" in item && item.adminOnly) || canViewAnalytics
+        ).map((item) => {
           const isActive =
             pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
