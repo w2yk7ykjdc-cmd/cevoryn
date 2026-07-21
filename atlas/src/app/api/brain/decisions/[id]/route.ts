@@ -13,6 +13,7 @@ import {
   badRequestResponse,
 } from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
+import { hasPermission } from "@/lib/rbac";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -50,6 +51,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const membership = await getMembership(user.id);
     if (!membership) return forbiddenResponse();
 
+    if (!hasPermission(membership.role, "ai:use")) {
+      return forbiddenResponse("Insufficient permissions");
+    }
+
     let body: unknown;
     try {
       body = await request.json();
@@ -60,12 +65,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const parsed = updateDecisionStatusSchema.safeParse(body);
     if (!parsed.success) return badRequestResponse("Invalid input");
 
-    await updateDecisionStatus(
+    const updated = await updateDecisionStatus(
       membership.organizationId,
       id,
       parsed.data.status,
       parsed.data.outcome
     );
+    if (!updated) return notFoundResponse("Decision not found");
+
     return NextResponse.json({ data: { id, status: parsed.data.status } });
   } catch (error) {
     console.error(
