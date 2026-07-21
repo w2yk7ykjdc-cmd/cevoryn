@@ -18,6 +18,7 @@ import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireMembership, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { hasPermission } from "@/lib/rbac";
 
 export const metadata: Metadata = { title: "Product Analytics — Atlas" };
 export const dynamic = "force-dynamic";
@@ -26,7 +27,7 @@ export default async function AnalyticsPage() {
   const user = await requireUser();
   const membership = await requireMembership(user.id);
 
-  if (membership.role !== "OWNER" && membership.role !== "ADMIN") {
+  if (!hasPermission(membership.role, "analytics:read")) {
     redirect("/dashboard");
   }
 
@@ -116,7 +117,8 @@ export default async function AnalyticsPage() {
     }),
   ]);
 
-  const activeUserRate = members > 0 ? Math.round((activeMembers.length / members) * 100) : 0;
+  const activeUserRate =
+    members > 0 ? Math.round((activeMembers.length / members) * 100) : 0;
   const actionTotal = approvedActions30d + pendingActions;
   const actionCompletionRate =
     actionTotal > 0 ? Math.round((approvedActions30d / actionTotal) * 100) : 0;
@@ -131,10 +133,30 @@ export default async function AnalyticsPage() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard icon={Users} label="Active users" value={`${activeMembers.length}/${members}`} detail={`${activeUserRate}% of team`} />
-        <MetricCard icon={MessageSquare} label="User messages" value={messages30d} detail={`${messages7d} in 7 days`} />
-        <MetricCard icon={Sparkles} label="Briefs generated" value={briefs30d} detail={`${conversations30d} conversations`} />
-        <MetricCard icon={CheckCircle2} label="Actions approved" value={approvedActions30d} detail={`${actionCompletionRate}% completion`} />
+        <MetricCard
+          icon={Users}
+          label="Active users"
+          value={`${activeMembers.length}/${members}`}
+          detail={`${activeUserRate}% of team`}
+        />
+        <MetricCard
+          icon={MessageSquare}
+          label="User messages"
+          value={messages30d}
+          detail={`${messages7d} in 7 days`}
+        />
+        <MetricCard
+          icon={Sparkles}
+          label="Briefs generated"
+          value={briefs30d}
+          detail={`${conversations30d} conversations`}
+        />
+        <MetricCard
+          icon={CheckCircle2}
+          label="Actions approved"
+          value={approvedActions30d}
+          detail={`${actionCompletionRate}% completion`}
+        />
       </div>
 
       <Card>
@@ -145,9 +167,21 @@ export default async function AnalyticsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-3">
-          <FunnelStep label="Open insights" value={openInsights} description="Signals waiting for review" />
-          <FunnelStep label="Insights acted on" value={completedInsights30d} description="Converted into action" />
-          <FunnelStep label="Decisions progressed" value={progressedDecisions30d} description="Accepted or executed" />
+          <FunnelStep
+            label="Open insights"
+            value={openInsights}
+            description="Signals waiting for review"
+          />
+          <FunnelStep
+            label="Insights acted on"
+            value={completedInsights30d}
+            description="Converted into action"
+          />
+          <FunnelStep
+            label="Decisions progressed"
+            value={progressedDecisions30d}
+            description="Accepted or executed"
+          />
         </CardContent>
       </Card>
 
@@ -156,20 +190,40 @@ export default async function AnalyticsPage() {
           <CardTitle className="text-base">Usage momentum</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
-          <FunnelStep label="7-day conversations" value={conversations7d} description="New work sessions this week" />
-          <FunnelStep label="30-day conversations" value={conversations30d} description="New work sessions this month" />
+          <FunnelStep
+            label="7-day conversations"
+            value={conversations7d}
+            description="New work sessions this week"
+          />
+          <FunnelStep
+            label="30-day conversations"
+            value={conversations30d}
+            description="New work sessions this month"
+          />
         </CardContent>
       </Card>
     </div>
   );
 }
 
-function MetricCard({ icon: Icon, label, value, detail }: { icon: LucideIcon; label: string; value: string | number; detail: string }) {
+function MetricCard({
+  icon: Icon,
+  label,
+  value,
+  detail,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string | number;
+  detail: string;
+}) {
   return (
     <Card>
       <CardContent className="p-4">
         <div className="mb-3 flex items-center justify-between">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {label}
+          </p>
           <Icon className="h-4 w-4 text-muted-foreground" />
         </div>
         <p className="text-2xl font-bold">{value}</p>
@@ -179,7 +233,15 @@ function MetricCard({ icon: Icon, label, value, detail }: { icon: LucideIcon; la
   );
 }
 
-function FunnelStep({ label, value, description }: { label: string; value: number; description: string }) {
+function FunnelStep({
+  label,
+  value,
+  description,
+}: {
+  label: string;
+  value: number;
+  description: string;
+}) {
   return (
     <div className="rounded-lg border p-4">
       <p className="text-2xl font-bold">{value}</p>
