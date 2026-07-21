@@ -19,6 +19,9 @@ export const PERMISSIONS = {
   // Dashboard
   "dashboard:read": "View dashboard",
 
+  // Analytics
+  "analytics:read": "View product analytics",
+
   // Settings
   "settings:read": "View settings",
   "settings:update": "Update settings",
@@ -43,6 +46,7 @@ const ROLE_PERMISSIONS: Record<MemberRole, readonly Permission[]> = {
     "members:remove",
     "members:update-role",
     "dashboard:read",
+    "analytics:read",
     "settings:read",
     "settings:update",
     "ai:use",
@@ -54,6 +58,7 @@ const ROLE_PERMISSIONS: Record<MemberRole, readonly Permission[]> = {
     "members:invite",
     "members:remove",
     "dashboard:read",
+    "analytics:read",
     "settings:read",
     "settings:update",
     "ai:use",
