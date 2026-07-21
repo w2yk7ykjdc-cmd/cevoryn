@@ -1,0 +1,33 @@
+name: Atlas Verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: atlas
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/atlas
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/atlas
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      OPENAI_API_KEY: placeholder-openai-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: atlas/package-lock.json
+      - run: npm ci
+      - run: npm run type-check
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run build
