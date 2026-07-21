@@ -2,6 +2,7 @@
 
 import {
   Activity,
+  BrainCircuit,
   Building2,
   LayoutDashboard,
   MessageSquare,
@@ -24,6 +25,7 @@ interface SidebarProps {
 const NAV_ITEMS = [
   { label: "Home", href: "/dashboard", icon: LayoutDashboard },
   { label: "Brief", href: "/brief", icon: Newspaper },
+  { label: "Intelligence", href: "/intelligence", icon: BrainCircuit },
   { label: "Health", href: "/health", icon: Activity },
   { label: "Chat", href: "/chat", icon: MessageSquare },
   { label: "Team", href: "/team", icon: Users },
