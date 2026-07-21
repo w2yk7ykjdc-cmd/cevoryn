@@ -6,6 +6,8 @@ import type { ChatMessage, MembershipContext } from "@/types";
 
 import { buildSystemPrompt } from "./prompts";
 
+const STATUS_WINDOW_DAYS = 7;
+
 /**
  * Build the full message array for the AI provider.
  *
@@ -25,58 +27,112 @@ export async function buildContext(params: {
 }): Promise<ChatMessage[]> {
   const { conversationId, newMessage, membership, moduleContexts = [] } = params;
   const orgId = membership.organizationId;
+  const now = new Date();
+  const statusWindowStart = new Date(
+    now.getTime() - STATUS_WINDOW_DAYS * 24 * 60 * 60 * 1000
+  );
 
-  const [memberCount, memories, insights, decisions, historyMessages] =
-    await Promise.all([
-      prisma.member.count({ where: { organizationId: orgId } }),
-      prisma.memory.findMany({
-        where: { organizationId: orgId, isActive: true },
-        orderBy: [{ confidence: "desc" }, { updatedAt: "desc" }],
-        take: 12,
-        select: {
-          category: true,
-          content: true,
-          confidence: true,
-        },
-      }),
-      prisma.insight.findMany({
-        where: { organizationId: orgId, status: "NEW" },
-        orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
-        take: 5,
-        select: {
-          title: true,
-          summary: true,
-          severity: true,
-          recommendedAction: true,
-          confidence: true,
-        },
-      }),
-      prisma.decision.findMany({
-        where: {
-          organizationId: orgId,
-          status: { in: ["PROPOSED", "ACCEPTED", "EXECUTED"] },
-        },
-        orderBy: [{ priorityScore: "desc" }, { updatedAt: "desc" }],
-        take: 5,
-        select: {
-          status: true,
-          priorityScore: true,
-          canvas: true,
-        },
-      }),
-      prisma.message.findMany({
-        where: { conversationId },
-        orderBy: { createdAt: "desc" },
-        take: AI_CONFIG.maxConversationHistory,
-        select: {
-          role: true,
-          content: true,
-        },
-      }),
-    ]);
+  const [
+    memberCount,
+    memories,
+    insights,
+    decisions,
+    historyMessages,
+    recentUsage,
+    recentMessageCount,
+    responseTime,
+    conversationCount,
+  ] = await Promise.all([
+    prisma.member.count({ where: { organizationId: orgId } }),
+    prisma.memory.findMany({
+      where: { organizationId: orgId, isActive: true },
+      orderBy: [{ confidence: "desc" }, { updatedAt: "desc" }],
+      take: 12,
+      select: {
+        category: true,
+        content: true,
+        confidence: true,
+        updatedAt: true,
+      },
+    }),
+    prisma.insight.findMany({
+      where: { organizationId: orgId, status: "NEW" },
+      orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
+      take: 5,
+      select: {
+        title: true,
+        summary: true,
+        severity: true,
+        recommendedAction: true,
+        confidence: true,
+        createdAt: true,
+      },
+    }),
+    prisma.decision.findMany({
+      where: {
+        organizationId: orgId,
+        status: { in: ["PROPOSED", "ACCEPTED", "EXECUTED"] },
+      },
+      orderBy: [{ priorityScore: "desc" }, { updatedAt: "desc" }],
+      take: 5,
+      select: {
+        status: true,
+        priorityScore: true,
+        canvas: true,
+        updatedAt: true,
+      },
+    }),
+    prisma.message.findMany({
+      where: { conversationId },
+      orderBy: { createdAt: "desc" },
+      take: AI_CONFIG.maxConversationHistory,
+      select: {
+        role: true,
+        content: true,
+      },
+    }),
+    prisma.usageRecord.findMany({
+      where: {
+        organizationId: orgId,
+        createdAt: { gte: statusWindowStart },
+      },
+      select: {
+        userId: true,
+        inputTokens: true,
+        outputTokens: true,
+        totalTokens: true,
+      },
+    }),
+    prisma.message.count({
+      where: {
+        createdAt: { gte: statusWindowStart },
+        conversation: { organizationId: orgId },
+      },
+    }),
+    prisma.message.aggregate({
+      where: {
+        createdAt: { gte: statusWindowStart },
+        role: "ASSISTANT",
+        durationMs: { not: null },
+        conversation: { organizationId: orgId },
+      },
+      _avg: { durationMs: true },
+    }),
+    prisma.conversation.count({ where: { organizationId: orgId } }),
+  ]);
 
+  const telemetryContext = buildTelemetryContext({
+    now,
+    windowStart: statusWindowStart,
+    memberCount,
+    conversationCount,
+    recentMessageCount,
+    recentUsage,
+    averageResponseMs: responseTime._avg.durationMs,
+  });
   const companyContext = buildCompanyContext(memories, insights, decisions);
   const systemPrompt = buildSystemPrompt(membership, memberCount, [
+    telemetryContext,
     companyContext,
     ...moduleContexts,
   ]);
@@ -95,24 +151,73 @@ export async function buildContext(params: {
   ];
 }
 
+function buildTelemetryContext(params: {
+  now: Date;
+  windowStart: Date;
+  memberCount: number;
+  conversationCount: number;
+  recentMessageCount: number;
+  recentUsage: Array<{
+    userId: string;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  }>;
+  averageResponseMs: number | null;
+}): string {
+  const activeUsers = new Set(params.recentUsage.map((record) => record.userId)).size;
+  const tokens = params.recentUsage.reduce(
+    (totals, record) => ({
+      input: totals.input + record.inputTokens,
+      output: totals.output + record.outputTokens,
+      total: totals.total + record.totalTokens,
+    }),
+    { input: 0, output: 0, total: 0 }
+  );
+
+  return [
+    "## Current Workspace Telemetry (authoritative)",
+    `Generated at: ${params.now.toISOString()}`,
+    `Measurement window: ${params.windowStart.toISOString()} to ${params.now.toISOString()} (${STATUS_WINDOW_DAYS} days)`,
+    `Members: ${params.memberCount}`,
+    `Total conversations: ${params.conversationCount}`,
+    `Messages in window: ${params.recentMessageCount}`,
+    `Active users in window: ${activeUsers}`,
+    `Average assistant response time in window: ${
+      params.averageResponseMs === null
+        ? "not available"
+        : `${Math.round(params.averageResponseMs)} ms`
+    }`,
+    `Token usage in window: input ${tokens.input}, output ${tokens.output}, total ${tokens.total}`,
+    "For questions about the current state, status, activity, usage, or performance, use this telemetry before stored memories. State the measurement window. Never present older memories or snapshots as current data.",
+  ].join("\n");
+}
+
 function buildCompanyContext(
-  memories: Array<{ category: string; content: string; confidence: number }>,
+  memories: Array<{
+    category: string;
+    content: string;
+    confidence: number;
+    updatedAt: Date;
+  }>,
   insights: Array<{
     title: string;
     summary: string;
     severity: string;
     recommendedAction: string;
     confidence: number;
+    createdAt: Date;
   }>,
   decisions: Array<{
     status: string;
     priorityScore: number;
     canvas: unknown;
+    updatedAt: Date;
   }>
 ): string {
   const sections: string[] = [
     "## Company Intelligence",
-    "Use the information below when it is relevant. Do not claim that missing information exists, and do not treat low-confidence items as confirmed facts.",
+    "The items below are stored context, not live telemetry. Treat them as historical unless their timestamp and content clearly establish that they are current. Do not claim that missing information exists, and do not treat low-confidence items as confirmed facts.",
   ];
 
   if (memories.length > 0) {
@@ -120,7 +225,7 @@ function buildCompanyContext(
       "### Known company context",
       ...memories.map(
         (memory) =>
-          `- [${memory.category}, ${Math.round(memory.confidence * 100)}% confidence] ${memory.content}`
+          `- [updated ${memory.updatedAt.toISOString()}, ${memory.category}, ${Math.round(memory.confidence * 100)}% confidence] ${memory.content}`
       )
     );
   }
@@ -133,7 +238,7 @@ function buildCompanyContext(
         const action = insight.recommendedAction
           ? ` Next move: ${insight.recommendedAction}`
           : "";
-        return `- [${insight.severity}, ${Math.round(insight.confidence * 100)}% confidence] ${insight.title}${summary}.${action}`;
+        return `- [created ${insight.createdAt.toISOString()}, ${insight.severity}, ${Math.round(insight.confidence * 100)}% confidence] ${insight.title}${summary}.${action}`;
       })
     );
   }
@@ -147,7 +252,7 @@ function buildCompanyContext(
         const recommendation = canvas.recommendedDecision
           ? ` Recommended direction: ${canvas.recommendedDecision}`
           : "";
-        return `- [${decision.status}, priority ${decision.priorityScore}/10] ${problem}.${recommendation}`;
+        return `- [updated ${decision.updatedAt.toISOString()}, ${decision.status}, priority ${decision.priorityScore}/10] ${problem}.${recommendation}`;
       })
     );
   }
