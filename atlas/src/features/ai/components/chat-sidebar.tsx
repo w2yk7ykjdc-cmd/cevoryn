@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Loader2,
   MessageSquarePlus,
   MoreHorizontal,
   Pencil,
@@ -35,11 +36,45 @@ interface ChatSidebarProps {
 export function ChatSidebar({ activeId, onNavigate }: ChatSidebarProps) {
   const router = useRouter();
   const { conversations, invalidate } = useConversations();
+  const [isCreating, setIsCreating] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  function handleNewConversation() {
-    router.push("/chat");
-    onNavigate?.();
+  async function handleNewConversation() {
+    if (isCreating) return;
+
+    setIsCreating(true);
+    try {
+      const response = await fetch("/api/conversations", {
+        method: "POST",
+        headers: { Accept: "application/json" },
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        const message =
+          payload?.error?.message ?? "Failed to create conversation";
+        toast.error(message);
+        return;
+      }
+
+      const payload = await response.json();
+      const conversationId = payload?.data?.id;
+
+      if (typeof conversationId !== "string" || !conversationId) {
+        toast.error("Conversation was created without a valid ID");
+        return;
+      }
+
+      invalidate();
+      onNavigate?.();
+      router.replace(`/chat/${conversationId}`);
+      router.refresh();
+    } catch (error) {
+      console.error("Create conversation error:", error);
+      toast.error("Something went wrong while creating the conversation");
+    } finally {
+      setIsCreating(false);
+    }
   }
 
   function handleSelect(id: string) {
@@ -72,7 +107,8 @@ export function ChatSidebar({ activeId, onNavigate }: ChatSidebarProps) {
       if (result.success) {
         invalidate();
         if (activeId === id) {
-          router.push("/chat");
+          router.replace("/chat");
+          router.refresh();
         }
       } else {
         toast.error(result.error);
@@ -87,10 +123,14 @@ export function ChatSidebar({ activeId, onNavigate }: ChatSidebarProps) {
           onClick={handleNewConversation}
           variant="outline"
           className="w-full justify-start gap-2"
-          disabled={isPending}
+          disabled={isPending || isCreating}
         >
-          <MessageSquarePlus className="h-4 w-4" />
-          New conversation
+          {isCreating ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <MessageSquarePlus className="h-4 w-4" />
+          )}
+          {isCreating ? "Creating..." : "New conversation"}
         </Button>
       </div>
 
