@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 
 import { sendMessageSchema } from "@/features/ai/schemas/message";
 import { getMembership, getUser } from "@/lib/auth";
+import { hasPermission } from "@/lib/rbac";
 import { sendMessage } from "@/server/services/ai.service";
 import { getConversation } from "@/server/services/conversation.service";
 
@@ -23,6 +24,13 @@ export async function POST(request: NextRequest) {
     if (!membership) {
       return NextResponse.json(
         { error: { code: "NO_MEMBERSHIP", message: "No organization found" } },
+        { status: 403 }
+      );
+    }
+
+    if (!hasPermission(membership.role, "ai:use")) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "Insufficient permissions" } },
         { status: 403 }
       );
     }
