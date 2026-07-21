@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!hasPermission(membership.role, "dashboard:read")) {
+    if (!hasPermission(membership.role, "ai:use")) {
       return NextResponse.json(
         { error: { code: "FORBIDDEN", message: "Insufficient permissions" } },
         { status: 403 }
