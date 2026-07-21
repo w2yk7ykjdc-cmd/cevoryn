@@ -32,7 +32,6 @@ export function useChat({
       setError(null);
       setIsStreaming(true);
 
-      // Optimistic user message
       const userMessage: MessageDetail = {
         id: `temp-${Date.now()}`,
         role: "USER",
@@ -42,7 +41,6 @@ export function useChat({
       };
       setMessages((prev) => [...prev, userMessage]);
 
-      // Placeholder for streaming assistant response
       const assistantId = `stream-${Date.now()}`;
       setMessages((prev) => [
         ...prev,
@@ -67,9 +65,11 @@ export function useChat({
 
         if (!response.ok) {
           if (response.status === 401) {
-            window.location.href = "/login";
+            const next = `${window.location.pathname}${window.location.search}`;
+            window.location.href = `/login?next=${encodeURIComponent(next)}`;
             return;
           }
+
           const errorBody = await response.json().catch(() => null);
           throw new Error(
             errorBody?.error?.message ?? `Request failed (${response.status})`
@@ -81,6 +81,7 @@ export function useChat({
 
         const decoder = new TextDecoder();
         let buffer = "";
+        let streamError: string | null = null;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -104,36 +105,44 @@ export function useChat({
 
             if (chunk.type === "text" && chunk.content) {
               setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantId
-                    ? { ...m, content: m.content + chunk.content }
-                    : m
+                prev.map((message) =>
+                  message.id === assistantId
+                    ? { ...message, content: message.content + chunk.content }
+                    : message
                 )
               );
             }
 
             if (chunk.type === "done" && chunk.messageId) {
               setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantId ? { ...m, id: chunk.messageId! } : m
+                prev.map((message) =>
+                  message.id === assistantId
+                    ? { ...message, id: chunk.messageId! }
+                    : message
                 )
               );
             }
 
             if (chunk.type === "error") {
-              setError(chunk.content ?? "An error occurred");
+              streamError = chunk.content ?? "An error occurred";
+              break;
             }
+          }
+
+          if (streamError) {
+            await reader.cancel();
+            throw new Error(streamError);
           }
         }
       } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") {
-          return;
-        }
+        if (err instanceof DOMException && err.name === "AbortError") return;
+
         const message = err instanceof Error ? err.message : "Request failed";
         setError(message);
-        // Remove the empty assistant placeholder on error
         setMessages((prev) =>
-          prev.filter((m) => m.id !== assistantId || m.content.length > 0)
+          prev.filter(
+            (item) => item.id !== assistantId || item.content.length > 0
+          )
         );
       } finally {
         setIsStreaming(false);
