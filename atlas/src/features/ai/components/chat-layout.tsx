@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -41,24 +41,21 @@ export function ChatLayout({
   const handleSend = useCallback(
     async (content: string) => {
       await sendMessage(content);
-      // Refresh conversation list to update ordering/title
       invalidate();
     },
     [sendMessage, invalidate]
   );
 
-  if (error) {
-    toast.error(error);
-  }
+  useEffect(() => {
+    if (error) toast.error(error);
+  }, [error]);
 
   return (
     <div className="flex h-full">
-      {/* Desktop conversation sidebar */}
       <div className="hidden w-64 shrink-0 border-r lg:block">
         <ChatSidebar activeId={conversationId} />
       </div>
 
-      {/* Mobile conversation sidebar */}
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
         <SheetContent side="left" className="w-72 p-0">
           <SheetHeader className="sr-only">
@@ -71,7 +68,6 @@ export function ChatLayout({
         </SheetContent>
       </Sheet>
 
-      {/* Main chat area */}
       <div className="flex min-w-0 flex-1 flex-col">
         <ChatHeader
           title={conversationTitle}
