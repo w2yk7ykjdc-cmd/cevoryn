@@ -1,4 +1,17 @@
-import { BarChart3, CheckCircle2, MessageSquare, Sparkles, Users } from "lucide-react";
+import {
+  ActionStatus,
+  DecisionStatus,
+  InsightStatus,
+  MessageRole,
+} from "@prisma/client";
+import {
+  BarChart3,
+  CheckCircle2,
+  MessageSquare,
+  Sparkles,
+  Users,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
@@ -56,14 +69,14 @@ export default async function AnalyticsPage() {
       where: {
         conversation: { organizationId },
         createdAt: { gte: sevenDaysAgo },
-        role: "USER",
+        role: MessageRole.USER,
       },
     }),
     prisma.message.count({
       where: {
         conversation: { organizationId },
         createdAt: { gte: thirtyDaysAgo },
-        role: "USER",
+        role: MessageRole.USER,
       },
     }),
     prisma.brief.count({
@@ -72,33 +85,44 @@ export default async function AnalyticsPage() {
     prisma.preparedAction.count({
       where: {
         organizationId,
-        status: "APPROVED",
+        status: ActionStatus.APPROVED,
         updatedAt: { gte: thirtyDaysAgo },
       },
     }),
     prisma.insight.count({
       where: {
         organizationId,
-        status: "ACTED_ON",
+        status: InsightStatus.ACTED_ON,
         updatedAt: { gte: thirtyDaysAgo },
       },
     }),
     prisma.decision.count({
       where: {
         organizationId,
-        status: { in: ["ACCEPTED", "EXECUTED", "COMPLETED", "SUCCESSFUL"] },
+        status: {
+          in: [
+            DecisionStatus.ACCEPTED,
+            DecisionStatus.EXECUTED,
+            DecisionStatus.COMPLETED,
+            DecisionStatus.SUCCESSFUL,
+          ],
+        },
         updatedAt: { gte: thirtyDaysAgo },
       },
     }),
-    prisma.preparedAction.count({ where: { organizationId, status: "PENDING" } }),
-    prisma.insight.count({ where: { organizationId, status: "NEW" } }),
+    prisma.preparedAction.count({
+      where: { organizationId, status: ActionStatus.PENDING },
+    }),
+    prisma.insight.count({
+      where: { organizationId, status: InsightStatus.NEW },
+    }),
   ]);
 
-  const activeUserRate = members > 0 ? Math.round((activeMembers.length / members) * 100) : 0;
+  const activeUserRate =
+    members > 0 ? Math.round((activeMembers.length / members) * 100) : 0;
+  const actionTotal = approvedActions30d + pendingActions;
   const actionCompletionRate =
-    approvedActions30d + pendingActions > 0
-      ? Math.round((approvedActions30d / (approvedActions30d + pendingActions)) * 100)
-      : 0;
+    actionTotal > 0 ? Math.round((approvedActions30d / actionTotal) * 100) : 0;
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 pb-8">
@@ -110,10 +134,30 @@ export default async function AnalyticsPage() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard icon={Users} label="Active users" value={`${activeMembers.length}/${members}`} detail={`${activeUserRate}% of team`} />
-        <MetricCard icon={MessageSquare} label="User messages" value={messages30d} detail={`${messages7d} in 7 days`} />
-        <MetricCard icon={Sparkles} label="Briefs generated" value={briefs30d} detail={`${conversations30d} conversations`} />
-        <MetricCard icon={CheckCircle2} label="Actions approved" value={approvedActions30d} detail={`${actionCompletionRate}% completion`} />
+        <MetricCard
+          icon={Users}
+          label="Active users"
+          value={`${activeMembers.length}/${members}`}
+          detail={`${activeUserRate}% of team`}
+        />
+        <MetricCard
+          icon={MessageSquare}
+          label="User messages"
+          value={messages30d}
+          detail={`${messages7d} in 7 days`}
+        />
+        <MetricCard
+          icon={Sparkles}
+          label="Briefs generated"
+          value={briefs30d}
+          detail={`${conversations30d} conversations`}
+        />
+        <MetricCard
+          icon={CheckCircle2}
+          label="Actions approved"
+          value={approvedActions30d}
+          detail={`${actionCompletionRate}% completion`}
+        />
       </div>
 
       <Card>
@@ -124,9 +168,21 @@ export default async function AnalyticsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-3">
-          <FunnelStep label="Open insights" value={openInsights} description="Signals waiting for review" />
-          <FunnelStep label="Insights acted on" value={completedInsights30d} description="Converted into action" />
-          <FunnelStep label="Decisions progressed" value={progressedDecisions30d} description="Accepted or executed" />
+          <FunnelStep
+            label="Open insights"
+            value={openInsights}
+            description="Signals waiting for review"
+          />
+          <FunnelStep
+            label="Insights acted on"
+            value={completedInsights30d}
+            description="Converted into action"
+          />
+          <FunnelStep
+            label="Decisions progressed"
+            value={progressedDecisions30d}
+            description="Accepted or executed"
+          />
         </CardContent>
       </Card>
 
@@ -135,8 +191,16 @@ export default async function AnalyticsPage() {
           <CardTitle className="text-base">Usage momentum</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
-          <FunnelStep label="7-day conversations" value={conversations7d} description="New work sessions this week" />
-          <FunnelStep label="30-day conversations" value={conversations30d} description="New work sessions this month" />
+          <FunnelStep
+            label="7-day conversations"
+            value={conversations7d}
+            description="New work sessions this week"
+          />
+          <FunnelStep
+            label="30-day conversations"
+            value={conversations30d}
+            description="New work sessions this month"
+          />
         </CardContent>
       </Card>
     </div>
@@ -149,7 +213,7 @@ function MetricCard({
   value,
   detail,
 }: {
-  icon: typeof Users;
+  icon: LucideIcon;
   label: string;
   value: string | number;
   detail: string;
@@ -158,7 +222,9 @@ function MetricCard({
     <Card>
       <CardContent className="p-4">
         <div className="mb-3 flex items-center justify-between">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {label}
+          </p>
           <Icon className="h-4 w-4 text-muted-foreground" />
         </div>
         <p className="text-2xl font-bold">{value}</p>
@@ -168,7 +234,15 @@ function MetricCard({
   );
 }
 
-function FunnelStep({ label, value, description }: { label: string; value: number; description: string }) {
+function FunnelStep({
+  label,
+  value,
+  description,
+}: {
+  label: string;
+  value: number;
+  description: string;
+}) {
   return (
     <div className="rounded-lg border p-4">
       <p className="text-2xl font-bold">{value}</p>
