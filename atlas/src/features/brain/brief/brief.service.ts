@@ -19,21 +19,40 @@ import type { TrustEnvelope } from "../trust/types";
  * 3. Wrap output in TrustEnvelope
  */
 
-const BRIEF_GENERATION_PROMPT = `You are Atlas, a Management Intelligence Platform generating an executive brief.
+const BRIEF_GENERATION_PROMPT = `You are Atlas, an AI Chief of Staff producing a decision-ready executive brief.
 
-You are given a structured intelligence report. Transform it into a concise, actionable brief.
+Use only the supplied intelligence report. Never invent facts, causes, metrics, deadlines, owners, or certainty.
 
-Sections to produce (in this order):
-1. "Company Pulse" — summarize health score, trend, and top contributors
-2. "Top 3 Priorities" — the most important items requiring attention
-3. "Executive Insights" — key patterns and observations
-4. "Recommended Actions" — prepared actions awaiting approval
-5. "Confidence Assessment" — what Atlas is confident about and what needs more data
+Your job is not to summarize everything. Select only what should change the executive's decisions today.
 
-For each section assign priority: "high", "medium", or "low".
-Write in a direct, executive tone. No fluff. Lead with what matters.
+Produce 3 to 5 non-overlapping sections. Each section must:
+- cover one distinct issue or opportunity;
+- state the observed fact or signal;
+- explain the business consequence;
+- end with one concrete next move;
+- include specific numbers, named items, or evidence from the report when available;
+- state uncertainty plainly when evidence is weak.
 
-Respond with ONLY a JSON array of {heading, content, priority}. No markdown fences.`;
+Priority rules:
+- "high": requires a decision or action today;
+- "medium": should be reviewed soon but is not urgent;
+- "low": useful context only.
+
+Writing rules:
+- Use a direct executive tone.
+- Keep each section between 35 and 90 words.
+- Put the decision or implication in the first sentence.
+- Avoid generic advice such as "monitor closely", "focus on growth", "improve communication", or "consider reviewing" unless followed by a specific owner, object, and action.
+- Do not repeat the same insight, evidence, or recommendation across sections.
+- Do not create empty template sections. Omit a category when the report has no useful evidence for it.
+- Confidence or missing-data notes should appear only when they materially affect the recommended decision.
+
+Return ONLY a valid JSON array with this exact shape:
+[{"heading":"...","content":"...","priority":"high|medium|low"}]
+No markdown fences and no additional keys.`;
+
+const VALID_PRIORITIES = new Set(["high", "medium", "low"]);
+const MAX_SECTIONS = 5;
 
 export async function generateBrief(
   organizationId: string,
@@ -75,13 +94,14 @@ export async function generateBrief(
           }),
         },
       ],
-      temperature: 0.4,
-      maxTokens: 2000,
+      temperature: 0.25,
+      maxTokens: 1800,
     });
 
     const parsed = JSON.parse(content.trim());
-    sections = Array.isArray(parsed)
-      ? parsed
+    const normalized = normalizeSections(parsed);
+    sections = normalized.length > 0
+      ? normalized
       : buildFallbackSections(report, intelligence);
   } catch (_error) {
     sections = buildFallbackSections(report, intelligence);
@@ -116,30 +136,91 @@ export async function generateBrief(
   return { id: brief.id, sections, trust: intelligence };
 }
 
+function normalizeSections(value: unknown): BriefSection[] {
+  if (!Array.isArray(value)) return [];
+
+  const seen = new Set<string>();
+  const result: BriefSection[] = [];
+
+  for (const section of value) {
+    if (!section || typeof section !== "object") continue;
+
+    const candidate = section as Record<string, unknown>;
+    const heading = typeof candidate.heading === "string" ? candidate.heading.trim() : "";
+    const content = typeof candidate.content === "string" ? candidate.content.trim() : "";
+    const priority = typeof candidate.priority === "string"
+      ? candidate.priority.toLowerCase()
+      : "";
+
+    if (!heading || content.length < 30 || !VALID_PRIORITIES.has(priority)) continue;
+
+    const fingerprint = `${heading} ${content}`
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, "")
+      .split(/\s+/)
+      .filter((word) => word.length > 3)
+      .slice(0, 12)
+      .join(" ");
+
+    if (seen.has(fingerprint)) continue;
+    seen.add(fingerprint);
+
+    result.push({
+      heading: heading.slice(0, 90),
+      content: content.slice(0, 900),
+      priority: priority as BriefSection["priority"],
+    });
+
+    if (result.length >= MAX_SECTIONS) break;
+  }
+
+  const rank: Record<BriefSection["priority"], number> = {
+    high: 0,
+    medium: 1,
+    low: 2,
+  };
+
+  return result.sort((a, b) => rank[a.priority] - rank[b.priority]);
+}
+
 function buildFallbackSections(
   report: IntelligenceReport,
   trust: TrustEnvelope<IntelligenceReport>
 ): BriefSection[] {
-  return [
-    {
-      heading: "Company Pulse",
-      content: `Pulse score: ${report.pulse.score}/100 (${report.pulse.trend}). Based on ${report.dataPoints} data points.`,
+  const sections: BriefSection[] = [];
+
+  sections.push({
+    heading: "Company Pulse",
+    content: `Company pulse is ${report.pulse.score}/100 and trending ${report.pulse.trend}, based on ${report.dataPoints} data points. Review the weakest pulse dimension first and use it to choose today's operating priority.`,
+    priority: report.pulse.score < 50 ? "high" : "medium",
+  });
+
+  if (report.priorities.length > 0) {
+    const top = report.priorities.slice(0, 3).map((p: { title: string }) => p.title);
+    sections.push({
+      heading: "Decisions Needed",
+      content: `The current priority queue is: ${top.join("; ")}. Choose one item to resolve today, assign an owner, and define the next observable outcome before adding more work.`,
       priority: "high",
-    },
-    {
-      heading: "Top Priorities",
-      content:
-        report.priorities.length > 0
-          ? report.priorities.map((p: { title: string }) => p.title).join(", ")
-          : "No high-priority items detected.",
-      priority: report.priorities.length > 0 ? "high" : "low",
-    },
-    {
-      heading: "Confidence Assessment",
-      content: `Confidence: ${Math.round(trust.confidence * 100)}%. Missing: ${trust.missingInformation.join("; ")}.`,
+    });
+  }
+
+  if (report.recommendedActions.length > 0) {
+    sections.push({
+      heading: "Ready to Execute",
+      content: `${report.recommendedActions.length} prepared action${report.recommendedActions.length === 1 ? " is" : "s are"} waiting for approval. Review the highest-impact action first and either approve it or dismiss it so the queue reflects real intent.`,
       priority: "medium",
-    },
-  ];
+    });
+  }
+
+  if (trust.confidence < 0.65 || trust.missingInformation.length > 0) {
+    sections.push({
+      heading: "Decision Confidence",
+      content: `Atlas confidence is ${Math.round(trust.confidence * 100)}%. The main missing information is: ${trust.missingInformation.slice(0, 3).join("; ") || "insufficient recent operating data"}. Add this context before making irreversible decisions.`,
+      priority: "medium",
+    });
+  }
+
+  return sections.slice(0, MAX_SECTIONS);
 }
 
 export async function getLatestBrief(
