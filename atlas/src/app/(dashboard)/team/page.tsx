@@ -12,6 +12,7 @@ export const metadata: Metadata = { title: "Team — Atlas" };
 export default async function TeamPage() {
   const user = await requireUser();
   const membership = await requireMembership(user.id);
+  const canInvite = hasPermission(membership.role, "members:invite");
 
   const [members, pendingInvites] = await Promise.all([
     prisma.member.findMany({
@@ -25,20 +26,22 @@ export default async function TeamPage() {
         createdAt: true,
       },
     }),
-    prisma.invite.findMany({
-      where: {
-        organizationId: membership.organizationId,
-        status: "PENDING",
-      },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        expiresAt: true,
-        token: true,
-      },
-    }),
+    canInvite
+      ? prisma.invite.findMany({
+          where: {
+            organizationId: membership.organizationId,
+            status: "PENDING",
+          },
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            email: true,
+            role: true,
+            expiresAt: true,
+            token: true,
+          },
+        })
+      : Promise.resolve([]),
   ]);
 
   return (
@@ -46,7 +49,7 @@ export default async function TeamPage() {
       orgName={membership.organizationName}
       currentUserId={membership.userId}
       currentUserRole={membership.role}
-      canInvite={hasPermission(membership.role, "members:invite")}
+      canInvite={canInvite}
       canRemoveMembers={hasPermission(membership.role, "members:remove")}
       canUpdateRoles={hasPermission(membership.role, "members:update-role")}
       members={members.map((member) => ({
