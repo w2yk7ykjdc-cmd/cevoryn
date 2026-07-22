@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { handleUnauthorized } from "@/lib/client-auth";
 
 interface DecisionQueueItem {
   id: string;
@@ -36,7 +37,12 @@ export function DecisionQueue({ decisions }: { decisions: DecisionQueueItem[] })
         body: JSON.stringify({ status, ...(outcome ? { outcome } : {}) }),
       });
 
-      if (!response.ok) throw new Error("Decision update failed");
+      if (handleUnauthorized(response)) return;
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error?.message ?? "Decision update failed");
+      }
 
       toast.success(
         status === "COMPLETED"
@@ -47,9 +53,18 @@ export function DecisionQueue({ decisions }: { decisions: DecisionQueueItem[] })
               ? "Decision rejected"
               : "Decision ignored"
       );
+
+      if (status === "COMPLETED") {
+        setOutcomes((current) => {
+          const next = { ...current };
+          delete next[id];
+          return next;
+        });
+      }
+
       router.refresh();
-    } catch (_error) {
-      toast.error("Could not update decision");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not update decision");
     } finally {
       setUpdatingId(null);
     }
