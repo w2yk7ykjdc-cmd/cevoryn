@@ -18,11 +18,18 @@ import type { SignupInput } from "../schemas/auth";
 
 import { AuthCard } from "./auth-card";
 
-export function SignupForm() {
+interface SignupFormProps {
+  redirectTo?: string;
+}
+
+export function SignupForm({ redirectTo }: SignupFormProps) {
   const [isPending, setIsPending] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [isConfirmation, setIsConfirmation] = useState(false);
   const [confirmationEmail, setConfirmationEmail] = useState("");
+  const loginHref = redirectTo
+    ? `${ROUTES.LOGIN}?next=${encodeURIComponent(redirectTo)}`
+    : ROUTES.LOGIN;
 
   const {
     register,
@@ -37,7 +44,7 @@ export function SignupForm() {
   async function onSubmit(data: SignupInput) {
     setIsPending(true);
     try {
-      const result = await signupAction(data);
+      const result = await signupAction(data, redirectTo);
       if (result.success) {
         setConfirmationEmail(data.email);
         setIsConfirmation(true);
@@ -63,9 +70,10 @@ export function SignupForm() {
 
     setIsResending(true);
     try {
-      const result = await resendConfirmationAction({
-        email: confirmationEmail,
-      });
+      const result = await resendConfirmationAction(
+        { email: confirmationEmail },
+        redirectTo
+      );
 
       if (result.success) {
         toast.success("A new confirmation email was sent.");
@@ -101,7 +109,7 @@ export function SignupForm() {
             {isResending && <Loader2 className="animate-spin" />}
             Resend confirmation email
           </Button>
-          <Link href={ROUTES.LOGIN}>
+          <Link href={loginHref}>
             <Button variant="ghost">Back to sign in</Button>
           </Link>
         </div>
@@ -117,7 +125,7 @@ export function SignupForm() {
         <>
           Already have an account?{" "}
           <Link
-            href={ROUTES.LOGIN}
+            href={loginHref}
             className="font-medium underline underline-offset-4 hover:text-primary"
           >
             Sign in
