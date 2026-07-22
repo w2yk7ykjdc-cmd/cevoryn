@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { handleUnauthorized } from "@/lib/client-auth";
 
 interface ActionQueueItem {
   id: string;
@@ -31,12 +32,17 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
         body: JSON.stringify({ status }),
       });
 
-      if (!response.ok) throw new Error("Action update failed");
+      if (handleUnauthorized(response)) return;
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error?.message ?? "Action update failed");
+      }
 
       toast.success(status === "APPROVED" ? "Action approved" : "Action dismissed");
       router.refresh();
-    } catch (_error) {
-      toast.error("Could not update action");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not update action");
     } finally {
       setUpdatingId(null);
     }
