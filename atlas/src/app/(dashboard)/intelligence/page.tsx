@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireMembership, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+import { ActionQueue } from "./action-queue";
+
 export const metadata: Metadata = { title: "Intelligence — Atlas" };
 export const dynamic = "force-dynamic";
 
@@ -16,7 +18,7 @@ export default async function IntelligencePage() {
   const membership = await requireMembership(user.id);
   const organizationId = membership.organizationId;
 
-  const [insights, decisions] = await Promise.all([
+  const [insights, decisions, actions] = await Promise.all([
     prisma.insight.findMany({
       where: { organizationId },
       orderBy: { createdAt: "desc" },
@@ -45,6 +47,19 @@ export default async function IntelligencePage() {
         canvas: true,
       },
     }),
+    prisma.preparedAction.findMany({
+      where: { organizationId, status: "PENDING" },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        type: true,
+        confidence: true,
+        reasoning: true,
+      },
+    }),
   ]);
 
   const openInsights = insights.filter((item) => item.status === "NEW").length;
@@ -57,21 +72,30 @@ export default async function IntelligencePage() {
           <p className="text-sm text-muted-foreground">Atlas Brain</p>
           <h1 className="text-2xl font-bold tracking-tight">Intelligence workspace</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Review signals and decisions that may require attention.
+            Review signals, decisions, and prepared actions in one place.
           </p>
         </div>
         <Button asChild>
-          <Link href="/chat?prompt=Review%20our%20open%20insights%20and%20decisions.%20Tell%20me%20what%20requires%20attention%20first%20and%20why.">
+          <Link href="/chat?prompt=Review%20our%20open%20insights%2C%20decisions%2C%20and%20actions.%20Tell%20me%20what%20requires%20attention%20first%20and%20why.">
             Review with Atlas
             <ArrowRight className="h-4 w-4" />
           </Link>
         </Button>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-3">
         <SummaryCard label="Open insights" value={openInsights} />
         <SummaryCard label="Pending decisions" value={openDecisions} />
+        <SummaryCard label="Prepared actions" value={actions.length} />
       </div>
+
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Prepared actions</h2>
+          <Badge variant="secondary">{actions.length} pending</Badge>
+        </div>
+        <ActionQueue actions={actions} />
+      </section>
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
