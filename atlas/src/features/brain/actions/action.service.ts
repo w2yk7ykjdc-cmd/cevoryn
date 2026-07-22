@@ -30,7 +30,6 @@ export async function createPreparedAction(params: CreateActionParams) {
       description: params.description,
       content: params.content as Prisma.InputJsonValue,
       sourceInsightId: params.sourceInsightId ?? null,
-
       confidence: params.confidence,
       reasoning: params.reasoning,
     },
@@ -48,6 +47,22 @@ export async function listPreparedActions(
     },
     orderBy: { createdAt: "desc" },
     take: 20,
+  });
+}
+
+export async function getPreparedAction(organizationId: string, id: string) {
+  return prisma.preparedAction.findFirst({
+    where: { id, organizationId },
+    select: {
+      id: true,
+      type: true,
+      title: true,
+      description: true,
+      content: true,
+      status: true,
+      confidence: true,
+      reasoning: true,
+    },
   });
 }
 
