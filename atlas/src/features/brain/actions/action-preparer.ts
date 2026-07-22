@@ -3,6 +3,7 @@ import "server-only";
 import { getAIProvider } from "@/features/ai/providers";
 import { AI_CONFIG } from "@/lib/constants";
 import { toActionType } from "@/lib/enum-validators";
+import { prisma } from "@/lib/prisma";
 
 import { createPreparedAction } from "./action.service";
 
@@ -74,13 +75,34 @@ export async function prepareActionsFromInsight(params: {
     if (!Array.isArray(actions)) return 0;
 
     let created = 0;
+    const generatedKeys = new Set<string>();
+
     for (const action of actions.slice(0, 3)) {
-      if (!action.title || !validTypes.has(action.type)) continue;
+      const title = action.title?.trim();
+      const type = toActionType(action.type);
+      if (!title || !type || !validTypes.has(action.type)) continue;
+
+      const dedupeKey = `${type}:${title.toLocaleLowerCase("en-US")}`;
+      if (generatedKeys.has(dedupeKey)) continue;
+      generatedKeys.add(dedupeKey);
+
+      const existing = await prisma.preparedAction.findFirst({
+        where: {
+          organizationId: params.organizationId,
+          sourceInsightId: params.insightId,
+          type,
+          title,
+          status: "PENDING",
+        },
+        select: { id: true },
+      });
+
+      if (existing) continue;
 
       await createPreparedAction({
         organizationId: params.organizationId,
-        type: toActionType(action.type) ?? "TASK",
-        title: action.title,
+        type,
+        title,
         description: action.description || "",
         content: action.content || {},
         sourceInsightId: params.insightId,
