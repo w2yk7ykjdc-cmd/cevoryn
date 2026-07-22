@@ -2,8 +2,12 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import { executeDecisionPipeline } from "@/features/brain/decisions/decision-engine";
-import { listDecisions } from "@/features/brain/decisions/decision.service";
+import {
+  createDecision,
+  listDecisions,
+} from "@/features/brain/decisions/decision.service";
 import { createDecisionSchema } from "@/features/brain/decisions/schemas";
+import type { DecisionCanvas } from "@/features/brain/decisions/types";
 import { getMembership, getUser } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { checkRateLimit } from "@/server/services/rate-limit.service";
@@ -93,10 +97,34 @@ export async function POST(request: NextRequest) {
     }
 
     const rateLimit = await checkRateLimit(membership.organizationId);
+
     if (!rateLimit.allowed) {
+      const canvas = createFallbackCanvas(parsed.data.problemDescription);
+      const decision = await createDecision({
+        organizationId: membership.organizationId,
+        canvas,
+        priorityScore: canvas.priorityScore,
+      });
+
       return NextResponse.json(
-        { error: { code: "RATE_LIMITED", message: "Daily token limit reached" } },
-        { status: 429 }
+        {
+          data: {
+            decisionId: decision.id,
+            canvas,
+            actionsGenerated: 0,
+            trust: {
+              confidence: canvas.confidenceScore,
+              reasoning:
+                "Decision saved without AI analysis because the daily AI limit was reached.",
+              missingInformation: [
+                "Full AI analysis will be available after the usage limit resets.",
+              ],
+              dataFreshness: "current",
+            },
+            degraded: true,
+          },
+        },
+        { status: 201 }
       );
     }
 
@@ -137,4 +165,27 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+function createFallbackCanvas(problemDescription: string): DecisionCanvas {
+  return {
+    executiveSummary:
+      "The decision has been recorded and is ready for review. Full AI analysis is temporarily unavailable.",
+    problemStatement: problemDescription,
+    evidence: [],
+    possibleCauses: [],
+    businessImpact: "Business impact requires review.",
+    priorityScore: 5,
+    scoringBreakdown: [],
+    options: [],
+    recommendedDecision:
+      "Review the available facts, identify the largest risk, and choose the next reversible step.",
+    confidenceScore: 0.2,
+    expectedOutcome: "A clear next step is selected and tracked.",
+    followUpPlan: [
+      "Gather the missing facts",
+      "Review the decision with the responsible owner",
+      "Record the selected outcome",
+    ],
+  };
 }
