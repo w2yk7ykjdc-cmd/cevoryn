@@ -1,4 +1,4 @@
-import { Building2, Shield } from "lucide-react";
+import { Building2, Shield, ShieldAlert } from "lucide-react";
 import type { Metadata } from "next";
 
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/rbac";
 
 import { OrganizationNameForm } from "./organization-name-form";
+import { TestDataCleanup } from "./test-data-cleanup";
 
 export const metadata: Metadata = { title: "Settings — Atlas" };
 
@@ -21,15 +22,11 @@ export default async function SettingsPage() {
       where: { id: membership.organizationId },
       select: { name: true, slug: true, createdAt: true },
     }),
-    prisma.member.count({
-      where: { organizationId: membership.organizationId },
-    }),
+    prisma.member.count({ where: { organizationId: membership.organizationId } }),
     prisma.memory.count({
       where: { organizationId: membership.organizationId, isActive: true },
     }),
-    prisma.conversation.count({
-      where: { organizationId: membership.organizationId },
-    }),
+    prisma.conversation.count({ where: { organizationId: membership.organizationId } }),
   ]);
 
   if (!org) return null;
@@ -64,9 +61,7 @@ export default async function SettingsPage() {
           <Separator />
           <Row
             label="Created"
-            value={new Intl.DateTimeFormat("en-US", {
-              dateStyle: "long",
-            }).format(org.createdAt)}
+            value={new Intl.DateTimeFormat("en-US", { dateStyle: "long" }).format(org.createdAt)}
           />
         </CardContent>
       </Card>
@@ -75,7 +70,7 @@ export default async function SettingsPage() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Shield className="h-4 w-4" />
-            Your Account
+            Your account
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -94,7 +89,7 @@ export default async function SettingsPage() {
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Workspace Usage</CardTitle>
+          <CardTitle className="text-base">Workspace usage</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-3 gap-4 text-center">
@@ -113,6 +108,20 @@ export default async function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {membership.role === "OWNER" ? (
+        <Card className="border-destructive/30">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ShieldAlert className="h-4 w-4" />
+              Beta maintenance
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <TestDataCleanup />
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }
