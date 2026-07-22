@@ -17,7 +17,9 @@ const TEST_PREFIXES = ["[TEST]", "TEST:", "TEST "];
 
 function testTitleWhere() {
   return {
-    OR: TEST_PREFIXES.map((prefix) => ({ title: { startsWith: prefix, mode: "insensitive" as const } })),
+    OR: TEST_PREFIXES.map((prefix) => ({
+      title: { startsWith: prefix, mode: "insensitive" as const },
+    })),
   };
 }
 
@@ -39,9 +41,7 @@ export async function DELETE(request: Request) {
     }
 
     const organizationId = membership.organizationId;
-    const actionWhere = { organizationId, ...testTitleWhere() };
     const insightWhere = { organizationId, ...testTitleWhere() };
-
     const testInsights = await prisma.insight.findMany({
       where: insightWhere,
       select: { id: true },
@@ -53,23 +53,15 @@ export async function DELETE(request: Request) {
         where: {
           organizationId,
           OR: [
-            testTitleWhere(),
+            ...TEST_PREFIXES.map((prefix) => ({
+              title: { startsWith: prefix, mode: "insensitive" as const },
+            })),
             ...(insightIds.length > 0 ? [{ sourceInsightId: { in: insightIds } }] : []),
           ],
         },
       });
-      const decisions = await tx.decision.deleteMany({
-        where: {
-          organizationId,
-          OR: [
-            { title: { startsWith: "[TEST]", mode: "insensitive" } },
-            { title: { startsWith: "TEST:", mode: "insensitive" } },
-            { title: { startsWith: "TEST ", mode: "insensitive" } },
-          ],
-        },
-      });
       const insights = await tx.insight.deleteMany({ where: insightWhere });
-      return { actions: actions.count, decisions: decisions.count, insights: insights.count };
+      return { actions: actions.count, insights: insights.count };
     });
 
     return NextResponse.json({ data: result });
