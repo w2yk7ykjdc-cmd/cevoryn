@@ -21,6 +21,8 @@ import { TopPriority } from "@/features/executive/components/top-priority";
 import type { ExecutiveHomeData } from "@/features/executive/types";
 import { sendAnalyticsEvent } from "@/lib/analytics";
 
+import { OnboardingGuide } from "./onboarding-guide";
+
 interface ExecutiveHomeClientProps {
   data: ExecutiveHomeData;
 }
@@ -62,6 +64,8 @@ export function ExecutiveHomeClient({ data }: ExecutiveHomeClientProps) {
         dateLabel={data.dateLabel}
         pulse={data.pulse}
       />
+
+      <OnboardingGuide />
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Card>
