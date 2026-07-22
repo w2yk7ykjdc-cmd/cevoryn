@@ -51,6 +51,10 @@ function getSafeRedirectPath(path: string | undefined, fallback: string): string
   return path;
 }
 
+function getConfirmationRedirectPath(redirectTo?: string): string {
+  return getSafeRedirectPath(redirectTo, ROUTES.ONBOARDING);
+}
+
 // =============================================================================
 // Actions
 // =============================================================================
@@ -84,7 +88,10 @@ export async function loginAction(
   redirect(getSafeRedirectPath(redirectTo, ROUTES.DASHBOARD));
 }
 
-export async function signupAction(input: SignupInput): Promise<ActionResult> {
+export async function signupAction(
+  input: SignupInput,
+  redirectTo?: string
+): Promise<ActionResult> {
   const parsed = signupSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -97,12 +104,13 @@ export async function signupAction(input: SignupInput): Promise<ActionResult> {
     };
   }
 
+  const nextPath = getConfirmationRedirectPath(redirectTo);
   const supabase = await createClient();
   const { error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
-      emailRedirectTo: `${getAppUrl()}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(ROUTES.ONBOARDING)}`,
+      emailRedirectTo: `${getAppUrl()}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(nextPath)}`,
     },
   });
 
@@ -114,7 +122,8 @@ export async function signupAction(input: SignupInput): Promise<ActionResult> {
 }
 
 export async function resendConfirmationAction(
-  input: ForgotPasswordInput
+  input: ForgotPasswordInput,
+  redirectTo?: string
 ): Promise<ActionResult> {
   const parsed = forgotPasswordSchema.safeParse(input);
   if (!parsed.success) {
@@ -128,12 +137,13 @@ export async function resendConfirmationAction(
     };
   }
 
+  const nextPath = getConfirmationRedirectPath(redirectTo);
   const supabase = await createClient();
   const { error } = await supabase.auth.resend({
     type: "signup",
     email: parsed.data.email,
     options: {
-      emailRedirectTo: `${getAppUrl()}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(ROUTES.ONBOARDING)}`,
+      emailRedirectTo: `${getAppUrl()}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(nextPath)}`,
     },
   });
 
