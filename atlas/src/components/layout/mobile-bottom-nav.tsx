@@ -1,6 +1,12 @@
 "use client";
 
-import { Activity, LayoutDashboard, MessageSquare, Newspaper, Sparkles } from "lucide-react";
+import {
+  Activity,
+  LayoutDashboard,
+  MessageSquare,
+  Newspaper,
+  Sparkles,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -24,10 +30,12 @@ export function MobileBottomNav() {
     >
       <div className="mx-auto grid max-w-md grid-cols-5 items-end gap-1">
         {ITEMS.map((item, index) => {
-          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const isActive =
+            pathname === item.href || pathname.startsWith(`${item.href}/`);
           const Icon = item.icon;
+          const isPrimary = "primary" in item && item.primary;
 
-          if (item.primary) {
+          if (isPrimary) {
             return (
               <Link
                 key={`${item.href}-${index}`}
