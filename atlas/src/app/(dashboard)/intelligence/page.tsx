@@ -9,6 +9,7 @@ import { requireMembership, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 import { ActionQueue } from "./action-queue";
+import { DecisionQueue } from "./decision-queue";
 
 export const metadata: Metadata = { title: "Intelligence — Atlas" };
 export const dynamic = "force-dynamic";
@@ -37,8 +38,11 @@ export default async function IntelligencePage() {
       },
     }),
     prisma.decision.findMany({
-      where: { organizationId },
-      orderBy: { createdAt: "desc" },
+      where: {
+        organizationId,
+        status: { in: ["PROPOSED", "ACCEPTED", "EXECUTED"] },
+      },
+      orderBy: [{ priorityScore: "desc" }, { createdAt: "desc" }],
       take: 20,
       select: {
         id: true,
@@ -63,7 +67,20 @@ export default async function IntelligencePage() {
   ]);
 
   const openInsights = insights.filter((item) => item.status === "NEW").length;
-  const openDecisions = decisions.filter((item) => item.status === "PROPOSED").length;
+  const proposedDecisions = decisions.filter((item) => item.status === "PROPOSED").length;
+  const activeDecisions = decisions.filter(
+    (item) => item.status === "ACCEPTED" || item.status === "EXECUTED"
+  ).length;
+  const decisionQueue = decisions.map((decision) => {
+    const canvas = readDecisionCanvas(decision.canvas);
+    return {
+      id: decision.id,
+      status: decision.status,
+      priorityScore: decision.priorityScore,
+      problemStatement: canvas.problemStatement || "Untitled decision",
+      recommendedDecision: canvas.recommendedDecision || "",
+    };
+  });
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 pb-8">
@@ -72,7 +89,7 @@ export default async function IntelligencePage() {
           <p className="text-sm text-muted-foreground">Atlas Brain</p>
           <h1 className="text-2xl font-bold tracking-tight">Intelligence workspace</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Review signals, decisions, and prepared actions in one place.
+            Review signals, decisions, outcomes, and prepared actions in one place.
           </p>
         </div>
         <Button asChild>
@@ -83,11 +100,20 @@ export default async function IntelligencePage() {
         </Button>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-4">
         <SummaryCard label="Open insights" value={openInsights} />
-        <SummaryCard label="Pending decisions" value={openDecisions} />
+        <SummaryCard label="Proposed decisions" value={proposedDecisions} />
+        <SummaryCard label="Active decisions" value={activeDecisions} />
         <SummaryCard label="Prepared actions" value={actions.length} />
       </div>
+
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Decisions</h2>
+          <Badge variant="secondary">{decisionQueue.length} active</Badge>
+        </div>
+        <DecisionQueue decisions={decisionQueue} />
+      </section>
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
@@ -133,42 +159,6 @@ export default async function IntelligencePage() {
               </CardContent>
             </Card>
           ))
-        )}
-      </section>
-
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Decisions</h2>
-          <Badge variant="secondary">{decisions.length} total</Badge>
-        </div>
-        {decisions.length === 0 ? (
-          <EmptyState message="Atlas has not formalized any decisions yet." />
-        ) : (
-          decisions.map((decision) => {
-            const canvas = readDecisionCanvas(decision.canvas);
-            return (
-              <Card key={decision.id}>
-                <CardHeader className="pb-2">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <CardTitle className="text-base">
-                        {canvas.problemStatement || "Untitled decision"}
-                      </CardTitle>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Priority {decision.priorityScore.toFixed(1)}/10
-                      </p>
-                    </div>
-                    <Badge variant="secondary">{formatStatus(decision.status)}</Badge>
-                  </div>
-                </CardHeader>
-                {canvas.recommendedDecision ? (
-                  <CardContent>
-                    <p className="text-sm leading-relaxed">{canvas.recommendedDecision}</p>
-                  </CardContent>
-                ) : null}
-              </Card>
-            );
-          })
         )}
       </section>
     </div>
