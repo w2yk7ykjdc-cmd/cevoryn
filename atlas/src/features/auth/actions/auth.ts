@@ -142,9 +142,6 @@ async function activateInvitedUser(
       return { success: false, error: sanitizeAuthError(createError.message) };
     }
 
-    // A previous signup attempt may have created an unconfirmed user before
-    // email delivery failed. Repair that user by confirming the email and
-    // applying the password entered on the invite screen.
     const { data: usersPage, error: listError } =
       await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
 
@@ -164,6 +161,17 @@ async function activateInvitedUser(
       };
     }
 
+    // Never overwrite the password of an already-confirmed account merely
+    // because someone possesses an invite link. Existing users must sign in.
+    if (existingUser.email_confirmed_at) {
+      return {
+        success: false,
+        error: "An account with this email already exists. Please sign in to accept the invite.",
+      };
+    }
+
+    // Repair only a partially-created, unconfirmed account from an earlier
+    // failed invite attempt.
     const { error: updateError } = await admin.auth.admin.updateUserById(
       existingUser.id,
       {
