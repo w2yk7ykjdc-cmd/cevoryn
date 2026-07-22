@@ -54,7 +54,7 @@ export default async function IntelligencePage() {
     prisma.preparedAction.findMany({
       where: { organizationId, status: "PENDING" },
       orderBy: { createdAt: "desc" },
-      take: 20,
+      take: 50,
       select: {
         id: true,
         title: true,
@@ -62,10 +62,13 @@ export default async function IntelligencePage() {
         type: true,
         confidence: true,
         reasoning: true,
+        sourceInsightId: true,
       },
     }),
   ]);
 
+  const visibleActions = collapseDuplicateActions(actions);
+  const hiddenDuplicateCount = actions.length - visibleActions.length;
   const openInsights = insights.filter((item) => item.status === "NEW").length;
   const proposedDecisions = decisions.filter((item) => item.status === "PROPOSED").length;
   const activeDecisions = decisions.filter(
@@ -104,7 +107,7 @@ export default async function IntelligencePage() {
         <SummaryCard label="Open insights" value={openInsights} />
         <SummaryCard label="Proposed decisions" value={proposedDecisions} />
         <SummaryCard label="Active decisions" value={activeDecisions} />
-        <SummaryCard label="Prepared actions" value={actions.length} />
+        <SummaryCard label="Prepared actions" value={visibleActions.length} />
       </div>
 
       <section className="space-y-3">
@@ -116,11 +119,18 @@ export default async function IntelligencePage() {
       </section>
 
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Prepared actions</h2>
-          <Badge variant="secondary">{actions.length} pending</Badge>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Prepared actions</h2>
+            {hiddenDuplicateCount > 0 ? (
+              <p className="text-xs text-muted-foreground">
+                {hiddenDuplicateCount} duplicate proposal{hiddenDuplicateCount === 1 ? "" : "s"} hidden.
+              </p>
+            ) : null}
+          </div>
+          <Badge variant="secondary">{visibleActions.length} pending</Badge>
         </div>
-        <ActionQueue actions={actions} />
+        <ActionQueue actions={visibleActions} />
       </section>
 
       <section className="space-y-3">
@@ -163,6 +173,19 @@ export default async function IntelligencePage() {
       </section>
     </div>
   );
+}
+
+function collapseDuplicateActions<
+  T extends { type: string; title: string; sourceInsightId: string | null },
+>(actions: T[]): T[] {
+  const seen = new Set<string>();
+  return actions.filter((action) => {
+    const normalizedTitle = action.title.trim().toLocaleLowerCase("en-US");
+    const key = `${action.sourceInsightId ?? "manual"}:${action.type}:${normalizedTitle}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function SummaryCard({ label, value }: { label: string; value: number }) {
