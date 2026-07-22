@@ -24,10 +24,9 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [details, setDetails] = useState<Record<string, unknown>>({});
-  const [reviewedIds, setReviewedIds] = useState<Set<string>>(() => new Set());
 
   async function fetchDetails(id: string): Promise<unknown> {
-    if (reviewedIds.has(id)) return details[id] ?? null;
+    if (details[id]) return details[id];
 
     const response = await fetch(`/api/brain/actions/${id}`);
     if (handleUnauthorized(response)) return null;
@@ -39,16 +38,11 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
 
     const content = payload?.data?.content ?? null;
     setDetails((current) => ({ ...current, [id]: content }));
-    setReviewedIds((current) => {
-      const next = new Set(current);
-      next.add(id);
-      return next;
-    });
     return content;
   }
 
   async function loadDetails(id: string) {
-    if (reviewedIds.has(id)) return;
+    if (details[id]) return;
     setLoadingId(id);
     try {
       await fetchDetails(id);
@@ -60,14 +54,9 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
   }
 
   async function updateStatus(action: ActionQueueItem, status: "APPROVED" | "DISMISSED") {
-    if (status === "APPROVED" && !reviewedIds.has(action.id)) {
-      toast.error("Review the action details before approval");
-      return;
-    }
-
     setUpdatingId(action.id);
     try {
-      const content = status === "APPROVED" ? details[action.id] ?? null : null;
+      const content = status === "APPROVED" ? await fetchDetails(action.id) : null;
 
       const response = await fetch(`/api/brain/actions/${action.id}`, {
         method: "PATCH",
@@ -109,7 +98,7 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
         const preview = getActionPreview(action.type, details[action.id]);
         const isUpdating = updatingId === action.id;
         const isLoading = loadingId === action.id;
-        const isReviewed = reviewedIds.has(action.id);
+        const hasReviewed = Object.prototype.hasOwnProperty.call(details, action.id);
 
         return (
           <Card key={action.id}>
@@ -127,24 +116,22 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
             <CardContent className="space-y-3">
               <p className="text-sm leading-relaxed">{action.description}</p>
 
-              {isReviewed ? (
-                preview.length > 0 ? (
-                  <div className="space-y-2 rounded-lg border bg-muted/40 p-3">
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      What Atlas will prepare
-                    </p>
-                    {preview.map((item) => (
-                      <div key={item.label} className="grid gap-1 sm:grid-cols-[110px_1fr]">
-                        <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
-                        <p className="whitespace-pre-wrap break-words text-sm">{item.value}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
-                    No additional structured details were provided. Review the title and description above before approval.
-                  </div>
-                )
+              {preview.length > 0 ? (
+                <div className="space-y-2 rounded-lg border bg-muted/40 p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    What Atlas will prepare
+                  </p>
+                  {preview.map((item) => (
+                    <div key={item.label} className="grid gap-1 sm:grid-cols-[110px_1fr]">
+                      <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
+                      <p className="whitespace-pre-wrap break-words text-sm">{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : hasReviewed ? (
+                <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm text-muted-foreground">
+                  No structured execution details were provided. Atlas will use the action title and description.
+                </div>
               ) : (
                 <Button
                   size="sm"
@@ -161,11 +148,11 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
               <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
-                  disabled={!isReviewed || updatingId !== null}
+                  disabled={!hasReviewed || updatingId !== null}
                   onClick={() => updateStatus(action, "APPROVED")}
                 >
                   {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                  {isReviewed ? "Approve & continue" : "Review before approval"}
+                  Approve & continue
                 </Button>
                 <Button
                   size="sm"
@@ -204,22 +191,41 @@ async function launchApprovedAction(action: ActionQueueItem, value: unknown) {
     const params = new URLSearchParams({ action: "TEMPLATE", text: title, details: description });
     if (date) params.set("dates", date);
     window.location.href = `https://calendar.google.com/calendar/render?${params.toString()}`;
+    toast.success("Action approved. Calendar proposal opened.");
     return;
   }
 
   const note = getActionPreview(action.type, value)
     .map((item) => `${item.label}: ${item.value}`)
     .join("\n");
+  const executionNote = note ? `${action.title}\n\n${note}` : `${action.title}\n\n${action.description}`;
 
-  if (note && navigator.clipboard) {
-    try {
-      await navigator.clipboard.writeText(`${action.title}\n\n${note}`);
-      toast.success("Action approved. Execution note copied.");
-    } catch {
-      toast.success("Action approved. Copy the reviewed details to continue.");
+  const copied = await copyText(executionNote);
+  toast.success(copied ? "Action approved. Execution note copied." : "Action approved. Copy the details from the card.");
+}
+
+async function copyText(value: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(value);
+      return true;
     }
-  } else {
-    toast.success("Action approved");
+
+    const textarea = document.createElement("textarea");
+    textarea.value = value;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    textarea.style.pointerEvents = "none";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+    const copied = document.execCommand("copy");
+    document.body.removeChild(textarea);
+    return copied;
+  } catch {
+    return false;
   }
 }
 
