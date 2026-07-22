@@ -48,6 +48,26 @@ export function ChatLayout({
     [sendMessage, invalidate]
   );
 
+  const sendOptionalWorkflowSummary = useCallback(
+    async (content: string) => {
+      try {
+        await handleSend(content);
+      } catch (_error) {
+        toast.info("Saved successfully. Atlas could not generate the optional chat summary.");
+      }
+    },
+    [handleSend]
+  );
+
+  const showSavedToast = useCallback((message: string) => {
+    toast.success(message, {
+      action: {
+        label: "Open Intelligence",
+        onClick: () => window.location.assign("/intelligence"),
+      },
+    });
+  }, []);
+
   const handleWorkflowSubmit = useCallback(
     async (mode: Exclude<ExecutiveMode, "CHAT" | "PLAN">, input: string) => {
       if (mode === "DECIDE") {
@@ -65,8 +85,8 @@ export function ChatLayout({
           throw new Error(message);
         }
 
-        toast.success("Decision saved to Atlas");
-        await handleSend(
+        showSavedToast("Decision saved to Atlas");
+        await sendOptionalWorkflowSummary(
           `A decision record was created for this problem: ${input}\n\nSummarize the recommendation, the largest risk, and the next step in plain language.`
         );
         return;
@@ -94,12 +114,12 @@ export function ChatLayout({
         throw new Error(message);
       }
 
-      toast.success("Action saved to Atlas");
-      await handleSend(
+      showSavedToast("Action saved to Atlas");
+      await sendOptionalWorkflowSummary(
         `An action was saved for: ${input}\n\nRefine it into a concise execution note with an owner suggestion, a realistic deadline, and a measurable definition of done.`
       );
     },
-    [handleSend]
+    [sendOptionalWorkflowSummary, showSavedToast]
   );
 
   useEffect(() => {
