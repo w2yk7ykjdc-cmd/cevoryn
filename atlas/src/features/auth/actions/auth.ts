@@ -1,9 +1,11 @@
 "use server";
 
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { ROUTES } from "@/lib/constants";
+import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/types";
 
@@ -24,16 +26,31 @@ import type {
 
 /** Sanitize Supabase error messages to avoid leaking internals */
 function sanitizeAuthError(message: string): string {
-  const safeMessages: Record<string, string> = {
-    "Invalid login credentials": "Invalid email or password.",
-    "Email not confirmed": "Please confirm your email before signing in.",
-    "User already registered": "An account with this email already exists.",
-    "Password should be at least 6 characters":
-      "Password must be at least 8 characters.",
-    "Email rate limit exceeded":
-      "Too many confirmation emails were requested. Please wait and try again.",
-  };
-  return safeMessages[message] ?? "Authentication failed. Please try again.";
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("invalid login credentials")) {
+    return "Invalid email or password.";
+  }
+  if (normalized.includes("email not confirmed")) {
+    return "Please confirm your email before signing in.";
+  }
+  if (
+    normalized.includes("already registered") ||
+    normalized.includes("already exists")
+  ) {
+    return "An account with this email already exists.";
+  }
+  if (normalized.includes("password") && normalized.includes("character")) {
+    return "Password must meet the security requirements.";
+  }
+  if (normalized.includes("rate limit") || normalized.includes("too many")) {
+    return "Too many authentication requests. Please wait and try again.";
+  }
+  if (normalized.includes("signup") && normalized.includes("disabled")) {
+    return "New account registration is currently disabled.";
+  }
+
+  return "Authentication failed. Please try again.";
 }
 
 async function getAppUrl(): Promise<string> {
@@ -62,6 +79,75 @@ function getSafeRedirectPath(path: string | undefined, fallback: string): string
 
 function getConfirmationRedirectPath(redirectTo?: string): string {
   return getSafeRedirectPath(redirectTo, ROUTES.ONBOARDING);
+}
+
+function getInviteToken(path: string): string | null {
+  const match = path.match(/^\/invite\/([^/?#]+)$/);
+  return match?.[1] ? decodeURIComponent(match[1]) : null;
+}
+
+async function activateInvitedUser(
+  input: SignupInput,
+  nextPath: string
+): Promise<ActionResult | null> {
+  const token = getInviteToken(nextPath);
+  if (!token) return null;
+
+  const invite = await prisma.invite.findUnique({
+    where: { token },
+    select: { email: true, status: true, expiresAt: true },
+  });
+
+  if (
+    !invite ||
+    invite.status !== "PENDING" ||
+    invite.expiresAt.getTime() <= Date.now() ||
+    invite.email.toLowerCase() !== input.email.toLowerCase()
+  ) {
+    return {
+      success: false,
+      error: "This invite is invalid, expired, or belongs to another email.",
+    };
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return null;
+  }
+
+  const admin = createAdminClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  const { error: createError } = await admin.auth.admin.createUser({
+    email: input.email,
+    password: input.password,
+    email_confirm: true,
+  });
+
+  if (
+    createError &&
+    !createError.message.toLowerCase().includes("already") &&
+    !createError.message.toLowerCase().includes("exists")
+  ) {
+    console.error("Invite user activation error:", createError.message);
+    return { success: false, error: sanitizeAuthError(createError.message) };
+  }
+
+  const supabase = await createClient();
+  const { error: signInError } = await supabase.auth.signInWithPassword({
+    email: input.email,
+    password: input.password,
+  });
+
+  if (signInError) {
+    console.error("Invite user sign-in error:", signInError.message);
+    return { success: false, error: sanitizeAuthError(signInError.message) };
+  }
+
+  redirect(nextPath);
 }
 
 // =============================================================================
@@ -114,6 +200,10 @@ export async function signupAction(
   }
 
   const nextPath = getConfirmationRedirectPath(redirectTo);
+
+  const inviteResult = await activateInvitedUser(parsed.data, nextPath);
+  if (inviteResult) return inviteResult;
+
   const appUrl = await getAppUrl();
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
@@ -167,8 +257,7 @@ export async function resendConfirmationAction(
     console.error("Confirmation resend error:", error.message);
     return {
       success: false,
-      error:
-        "Confirmation email could not be resent yet. Please wait and try again.",
+      error: sanitizeAuthError(error.message),
     };
   }
 
