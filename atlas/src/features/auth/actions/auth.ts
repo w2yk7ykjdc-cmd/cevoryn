@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { ROUTES } from "@/lib/constants";
@@ -33,11 +34,22 @@ function sanitizeAuthError(message: string): string {
   return safeMessages[message] ?? "Authentication failed. Please try again.";
 }
 
-function getAppUrl(): string {
+async function getAppUrl(): Promise<string> {
+  const requestHeaders = await headers();
+  const forwardedHost = requestHeaders.get("x-forwarded-host");
+  const host = forwardedHost ?? requestHeaders.get("host");
+
+  if (host) {
+    const forwardedProto = requestHeaders.get("x-forwarded-proto");
+    const protocol =
+      forwardedProto ?? (host.includes("localhost") ? "http" : "https");
+    return `${protocol}://${host}`.replace(/\/$/, "");
+  }
+
   const configuredUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
   if (configuredUrl) return configuredUrl.replace(/\/$/, "");
 
-  const vercelUrl = process.env.VERCEL_URL?.trim();
+  const vercelUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
   if (vercelUrl) return `https://${vercelUrl.replace(/\/$/, "")}`;
 
   return "http://localhost:3000";
@@ -105,17 +117,24 @@ export async function signupAction(
   }
 
   const nextPath = getConfirmationRedirectPath(redirectTo);
+  const appUrl = await getAppUrl();
   const supabase = await createClient();
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
-      emailRedirectTo: `${getAppUrl()}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(nextPath)}`,
+      emailRedirectTo: `${appUrl}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(nextPath)}`,
     },
   });
 
   if (error) {
     return { success: false, error: sanitizeAuthError(error.message) };
+  }
+
+  // When email confirmation is disabled, Supabase returns a session immediately.
+  // Continue directly to the intended invite/onboarding destination in that case.
+  if (data.session) {
+    redirect(nextPath);
   }
 
   return { success: true, data: undefined };
@@ -138,12 +157,13 @@ export async function resendConfirmationAction(
   }
 
   const nextPath = getConfirmationRedirectPath(redirectTo);
+  const appUrl = await getAppUrl();
   const supabase = await createClient();
   const { error } = await supabase.auth.resend({
     type: "signup",
     email: parsed.data.email,
     options: {
-      emailRedirectTo: `${getAppUrl()}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(nextPath)}`,
+      emailRedirectTo: `${appUrl}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(nextPath)}`,
     },
   });
 
@@ -173,10 +193,11 @@ export async function forgotPasswordAction(
     };
   }
 
+  const appUrl = await getAppUrl();
   const supabase = await createClient();
   // Always return success to prevent email enumeration.
   await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-    redirectTo: `${getAppUrl()}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(ROUTES.RESET_PASSWORD)}`,
+    redirectTo: `${appUrl}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(ROUTES.RESET_PASSWORD)}`,
   });
 
   return { success: true, data: undefined };
