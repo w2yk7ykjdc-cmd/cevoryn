@@ -13,10 +13,6 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// =============================================================================
-// Organization
-// =============================================================================
-
 model Organization {
   id        String   @id @default(cuid())
   name      String
@@ -25,25 +21,22 @@ model Organization {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  members        Member[]
-  invites        Invite[]
-  conversations  Conversation[]
-  usageRecords   UsageRecord[]
-  memories       Memory[]
-  insights       Insight[]
-  pulseSnapshots PulseSnapshot[]
-  briefs          Brief[]
-  preparedActions PreparedAction[]
-  decisions           Decision[]
-  outcomeEvaluations  OutcomeEvaluation[]
-  learningPatterns    LearningPattern[]
+  members           Member[]
+  invites           Invite[]
+  conversations     Conversation[]
+  usageRecords      UsageRecord[]
+  memories          Memory[]
+  insights          Insight[]
+  pulseSnapshots    PulseSnapshot[]
+  briefs             Brief[]
+  preparedActions    PreparedAction[]
+  decisions          Decision[]
+  outcomeEvaluations OutcomeEvaluation[]
+  learningPatterns   LearningPattern[]
+  googleConnections  GoogleConnection[]
 
   @@map("organizations")
 }
-
-// =============================================================================
-// Member
-// =============================================================================
 
 enum MemberRole {
   OWNER
@@ -68,10 +61,6 @@ model Member {
   @@index([organizationId])
   @@map("members")
 }
-
-// =============================================================================
-// Invite
-// =============================================================================
 
 enum InviteStatus {
   PENDING
@@ -100,9 +89,30 @@ model Invite {
   @@map("invites")
 }
 
-// =============================================================================
-// Conversation
-// =============================================================================
+model GoogleConnection {
+  id                    String   @id @default(cuid())
+  organizationId        String   @map("organization_id")
+  userId                String   @map("user_id")
+  googleEmail           String   @map("google_email")
+  accessTokenEncrypted  String   @map("access_token_encrypted") @db.Text
+  refreshTokenEncrypted String?  @map("refresh_token_encrypted") @db.Text
+  expiresAt             DateTime @map("expires_at")
+  scopes                 String   @db.Text
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@map("google_connections")
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
 
 model Conversation {
   id             String   @id @default(cuid())
@@ -119,16 +129,6 @@ model Conversation {
   @@index([organizationId, createdById])
   @@index([organizationId, updatedAt(sort: Desc)])
   @@map("conversations")
-}
-
-// =============================================================================
-// Message
-// =============================================================================
-
-enum MessageRole {
-  USER
-  ASSISTANT
-  SYSTEM
 }
 
 model Message {
@@ -148,10 +148,6 @@ model Message {
   @@map("messages")
 }
 
-// =============================================================================
-// Usage Tracking
-// =============================================================================
-
 model UsageRecord {
   id             String   @id @default(cuid())
   organizationId String   @map("organization_id")
@@ -169,10 +165,6 @@ model UsageRecord {
   @@index([userId, createdAt])
   @@map("usage_records")
 }
-
-// =============================================================================
-// Brain: Company Memory
-// =============================================================================
 
 enum MemoryCategory {
   DECISION
@@ -208,10 +200,6 @@ model Memory {
   @@index([organizationId, category])
   @@map("memories")
 }
-
-// =============================================================================
-// Brain: Insights
-// =============================================================================
 
 enum InsightCategory {
   STRATEGIC
@@ -261,10 +249,6 @@ model Insight {
   @@map("insights")
 }
 
-// =============================================================================
-// Brain: Company Pulse
-// =============================================================================
-
 enum PulsePeriod {
   DAILY
   WEEKLY
@@ -286,10 +270,6 @@ model PulseSnapshot {
   @@map("pulse_snapshots")
 }
 
-// =============================================================================
-// Brain: CEO Brief
-// =============================================================================
-
 enum BriefType {
   DAILY
   WEEKLY
@@ -310,10 +290,6 @@ model Brief {
   @@index([organizationId, type, createdAt(sort: Desc)])
   @@map("briefs")
 }
-
-// =============================================================================
-// Brain: Action Center
-// =============================================================================
 
 enum ActionType {
   EMAIL_DRAFT
@@ -348,10 +324,6 @@ model PreparedAction {
   @@index([organizationId, createdAt(sort: Desc)])
   @@map("prepared_actions")
 }
-
-// =============================================================================
-// Brain: Decision Intelligence
-// =============================================================================
 
 enum DecisionStatus {
   PROPOSED
@@ -412,10 +384,6 @@ model DecisionTimelineEvent {
   @@map("decision_timeline_events")
 }
 
-// =============================================================================
-// Brain: Outcome Evaluation
-// =============================================================================
-
 enum OutcomeResult {
   SUCCESS
   FAILURE
@@ -441,25 +409,21 @@ model OutcomeEvaluation {
   @@map("outcome_evaluations")
 }
 
-// =============================================================================
-// Brain: Learning Engine
-// =============================================================================
-
 model LearningPattern {
-  id             String   @id @default(cuid())
-  organizationId String   @map("organization_id")
-  patternType    String   @map("pattern_type")
-  category       String
-  pattern        String
-  frequency      Int      @default(1)
-  confidence     Float    @default(0.5)
-  metadata       Json     @default("{}")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id                String   @id @default(cuid())
+  organizationId    String   @map("organization_id")
+  patternType       String   @map("pattern_type")
+  description       String
+  evidence          Json     @default("[]")
+  confidence        Float    @default(0.5)
+  recommendedChange String?  @map("recommended_change")
+  isApplied         Boolean  @default(false) @map("is_applied")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, patternType])
-  @@index([organizationId, category])
+  @@index([organizationId, isApplied])
   @@map("learning_patterns")
 }
