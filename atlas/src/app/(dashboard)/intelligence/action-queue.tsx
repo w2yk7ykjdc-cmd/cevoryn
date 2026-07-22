@@ -17,6 +17,7 @@ interface ActionQueueItem {
   type: string;
   confidence: number;
   reasoning: string;
+  content: unknown;
 }
 
 export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
@@ -62,6 +63,8 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
     <div className="space-y-3">
       {actions.map((action) => {
         const isUpdating = updatingId === action.id;
+        const preview = getActionPreview(action.type, action.content);
+
         return (
           <Card key={action.id}>
             <CardHeader className="pb-2">
@@ -77,6 +80,21 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-sm leading-relaxed">{action.description}</p>
+
+              {preview.length > 0 ? (
+                <div className="space-y-2 rounded-lg border bg-muted/40 p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    What Atlas will prepare
+                  </p>
+                  {preview.map((item) => (
+                    <div key={item.label} className="grid gap-1 sm:grid-cols-[110px_1fr]">
+                      <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
+                      <p className="whitespace-pre-wrap break-words text-sm">{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
               {action.reasoning ? (
                 <p className="text-xs text-muted-foreground">{action.reasoning}</p>
               ) : null}
@@ -105,4 +123,51 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
       })}
     </div>
   );
+}
+
+function getActionPreview(type: string, value: unknown): Array<{ label: string; value: string }> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+
+  const content = value as Record<string, unknown>;
+  const fieldsByType: Record<string, Array<[string, string]>> = {
+    EMAIL_DRAFT: [
+      ["To", "to"],
+      ["Subject", "subject"],
+      ["Message", "body"],
+    ],
+    TASK: [
+      ["Task", "title"],
+      ["Details", "description"],
+      ["Due date", "dueDate"],
+    ],
+    CALENDAR_PROPOSAL: [
+      ["Meeting", "title"],
+      ["Details", "description"],
+      ["Duration", "duration"],
+      ["Suggested date", "suggestedDate"],
+    ],
+    FOLLOW_UP: [
+      ["With", "with"],
+      ["Topic", "topic"],
+      ["Suggested date", "suggestedDate"],
+    ],
+  };
+
+  return (fieldsByType[type] ?? Object.keys(content).map((key) => [formatLabel(key), key] as [string, string]))
+    .map(([label, key]) => ({ label, value: formatValue(content[key]) }))
+    .filter((item) => item.value.length > 0);
+}
+
+function formatValue(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return value.map(String).join(", ");
+  return "";
+}
+
+function formatLabel(value: string): string {
+  return value
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/_/g, " ")
+    .replace(/^./, (letter) => letter.toUpperCase());
 }
