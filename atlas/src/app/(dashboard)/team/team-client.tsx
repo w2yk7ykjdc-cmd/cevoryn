@@ -6,6 +6,7 @@ import {
   Copy,
   Loader2,
   Mail,
+  RefreshCw,
   Trash2,
   UserPlus,
   X,
@@ -189,6 +190,40 @@ export function TeamClient({
     }
   }
 
+  async function renewInvite(invite: PendingInvite) {
+    setBusyInviteId(invite.id);
+    try {
+      const res = await fetch(`/api/team/invite/${invite.id}`, {
+        method: "PATCH",
+      });
+
+      if (handleUnauthorized(res)) return;
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        toast.error(data?.error?.message ?? "Failed to renew invite");
+        return;
+      }
+
+      setInvites((prev) =>
+        prev.map((item) =>
+          item.id === invite.id
+            ? {
+                ...item,
+                expiresAt: data.data.expiresAt,
+                acceptPath: data.data.acceptPath,
+              }
+            : item
+        )
+      );
+      toast.success("Invite renewed");
+    } catch (_error) {
+      toast.error("Failed to renew invite");
+    } finally {
+      setBusyInviteId(null);
+    }
+  }
+
   async function cancelInvite(invite: PendingInvite) {
     if (!window.confirm(`Cancel the invite for ${invite.email}?`)) return;
 
@@ -285,6 +320,15 @@ export function TeamClient({
                   <Button variant="ghost" size="sm" onClick={() => copyInviteLink(invite)} disabled={busyInviteId === invite.id}>
                     {copiedInviteId === invite.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                     <span className="hidden sm:inline">Copy link</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Renew invite for ${invite.email}`}
+                    disabled={busyInviteId === invite.id}
+                    onClick={() => renewInvite(invite)}
+                  >
+                    {busyInviteId === invite.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                   </Button>
                   <Badge variant="outline" className="text-[10px]">{invite.role}</Badge>
                   <Button
