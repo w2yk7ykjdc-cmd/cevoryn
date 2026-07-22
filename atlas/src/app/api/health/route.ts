@@ -6,12 +6,17 @@ interface HealthResponse {
   status: "ok" | "degraded" | "error";
   timestamp: string;
   version: string;
+  commit: string | null;
+  responseTimeMs: number;
   services: {
     database: "connected" | "disconnected";
   };
 }
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
+  const startedAt = Date.now();
   let dbStatus: "connected" | "disconnected" = "disconnected";
 
   try {
@@ -24,7 +29,9 @@ export async function GET() {
   const health: HealthResponse = {
     status: dbStatus === "connected" ? "ok" : "degraded",
     timestamp: new Date().toISOString(),
-    version: "0.3.0",
+    version: process.env.npm_package_version ?? "unknown",
+    commit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) ?? null,
+    responseTimeMs: Date.now() - startedAt,
     services: {
       database: dbStatus,
     },
@@ -32,5 +39,8 @@ export async function GET() {
 
   return NextResponse.json(health, {
     status: health.status === "ok" ? 200 : 503,
+    headers: {
+      "Cache-Control": "no-store, max-age=0",
+    },
   });
 }
