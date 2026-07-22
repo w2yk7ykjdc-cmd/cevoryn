@@ -9,6 +9,8 @@ import {
 import { getMembership, getUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 const cleanupSchema = z.object({
   confirmation: z.literal("DELETE TEST DATA"),
 });
