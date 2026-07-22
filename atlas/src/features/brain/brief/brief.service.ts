@@ -62,11 +62,9 @@ export async function generateBrief(
   sections: BriefSection[];
   trust: TrustEnvelope<IntelligenceReport>;
 }> {
-  // Step 1: Execute brain pipeline
   const intelligence = await executePipeline(organizationId);
   const report = intelligence.data;
 
-  // Step 2: Generate brief sections
   let sections: BriefSection[];
 
   try {
@@ -107,30 +105,33 @@ export async function generateBrief(
     sections = buildFallbackSections(report, intelligence);
   }
 
-  // Step 3: Persist
   const now = new Date();
-  const periodStart = new Date(now);
-  if (type === "DAILY") {
-    periodStart.setHours(0, 0, 0, 0);
-  } else {
-    periodStart.setDate(periodStart.getDate() - 7);
-    periodStart.setHours(0, 0, 0, 0);
-  }
+  const periodStart = getPeriodStart(type, now);
 
   const title =
     type === "DAILY"
       ? `Daily Brief — ${now.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
       : `Weekly Brief — Week of ${periodStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
 
-  const brief = await prisma.brief.create({
-    data: {
-      organizationId,
-      type,
-      title,
-      sections: JSON.parse(JSON.stringify(sections)),
-      periodStart,
-      periodEnd: now,
-    },
+  const brief = await prisma.$transaction(async (tx) => {
+    await tx.brief.deleteMany({
+      where: {
+        organizationId,
+        type,
+        periodStart: { gte: periodStart },
+      },
+    });
+
+    return tx.brief.create({
+      data: {
+        organizationId,
+        type,
+        title,
+        sections: JSON.parse(JSON.stringify(sections)),
+        periodStart,
+        periodEnd: now,
+      },
+    });
   });
 
   return { id: brief.id, sections, trust: intelligence };
@@ -223,12 +224,31 @@ function buildFallbackSections(
   return sections.slice(0, MAX_SECTIONS);
 }
 
+function getPeriodStart(type: "DAILY" | "WEEKLY", date: Date): Date {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+
+  if (type === "WEEKLY") {
+    const day = start.getDay();
+    const daysSinceMonday = day === 0 ? 6 : day - 1;
+    start.setDate(start.getDate() - daysSinceMonday);
+  }
+
+  return start;
+}
+
 export async function getLatestBrief(
   organizationId: string,
   type: "DAILY" | "WEEKLY"
 ) {
+  const periodStart = getPeriodStart(type, new Date());
+
   return prisma.brief.findFirst({
-    where: { organizationId, type },
+    where: {
+      organizationId,
+      type,
+      periodStart: { gte: periodStart },
+    },
     orderBy: { createdAt: "desc" },
   });
 }
