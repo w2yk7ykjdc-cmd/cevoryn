@@ -114,26 +114,73 @@ async function activateInvitedUser(
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 
   if (!supabaseUrl || !serviceRoleKey) {
-    return null;
+    console.error("Invite activation configuration is missing.");
+    return {
+      success: false,
+      error: "Invite activation is not configured. Please contact the workspace owner.",
+    };
   }
 
   const admin = createAdminClient(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  const { error: createError } = await admin.auth.admin.createUser({
-    email: input.email,
-    password: input.password,
-    email_confirm: true,
-  });
+  const { data: created, error: createError } =
+    await admin.auth.admin.createUser({
+      email: input.email,
+      password: input.password,
+      email_confirm: true,
+    });
 
-  if (
-    createError &&
-    !createError.message.toLowerCase().includes("already") &&
-    !createError.message.toLowerCase().includes("exists")
-  ) {
-    console.error("Invite user activation error:", createError.message);
-    return { success: false, error: sanitizeAuthError(createError.message) };
+  if (createError) {
+    const normalized = createError.message.toLowerCase();
+    const userAlreadyExists =
+      normalized.includes("already") || normalized.includes("exists");
+
+    if (!userAlreadyExists) {
+      console.error("Invite user activation error:", createError.message);
+      return { success: false, error: sanitizeAuthError(createError.message) };
+    }
+
+    // A previous signup attempt may have created an unconfirmed user before
+    // email delivery failed. Repair that user by confirming the email and
+    // applying the password entered on the invite screen.
+    const { data: usersPage, error: listError } =
+      await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+
+    if (listError) {
+      console.error("Invite user lookup error:", listError.message);
+      return { success: false, error: sanitizeAuthError(listError.message) };
+    }
+
+    const existingUser = usersPage.users.find(
+      (user) => user.email?.toLowerCase() === input.email.toLowerCase()
+    );
+
+    if (!existingUser) {
+      return {
+        success: false,
+        error: "The invited account could not be prepared. Please try again.",
+      };
+    }
+
+    const { error: updateError } = await admin.auth.admin.updateUserById(
+      existingUser.id,
+      {
+        password: input.password,
+        email_confirm: true,
+      }
+    );
+
+    if (updateError) {
+      console.error("Invite user repair error:", updateError.message);
+      return { success: false, error: sanitizeAuthError(updateError.message) };
+    }
+  } else if (!created.user) {
+    return {
+      success: false,
+      error: "The invited account could not be created. Please try again.",
+    };
   }
 
   const supabase = await createClient();
