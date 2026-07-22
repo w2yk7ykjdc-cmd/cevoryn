@@ -18,6 +18,7 @@ import type {
 } from "../types";
 
 const MIN_DATA_THRESHOLD = 3;
+const EXECUTIVE_TIME_ZONE = "Europe/Istanbul";
 
 /**
  * Load all data for the Executive Home in a single server call.
@@ -33,7 +34,6 @@ export async function loadExecutiveHome(
   const weekStart = new Date(now);
   weekStart.setDate(weekStart.getDate() - 7);
 
-  // Parallel fetch — all data at once
   const [
     pulseMetrics,
     previousSnapshot,
@@ -81,14 +81,12 @@ export async function loadExecutiveHome(
     }),
   ]);
 
-  // Determine state
   const state = determineState(messageCount, memoryCount, topInsights.length);
   const insufficientDataReasons =
     state === "insufficient_data"
       ? buildInsufficientReasons(messageCount, memoryCount)
       : [];
 
-  // Pulse
   const previousMetrics = previousSnapshot
     ? (previousSnapshot.metrics as unknown as PulseMetrics)
     : null;
@@ -107,17 +105,13 @@ export async function loadExecutiveHome(
         }
       : null;
 
-  // Top priority — highest-priority insight or decision
   const topPriority = buildTopPriority(topInsights, pendingDecisions);
-
-  // Attention queue — max 3, excluding top priority
   const attentionItems = buildAttentionQueue(
     topInsights,
     pendingDecisions,
     topPriority?.id
   );
 
-  // Actions
   const actions: ActionItem[] = pendingActions.map(
     (a: {
       id: string;
@@ -140,17 +134,23 @@ export async function loadExecutiveHome(
     })
   );
 
-  // Greeting
-  const hour = now.getHours();
+  const hour = Number(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: EXECUTIVE_TIME_ZONE,
+      hour: "2-digit",
+      hourCycle: "h23",
+    }).format(now)
+  );
   const timeOfDay =
     hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const greeting = `${timeOfDay}, ${membership.displayName}`;
 
-  const dateLabel = now.toLocaleDateString("en-US", {
+  const dateLabel = new Intl.DateTimeFormat("en-US", {
+    timeZone: EXECUTIVE_TIME_ZONE,
     weekday: "long",
     month: "long",
     day: "numeric",
-  });
+  }).format(now);
 
   const quietMessage =
     state === "quiet"
@@ -249,8 +249,6 @@ function buildTopPriority(
   const topDecision = decisions[0];
   const topInsight = insights[0];
 
-  // Both values use the same 0–10 priority scale. Comparing decision priority
-  // against insight confidence (0–1) made decisions win almost every time.
   if (
     topDecision &&
     (!topInsight || topDecision.priorityScore >= topInsight.priority)
@@ -346,6 +344,5 @@ function buildAttentionQueue(
     });
   }
 
-  // Sort by priority descending, take max 3
   return items.sort((a, b) => b.priority - a.priority).slice(0, 3);
 }
