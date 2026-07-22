@@ -94,6 +94,18 @@ export default async function BriefPage() {
       }}
       insightCount={insights.length}
       actionCount={actions.length}
+      focusItems={insights.slice(0, 3).map((insight) => ({
+        id: insight.id,
+        title: insight.title,
+        summary: insight.summary,
+        severity: insight.severity,
+        recommendedAction: insight.recommendedAction,
+      }))}
+      nextActions={actions.slice(0, 3).map((action) => ({
+        id: action.id,
+        title: action.title,
+        description: action.description,
+      }))}
       hasBrief={brief !== null}
     />
   );
