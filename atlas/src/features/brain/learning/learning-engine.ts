@@ -201,14 +201,14 @@ async function upsertPattern(
     confidence: number;
   }
 ): Promise<number> {
-  const patternWhere = {
-    organizationId,
-    patternType: data.patternType,
-    category: data.category,
-  };
+  const storedPatternType = `${data.patternType}:${data.category}`;
+  const evidence = [{ category: data.category, frequency: data.frequency }];
 
   const existing = await prisma.learningPattern.findFirst({
-    where: patternWhere as never,
+    where: {
+      organizationId,
+      patternType: storedPatternType,
+    },
     select: { id: true },
   });
 
@@ -216,25 +216,22 @@ async function upsertPattern(
     await prisma.learningPattern.update({
       where: { id: existing.id },
       data: {
-        pattern: data.pattern,
-        frequency: data.frequency,
+        description: data.pattern,
+        evidence,
         confidence: data.confidence,
       },
     });
     return 0;
   }
 
-  const createData = {
-    organizationId,
-    patternType: data.patternType,
-    category: data.category,
-    pattern: data.pattern,
-    frequency: data.frequency,
-    confidence: data.confidence,
-  };
-
   await prisma.learningPattern.create({
-    data: createData as never,
+    data: {
+      organizationId,
+      patternType: storedPatternType,
+      description: data.pattern,
+      evidence,
+      confidence: data.confidence,
+    },
   });
 
   return 1;
@@ -248,26 +245,30 @@ export async function getLearningPatterns(
 ): Promise<LearnedPattern[]> {
   const patterns = await prisma.learningPattern.findMany({
     where: { organizationId },
-    orderBy: [{ confidence: "desc" }, { frequency: "desc" }],
+    orderBy: [{ confidence: "desc" }, { createdAt: "desc" }],
   });
 
-  return patterns.map(
-    (p: {
-      id: string;
-      patternType: string;
-      category: string;
-      pattern: string;
-      frequency: number;
-      confidence: number;
-      createdAt: Date;
-    }) => ({
+  return patterns.map((p) => {
+    const [rawType, storedCategory] = p.patternType.split(":", 2);
+    const evidence = Array.isArray(p.evidence) ? p.evidence : [];
+    const firstEvidence = evidence[0];
+    const metadata =
+      firstEvidence && typeof firstEvidence === "object" && !Array.isArray(firstEvidence)
+        ? (firstEvidence as Record<string, unknown>)
+        : {};
+
+    return {
       id: p.id,
-      patternType: p.patternType as PatternType,
-      category: p.category,
-      pattern: p.pattern,
-      frequency: p.frequency,
+      patternType: rawType as PatternType,
+      category:
+        typeof metadata.category === "string"
+          ? metadata.category
+          : storedCategory || "overall",
+      pattern: p.description,
+      frequency:
+        typeof metadata.frequency === "number" ? metadata.frequency : 0,
       confidence: p.confidence,
       createdAt: p.createdAt.toISOString(),
-    })
-  );
+    };
+  });
 }
