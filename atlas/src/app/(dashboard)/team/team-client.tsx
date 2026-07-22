@@ -8,6 +8,7 @@ import {
   Mail,
   Trash2,
   UserPlus,
+  X,
 } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -69,6 +70,7 @@ export function TeamClient({
   const [inviteRole, setInviteRole] = useState<"ADMIN" | "MEMBER">("MEMBER");
   const [isPending, startTransition] = useTransition();
   const [busyMemberId, setBusyMemberId] = useState<string | null>(null);
+  const [busyInviteId, setBusyInviteId] = useState<string | null>(null);
   const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null);
 
   function handleInvite() {
@@ -187,6 +189,32 @@ export function TeamClient({
     }
   }
 
+  async function cancelInvite(invite: PendingInvite) {
+    if (!window.confirm(`Cancel the invite for ${invite.email}?`)) return;
+
+    setBusyInviteId(invite.id);
+    try {
+      const res = await fetch(`/api/team/invite/${invite.id}`, {
+        method: "DELETE",
+      });
+
+      if (handleUnauthorized(res)) return;
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        toast.error(data?.error?.message ?? "Failed to cancel invite");
+        return;
+      }
+
+      setInvites((prev) => prev.filter((item) => item.id !== invite.id));
+      toast.success("Invite cancelled");
+    } catch (_error) {
+      toast.error("Failed to cancel invite");
+    } finally {
+      setBusyInviteId(null);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-2xl space-y-6 pb-8">
       <div>
@@ -253,12 +281,21 @@ export function TeamClient({
                     Expires {new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(invite.expiresAt))}
                   </p>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => copyInviteLink(invite)}>
+                <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => copyInviteLink(invite)} disabled={busyInviteId === invite.id}>
                     {copiedInviteId === invite.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                    Copy link
+                    <span className="hidden sm:inline">Copy link</span>
                   </Button>
                   <Badge variant="outline" className="text-[10px]">{invite.role}</Badge>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Cancel invite for ${invite.email}`}
+                    disabled={busyInviteId === invite.id}
+                    onClick={() => cancelInvite(invite)}
+                  >
+                    {busyInviteId === invite.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                  </Button>
                 </div>
               </div>
             ))}
