@@ -68,13 +68,22 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
       const payload = await response.json().catch(() => null);
       if (!response.ok) throw new Error(payload?.error?.message ?? "Action update failed");
 
-      if (status === "APPROVED") {
-        await launchApprovedAction(action, content);
-      } else {
+      if (status === "DISMISSED") {
         toast.success("Action dismissed");
+        router.refresh();
+        return;
       }
 
       router.refresh();
+      try {
+        await launchApprovedAction(action, content);
+      } catch (handoffError) {
+        console.error(
+          "Approved action handoff error:",
+          handoffError instanceof Error ? handoffError.message : "unknown"
+        );
+        toast.warning("Action approved, but the next app could not be opened. Use the reviewed details to continue manually.");
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not update action");
     } finally {
