@@ -11,10 +11,20 @@ export const createDecisionSchema = z.object({
 
 export type CreateDecisionInput = z.infer<typeof createDecisionSchema>;
 
-export const updateDecisionStatusSchema = z.object({
-  status: z.enum(["ACCEPTED", "REJECTED", "IGNORED", "COMPLETED"]),
-  outcome: z.string().trim().max(2000).optional(),
-});
+export const updateDecisionStatusSchema = z
+  .object({
+    status: z.enum(["ACCEPTED", "REJECTED", "IGNORED", "COMPLETED"]),
+    outcome: z.string().trim().max(2000).optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.status === "COMPLETED" && !value.outcome) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["outcome"],
+        message: "Outcome is required when completing a decision",
+      });
+    }
+  });
 
 export type UpdateDecisionStatusInput = z.infer<
   typeof updateDecisionStatusSchema
