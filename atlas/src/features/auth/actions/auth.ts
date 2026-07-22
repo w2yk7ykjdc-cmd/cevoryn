@@ -30,29 +30,26 @@ function sanitizeAuthError(message: string): string {
     "User already registered": "An account with this email already exists.",
     "Password should be at least 6 characters":
       "Password must be at least 8 characters.",
+    "Email rate limit exceeded":
+      "Too many confirmation emails were requested. Please wait and try again.",
   };
   return safeMessages[message] ?? "Authentication failed. Please try again.";
 }
 
 async function getAppUrl(): Promise<string> {
-  const requestHeaders = await headers();
-  const forwardedHost = requestHeaders.get("x-forwarded-host");
-  const host = forwardedHost ?? requestHeaders.get("host");
-
-  if (host) {
-    const forwardedProto = requestHeaders.get("x-forwarded-proto");
-    const protocol =
-      forwardedProto ?? (host.includes("localhost") ? "http" : "https");
-    return `${protocol}://${host}`.replace(/\/$/, "");
-  }
-
   const configuredUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
   if (configuredUrl) return configuredUrl.replace(/\/$/, "");
 
-  const vercelUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
-  if (vercelUrl) return `https://${vercelUrl.replace(/\/$/, "")}`;
+  const productionUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  if (productionUrl) return `https://${productionUrl.replace(/\/$/, "")}`;
 
-  return "http://localhost:3000";
+  const requestHeaders = await headers();
+  const host = requestHeaders.get("host");
+  if (host?.includes("localhost")) {
+    return `http://${host}`.replace(/\/$/, "");
+  }
+
+  return "https://atlas-kemal.vercel.app";
 }
 
 function getSafeRedirectPath(path: string | undefined, fallback: string): string {
@@ -128,11 +125,10 @@ export async function signupAction(
   });
 
   if (error) {
+    console.error("Signup error:", error.message);
     return { success: false, error: sanitizeAuthError(error.message) };
   }
 
-  // When email confirmation is disabled, Supabase returns a session immediately.
-  // Continue directly to the intended invite/onboarding destination in that case.
   if (data.session) {
     redirect(nextPath);
   }
@@ -171,7 +167,8 @@ export async function resendConfirmationAction(
     console.error("Confirmation resend error:", error.message);
     return {
       success: false,
-      error: "Confirmation email could not be resent yet. Please wait and try again.",
+      error:
+        "Confirmation email could not be resent yet. Please wait and try again.",
     };
   }
 
@@ -195,7 +192,6 @@ export async function forgotPasswordAction(
 
   const appUrl = await getAppUrl();
   const supabase = await createClient();
-  // Always return success to prevent email enumeration.
   await supabase.auth.resetPasswordForEmail(parsed.data.email, {
     redirectTo: `${appUrl}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(ROUTES.RESET_PASSWORD)}`,
   });
