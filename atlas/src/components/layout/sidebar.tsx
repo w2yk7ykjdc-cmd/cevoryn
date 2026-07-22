@@ -6,6 +6,7 @@ import {
   BrainCircuit,
   Building2,
   LayoutDashboard,
+  MessageCircle,
   MessageSquare,
   Newspaper,
   Settings,
@@ -32,6 +33,7 @@ const NAV_ITEMS = [
   { label: "Analytics", href: "/analytics", icon: BarChart3, adminOnly: true },
   { label: "Team", href: "/team", icon: Users },
   { label: "Settings", href: "/settings", icon: Settings },
+  { label: "Feedback", href: "/feedback", icon: MessageCircle },
 ] as const;
 
 export function Sidebar({ membership }: SidebarProps) {
@@ -82,7 +84,15 @@ export function Sidebar({ membership }: SidebarProps) {
         })}
       </nav>
 
-      <div className="border-t px-4 py-3">
+      <div className="space-y-2 border-t px-4 py-3">
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+          <Link className="hover:text-foreground" href="/privacy">
+            Privacy
+          </Link>
+          <Link className="hover:text-foreground" href="/terms">
+            Terms
+          </Link>
+        </div>
         <p className="text-xs text-muted-foreground">Atlas RC3</p>
       </div>
     </aside>
