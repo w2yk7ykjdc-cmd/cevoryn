@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Loader2, X } from "lucide-react";
+import { Check, Eye, Loader2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -17,12 +17,29 @@ interface ActionQueueItem {
   type: string;
   confidence: number;
   reasoning: string;
-  content: unknown;
 }
 
 export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
   const router = useRouter();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [details, setDetails] = useState<Record<string, unknown>>({});
+
+  async function loadDetails(id: string) {
+    if (details[id]) return;
+    setLoadingId(id);
+    try {
+      const response = await fetch(`/api/brain/actions/${id}`);
+      if (handleUnauthorized(response)) return;
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(payload?.error?.message ?? "Action details could not be loaded");
+      setDetails((current) => ({ ...current, [id]: payload?.data?.content ?? null }));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Action details could not be loaded");
+    } finally {
+      setLoadingId(null);
+    }
+  }
 
   async function updateStatus(id: string, status: "APPROVED" | "DISMISSED") {
     setUpdatingId(id);
@@ -32,14 +49,9 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
-
       if (handleUnauthorized(response)) return;
-
       const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error?.message ?? "Action update failed");
-      }
-
+      if (!response.ok) throw new Error(payload?.error?.message ?? "Action update failed");
       toast.success(status === "APPROVED" ? "Action approved" : "Action dismissed");
       router.refresh();
     } catch (error) {
@@ -62,9 +74,9 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
   return (
     <div className="space-y-3">
       {actions.map((action) => {
+        const preview = getActionPreview(action.type, details[action.id]);
         const isUpdating = updatingId === action.id;
-        const preview = getActionPreview(action.type, action.content);
-
+        const isLoading = loadingId === action.id;
         return (
           <Card key={action.id}>
             <CardHeader className="pb-2">
@@ -93,26 +105,25 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
                     </div>
                   ))}
                 </div>
-              ) : null}
-
-              {action.reasoning ? (
-                <p className="text-xs text-muted-foreground">{action.reasoning}</p>
-              ) : null}
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  disabled={updatingId !== null}
-                  onClick={() => updateStatus(action.id, "APPROVED")}
-                >
-                  {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                  Approve
-                </Button>
+              ) : (
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={updatingId !== null}
-                  onClick={() => updateStatus(action.id, "DISMISSED")}
+                  disabled={isLoading || updatingId !== null}
+                  onClick={() => loadDetails(action.id)}
                 >
+                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+                  Review details
+                </Button>
+              )}
+
+              {action.reasoning ? <p className="text-xs text-muted-foreground">{action.reasoning}</p> : null}
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" disabled={updatingId !== null} onClick={() => updateStatus(action.id, "APPROVED")}>
+                  {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  Approve
+                </Button>
+                <Button size="sm" variant="outline" disabled={updatingId !== null} onClick={() => updateStatus(action.id, "DISMISSED")}>
                   <X className="h-4 w-4" />
                   Dismiss
                 </Button>
@@ -127,33 +138,14 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
 
 function getActionPreview(type: string, value: unknown): Array<{ label: string; value: string }> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return [];
-
   const content = value as Record<string, unknown>;
-  const fieldsByType: Record<string, Array<[string, string]>> = {
-    EMAIL_DRAFT: [
-      ["To", "to"],
-      ["Subject", "subject"],
-      ["Message", "body"],
-    ],
-    TASK: [
-      ["Task", "title"],
-      ["Details", "description"],
-      ["Due date", "dueDate"],
-    ],
-    CALENDAR_PROPOSAL: [
-      ["Meeting", "title"],
-      ["Details", "description"],
-      ["Duration", "duration"],
-      ["Suggested date", "suggestedDate"],
-    ],
-    FOLLOW_UP: [
-      ["With", "with"],
-      ["Topic", "topic"],
-      ["Suggested date", "suggestedDate"],
-    ],
+  const fields: Record<string, Array<[string, string]>> = {
+    EMAIL_DRAFT: [["To", "to"], ["Subject", "subject"], ["Message", "body"]],
+    TASK: [["Task", "title"], ["Details", "description"], ["Due date", "dueDate"]],
+    CALENDAR_PROPOSAL: [["Meeting", "title"], ["Details", "description"], ["Duration", "duration"], ["Suggested date", "suggestedDate"]],
+    FOLLOW_UP: [["With", "with"], ["Topic", "topic"], ["Suggested date", "suggestedDate"]],
   };
-
-  return (fieldsByType[type] ?? Object.keys(content).map((key) => [formatLabel(key), key] as [string, string]))
+  return (fields[type] ?? Object.keys(content).map((key) => [formatLabel(key), key] as [string, string]))
     .map(([label, key]) => ({ label, value: formatValue(content[key]) }))
     .filter((item) => item.value.length > 0);
 }
@@ -166,8 +158,5 @@ function formatValue(value: unknown): string {
 }
 
 function formatLabel(value: string): string {
-  return value
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .replace(/_/g, " ")
-    .replace(/^./, (letter) => letter.toUpperCase());
+  return value.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/_/g, " ").replace(/^./, (letter) => letter.toUpperCase());
 }
