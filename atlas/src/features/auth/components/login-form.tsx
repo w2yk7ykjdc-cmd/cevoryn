@@ -28,6 +28,9 @@ export function LoginForm({
   authError,
 }: LoginFormProps) {
   const [isPending, setIsPending] = useState(false);
+  const signupHref = redirectTo
+    ? `${ROUTES.SIGNUP}?next=${encodeURIComponent(redirectTo)}`
+    : ROUTES.SIGNUP;
 
   const {
     register,
@@ -78,7 +81,7 @@ export function LoginForm({
         <>
           Don&apos;t have an account?{" "}
           <Link
-            href={ROUTES.SIGNUP}
+            href={signupHref}
             className="font-medium underline underline-offset-4 hover:text-primary"
           >
             Sign up
