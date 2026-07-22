@@ -1,4 +1,4 @@
-import { ArrowRight, BrainCircuit } from "lucide-react";
+import { ArrowRight, BrainCircuit, History } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -19,53 +19,83 @@ export default async function IntelligencePage() {
   const membership = await requireMembership(user.id);
   const organizationId = membership.organizationId;
 
-  const [insights, decisions, actions] = await Promise.all([
-    prisma.insight.findMany({
-      where: { organizationId },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      select: {
-        id: true,
-        title: true,
-        summary: true,
-        description: true,
-        recommendedAction: true,
-        category: true,
-        severity: true,
-        status: true,
-        priority: true,
-        confidence: true,
-      },
-    }),
-    prisma.decision.findMany({
-      where: {
-        organizationId,
-        status: { in: ["PROPOSED", "ACCEPTED", "EXECUTED"] },
-      },
-      orderBy: [{ priorityScore: "desc" }, { createdAt: "desc" }],
-      take: 20,
-      select: {
-        id: true,
-        status: true,
-        priorityScore: true,
-        canvas: true,
-      },
-    }),
-    prisma.preparedAction.findMany({
-      where: { organizationId, status: "PENDING" },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        type: true,
-        confidence: true,
-        reasoning: true,
-        sourceInsightId: true,
-      },
-    }),
-  ]);
+  const [insights, decisions, actions, decisionHistory, actionHistory] =
+    await Promise.all([
+      prisma.insight.findMany({
+        where: { organizationId },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        select: {
+          id: true,
+          title: true,
+          summary: true,
+          description: true,
+          recommendedAction: true,
+          category: true,
+          severity: true,
+          status: true,
+          priority: true,
+          confidence: true,
+        },
+      }),
+      prisma.decision.findMany({
+        where: {
+          organizationId,
+          status: { in: ["PROPOSED", "ACCEPTED", "EXECUTED"] },
+        },
+        orderBy: [{ priorityScore: "desc" }, { createdAt: "desc" }],
+        take: 20,
+        select: {
+          id: true,
+          status: true,
+          priorityScore: true,
+          canvas: true,
+        },
+      }),
+      prisma.preparedAction.findMany({
+        where: { organizationId, status: "PENDING" },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          type: true,
+          confidence: true,
+          reasoning: true,
+          sourceInsightId: true,
+        },
+      }),
+      prisma.decision.findMany({
+        where: {
+          organizationId,
+          status: {
+            in: ["REJECTED", "IGNORED", "COMPLETED", "SUCCESSFUL", "FAILED"],
+          },
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 8,
+        select: {
+          id: true,
+          status: true,
+          canvas: true,
+          outcome: true,
+          updatedAt: true,
+        },
+      }),
+      prisma.preparedAction.findMany({
+        where: { organizationId, status: { in: ["APPROVED", "DISMISSED"] } },
+        orderBy: { updatedAt: "desc" },
+        take: 8,
+        select: {
+          id: true,
+          title: true,
+          type: true,
+          status: true,
+          updatedAt: true,
+        },
+      }),
+    ]);
 
   const visibleActions = collapseDuplicateActions(actions);
   const hiddenDuplicateCount = actions.length - visibleActions.length;
@@ -124,13 +154,55 @@ export default async function IntelligencePage() {
             <h2 className="text-lg font-semibold">Prepared actions</h2>
             {hiddenDuplicateCount > 0 ? (
               <p className="text-xs text-muted-foreground">
-                {hiddenDuplicateCount} duplicate proposal{hiddenDuplicateCount === 1 ? "" : "s"} hidden.
+                {hiddenDuplicateCount} duplicate proposal
+                {hiddenDuplicateCount === 1 ? "" : "s"} hidden.
               </p>
             ) : null}
           </div>
           <Badge variant="secondary">{visibleActions.length} pending</Badge>
         </div>
         <ActionQueue actions={visibleActions} />
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Recent history</h2>
+            <p className="text-xs text-muted-foreground">
+              Recently reviewed decisions and actions.
+            </p>
+          </div>
+          <History className="h-5 w-5 text-muted-foreground" />
+        </div>
+        {decisionHistory.length === 0 && actionHistory.length === 0 ? (
+          <EmptyState message="No completed or dismissed intelligence items yet." />
+        ) : (
+          <Card>
+            <CardContent className="divide-y p-0">
+              {decisionHistory.map((decision) => {
+                const canvas = readDecisionCanvas(decision.canvas);
+                return (
+                  <HistoryRow
+                    key={`decision-${decision.id}`}
+                    title={canvas.problemStatement || "Untitled decision"}
+                    detail={decision.outcome || "Decision review completed"}
+                    status={decision.status}
+                    date={decision.updatedAt}
+                  />
+                );
+              })}
+              {actionHistory.map((action) => (
+                <HistoryRow
+                  key={`action-${action.id}`}
+                  title={action.title}
+                  detail={formatStatus(action.type)}
+                  status={action.status}
+                  date={action.updatedAt}
+                />
+              ))}
+            </CardContent>
+          </Card>
+        )}
       </section>
 
       <section className="space-y-3">
@@ -199,6 +271,38 @@ function SummaryCard({ label, value }: { label: string; value: number }) {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function HistoryRow({
+  title,
+  detail,
+  status,
+  date,
+}: {
+  title: string;
+  detail: string;
+  status: string;
+  date: Date;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3 p-4">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium">{title}</p>
+        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{detail}</p>
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          {date.toLocaleDateString("en-US", {
+            timeZone: "Europe/Istanbul",
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}
+        </p>
+      </div>
+      <Badge variant="outline" className="shrink-0">
+        {formatStatus(status)}
+      </Badge>
+    </div>
   );
 }
 
