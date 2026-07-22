@@ -25,15 +25,27 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [details, setDetails] = useState<Record<string, unknown>>({});
 
+  async function fetchDetails(id: string): Promise<unknown> {
+    if (details[id]) return details[id];
+
+    const response = await fetch(`/api/brain/actions/${id}`);
+    if (handleUnauthorized(response)) return null;
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(payload?.error?.message ?? "Action details could not be loaded");
+    }
+
+    const content = payload?.data?.content ?? null;
+    setDetails((current) => ({ ...current, [id]: content }));
+    return content;
+  }
+
   async function loadDetails(id: string) {
     if (details[id]) return;
     setLoadingId(id);
     try {
-      const response = await fetch(`/api/brain/actions/${id}`);
-      if (handleUnauthorized(response)) return;
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(payload?.error?.message ?? "Action details could not be loaded");
-      setDetails((current) => ({ ...current, [id]: payload?.data?.content ?? null }));
+      await fetchDetails(id);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Action details could not be loaded");
     } finally {
@@ -41,18 +53,27 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
     }
   }
 
-  async function updateStatus(id: string, status: "APPROVED" | "DISMISSED") {
-    setUpdatingId(id);
+  async function updateStatus(action: ActionQueueItem, status: "APPROVED" | "DISMISSED") {
+    setUpdatingId(action.id);
     try {
-      const response = await fetch(`/api/brain/actions/${id}`, {
+      const content = status === "APPROVED" ? await fetchDetails(action.id) : null;
+
+      const response = await fetch(`/api/brain/actions/${action.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
       if (handleUnauthorized(response)) return;
+
       const payload = await response.json().catch(() => null);
       if (!response.ok) throw new Error(payload?.error?.message ?? "Action update failed");
-      toast.success(status === "APPROVED" ? "Action approved" : "Action dismissed");
+
+      if (status === "APPROVED") {
+        await launchApprovedAction(action, content);
+      } else {
+        toast.success("Action dismissed");
+      }
+
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not update action");
@@ -119,11 +140,11 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
 
               {action.reasoning ? <p className="text-xs text-muted-foreground">{action.reasoning}</p> : null}
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" disabled={updatingId !== null} onClick={() => updateStatus(action.id, "APPROVED")}>
+                <Button size="sm" disabled={updatingId !== null} onClick={() => updateStatus(action, "APPROVED")}>
                   {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                  Approve
+                  Approve & continue
                 </Button>
-                <Button size="sm" variant="outline" disabled={updatingId !== null} onClick={() => updateStatus(action.id, "DISMISSED")}>
+                <Button size="sm" variant="outline" disabled={updatingId !== null} onClick={() => updateStatus(action, "DISMISSED")}>
                   <X className="h-4 w-4" />
                   Dismiss
                 </Button>
@@ -134,6 +155,64 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
       })}
     </div>
   );
+}
+
+async function launchApprovedAction(action: ActionQueueItem, value: unknown) {
+  const content = asRecord(value);
+
+  if (action.type === "EMAIL_DRAFT") {
+    const to = text(content.to);
+    const subject = text(content.subject) || action.title;
+    const body = text(content.body) || action.description;
+    window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    toast.success("Action approved. Email composer opened.");
+    return;
+  }
+
+  if (action.type === "CALENDAR_PROPOSAL") {
+    const title = text(content.title) || action.title;
+    const description = text(content.description) || action.description;
+    const date = buildCalendarDates(text(content.suggestedDate), text(content.duration));
+    const params = new URLSearchParams({ action: "TEMPLATE", text: title, details: description });
+    if (date) params.set("dates", date);
+    window.open(`https://calendar.google.com/calendar/render?${params.toString()}`, "_blank", "noopener,noreferrer");
+    toast.success("Action approved. Calendar proposal opened.");
+    return;
+  }
+
+  const note = getActionPreview(action.type, value)
+    .map((item) => `${item.label}: ${item.value}`)
+    .join("\n");
+
+  if (note && navigator.clipboard) {
+    await navigator.clipboard.writeText(`${action.title}\n\n${note}`);
+    toast.success("Action approved. Execution note copied.");
+  } else {
+    toast.success("Action approved");
+  }
+}
+
+function buildCalendarDates(suggestedDate: string, duration: string): string | null {
+  const start = new Date(suggestedDate);
+  if (Number.isNaN(start.getTime())) return null;
+
+  const minutes = Number.parseInt(duration, 10);
+  const end = new Date(start.getTime() + (Number.isFinite(minutes) ? minutes : 30) * 60_000);
+  return `${toCalendarUtc(start)}/${toCalendarUtc(end)}`;
+}
+
+function toCalendarUtc(value: Date): string {
+  return value.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function text(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
 }
 
 function getActionPreview(type: string, value: unknown): Array<{ label: string; value: string }> {
