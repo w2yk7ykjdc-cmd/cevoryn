@@ -7,56 +7,70 @@ import type { FormEvent, KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+export type ExecutiveMode = "CHAT" | "DECIDE" | "PLAN" | "ACTION";
+
 interface ChatInputProps {
   onSend: (message: string) => void;
+  onWorkflowSubmit: (mode: Exclude<ExecutiveMode, "CHAT" | "PLAN">, input: string) => Promise<void>;
   isStreaming: boolean;
 }
 
 const EXECUTIVE_MODES = [
-  {
-    label: "Decide",
-    icon: GitBranch,
-    prompt:
-      "Help me make this decision. Structure the options, trade-offs, risks, missing information, and your recommended decision:\n\n",
-  },
-  {
-    label: "Plan",
-    icon: ListTodo,
-    prompt:
-      "Turn this into a practical execution plan. Give me the objective, ordered steps, owner suggestions, dependencies, risks, and the next action:\n\n",
-  },
-  {
-    label: "Create action",
-    icon: CheckSquare2,
-    prompt:
-      "Convert this into a clear action item. Define the outcome, owner, priority, deadline suggestion, acceptance criteria, and first step:\n\n",
-  },
+  { label: "Decide", icon: GitBranch, mode: "DECIDE" },
+  { label: "Plan", icon: ListTodo, mode: "PLAN" },
+  { label: "Create action", icon: CheckSquare2, mode: "ACTION" },
 ] as const;
 
-export function ChatInput({ onSend, isStreaming }: ChatInputProps) {
+const MODE_PLACEHOLDER: Record<ExecutiveMode, string> = {
+  CHAT: "Ask Atlas anything...",
+  DECIDE: "Describe the decision you need to make...",
+  PLAN: "Describe the outcome you want to plan...",
+  ACTION: "Describe the action Atlas should create...",
+};
+
+export function ChatInput({ onSend, onWorkflowSubmit, isStreaming }: ChatInputProps) {
   const [value, setValue] = useState("");
+  const [mode, setMode] = useState<ExecutiveMode>("CHAT");
+  const [isSubmittingWorkflow, setIsSubmittingWorkflow] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const resetComposer = useCallback(() => {
+    setValue("");
+    setMode("CHAT");
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
+  }, []);
+
   const handleSubmit = useCallback(
-    (e: FormEvent) => {
+    async (e: FormEvent) => {
       e.preventDefault();
       const trimmed = value.trim();
-      if (!trimmed || isStreaming) return;
-      onSend(trimmed);
-      setValue("");
+      if (!trimmed || isStreaming || isSubmittingWorkflow) return;
 
-      if (textareaRef.current) {
-        textareaRef.current.style.height = "auto";
+      if (mode === "DECIDE" || mode === "ACTION") {
+        setIsSubmittingWorkflow(true);
+        try {
+          await onWorkflowSubmit(mode, trimmed);
+          resetComposer();
+        } finally {
+          setIsSubmittingWorkflow(false);
+        }
+        return;
       }
-    },
-    [value, isStreaming, onSend]
+
+      const message =
+        mode === "PLAN"
+          ? `Turn this into a practical execution plan. Give me the objective, ordered steps, owner suggestions, dependencies, risks, and the next action:\n\n${trimmed}`
+          : trimmed;
+      onSend(message);
+      resetComposer();
+    }, [value, mode, isStreaming, isSubmittingWorkflow, onSend, onWorkflowSubmit, resetComposer]
   );
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        handleSubmit(e);
+        void handleSubmit(e);
       }
     },
     [handleSubmit]
@@ -69,58 +83,51 @@ export function ChatInput({ onSend, isStreaming }: ChatInputProps) {
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }, []);
 
-  const applyMode = useCallback((prompt: string) => {
-    setValue((current) => (current.trim() ? `${prompt}${current}` : prompt));
-    requestAnimationFrame(() => {
-      const textarea = textareaRef.current;
-      if (!textarea) return;
-      textarea.focus();
-      textarea.style.height = "auto";
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
-      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-    });
+  const selectMode = useCallback((nextMode: ExecutiveMode) => {
+    setMode((current) => (current === nextMode ? "CHAT" : nextMode));
+    requestAnimationFrame(() => textareaRef.current?.focus());
   }, []);
 
-  const canSend = value.trim().length > 0 && !isStreaming;
+  const busy = isStreaming || isSubmittingWorkflow;
+  const canSend = value.trim().length > 0 && !busy;
 
   return (
     <div className="border-t bg-background p-3 sm:p-4">
       <div className="mx-auto mb-2 flex max-w-3xl gap-2 overflow-x-auto pb-1">
-        {EXECUTIVE_MODES.map(({ label, icon: Icon, prompt }) => (
-          <Button
-            key={label}
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8 shrink-0 rounded-full text-xs"
-            disabled={isStreaming}
-            onClick={() => applyMode(prompt)}
-          >
-            <Icon className="h-3.5 w-3.5" />
-            {label}
-          </Button>
-        ))}
+        {EXECUTIVE_MODES.map(({ label, icon: Icon, mode: itemMode }) => {
+          const active = mode === itemMode;
+          return (
+            <Button
+              key={label}
+              type="button"
+              variant={active ? "default" : "outline"}
+              size="sm"
+              className="h-8 shrink-0 rounded-full text-xs"
+              disabled={busy}
+              aria-pressed={active}
+              onClick={() => selectMode(itemMode)}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {label}
+            </Button>
+          );
+        })}
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="mx-auto flex max-w-3xl items-end gap-2"
-      >
+      <form onSubmit={handleSubmit} className="mx-auto flex max-w-3xl items-end gap-2">
         <textarea
           ref={textareaRef}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
           onInput={handleInput}
-          placeholder="Ask Atlas, make a decision, or create an action..."
+          placeholder={MODE_PLACEHOLDER[mode]}
           rows={1}
-          disabled={isStreaming}
+          disabled={busy}
           className={cn(
-            "flex-1 resize-none rounded-xl border bg-muted/50 px-4 py-3 text-sm",
-            "placeholder:text-muted-foreground",
-            "focus:outline-none focus:ring-2 focus:ring-ring",
-            "disabled:opacity-50",
-            "max-h-[200px]"
+            "max-h-[200px] flex-1 resize-none rounded-xl border bg-muted/50 px-4 py-3 text-sm",
+            "placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring",
+            "disabled:opacity-50"
           )}
           aria-label="Message input"
         />
@@ -129,13 +136,9 @@ export function ChatInput({ onSend, isStreaming }: ChatInputProps) {
           size="icon"
           disabled={!canSend}
           className="h-10 w-10 shrink-0 rounded-xl"
-          aria-label={isStreaming ? "Sending..." : "Send message"}
+          aria-label={busy ? "Working..." : "Send"}
         >
-          {isStreaming ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <ArrowUp className="h-4 w-4" />
-          )}
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
         </Button>
       </form>
     </div>
