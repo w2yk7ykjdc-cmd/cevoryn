@@ -66,32 +66,35 @@ export function TeamClient({
   const [members, setMembers] = useState(initialMembers);
   const [invites, setInvites] = useState(initialInvites);
   const [email, setEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"ADMIN" | "MEMBER">("MEMBER");
   const [isPending, startTransition] = useTransition();
   const [busyMemberId, setBusyMemberId] = useState<string | null>(null);
   const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null);
 
   function handleInvite() {
-    if (!email.trim()) return;
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail) return;
 
     startTransition(async () => {
       try {
         const res = await fetch("/api/team/invite", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: email.trim() }),
+          body: JSON.stringify({ email: normalizedEmail, role: inviteRole }),
         });
 
         if (handleUnauthorized(res)) return;
 
         const data = await res.json().catch(() => null);
         if (!res.ok) {
-          toast.error(data?.error?.message ?? "Failed to send invite");
+          toast.error(data?.error?.message ?? "Failed to create invite");
           return;
         }
 
         setInvites((prev) => [data.data, ...prev]);
         setEmail("");
-        toast.success(`Invite sent to ${email.trim()}`);
+        setInviteRole("MEMBER");
+        toast.success(`Invite created for ${normalizedEmail}`);
       } catch (_error) {
         toast.error("Something went wrong");
       }
@@ -201,7 +204,7 @@ export function TeamClient({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Input
                 type="email"
                 placeholder="colleague@company.com"
@@ -211,6 +214,20 @@ export function TeamClient({
                 disabled={isPending}
                 className="flex-1"
               />
+              {currentUserRole === "OWNER" && (
+                <select
+                  aria-label="Invite role"
+                  className="h-9 rounded-md border bg-background px-3 text-sm sm:w-32"
+                  value={inviteRole}
+                  onChange={(event) =>
+                    setInviteRole(event.target.value as "ADMIN" | "MEMBER")
+                  }
+                  disabled={isPending}
+                >
+                  <option value="MEMBER">MEMBER</option>
+                  <option value="ADMIN">ADMIN</option>
+                </select>
+              )}
               <Button onClick={handleInvite} disabled={isPending || !email.trim()} size="sm">
                 {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
                 Invite
