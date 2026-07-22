@@ -1,0 +1,50 @@
+name: Production Smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-smoke
+  cancel-in-progress: true
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify production health
+        env:
+          HEALTH_URL: https://atlas-kemal.vercel.app/api/health
+        run: |
+          set -euo pipefail
+          body="$(curl --fail --silent --show-error --retry 3 --retry-delay 5 --max-time 20 "$HEALTH_URL")"
+          echo "$body" | tee health.json
+          node -e '
+            const fs = require("fs");
+            const health = JSON.parse(fs.readFileSync("health.json", "utf8"));
+            if (health.status !== "ok") throw new Error(`Health status is ${health.status}`);
+            if (health.services?.database !== "connected") throw new Error("Database is not connected");
+            if (typeof health.responseTimeMs !== "number") throw new Error("Missing response time");
+            console.log(`Production healthy in ${health.responseTimeMs}ms`);
+          '
+
+      - name: Publish summary
+        if: always()
+        run: |
+          {
+            echo "## Atlas production smoke"
+            echo
+            if [ -f health.json ]; then
+              echo '```json'
+              cat health.json
+              echo
+              echo '```'
+            else
+              echo "Health endpoint did not return a usable response."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
