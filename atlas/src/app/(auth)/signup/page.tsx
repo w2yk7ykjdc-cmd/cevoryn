@@ -4,6 +4,11 @@ import { SignupForm } from "@/features/auth/components/signup-form";
 
 export const metadata: Metadata = { title: "Create account" };
 
-export default function SignupPage() {
-  return <SignupForm />;
+interface SignupPageProps {
+  searchParams: Promise<{ next?: string }>;
+}
+
+export default async function SignupPage({ searchParams }: SignupPageProps) {
+  const { next } = await searchParams;
+  return <SignupForm redirectTo={next} />;
 }
