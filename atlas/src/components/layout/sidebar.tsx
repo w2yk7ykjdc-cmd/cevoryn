@@ -15,8 +15,8 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { LanguageSelector } from "@/components/language-selector";
 import { useLanguage } from "@/components/language-provider";
+import { LanguageSelector } from "@/components/language-selector";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -63,7 +63,10 @@ export function Sidebar({ membership }: SidebarProps) {
 
       <Separator />
 
-      <nav className="flex-1 space-y-1 px-3 py-4" aria-label={t("mainNavigation")}>
+      <nav
+        className="flex-1 space-y-1 px-3 py-4"
+        aria-label={t("mainNavigation")}
+      >
         {NAV_ITEMS.filter(
           (item) => !("adminOnly" in item && item.adminOnly) || canViewAnalytics
         ).map((item) => {
