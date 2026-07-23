@@ -13,6 +13,18 @@ export default async function TeamPage() {
   const user = await requireUser();
   const membership = await requireMembership(user.id);
   const canInvite = hasPermission(membership.role, "members:invite");
+  const now = new Date();
+
+  if (canInvite) {
+    await prisma.invite.updateMany({
+      where: {
+        organizationId: membership.organizationId,
+        status: "PENDING",
+        expiresAt: { lte: now },
+      },
+      data: { status: "EXPIRED" },
+    });
+  }
 
   const [members, pendingInvites] = await Promise.all([
     prisma.member.findMany({
@@ -31,6 +43,7 @@ export default async function TeamPage() {
           where: {
             organizationId: membership.organizationId,
             status: "PENDING",
+            expiresAt: { gt: now },
           },
           orderBy: { createdAt: "desc" },
           select: {
