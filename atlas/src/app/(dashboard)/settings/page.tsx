@@ -1,4 +1,4 @@
-import { Building2, Shield, ShieldAlert } from "lucide-react";
+import { Building2, Link2, Shield, ShieldAlert } from "lucide-react";
 import type { Metadata } from "next";
 
 import { Badge } from "@/components/ui/badge";
@@ -8,30 +8,44 @@ import { requireMembership, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/rbac";
 
+import { GoogleIntegrationCard } from "./google-integration-card";
 import { OrganizationNameForm } from "./organization-name-form";
 import { TestDataCleanup } from "./test-data-cleanup";
 
 export const metadata: Metadata = { title: "Settings — Atlas" };
 
+type GoogleConnectionRow = { googleEmail: string };
+
 export default async function SettingsPage() {
   const user = await requireUser();
   const membership = await requireMembership(user.id);
 
-  const [org, memberCount, memoryCount, conversationCount] = await Promise.all([
-    prisma.organization.findUnique({
-      where: { id: membership.organizationId },
-      select: { name: true, slug: true, createdAt: true },
-    }),
-    prisma.member.count({ where: { organizationId: membership.organizationId } }),
-    prisma.memory.count({
-      where: { organizationId: membership.organizationId, isActive: true },
-    }),
-    prisma.conversation.count({ where: { organizationId: membership.organizationId } }),
-  ]);
+  const [org, memberCount, memoryCount, conversationCount, googleConnections] =
+    await Promise.all([
+      prisma.organization.findUnique({
+        where: { id: membership.organizationId },
+        select: { name: true, slug: true, createdAt: true },
+      }),
+      prisma.member.count({ where: { organizationId: membership.organizationId } }),
+      prisma.memory.count({
+        where: { organizationId: membership.organizationId, isActive: true },
+      }),
+      prisma.conversation.count({
+        where: { organizationId: membership.organizationId },
+      }),
+      prisma.$queryRaw<GoogleConnectionRow[]>`
+        SELECT "google_email" AS "googleEmail"
+        FROM "google_connections"
+        WHERE "organization_id" = ${membership.organizationId}
+          AND "user_id" = ${user.id}
+        LIMIT 1
+      `,
+    ]);
 
   if (!org) return null;
 
   const canUpdateOrganization = hasPermission(membership.role, "org:update");
+  const connectedEmail = googleConnections[0]?.googleEmail ?? null;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 pb-8">
@@ -63,6 +77,18 @@ export default async function SettingsPage() {
             label="Created"
             value={new Intl.DateTimeFormat("en-US", { dateStyle: "long" }).format(org.createdAt)}
           />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Link2 className="h-4 w-4" />
+            Integrations
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <GoogleIntegrationCard connectedEmail={connectedEmail} />
         </CardContent>
       </Card>
 
