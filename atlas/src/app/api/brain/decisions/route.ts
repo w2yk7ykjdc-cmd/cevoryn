@@ -8,6 +8,12 @@ import {
 } from "@/features/brain/decisions/decision.service";
 import { createDecisionSchema } from "@/features/brain/decisions/schemas";
 import type { DecisionCanvas } from "@/features/brain/decisions/types";
+import {
+  unauthorizedResponse,
+  forbiddenResponse,
+  badRequestResponse,
+  internalErrorResponse,
+} from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { checkRateLimit } from "@/server/services/rate-limit.service";
@@ -15,20 +21,10 @@ import { checkRateLimit } from "@/server/services/rate-limit.service";
 export async function GET(request: NextRequest) {
   try {
     const user = await getUser();
-    if (!user) {
-      return NextResponse.json(
-        { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
-        { status: 401 }
-      );
-    }
+    if (!user) return unauthorizedResponse();
 
     const membership = await getMembership(user.id);
-    if (!membership) {
-      return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "No organization" } },
-        { status: 403 }
-      );
-    }
+    if (!membership) return forbiddenResponse();
 
     const url = new URL(request.url);
     const status = url.searchParams.get("status") ?? undefined;
@@ -36,13 +32,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: decisions });
   } catch (error) {
-    console.error(
-      "Decisions GET error:",
-      error instanceof Error ? error.message : "unknown"
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to load decisions" } },
-      { status: 500 }
+    return internalErrorResponse(
+      "Decisions GET",
+      error,
+      "Failed to load decisions"
     );
   }
 }
@@ -50,36 +43,20 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const user = await getUser();
-    if (!user) {
-      return NextResponse.json(
-        { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
-        { status: 401 }
-      );
-    }
+    if (!user) return unauthorizedResponse();
 
     const membership = await getMembership(user.id);
-    if (!membership) {
-      return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "No organization" } },
-        { status: 403 }
-      );
-    }
+    if (!membership) return forbiddenResponse();
 
     if (!hasPermission(membership.role, "ai:use")) {
-      return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "Insufficient permissions" } },
-        { status: 403 }
-      );
+      return forbiddenResponse("Insufficient permissions");
     }
 
     let body: unknown;
     try {
       body = await request.json();
     } catch (_error) {
-      return NextResponse.json(
-        { error: { code: "INVALID_JSON", message: "Invalid body" } },
-        { status: 400 }
-      );
+      return badRequestResponse("Invalid body");
     }
 
     const parsed = createDecisionSchema.safeParse(body);
@@ -151,18 +128,10 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error(
-      "Decisions POST error:",
-      error instanceof Error ? error.message : "unknown"
-    );
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to process decision request",
-        },
-      },
-      { status: 500 }
+    return internalErrorResponse(
+      "Decisions POST",
+      error,
+      "Failed to process decision request"
     );
   }
 }
