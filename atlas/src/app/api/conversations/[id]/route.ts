@@ -6,6 +6,7 @@ import {
   forbiddenResponse,
   notFoundResponse,
   badRequestResponse,
+  internalErrorResponse,
 } from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
 import {
@@ -58,18 +59,10 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       },
     });
   } catch (error) {
-    console.error(
-      "Conversation GET error:",
-      error instanceof Error ? error.message : "unknown"
-    );
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to load conversation",
-        },
-      },
-      { status: 500 }
+    return internalErrorResponse(
+      "Conversation GET",
+      error,
+      "Failed to load conversation"
     );
   }
 }
@@ -91,10 +84,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     const title = body.title?.trim();
-
-    if (!title) {
-      return badRequestResponse("Title is required");
-    }
+    if (!title) return badRequestResponse("Title is required");
 
     await renameConversation(
       id,
@@ -105,18 +95,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({ data: { id, title } });
   } catch (error) {
-    console.error(
-      "Conversation PATCH error:",
-      error instanceof Error ? error.message : "unknown"
-    );
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to update conversation",
-        },
-      },
-      { status: 500 }
+    return internalErrorResponse(
+      "Conversation PATCH",
+      error,
+      "Failed to update conversation"
     );
   }
 }
@@ -133,18 +115,10 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     await deleteConversation(id, membership.organizationId, membership.userId);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
-    console.error(
-      "Conversation DELETE error:",
-      error instanceof Error ? error.message : "unknown"
-    );
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to delete conversation",
-        },
-      },
-      { status: 500 }
+    return internalErrorResponse(
+      "Conversation DELETE",
+      error,
+      "Failed to delete conversation"
     );
   }
 }
