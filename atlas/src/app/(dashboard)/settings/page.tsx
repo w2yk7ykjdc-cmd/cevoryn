@@ -16,11 +16,28 @@ export const metadata: Metadata = { title: "Settings — Atlas" };
 
 type GoogleConnectionRow = { googleEmail: string };
 
+async function getGoogleConnectionEmail(organizationId: string, userId: string) {
+  try {
+    const rows = await prisma.$queryRaw<GoogleConnectionRow[]>`
+      SELECT "google_email" AS "googleEmail"
+      FROM "google_connections"
+      WHERE "organization_id" = ${organizationId}
+        AND "user_id" = ${userId}
+      LIMIT 1
+    `;
+
+    return rows[0]?.googleEmail ?? null;
+  } catch (error) {
+    console.error("[atlas:google] connection lookup unavailable", error);
+    return null;
+  }
+}
+
 export default async function SettingsPage() {
   const user = await requireUser();
   const membership = await requireMembership(user.id);
 
-  const [org, memberCount, memoryCount, conversationCount, googleConnections] =
+  const [org, memberCount, memoryCount, conversationCount, connectedEmail] =
     await Promise.all([
       prisma.organization.findUnique({
         where: { id: membership.organizationId },
@@ -33,19 +50,12 @@ export default async function SettingsPage() {
       prisma.conversation.count({
         where: { organizationId: membership.organizationId },
       }),
-      prisma.$queryRaw<GoogleConnectionRow[]>`
-        SELECT "google_email" AS "googleEmail"
-        FROM "google_connections"
-        WHERE "organization_id" = ${membership.organizationId}
-          AND "user_id" = ${user.id}
-        LIMIT 1
-      `,
+      getGoogleConnectionEmail(membership.organizationId, user.id),
     ]);
 
   if (!org) return null;
 
   const canUpdateOrganization = hasPermission(membership.role, "org:update");
-  const connectedEmail = googleConnections[0]?.googleEmail ?? null;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 pb-8">
