@@ -11,6 +11,8 @@ import {
   unauthorizedResponse,
   forbiddenResponse,
   badRequestResponse,
+  notFoundResponse,
+  internalErrorResponse,
 } from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
@@ -20,22 +22,17 @@ export async function GET(request: NextRequest) {
   try {
     const user = await getUser();
     if (!user) return unauthorizedResponse();
+
     const membership = await getMembership(user.id);
     if (!membership) return forbiddenResponse();
 
     const url = new URL(request.url);
     const status = url.searchParams.get("status") ?? undefined;
     const insights = await listInsights(membership.organizationId, { status });
+
     return NextResponse.json({ data: insights });
   } catch (error) {
-    console.error(
-      "Insights GET error:",
-      error instanceof Error ? error.message : "unknown"
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to load insights" } },
-      { status: 500 }
-    );
+    return internalErrorResponse("Insights GET", error, "Failed to load insights");
   }
 }
 
@@ -43,6 +40,7 @@ export async function POST() {
   try {
     const user = await getUser();
     if (!user) return unauthorizedResponse();
+
     const membership = await getMembership(user.id);
     if (!membership) return forbiddenResponse();
 
@@ -61,18 +59,10 @@ export async function POST() {
     const created = await generateInsights(membership.organizationId);
     return NextResponse.json({ data: { generated: created } });
   } catch (error) {
-    console.error(
-      "Insights POST error:",
-      error instanceof Error ? error.message : "unknown"
-    );
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to generate insights",
-        },
-      },
-      { status: 500 }
+    return internalErrorResponse(
+      "Insights POST",
+      error,
+      "Failed to generate insights"
     );
   }
 }
@@ -81,6 +71,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const user = await getUser();
     if (!user) return unauthorizedResponse();
+
     const membership = await getMembership(user.id);
     if (!membership) return forbiddenResponse();
 
@@ -104,26 +95,16 @@ export async function PATCH(request: NextRequest) {
       parsed.data.status
     );
 
-    if (result.count === 0) {
-      return NextResponse.json(
-        { error: { code: "NOT_FOUND", message: "Insight not found" } },
-        { status: 404 }
-      );
-    }
+    if (result.count === 0) return notFoundResponse("Insight not found");
 
     return NextResponse.json({
       data: { id: parsed.data.id, status: parsed.data.status },
     });
   } catch (error) {
-    console.error(
-      "Insights PATCH error:",
-      error instanceof Error ? error.message : "unknown"
-    );
-    return NextResponse.json(
-      {
-        error: { code: "INTERNAL_ERROR", message: "Failed to update insight" },
-      },
-      { status: 500 }
+    return internalErrorResponse(
+      "Insights PATCH",
+      error,
+      "Failed to update insight"
     );
   }
 }
