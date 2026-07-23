@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -21,11 +21,13 @@ import { AuthCard } from "./auth-card";
 interface LoginFormProps {
   redirectTo?: string;
   authError?: string;
+  passwordReset?: boolean;
 }
 
 export function LoginForm({
   redirectTo,
   authError,
+  passwordReset = false,
 }: LoginFormProps) {
   const [isPending, setIsPending] = useState(false);
   const signupHref = redirectTo
@@ -88,6 +90,16 @@ export function LoginForm({
         </>
       }
     >
+      {passwordReset && (
+        <div
+          role="status"
+          className="mb-4 flex items-start gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm"
+        >
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>Your password has been updated. Sign in with your new password.</p>
+        </div>
+      )}
+
       {authError && (
         <p role="alert" className="mb-4 text-sm text-destructive">
           {authError}
