@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { unauthorizedResponse, forbiddenResponse } from "@/lib/api-utils";
+import {
+  forbiddenResponse,
+  internalErrorResponse,
+  unauthorizedResponse,
+} from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import {
@@ -23,24 +27,18 @@ export async function GET() {
 
     return NextResponse.json({
       data: conversations.map(
-        (c: { id: string; title: string; updatedAt: Date }) => ({
-          id: c.id,
-          title: c.title,
-          updatedAt: c.updatedAt.toISOString(),
+        (conversation: { id: string; title: string; updatedAt: Date }) => ({
+          id: conversation.id,
+          title: conversation.title,
+          updatedAt: conversation.updatedAt.toISOString(),
         })
       ),
     });
   } catch (error) {
-    const msg = error instanceof Error ? error.message : "Internal error";
-    console.error("Conversations GET error:", msg);
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to load conversations",
-        },
-      },
-      { status: 500 }
+    return internalErrorResponse(
+      "Conversations GET",
+      error,
+      "Failed to load conversations"
     );
   }
 }
@@ -73,16 +71,10 @@ export async function POST() {
       { status: 201 }
     );
   } catch (error) {
-    const msg = error instanceof Error ? error.message : "Internal error";
-    console.error("Conversations POST error:", msg);
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to create conversation",
-        },
-      },
-      { status: 500 }
+    return internalErrorResponse(
+      "Conversations POST",
+      error,
+      "Failed to create conversation"
     );
   }
 }
