@@ -11,7 +11,6 @@ import {
   unauthorizedResponse,
 } from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
-import { hasPermission } from "@/lib/rbac";
 
 export async function GET(request: NextRequest) {
   try {
@@ -32,10 +31,6 @@ export async function GET(request: NextRequest) {
         period
       );
       return NextResponse.json({ data: history });
-    }
-
-    if (!hasPermission(membership.role, "ai:use")) {
-      return forbiddenResponse("Insufficient permissions");
     }
 
     const metrics = await refreshDailyPulse(membership.organizationId);
