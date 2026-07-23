@@ -78,7 +78,7 @@ export async function renameConversation(
   createdById: string
 ) {
   return prisma.conversation.updateMany({
-    where: { id, organizationId, createdById },
+    where: { id, organizationId, createdById, isArchived: false },
     data: { title: title.slice(0, CONVERSATION_CONFIG.maxTitleLength) },
   });
 }
@@ -99,7 +99,7 @@ export async function archiveConversation(
   createdById: string
 ) {
   return prisma.conversation.updateMany({
-    where: { id, organizationId, createdById },
+    where: { id, organizationId, createdById, isArchived: false },
     data: { isArchived: true },
   });
 }
