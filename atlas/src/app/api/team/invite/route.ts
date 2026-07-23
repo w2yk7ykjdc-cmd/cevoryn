@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 
+import { sendTeamInviteEmail } from "@/features/team/invite-email";
 import {
   canCreateInvite,
   getInviteAcceptPath,
@@ -82,6 +83,15 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    const acceptPath = getInviteAcceptPath(invite.token);
+    const emailResult = await sendTeamInviteEmail({
+      to: invite.email,
+      organizationName: membership.organizationName,
+      role: invite.role,
+      acceptPath,
+      expiresAt: invite.expiresAt,
+    });
+
     return NextResponse.json(
       {
         data: {
@@ -89,7 +99,9 @@ export async function POST(request: NextRequest) {
           email: invite.email,
           role: invite.role,
           expiresAt: invite.expiresAt.toISOString(),
-          acceptPath: getInviteAcceptPath(invite.token),
+          acceptPath,
+          emailSent: emailResult.sent,
+          emailStatus: emailResult.sent ? "SENT" : emailResult.reason,
         },
       },
       { status: 201 }
