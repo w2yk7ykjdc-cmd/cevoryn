@@ -15,6 +15,7 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
@@ -84,8 +85,9 @@ export function Sidebar({ membership }: SidebarProps) {
         })}
       </nav>
 
-      <div className="space-y-2 border-t px-4 py-3">
-        <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+      <div className="space-y-2 border-t px-3 py-3">
+        <ThemeToggle />
+        <div className="flex flex-wrap gap-x-3 gap-y-1 px-1 text-[11px] text-muted-foreground">
           <Link className="hover:text-foreground" href="/privacy">
             Privacy
           </Link>
@@ -93,7 +95,7 @@ export function Sidebar({ membership }: SidebarProps) {
             Terms
           </Link>
         </div>
-        <p className="text-xs text-muted-foreground">Atlas RC3</p>
+        <p className="px-1 text-xs text-muted-foreground">Atlas RC3</p>
       </div>
     </aside>
   );
