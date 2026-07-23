@@ -9,6 +9,7 @@ import {
 import {
   badRequestResponse,
   forbiddenResponse,
+  internalErrorResponse,
   unauthorizedResponse,
 } from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
@@ -56,13 +57,10 @@ export async function GET(request: NextRequest) {
     );
     return NextResponse.json({ data: actions });
   } catch (error) {
-    console.error(
-      "Actions GET error:",
-      error instanceof Error ? error.message : "unknown"
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to load actions" } },
-      { status: 500 }
+    return internalErrorResponse(
+      "Actions GET",
+      error,
+      "Failed to load actions"
     );
   }
 }
@@ -109,13 +107,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ data: action }, { status: 201 });
   } catch (error) {
-    console.error(
-      "Actions POST error:",
-      error instanceof Error ? error.message : "unknown"
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to create action" } },
-      { status: 500 }
+    return internalErrorResponse(
+      "Actions POST",
+      error,
+      "Failed to create action"
     );
   }
 }
