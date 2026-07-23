@@ -11,22 +11,7 @@ export function apiHandler(
     try {
       return await handler(...args);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Internal server error";
-      console.error(`API error: ${message}`);
-
-      return NextResponse.json(
-        {
-          error: {
-            code: "INTERNAL_ERROR",
-            message:
-              process.env.NODE_ENV === "development"
-                ? message
-                : "An unexpected error occurred",
-          },
-        },
-        { status: 500 }
-      );
+      return internalErrorResponse("API", error);
     }
   };
 }
@@ -56,5 +41,25 @@ export function notFoundResponse(message = "Not found") {
   return NextResponse.json(
     { error: { code: "NOT_FOUND", message } },
     { status: 404 }
+  );
+}
+
+export function internalErrorResponse(
+  operation: string,
+  error: unknown,
+  message = "An unexpected error occurred"
+) {
+  const detail = error instanceof Error ? error.message : "Unknown error";
+  console.error(`${operation} error:`, detail);
+
+  return NextResponse.json(
+    {
+      error: {
+        code: "INTERNAL_ERROR",
+        message:
+          process.env.NODE_ENV === "development" ? `${message}: ${detail}` : message,
+      },
+    },
+    { status: 500 }
   );
 }
