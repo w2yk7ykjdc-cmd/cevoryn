@@ -34,6 +34,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(next, origin));
   }
 
+  if (next === ROUTES.RESET_PASSWORD) {
+    const recoveryUrl = new URL(ROUTES.FORGOT_PASSWORD, origin);
+    recoveryUrl.searchParams.set("error", "invalid_or_expired_reset_link");
+    return NextResponse.redirect(recoveryUrl);
+  }
+
   const providerError =
     searchParams.get("error_description") ?? searchParams.get("error");
   const loginUrl = new URL(ROUTES.LOGIN, origin);
