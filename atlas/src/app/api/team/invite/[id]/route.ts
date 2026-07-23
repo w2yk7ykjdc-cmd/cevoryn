@@ -3,7 +3,11 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { sendTeamInviteEmail } from "@/features/team/invite-email";
-import { getInviteAcceptPath, getInviteExpiresAt } from "@/features/team/invites";
+import {
+  getInviteAcceptPath,
+  getInviteExpiresAt,
+  isInviteRole,
+} from "@/features/team/invites";
 import {
   forbiddenResponse,
   internalErrorResponse,
@@ -82,6 +86,14 @@ export async function PATCH(
     });
 
     if (!invite) return notFoundResponse("Invite not found");
+
+    if (!isInviteRole(invite.role)) {
+      return internalErrorResponse(
+        "Invite renewal",
+        new Error(`Invalid invite role: ${invite.role}`),
+        "Failed to renew invite"
+      );
+    }
 
     if (invite.role === "ADMIN" && auth.membership.role !== "OWNER") {
       return forbiddenResponse("Only owners can renew administrator invites");
