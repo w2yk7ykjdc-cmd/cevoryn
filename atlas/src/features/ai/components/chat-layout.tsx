@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -32,7 +33,10 @@ export function ChatLayout({
   conversationTitle,
   initialMessages,
 }: ChatLayoutProps) {
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [title, setTitle] = useState(conversationTitle);
+  const [isMutating, setIsMutating] = useState(false);
   const { invalidate } = useConversations();
 
   const { messages, isStreaming, error, sendMessage } = useChat({
@@ -47,6 +51,65 @@ export function ChatLayout({
     },
     [sendMessage, invalidate]
   );
+
+  const handleRename = useCallback(
+    async (nextTitle: string) => {
+      setIsMutating(true);
+      try {
+        const response = await fetch(`/api/conversations/${conversationId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: nextTitle }),
+        });
+
+        if (handleUnauthorized(response)) return false;
+        const payload = await response.json().catch(() => null);
+        if (!response.ok) {
+          toast.error(payload?.error?.message ?? "Conversation could not be renamed");
+          return false;
+        }
+
+        setTitle(payload?.data?.title ?? nextTitle);
+        invalidate();
+        router.refresh();
+        toast.success("Conversation renamed");
+        return true;
+      } catch (_error) {
+        toast.error("Conversation could not be renamed");
+        return false;
+      } finally {
+        setIsMutating(false);
+      }
+    },
+    [conversationId, invalidate, router]
+  );
+
+  const handleArchive = useCallback(async () => {
+    setIsMutating(true);
+    try {
+      const response = await fetch(`/api/conversations/${conversationId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived: true }),
+      });
+
+      if (handleUnauthorized(response)) return;
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        toast.error(payload?.error?.message ?? "Conversation could not be archived");
+        return;
+      }
+
+      invalidate();
+      toast.success("Conversation archived");
+      router.replace("/chat");
+      router.refresh();
+    } catch (_error) {
+      toast.error("Conversation could not be archived");
+    } finally {
+      setIsMutating(false);
+    }
+  }, [conversationId, invalidate, router]);
 
   const sendOptionalWorkflowSummary = useCallback(
     async (content: string) => {
@@ -95,12 +158,13 @@ export function ChatLayout({
         return;
       }
 
-      const title = input.length > 120 ? `${input.slice(0, 117)}...` : input;
+      const actionTitle =
+        input.length > 120 ? `${input.slice(0, 117)}...` : input;
       const response = await fetch("/api/brain/actions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title,
+          title: actionTitle,
           description: input,
           priority: "MEDIUM",
           acceptanceCriteria: [],
@@ -149,8 +213,11 @@ export function ChatLayout({
 
       <div className="flex min-w-0 flex-1 flex-col">
         <ChatHeader
-          title={conversationTitle}
+          title={title}
           onToggleSidebar={() => setSidebarOpen(true)}
+          onRename={handleRename}
+          onArchive={handleArchive}
+          isMutating={isMutating}
         />
         <ChatMessages messages={messages} />
         <ChatInput
