@@ -66,7 +66,7 @@ async function getAppUrl(): Promise<string> {
     return `http://${host}`.replace(/\/$/, "");
   }
 
-  return "https://atlas-kemal.vercel.app";
+  return "https://atlas-wb6b.vercel.app";
 }
 
 function getSafeRedirectPath(path: string | undefined, fallback: string): string {
@@ -161,8 +161,6 @@ async function activateInvitedUser(
       };
     }
 
-    // Never overwrite the password of an already-confirmed account merely
-    // because someone possesses an invite link. Existing users must sign in.
     if (existingUser.email_confirmed_at) {
       return {
         success: false,
@@ -170,8 +168,6 @@ async function activateInvitedUser(
       };
     }
 
-    // Repair only a partially-created, unconfirmed account from an earlier
-    // failed invite attempt.
     const { error: updateError } = await admin.auth.admin.updateUserById(
       existingUser.id,
       {
@@ -208,6 +204,29 @@ async function activateInvitedUser(
 // =============================================================================
 // Actions
 // =============================================================================
+
+export async function googleLoginAction(formData: FormData): Promise<void> {
+  const requestedRedirect = formData.get("redirectTo");
+  const nextPath = getSafeRedirectPath(
+    typeof requestedRedirect === "string" ? requestedRedirect : undefined,
+    ROUTES.DASHBOARD
+  );
+  const appUrl = await getAppUrl();
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${appUrl}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(nextPath)}`,
+    },
+  });
+
+  if (error || !data.url) {
+    const message = error?.message ?? "Google sign-in could not be started.";
+    redirect(`${ROUTES.LOGIN}?error=${encodeURIComponent(sanitizeAuthError(message))}`);
+  }
+
+  redirect(data.url);
+}
 
 export async function loginAction(
   input: LoginInput,
