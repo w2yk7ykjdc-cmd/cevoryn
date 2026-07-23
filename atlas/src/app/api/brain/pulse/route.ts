@@ -5,7 +5,11 @@ import {
   getPulseHistory,
   refreshDailyPulse,
 } from "@/features/brain/pulse/pulse.service";
-import { unauthorizedResponse, forbiddenResponse } from "@/lib/api-utils";
+import {
+  forbiddenResponse,
+  internalErrorResponse,
+  unauthorizedResponse,
+} from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
@@ -24,7 +28,7 @@ export async function GET(request: NextRequest) {
         url.searchParams.get("period") === "WEEKLY" ? "WEEKLY" : "DAILY";
       const history = await getPulseHistory(
         membership.organizationId,
-        period as "DAILY" | "WEEKLY"
+        period
       );
       return NextResponse.json({ data: history });
     }
@@ -32,13 +36,10 @@ export async function GET(request: NextRequest) {
     const metrics = await refreshDailyPulse(membership.organizationId);
     return NextResponse.json({ data: metrics });
   } catch (error) {
-    const msg = error instanceof Error ? error.message : "Internal error";
-    console.error("Pulse API error:", msg);
-    return NextResponse.json(
-      {
-        error: { code: "INTERNAL_ERROR", message: "Failed to load pulse data" },
-      },
-      { status: 500 }
+    return internalErrorResponse(
+      "Pulse GET",
+      error,
+      "Failed to load pulse data"
     );
   }
 }
