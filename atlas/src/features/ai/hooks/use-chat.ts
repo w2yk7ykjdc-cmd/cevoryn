@@ -2,7 +2,10 @@
 
 import { useCallback, useRef, useState } from "react";
 
-import { handleUnauthorized } from "@/lib/client-auth";
+import {
+  handleUnauthorized,
+  preservePendingChatMessage,
+} from "@/lib/client-auth";
 import type { MessageDetail, StreamChunk } from "@/types";
 
 interface UseChatOptions {
@@ -28,7 +31,8 @@ export function useChat({
 
   const sendMessage = useCallback(
     async (content: string) => {
-      if (isStreaming || !content.trim()) return;
+      const normalizedContent = content.trim();
+      if (isStreaming || !normalizedContent) return;
 
       setError(null);
       setIsStreaming(true);
@@ -36,7 +40,7 @@ export function useChat({
       const userMessage: MessageDetail = {
         id: `temp-${Date.now()}`,
         role: "USER",
-        content: content.trim(),
+        content: normalizedContent,
         model: null,
         createdAt: new Date().toISOString(),
       };
@@ -60,11 +64,23 @@ export function useChat({
         const response = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ conversationId, content: content.trim() }),
+          body: JSON.stringify({
+            conversationId,
+            content: normalizedContent,
+          }),
           signal: abortRef.current.signal,
         });
 
-        if (handleUnauthorized(response)) return;
+        if (response.status === 401) {
+          preservePendingChatMessage(conversationId, normalizedContent);
+          setMessages((prev) =>
+            prev.filter(
+              (item) => item.id !== userMessage.id && item.id !== assistantId
+            )
+          );
+          handleUnauthorized(response);
+          return;
+        }
 
         if (!response.ok) {
           const errorBody = await response.json().catch(() => null);
