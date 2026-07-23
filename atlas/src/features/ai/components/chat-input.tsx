@@ -1,17 +1,22 @@
 "use client";
 
 import { ArrowUp, CheckSquare2, GitBranch, ListTodo, Loader2 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent } from "react";
 
 import { Button } from "@/components/ui/button";
+import { consumePendingChatMessage } from "@/lib/client-auth";
 import { cn } from "@/lib/utils";
 
 export type ExecutiveMode = "CHAT" | "DECIDE" | "PLAN" | "ACTION";
 
 interface ChatInputProps {
+  conversationId: string;
   onSend: (message: string) => void;
-  onWorkflowSubmit: (mode: Exclude<ExecutiveMode, "CHAT" | "PLAN">, input: string) => Promise<void>;
+  onWorkflowSubmit: (
+    mode: Exclude<ExecutiveMode, "CHAT" | "PLAN">,
+    input: string
+  ) => Promise<void>;
   isStreaming: boolean;
 }
 
@@ -28,11 +33,32 @@ const MODE_PLACEHOLDER: Record<ExecutiveMode, string> = {
   ACTION: "Describe the action Atlas should create...",
 };
 
-export function ChatInput({ onSend, onWorkflowSubmit, isStreaming }: ChatInputProps) {
+export function ChatInput({
+  conversationId,
+  onSend,
+  onWorkflowSubmit,
+  isStreaming,
+}: ChatInputProps) {
   const [value, setValue] = useState("");
   const [mode, setMode] = useState<ExecutiveMode>("CHAT");
   const [isSubmittingWorkflow, setIsSubmittingWorkflow] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const pendingMessage = consumePendingChatMessage(conversationId);
+    if (!pendingMessage) return;
+
+    setValue((current) => current || pendingMessage);
+    setMode("CHAT");
+
+    requestAnimationFrame(() => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+      textarea.style.height = "auto";
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
+      textarea.focus();
+    });
+  }, [conversationId]);
 
   const resetComposer = useCallback(() => {
     setValue("");
@@ -63,7 +89,15 @@ export function ChatInput({ onSend, onWorkflowSubmit, isStreaming }: ChatInputPr
           : trimmed;
       onSend(message);
       resetComposer();
-    }, [value, mode, isStreaming, isSubmittingWorkflow, onSend, onWorkflowSubmit, resetComposer]
+    }, [
+      value,
+      mode,
+      isStreaming,
+      isSubmittingWorkflow,
+      onSend,
+      onWorkflowSubmit,
+      resetComposer,
+    ]
   );
 
   const handleKeyDown = useCallback(
@@ -114,7 +148,10 @@ export function ChatInput({ onSend, onWorkflowSubmit, isStreaming }: ChatInputPr
         })}
       </div>
 
-      <form onSubmit={handleSubmit} className="mx-auto flex max-w-3xl items-end gap-2">
+      <form
+        onSubmit={handleSubmit}
+        className="mx-auto flex max-w-3xl items-end gap-2"
+      >
         <textarea
           ref={textareaRef}
           value={value}
@@ -138,7 +175,11 @@ export function ChatInput({ onSend, onWorkflowSubmit, isStreaming }: ChatInputPr
           className="h-10 w-10 shrink-0 rounded-xl"
           aria-label={busy ? "Working..." : "Send"}
         >
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
+          {busy ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <ArrowUp className="h-4 w-4" />
+          )}
         </Button>
       </form>
     </div>
