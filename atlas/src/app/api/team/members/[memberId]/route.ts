@@ -5,6 +5,7 @@ import { z } from "zod";
 import {
   badRequestResponse,
   forbiddenResponse,
+  internalErrorResponse,
   notFoundResponse,
   unauthorizedResponse,
 } from "@/lib/api-utils";
@@ -68,24 +69,30 @@ export async function PATCH(request: Request, context: RouteContext) {
       return forbiddenResponse("You cannot change this member's role");
     }
 
-    const updated = await prisma.member.update({
-      where: { id: target.id },
-      data: { role: parsed.data.role },
-      select: {
-        id: true,
-        role: true,
+    const result = await prisma.member.updateMany({
+      where: {
+        id: target.id,
+        organizationId: membership.organizationId,
+        role: target.role,
       },
+      data: { role: parsed.data.role },
     });
 
-    return NextResponse.json({ data: updated });
+    if (result.count !== 1) {
+      return notFoundResponse("Member changed before the request completed");
+    }
+
+    return NextResponse.json({
+      data: {
+        id: target.id,
+        role: parsed.data.role,
+      },
+    });
   } catch (error) {
-    console.error(
-      "Member role update error:",
-      error instanceof Error ? error.message : "unknown"
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update member role" } },
-      { status: 500 }
+    return internalErrorResponse(
+      "Member role update",
+      error,
+      "Failed to update member role"
     );
   }
 }
@@ -126,17 +133,24 @@ export async function DELETE(_request: Request, context: RouteContext) {
       return forbiddenResponse("You cannot remove this member");
     }
 
-    await prisma.member.delete({ where: { id: target.id } });
+    const result = await prisma.member.deleteMany({
+      where: {
+        id: target.id,
+        organizationId: membership.organizationId,
+        role: target.role,
+      },
+    });
+
+    if (result.count !== 1) {
+      return notFoundResponse("Member changed before the request completed");
+    }
 
     return NextResponse.json({ data: { id: target.id } });
   } catch (error) {
-    console.error(
-      "Member removal error:",
-      error instanceof Error ? error.message : "unknown"
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to remove member" } },
-      { status: 500 }
+    return internalErrorResponse(
+      "Member removal",
+      error,
+      "Failed to remove member"
     );
   }
 }
