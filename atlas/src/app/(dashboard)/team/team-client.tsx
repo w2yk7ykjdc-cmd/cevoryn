@@ -74,6 +74,10 @@ export function TeamClient({
   const [busyInviteId, setBusyInviteId] = useState<string | null>(null);
   const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null);
 
+  function removeStaleInvite(inviteId: string) {
+    setInvites((prev) => prev.filter((item) => item.id !== inviteId));
+  }
+
   function handleInvite() {
     const normalizedEmail = email.trim();
     if (!normalizedEmail) return;
@@ -90,6 +94,15 @@ export function TeamClient({
 
         const data = await res.json().catch(() => null);
         if (!res.ok) {
+          if (res.status === 429) {
+            const retryAfter = Number(res.headers.get("Retry-After"));
+            const minutes = Number.isFinite(retryAfter)
+              ? Math.max(1, Math.ceil(retryAfter / 60))
+              : 60;
+            toast.error(`Too many invite attempts. Try again in about ${minutes} minute${minutes === 1 ? "" : "s"}.`);
+            return;
+          }
+
           toast.error(data?.error?.message ?? "Failed to create invite");
           return;
         }
@@ -97,7 +110,12 @@ export function TeamClient({
         setInvites((prev) => [data.data, ...prev]);
         setEmail("");
         setInviteRole("MEMBER");
-        toast.success(`Invite created for ${normalizedEmail}`);
+
+        if (data.data.emailSent === false) {
+          toast.warning("Invite created, but the email could not be sent. Copy the invite link instead.");
+        } else {
+          toast.success(`Invite created for ${normalizedEmail}`);
+        }
       } catch (_error) {
         toast.error("Something went wrong");
       }
@@ -170,6 +188,7 @@ export function TeamClient({
         const data = await res.json().catch(() => null);
 
         if (!res.ok || !data?.data?.acceptPath) {
+          if (res.status === 404) removeStaleInvite(invite.id);
           toast.error(data?.error?.message ?? "Invite link could not be loaded");
           return;
         }
@@ -201,6 +220,7 @@ export function TeamClient({
 
       const data = await res.json().catch(() => null);
       if (!res.ok) {
+        if (res.status === 404) removeStaleInvite(invite.id);
         toast.error(data?.error?.message ?? "Failed to renew invite");
         return;
       }
@@ -216,7 +236,12 @@ export function TeamClient({
             : item
         )
       );
-      toast.success("Invite renewed");
+
+      if (data.data.emailSent === false) {
+        toast.warning("Invite renewed, but the email could not be sent. Copy the new link instead.");
+      } else {
+        toast.success("Invite renewed and emailed");
+      }
     } catch (_error) {
       toast.error("Failed to renew invite");
     } finally {
@@ -237,11 +262,12 @@ export function TeamClient({
 
       const data = await res.json().catch(() => null);
       if (!res.ok) {
+        if (res.status === 404) removeStaleInvite(invite.id);
         toast.error(data?.error?.message ?? "Failed to cancel invite");
         return;
       }
 
-      setInvites((prev) => prev.filter((item) => item.id !== invite.id));
+      removeStaleInvite(invite.id);
       toast.success("Invite cancelled");
     } catch (_error) {
       toast.error("Failed to cancel invite");
