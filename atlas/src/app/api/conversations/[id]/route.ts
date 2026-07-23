@@ -9,6 +9,7 @@ import {
   internalErrorResponse,
 } from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
+import { hasPermission } from "@/lib/rbac";
 import {
   deleteConversation,
   getConversationWithMessages,
@@ -76,6 +77,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const membership = await getMembership(user.id);
     if (!membership) return forbiddenResponse();
 
+    if (!hasPermission(membership.role, "ai:use")) {
+      return forbiddenResponse("Insufficient permissions");
+    }
+
     let body: { title?: string };
     try {
       body = await request.json();
@@ -111,6 +116,10 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
 
     const membership = await getMembership(user.id);
     if (!membership) return forbiddenResponse();
+
+    if (!hasPermission(membership.role, "ai:use")) {
+      return forbiddenResponse("Insufficient permissions");
+    }
 
     await deleteConversation(id, membership.organizationId, membership.userId);
     return new NextResponse(null, { status: 204 });
