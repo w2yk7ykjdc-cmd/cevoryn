@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, Loader2, Mail } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Loader2, Mail } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -18,7 +18,13 @@ import type { ForgotPasswordInput } from "../schemas/auth";
 
 import { AuthCard } from "./auth-card";
 
-export function ForgotPasswordForm() {
+interface ForgotPasswordFormProps {
+  resetLinkError?: boolean;
+}
+
+export function ForgotPasswordForm({
+  resetLinkError = false,
+}: ForgotPasswordFormProps) {
   const [isPending, setIsPending] = useState(false);
   const [isSent, setIsSent] = useState(false);
 
@@ -84,6 +90,16 @@ export function ForgotPasswordForm() {
         </Link>
       }
     >
+      {resetLinkError && (
+        <div
+          role="alert"
+          className="mb-4 flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm"
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+          <p>This reset link is invalid or has expired. Request a new link below.</p>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
