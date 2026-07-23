@@ -44,6 +44,20 @@ export function notFoundResponse(message = "Not found") {
   );
 }
 
+export function tooManyRequestsResponse(
+  message = "Too many requests. Please try again later.",
+  retryAfterSeconds?: number
+) {
+  const headers = retryAfterSeconds
+    ? { "Retry-After": String(retryAfterSeconds) }
+    : undefined;
+
+  return NextResponse.json(
+    { error: { code: "TOO_MANY_REQUESTS", message } },
+    { status: 429, headers }
+  );
+}
+
 export function internalErrorResponse(
   operation: string,
   error: unknown,
