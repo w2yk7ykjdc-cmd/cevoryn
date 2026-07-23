@@ -6,6 +6,13 @@ import {
   updateActionStatus,
 } from "@/features/brain/actions/action.service";
 import { updateActionStatusSchema } from "@/features/brain/actions/schemas";
+import {
+  badRequestResponse,
+  forbiddenResponse,
+  internalErrorResponse,
+  notFoundResponse,
+  unauthorizedResponse,
+} from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 
@@ -17,35 +24,20 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
     const user = await getUser();
-    if (!user) {
-      return NextResponse.json(
-        { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
-        { status: 401 }
-      );
-    }
+    if (!user) return unauthorizedResponse();
 
     const membership = await getMembership(user.id);
-    if (!membership) {
-      return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "No organization" } },
-        { status: 403 }
-      );
-    }
+    if (!membership) return forbiddenResponse();
 
     const action = await getPreparedAction(membership.organizationId, id);
-    if (!action) {
-      return NextResponse.json(
-        { error: { code: "NOT_FOUND", message: "Action not found" } },
-        { status: 404 }
-      );
-    }
+    if (!action) return notFoundResponse("Action not found");
 
     return NextResponse.json({ data: action });
   } catch (error) {
-    console.error("Action GET error:", error instanceof Error ? error.message : "unknown");
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to load action" } },
-      { status: 500 }
+    return internalErrorResponse(
+      "Action GET",
+      error,
+      "Failed to load action"
     );
   }
 }
@@ -54,45 +46,24 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
     const user = await getUser();
-    if (!user) {
-      return NextResponse.json(
-        { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
-        { status: 401 }
-      );
-    }
+    if (!user) return unauthorizedResponse();
 
     const membership = await getMembership(user.id);
-    if (!membership) {
-      return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "No organization" } },
-        { status: 403 }
-      );
-    }
+    if (!membership) return forbiddenResponse();
 
     if (!hasPermission(membership.role, "ai:use")) {
-      return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "Insufficient permissions" } },
-        { status: 403 }
-      );
+      return forbiddenResponse("Insufficient permissions");
     }
 
     let body: unknown;
     try {
       body = await request.json();
     } catch (_error) {
-      return NextResponse.json(
-        { error: { code: "INVALID_JSON", message: "Invalid body" } },
-        { status: 400 }
-      );
+      return badRequestResponse("Invalid body");
     }
 
     const parsed = updateActionStatusSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: { code: "VALIDATION_ERROR", message: "Invalid status" } },
-        { status: 400 }
-      );
-    }
+    if (!parsed.success) return badRequestResponse("Invalid status");
 
     const result = await updateActionStatus(
       membership.organizationId,
@@ -100,19 +71,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       parsed.data.status
     );
 
-    if (result.count === 0) {
-      return NextResponse.json(
-        { error: { code: "NOT_FOUND", message: "Action not found" } },
-        { status: 404 }
-      );
-    }
+    if (result.count === 0) return notFoundResponse("Action not found");
 
     return NextResponse.json({ data: { id, status: parsed.data.status } });
   } catch (error) {
-    console.error("Action PATCH error:", error instanceof Error ? error.message : "unknown");
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update action" } },
-      { status: 500 }
+    return internalErrorResponse(
+      "Action PATCH",
+      error,
+      "Failed to update action"
     );
   }
 }
