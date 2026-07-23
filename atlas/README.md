@@ -61,6 +61,10 @@ src/
 - **003.1** — Repository cleanup
 - **004** — Atlas Brain: Memory, Insights, Pulse, CEO Brief
 
+## Deployment
+
+Production deployments are handled automatically by Vercel from the `main` branch.
+
 ## License
 
 Proprietary. All rights reserved.
