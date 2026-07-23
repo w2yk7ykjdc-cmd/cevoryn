@@ -9,13 +9,17 @@ import {
   getInviteExpiresAt,
 } from "@/features/team/invites";
 import {
-  unauthorizedResponse,
-  forbiddenResponse,
   badRequestResponse,
+  forbiddenResponse,
+  internalErrorResponse,
+  tooManyRequestsResponse,
+  unauthorizedResponse,
 } from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/rbac";
+
+const MAX_INVITES_PER_HOUR = 10;
 
 const inviteSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
@@ -50,7 +54,10 @@ export async function POST(request: NextRequest) {
       return forbiddenResponse("Only owners can invite administrators");
     }
 
-    const [memberCount, existingInvite] = await Promise.all([
+    const now = new Date();
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+
+    const [memberCount, existingInvite, recentInviteCount] = await Promise.all([
       prisma.member.count({
         where: { organizationId: membership.organizationId },
       }),
@@ -59,9 +66,23 @@ export async function POST(request: NextRequest) {
           organizationId: membership.organizationId,
           email: parsed.data.email,
           status: "PENDING",
+          expiresAt: { gt: now },
+        },
+      }),
+      prisma.invite.count({
+        where: {
+          invitedBy: membership.userId,
+          createdAt: { gte: oneHourAgo },
         },
       }),
     ]);
+
+    if (recentInviteCount >= MAX_INVITES_PER_HOUR) {
+      return tooManyRequestsResponse(
+        "Invite limit reached. Please try again in an hour.",
+        60 * 60
+      );
+    }
 
     const eligibility = canCreateInvite({
       memberCount,
@@ -107,13 +128,10 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error(
-      "Invite error:",
-      error instanceof Error ? error.message : "unknown"
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to create invite" } },
-      { status: 500 }
+    return internalErrorResponse(
+      "Create team invite",
+      error,
+      "Failed to create invite"
     );
   }
 }
