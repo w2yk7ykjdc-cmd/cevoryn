@@ -1,40 +1,45 @@
-/**
+/*
  * Type-safe Prisma enum validators.
  *
- * Every string→enum conversion goes through these functions.
- * Invalid values throw or return a safe default instead of silent 'as any' casts.
+ * Every string-to-enum conversion goes through these functions.
+ * Invalid values return null or an explicit safe fallback.
  */
+
+function isEnumValue<const TValues extends readonly string[]>(
+  values: TValues,
+  value: string
+): value is TValues[number] {
+  return values.includes(value);
+}
 
 // =============================================================================
 // Action enums
 // =============================================================================
 
-const ACTION_TYPES = new Set([
+const ACTION_TYPES = [
   "EMAIL_DRAFT",
   "TASK",
   "CALENDAR_PROPOSAL",
   "FOLLOW_UP",
-] as const);
-type ActionType = "EMAIL_DRAFT" | "TASK" | "CALENDAR_PROPOSAL" | "FOLLOW_UP";
+] as const;
+type ActionType = (typeof ACTION_TYPES)[number];
 
 export function toActionType(value: string): ActionType | null {
-  return ACTION_TYPES.has(value as ActionType) ? (value as ActionType) : null;
+  return isEnumValue(ACTION_TYPES, value) ? value : null;
 }
 
-const ACTION_STATUSES = new Set(["PENDING", "APPROVED", "DISMISSED"] as const);
-type ActionStatus = "PENDING" | "APPROVED" | "DISMISSED";
+const ACTION_STATUSES = ["PENDING", "APPROVED", "DISMISSED"] as const;
+type ActionStatus = (typeof ACTION_STATUSES)[number];
 
 export function toActionStatus(value: string): ActionStatus | null {
-  return ACTION_STATUSES.has(value as ActionStatus)
-    ? (value as ActionStatus)
-    : null;
+  return isEnumValue(ACTION_STATUSES, value) ? value : null;
 }
 
 // =============================================================================
 // Decision enums
 // =============================================================================
 
-const DECISION_STATUSES = new Set([
+const DECISION_STATUSES = [
   "PROPOSED",
   "ACCEPTED",
   "REJECTED",
@@ -44,25 +49,14 @@ const DECISION_STATUSES = new Set([
   "SUCCESSFUL",
   "FAILED",
   "UNKNOWN",
-] as const);
-type DecisionStatus =
-  | "PROPOSED"
-  | "ACCEPTED"
-  | "REJECTED"
-  | "IGNORED"
-  | "EXECUTED"
-  | "COMPLETED"
-  | "SUCCESSFUL"
-  | "FAILED"
-  | "UNKNOWN";
+] as const;
+type DecisionStatus = (typeof DECISION_STATUSES)[number];
 
 export function toDecisionStatus(value: string): DecisionStatus | null {
-  return DECISION_STATUSES.has(value as DecisionStatus)
-    ? (value as DecisionStatus)
-    : null;
+  return isEnumValue(DECISION_STATUSES, value) ? value : null;
 }
 
-const TIMELINE_EVENT_TYPES = new Set([
+const TIMELINE_EVENT_TYPES = [
   "PROBLEM_DETECTED",
   "CANVAS_GENERATED",
   "RECOMMENDATION_MADE",
@@ -74,23 +68,12 @@ const TIMELINE_EVENT_TYPES = new Set([
   "OUTCOME_EVALUATED",
   "LEARNING_EXTRACTED",
   "FOLLOW_UP_DUE",
-] as const);
-type TimelineEventType =
-  | "PROBLEM_DETECTED"
-  | "CANVAS_GENERATED"
-  | "RECOMMENDATION_MADE"
-  | "USER_ACCEPTED"
-  | "USER_REJECTED"
-  | "USER_IGNORED"
-  | "EXECUTION_STARTED"
-  | "OUTCOME_RECORDED"
-  | "OUTCOME_EVALUATED"
-  | "LEARNING_EXTRACTED"
-  | "FOLLOW_UP_DUE";
+] as const;
+type TimelineEventType = (typeof TIMELINE_EVENT_TYPES)[number];
 
 export function toTimelineEventType(value: string): TimelineEventType {
-  return TIMELINE_EVENT_TYPES.has(value as TimelineEventType)
-    ? (value as TimelineEventType)
+  return isEnumValue(TIMELINE_EVENT_TYPES, value)
+    ? value
     : "OUTCOME_RECORDED";
 }
 
@@ -98,74 +81,64 @@ export function toTimelineEventType(value: string): TimelineEventType {
 // Insight enums
 // =============================================================================
 
-const INSIGHT_CATEGORIES = new Set([
+const INSIGHT_CATEGORIES = [
   "STRATEGIC",
   "OPERATIONAL",
   "TEAM",
   "FINANCIAL",
   "RISK",
-] as const);
-type InsightCategory =
-  "STRATEGIC" | "OPERATIONAL" | "TEAM" | "FINANCIAL" | "RISK";
+] as const;
+type InsightCategory = (typeof INSIGHT_CATEGORIES)[number];
 
 export function toInsightCategory(value: string): InsightCategory | null {
-  return INSIGHT_CATEGORIES.has(value as InsightCategory)
-    ? (value as InsightCategory)
-    : null;
+  return isEnumValue(INSIGHT_CATEGORIES, value) ? value : null;
 }
 
-const INSIGHT_SEVERITIES = new Set([
+const INSIGHT_SEVERITIES = [
   "INFO",
   "SUGGESTION",
   "WARNING",
   "CRITICAL",
-] as const);
-type InsightSeverity = "INFO" | "SUGGESTION" | "WARNING" | "CRITICAL";
+] as const;
+type InsightSeverity = (typeof INSIGHT_SEVERITIES)[number];
 
 export function toInsightSeverity(value: string): InsightSeverity | null {
-  return INSIGHT_SEVERITIES.has(value as InsightSeverity)
-    ? (value as InsightSeverity)
-    : null;
+  return isEnumValue(INSIGHT_SEVERITIES, value) ? value : null;
 }
 
-const INSIGHT_STATUSES = new Set([
+const INSIGHT_STATUSES = [
   "NEW",
   "ACKNOWLEDGED",
   "ACTED_ON",
   "DISMISSED",
-] as const);
-type InsightStatus = "NEW" | "ACKNOWLEDGED" | "ACTED_ON" | "DISMISSED";
+] as const;
+type InsightStatus = (typeof INSIGHT_STATUSES)[number];
 
 export function toInsightStatus(value: string): InsightStatus | null {
-  return INSIGHT_STATUSES.has(value as InsightStatus)
-    ? (value as InsightStatus)
-    : null;
+  return isEnumValue(INSIGHT_STATUSES, value) ? value : null;
 }
 
 // =============================================================================
 // Outcome enums
 // =============================================================================
 
-const OUTCOME_RESULTS = new Set([
+const OUTCOME_RESULTS = [
   "SUCCESS",
   "FAILURE",
   "PARTIAL_SUCCESS",
   "NO_OUTCOME_YET",
-] as const);
-type OutcomeResult =
-  "SUCCESS" | "FAILURE" | "PARTIAL_SUCCESS" | "NO_OUTCOME_YET";
+] as const;
+type OutcomeResult = (typeof OUTCOME_RESULTS)[number];
 
 export function toOutcomeResult(value: string): OutcomeResult {
-  return OUTCOME_RESULTS.has(value as OutcomeResult)
-    ? (value as OutcomeResult)
-    : "NO_OUTCOME_YET";
+  return isEnumValue(OUTCOME_RESULTS, value) ? value : "NO_OUTCOME_YET";
 }
 
 // =============================================================================
 // Memory enums
 // =============================================================================
 
-const MEMORY_CATEGORIES = new Set([
+const MEMORY_CATEGORIES = [
   "DECISION",
   "PREFERENCE",
   "TEAM_DYNAMIC",
@@ -173,18 +146,9 @@ const MEMORY_CATEGORIES = new Set([
   "PROCESS",
   "GOAL",
   "FACT",
-] as const);
-type MemoryCategory =
-  | "DECISION"
-  | "PREFERENCE"
-  | "TEAM_DYNAMIC"
-  | "PROJECT_STATUS"
-  | "PROCESS"
-  | "GOAL"
-  | "FACT";
+] as const;
+type MemoryCategory = (typeof MEMORY_CATEGORIES)[number];
 
 export function toMemoryCategory(value: string): MemoryCategory | null {
-  return MEMORY_CATEGORIES.has(value as MemoryCategory)
-    ? (value as MemoryCategory)
-    : null;
+  return isEnumValue(MEMORY_CATEGORIES, value) ? value : null;
 }
