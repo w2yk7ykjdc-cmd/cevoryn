@@ -4,6 +4,18 @@ import { Providers } from "@/components/providers";
 
 import "./globals.css";
 
+const themeScript = `
+(function () {
+  try {
+    var saved = localStorage.getItem("atlas-theme");
+    var theme = saved === "light" || saved === "dark" ? saved :
+      (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    document.documentElement.style.colorScheme = theme;
+  } catch (_) {}
+})();
+`;
+
 export const metadata: Metadata = {
   title: {
     default: "Atlas",
@@ -41,6 +53,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className="font-sans">
         <Providers>{children}</Providers>
       </body>
