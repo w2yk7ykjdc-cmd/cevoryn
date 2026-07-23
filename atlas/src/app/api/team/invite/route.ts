@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
     const emailResult = await sendTeamInviteEmail({
       to: invite.email,
       organizationName: membership.organizationName,
-      role: invite.role,
+      role: parsed.data.role,
       acceptPath,
       expiresAt: invite.expiresAt,
     });
