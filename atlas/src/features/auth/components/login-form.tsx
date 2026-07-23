@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ROUTES } from "@/lib/constants";
 
-import { loginAction } from "../actions/auth";
+import { googleLoginAction, loginAction } from "../actions/auth";
 import { loginSchema } from "../schemas/auth";
 import type { LoginInput } from "../schemas/auth";
 
@@ -63,7 +63,6 @@ export function LoginForm({
           ? String(error.digest)
           : "";
 
-      // Next.js implements successful server-action redirects by throwing.
       if (digest.startsWith("NEXT_REDIRECT")) throw error;
 
       console.error("Login failed:", error);
@@ -94,6 +93,24 @@ export function LoginForm({
           {authError}
         </p>
       )}
+
+      <form action={googleLoginAction} className="mb-4">
+        {redirectTo && (
+          <input type="hidden" name="redirectTo" value={redirectTo} />
+        )}
+        <Button type="submit" variant="outline" className="w-full">
+          Continue with Google
+        </Button>
+      </form>
+
+      <div className="relative mb-4">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-background px-2 text-muted-foreground">or</span>
+        </div>
+      </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-2">
