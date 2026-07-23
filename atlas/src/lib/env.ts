@@ -8,6 +8,8 @@ const serverSchema = z.object({
   OPENAI_MODEL: z.string().min(1).default("gpt-4o-mini"),
   OPENAI_MAX_TOKENS: z.coerce.number().int().positive().default(2048),
   DAILY_TOKEN_LIMIT_PER_ORG: z.coerce.number().int().positive().default(500000),
+  RESEND_API_KEY: z.string().startsWith("re_").optional(),
+  EMAIL_FROM: z.string().min(3).optional(),
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
@@ -37,6 +39,12 @@ export function validateServerEnv(): ServerEnv {
       parsed.error.flatten().fieldErrors
     );
     throw new Error("Invalid server environment variables");
+  }
+
+  if (Boolean(parsed.data.RESEND_API_KEY) !== Boolean(parsed.data.EMAIL_FROM)) {
+    throw new Error(
+      "RESEND_API_KEY and EMAIL_FROM must either both be configured or both be omitted"
+    );
   }
 
   return parsed.data;
