@@ -1,16 +1,19 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { z } from "zod";
 
 import {
-  unauthorizedResponse,
-  forbiddenResponse,
-  notFoundResponse,
   badRequestResponse,
+  forbiddenResponse,
   internalErrorResponse,
+  notFoundResponse,
+  unauthorizedResponse,
 } from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
+import { CONVERSATION_CONFIG } from "@/lib/constants";
 import { hasPermission } from "@/lib/rbac";
 import {
+  archiveConversation,
   deleteConversation,
   getConversationWithMessages,
   renameConversation,
@@ -19,6 +22,20 @@ import {
 interface RouteContext {
   params: Promise<{ id: string }>;
 }
+
+const updateConversationSchema = z
+  .object({
+    title: z
+      .string()
+      .trim()
+      .min(1, "Title cannot be empty")
+      .max(CONVERSATION_CONFIG.maxTitleLength)
+      .optional(),
+    archived: z.literal(true).optional(),
+  })
+  .refine((value) => value.title !== undefined || value.archived === true, {
+    message: "A title or archive action is required",
+  });
 
 export async function GET(_request: NextRequest, context: RouteContext) {
   try {
@@ -43,18 +60,18 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         createdAt: conversation.createdAt.toISOString(),
         updatedAt: conversation.updatedAt.toISOString(),
         messages: conversation.messages.map(
-          (m: {
+          (message: {
             id: string;
             role: string;
             content: string;
             model: string | null;
             createdAt: Date;
           }) => ({
-            id: m.id,
-            role: m.role,
-            content: m.content,
-            model: m.model,
-            createdAt: m.createdAt.toISOString(),
+            id: message.id,
+            role: message.role,
+            content: message.content,
+            model: message.model,
+            createdAt: message.createdAt.toISOString(),
           })
         ),
       },
@@ -81,22 +98,39 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return forbiddenResponse("Insufficient permissions");
     }
 
-    let body: { title?: string };
-    try {
-      body = await request.json();
-    } catch (_error) {
-      return badRequestResponse("Invalid request body");
+    const body = await request.json().catch(() => null);
+    const parsed = updateConversationSchema.safeParse(body);
+    if (!parsed.success) {
+      return badRequestResponse(
+        parsed.error.issues[0]?.message ?? "Invalid request body"
+      );
     }
 
-    const title = body.title?.trim();
+    if (parsed.data.archived === true) {
+      const archived = await archiveConversation(
+        id,
+        membership.organizationId,
+        membership.userId
+      );
+      if (archived.count === 0) {
+        return notFoundResponse("Conversation not found");
+      }
+
+      return NextResponse.json({ data: { id, archived: true } });
+    }
+
+    const title = parsed.data.title;
     if (!title) return badRequestResponse("Title is required");
 
-    await renameConversation(
+    const renamed = await renameConversation(
       id,
       membership.organizationId,
       title,
       membership.userId
     );
+    if (renamed.count === 0) {
+      return notFoundResponse("Conversation not found");
+    }
 
     return NextResponse.json({ data: { id, title } });
   } catch (error) {
@@ -121,7 +155,15 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
       return forbiddenResponse("Insufficient permissions");
     }
 
-    await deleteConversation(id, membership.organizationId, membership.userId);
+    const deleted = await deleteConversation(
+      id,
+      membership.organizationId,
+      membership.userId
+    );
+    if (deleted.count === 0) {
+      return notFoundResponse("Conversation not found");
+    }
+
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     return internalErrorResponse(
