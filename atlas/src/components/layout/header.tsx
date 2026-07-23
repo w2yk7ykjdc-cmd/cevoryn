@@ -68,11 +68,11 @@ export function Header({
   }
 
   return (
-    <header className="relative z-40 flex h-14 items-center justify-between border-b bg-card px-4 lg:px-6">
+    <header className="relative z-[100] flex h-14 shrink-0 items-center justify-between overflow-visible border-b bg-card px-4 isolate lg:px-6">
       <Button
         variant="ghost"
         size="icon"
-        className="lg:hidden"
+        className="relative z-[110] lg:hidden"
         onClick={onMobileMenuToggle}
         aria-label="Open navigation menu"
       >
@@ -81,30 +81,29 @@ export function Header({
 
       <div className="hidden lg:block" />
 
-      <div className="flex items-center gap-1">
+      <div className="relative z-[110] flex items-center gap-1">
         <ThemeToggle />
 
-        <div ref={userMenuRef} className="relative">
-          <Button
+        <div ref={userMenuRef} className="relative z-[120]">
+          <button
             type="button"
-            variant="ghost"
-            className="relative h-9 w-9 rounded-full"
+            className="relative z-[130] inline-flex h-11 w-11 touch-manipulation items-center justify-center rounded-full pointer-events-auto"
             aria-label="User menu"
             aria-haspopup="menu"
             aria-expanded={isUserMenuOpen}
             onClick={() => setIsUserMenuOpen((open) => !open)}
           >
-            <Avatar className="h-9 w-9">
-              <AvatarFallback className="text-xs">
+            <Avatar className="pointer-events-none h-9 w-9">
+              <AvatarFallback className="pointer-events-none text-xs">
                 {getInitials(membership.displayName)}
               </AvatarFallback>
             </Avatar>
-          </Button>
+          </button>
 
           {isUserMenuOpen ? (
             <div
               role="menu"
-              className="absolute right-0 top-11 z-50 w-56 overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+              className="absolute right-0 top-12 z-[140] w-56 overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
             >
               <div className="px-2 py-1.5">
                 <p className="text-sm font-medium leading-none">
