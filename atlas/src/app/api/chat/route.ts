@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import { sendMessageSchema } from "@/features/ai/schemas/message";
+import {
+  badRequestResponse,
+  forbiddenResponse,
+  internalErrorResponse,
+  notFoundResponse,
+  unauthorizedResponse,
+} from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { sendMessage } from "@/server/services/ai.service";
@@ -13,36 +20,20 @@ export const maxDuration = 60;
 export async function POST(request: NextRequest) {
   try {
     const user = await getUser();
-    if (!user) {
-      return NextResponse.json(
-        { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
-        { status: 401 }
-      );
-    }
+    if (!user) return unauthorizedResponse();
 
     const membership = await getMembership(user.id);
-    if (!membership) {
-      return NextResponse.json(
-        { error: { code: "NO_MEMBERSHIP", message: "No organization found" } },
-        { status: 403 }
-      );
-    }
+    if (!membership) return forbiddenResponse("No organization found");
 
     if (!hasPermission(membership.role, "ai:use")) {
-      return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "Insufficient permissions" } },
-        { status: 403 }
-      );
+      return forbiddenResponse("Insufficient permissions");
     }
 
     let body: unknown;
     try {
       body = await request.json();
     } catch (_error) {
-      return NextResponse.json(
-        { error: { code: "INVALID_JSON", message: "Invalid request body" } },
-        { status: 400 }
-      );
+      return badRequestResponse("Invalid request body");
     }
 
     const parsed = sendMessageSchema.safeParse(body);
@@ -64,12 +55,7 @@ export async function POST(request: NextRequest) {
       membership.organizationId,
       membership.userId
     );
-    if (!conversation) {
-      return NextResponse.json(
-        { error: { code: "NOT_FOUND", message: "Conversation not found" } },
-        { status: 404 }
-      );
-    }
+    if (!conversation) return notFoundResponse("Conversation not found");
 
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
@@ -112,18 +98,10 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error(
-      "Chat POST error:",
-      error instanceof Error ? error.message : "unknown"
-    );
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to process chat request",
-        },
-      },
-      { status: 500 }
+    return internalErrorResponse(
+      "Chat POST",
+      error,
+      "Failed to process chat request"
     );
   }
 }
