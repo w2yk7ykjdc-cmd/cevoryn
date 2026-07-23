@@ -5,10 +5,21 @@ import { LoginForm } from "@/features/auth/components/login-form";
 export const metadata: Metadata = { title: "Sign in" };
 
 interface PageProps {
-  searchParams: Promise<{ next?: string; error?: string }>;
+  searchParams: Promise<{
+    next?: string;
+    error?: string;
+    reset?: string;
+  }>;
 }
 
 export default async function LoginPage({ searchParams }: PageProps) {
   const params = await searchParams;
-  return <LoginForm redirectTo={params.next} authError={params.error} />;
+
+  return (
+    <LoginForm
+      redirectTo={params.next}
+      authError={params.error}
+      passwordReset={params.reset === "success"}
+    />
+  );
 }
