@@ -65,6 +65,8 @@ src/
 
 Production deployments are handled automatically by Vercel from the `main` branch.
 
+Last rebuild trigger: 2026-07-23.
+
 ## License
 
 Proprietary. All rights reserved.
