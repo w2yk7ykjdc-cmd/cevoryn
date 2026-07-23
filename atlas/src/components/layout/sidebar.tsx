@@ -15,6 +15,8 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { LanguageSelector } from "@/components/language-selector";
+import { useLanguage } from "@/components/language-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -26,19 +28,20 @@ interface SidebarProps {
 }
 
 const NAV_ITEMS = [
-  { label: "Home", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Brief", href: "/brief", icon: Newspaper },
-  { label: "Intelligence", href: "/intelligence", icon: BrainCircuit },
-  { label: "Health", href: "/health", icon: Activity },
-  { label: "Chat", href: "/chat", icon: MessageSquare },
-  { label: "Analytics", href: "/analytics", icon: BarChart3, adminOnly: true },
-  { label: "Team", href: "/team", icon: Users },
-  { label: "Settings", href: "/settings", icon: Settings },
-  { label: "Feedback", href: "/feedback", icon: MessageCircle },
+  { labelKey: "home", href: "/dashboard", icon: LayoutDashboard },
+  { labelKey: "brief", href: "/brief", icon: Newspaper },
+  { labelKey: "intelligence", href: "/intelligence", icon: BrainCircuit },
+  { labelKey: "health", href: "/health", icon: Activity },
+  { labelKey: "chat", href: "/chat", icon: MessageSquare },
+  { labelKey: "analytics", href: "/analytics", icon: BarChart3, adminOnly: true },
+  { labelKey: "team", href: "/team", icon: Users },
+  { labelKey: "settings", href: "/settings", icon: Settings },
+  { labelKey: "feedback", href: "/feedback", icon: MessageCircle },
 ] as const;
 
 export function Sidebar({ membership }: SidebarProps) {
   const pathname = usePathname();
+  const { t } = useLanguage();
   const canViewAnalytics =
     membership.role === "OWNER" || membership.role === "ADMIN";
 
@@ -60,7 +63,7 @@ export function Sidebar({ membership }: SidebarProps) {
 
       <Separator />
 
-      <nav className="flex-1 space-y-1 px-3 py-4" aria-label="Main navigation">
+      <nav className="flex-1 space-y-1 px-3 py-4" aria-label={t("mainNavigation")}>
         {NAV_ITEMS.filter(
           (item) => !("adminOnly" in item && item.adminOnly) || canViewAnalytics
         ).map((item) => {
@@ -79,20 +82,21 @@ export function Sidebar({ membership }: SidebarProps) {
               aria-current={isActive ? "page" : undefined}
             >
               <item.icon className="h-4 w-4 shrink-0" />
-              {item.label}
+              {t(item.labelKey)}
             </Link>
           );
         })}
       </nav>
 
       <div className="space-y-2 border-t px-3 py-3">
+        <LanguageSelector />
         <ThemeToggle />
         <div className="flex flex-wrap gap-x-3 gap-y-1 px-1 text-[11px] text-muted-foreground">
           <Link className="hover:text-foreground" href="/privacy">
-            Privacy
+            {t("privacy")}
           </Link>
           <Link className="hover:text-foreground" href="/terms">
-            Terms
+            {t("terms")}
           </Link>
         </div>
         <p className="px-1 text-xs text-muted-foreground">Atlas RC3</p>
