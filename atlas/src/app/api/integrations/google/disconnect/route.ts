@@ -8,12 +8,11 @@ export async function DELETE() {
     const user = await requireUser();
     const membership = await requireMembership(user.id);
 
-    await prisma.googleConnection.deleteMany({
-      where: {
-        organizationId: membership.organizationId,
-        userId: user.id,
-      },
-    });
+    await prisma.$executeRaw`
+      DELETE FROM "google_connections"
+      WHERE "organization_id" = ${membership.organizationId}
+        AND "user_id" = ${user.id}
+    `;
 
     return NextResponse.json({ ok: true });
   } catch (error) {
