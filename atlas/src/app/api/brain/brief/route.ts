@@ -6,34 +6,23 @@ import {
   getLatestBrief,
   listBriefs,
 } from "@/features/brain/brief/brief.service";
+import {
+  unauthorizedResponse,
+  forbiddenResponse,
+  notFoundResponse,
+  internalErrorResponse,
+} from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { checkRateLimit } from "@/server/services/rate-limit.service";
 
-function internalError(message: string) {
-  return NextResponse.json(
-    { error: { code: "INTERNAL_ERROR", message } },
-    { status: 500 }
-  );
-}
-
 export async function GET(request: NextRequest) {
   try {
     const user = await getUser();
-    if (!user) {
-      return NextResponse.json(
-        { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
-        { status: 401 }
-      );
-    }
+    if (!user) return unauthorizedResponse();
 
     const membership = await getMembership(user.id);
-    if (!membership) {
-      return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "No organization" } },
-        { status: 403 }
-      );
-    }
+    if (!membership) return forbiddenResponse();
 
     const url = new URL(request.url);
     const mode = url.searchParams.get("mode");
@@ -42,50 +31,27 @@ export async function GET(request: NextRequest) {
       const type = url.searchParams.get("type") === "WEEKLY" ? "WEEKLY" : "DAILY";
       const brief = await getLatestBrief(membership.organizationId, type);
 
-      if (!brief) {
-        return NextResponse.json(
-          { error: { code: "NOT_FOUND", message: "No brief found" } },
-          { status: 404 }
-        );
-      }
-
+      if (!brief) return notFoundResponse("No brief found");
       return NextResponse.json({ data: brief });
     }
 
     const briefs = await listBriefs(membership.organizationId);
     return NextResponse.json({ data: briefs });
   } catch (error) {
-    console.error(
-      "Brief GET error:",
-      error instanceof Error ? error.message : "unknown"
-    );
-    return internalError("Failed to load briefs");
+    return internalErrorResponse("Brief GET", error, "Failed to load briefs");
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const user = await getUser();
-    if (!user) {
-      return NextResponse.json(
-        { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
-        { status: 401 }
-      );
-    }
+    if (!user) return unauthorizedResponse();
 
     const membership = await getMembership(user.id);
-    if (!membership) {
-      return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "No organization" } },
-        { status: 403 }
-      );
-    }
+    if (!membership) return forbiddenResponse();
 
     if (!hasPermission(membership.role, "ai:use")) {
-      return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "Insufficient permissions" } },
-        { status: 403 }
-      );
+      return forbiddenResponse("Insufficient permissions");
     }
 
     let body: { type?: string } = {};
@@ -122,10 +88,10 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error(
-      "Brief POST error:",
-      error instanceof Error ? error.message : "unknown"
+    return internalErrorResponse(
+      "Brief POST",
+      error,
+      "Failed to generate brief"
     );
-    return internalError("Failed to generate brief");
   }
 }
