@@ -53,7 +53,9 @@ export function ChatLayout({
       try {
         await handleSend(content);
       } catch (_error) {
-        toast.info("Saved successfully. Atlas could not generate the optional chat summary.");
+        toast.info(
+          "Saved successfully. Atlas could not generate the optional chat summary."
+        );
       }
     },
     [handleSend]
@@ -80,7 +82,8 @@ export function ChatLayout({
         if (handleUnauthorized(response)) return;
         const payload = await response.json().catch(() => null);
         if (!response.ok) {
-          const message = payload?.error?.message ?? "Decision could not be created";
+          const message =
+            payload?.error?.message ?? "Decision could not be created";
           toast.error(message);
           throw new Error(message);
         }
@@ -151,6 +154,7 @@ export function ChatLayout({
         />
         <ChatMessages messages={messages} />
         <ChatInput
+          conversationId={conversationId}
           onSend={handleSend}
           onWorkflowSubmit={handleWorkflowSubmit}
           isStreaming={isStreaming}
