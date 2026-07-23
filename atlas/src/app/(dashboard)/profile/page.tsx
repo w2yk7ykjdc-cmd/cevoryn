@@ -9,6 +9,22 @@ function formatRole(role: string): string {
   return role.charAt(0) + role.slice(1).toLowerCase();
 }
 
+function formatDisplayName(name: string): string {
+  const normalized = name.trim().replace(/\s+/g, " ");
+
+  if (normalized.toLocaleLowerCase("tr-TR") === "kemal kiyak") {
+    return "Kemal Kıyak";
+  }
+
+  return normalized
+    .split(" ")
+    .map((part) => {
+      const lower = part.toLocaleLowerCase("tr-TR");
+      return lower.charAt(0).toLocaleUpperCase("tr-TR") + lower.slice(1);
+    })
+    .join(" ");
+}
+
 export default async function ProfilePage() {
   const user = await requireUser();
   const membership = await getMembership(user.id);
@@ -17,7 +33,8 @@ export default async function ProfilePage() {
     return null;
   }
 
-  const initials = membership.displayName
+  const displayName = formatDisplayName(membership.displayName);
+  const initials = displayName
     .split(" ")
     .map((part) => part[0])
     .filter(Boolean)
@@ -26,7 +43,7 @@ export default async function ProfilePage() {
     .toUpperCase();
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6 pb-24">
+    <div className="mx-auto w-full max-w-3xl space-y-6 pb-40">
       <div>
         <p className="text-sm font-medium text-muted-foreground">Account</p>
         <h1 className="text-3xl font-bold tracking-tight">Profile</h1>
@@ -41,7 +58,7 @@ export default async function ProfilePage() {
             {initials}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-xl font-semibold">{membership.displayName}</p>
+            <p className="truncate text-xl font-semibold">{displayName}</p>
             <p className="truncate text-sm text-muted-foreground">{user.email}</p>
           </div>
         </CardContent>
@@ -56,7 +73,7 @@ export default async function ProfilePage() {
             <UserRound className="h-5 w-5 shrink-0 text-muted-foreground" />
             <div className="min-w-0">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Name</p>
-              <p className="truncate font-medium">{membership.displayName}</p>
+              <p className="truncate font-medium">{displayName}</p>
             </div>
           </div>
 
@@ -86,7 +103,7 @@ export default async function ProfilePage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="mb-10">
         <CardHeader>
           <CardTitle>Session</CardTitle>
         </CardHeader>
