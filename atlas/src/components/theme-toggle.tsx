@@ -2,10 +2,12 @@
 
 import { Moon, Sun } from "lucide-react";
 
+import { useLanguage } from "@/components/language-provider";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
 
 export function ThemeToggle() {
+  const { t } = useLanguage();
   const { resolvedTheme, toggleTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
 
@@ -16,10 +18,10 @@ export function ThemeToggle() {
       size="sm"
       className="w-full justify-start gap-2"
       onClick={toggleTheme}
-      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      aria-label={isDark ? t("switchToLight") : t("switchToDark")}
     >
       {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-      {isDark ? "Light mode" : "Dark mode"}
+      {isDark ? t("lightMode") : t("darkMode")}
     </Button>
   );
 }
