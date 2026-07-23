@@ -4,6 +4,7 @@ import { z } from "zod";
 import { canAcceptInvite } from "@/features/team/invites";
 import {
   badRequestResponse,
+  internalErrorResponse,
   notFoundResponse,
   unauthorizedResponse,
 } from "@/lib/api-utils";
@@ -44,8 +45,8 @@ export async function POST(request: Request) {
         invite.status === "PENDING" &&
         invite.expiresAt.getTime() <= Date.now()
       ) {
-        await prisma.invite.update({
-          where: { id: invite.id },
+        await prisma.invite.updateMany({
+          where: { id: invite.id, status: "PENDING" },
           data: { status: "EXPIRED" },
         });
       }
@@ -53,7 +54,18 @@ export async function POST(request: Request) {
       return badRequestResponse(eligibility.message);
     }
 
-    await prisma.$transaction(async (tx) => {
+    const accepted = await prisma.$transaction(async (tx) => {
+      const claimed = await tx.invite.updateMany({
+        where: {
+          id: invite.id,
+          status: "PENDING",
+          expiresAt: { gt: new Date() },
+        },
+        data: { status: "ACCEPTED" },
+      });
+
+      if (claimed.count !== 1) return false;
+
       await tx.member.upsert({
         where: {
           userId_organizationId: {
@@ -70,11 +82,12 @@ export async function POST(request: Request) {
         },
       });
 
-      await tx.invite.update({
-        where: { id: invite.id },
-        data: { status: "ACCEPTED" },
-      });
+      return true;
     });
+
+    if (!accepted) {
+      return badRequestResponse("This invite has already been used or expired");
+    }
 
     return NextResponse.json({
       data: {
@@ -83,13 +96,10 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    console.error(
-      "Invite acceptance error:",
-      error instanceof Error ? error.message : "unknown"
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to accept invite" } },
-      { status: 500 }
+    return internalErrorResponse(
+      "Invite acceptance",
+      error,
+      "Failed to accept invite"
     );
   }
 }
