@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
@@ -31,45 +32,47 @@ export async function GET(request: NextRequest) {
     const membership = await requireMembership(user.id);
     const tokens = await exchangeGoogleCode(code);
     const googleEmail = await fetchGoogleEmail(tokens.access_token);
+    const accessTokenEncrypted = encryptGoogleToken(tokens.access_token);
+    const refreshTokenEncrypted = tokens.refresh_token
+      ? encryptGoogleToken(tokens.refresh_token)
+      : null;
+    const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
 
-    const existing = await prisma.googleConnection.findUnique({
-      where: {
-        organizationId_userId: {
-          organizationId: membership.organizationId,
-          userId: user.id,
-        },
-      },
-      select: { refreshTokenEncrypted: true },
-    });
-
-    await prisma.googleConnection.upsert({
-      where: {
-        organizationId_userId: {
-          organizationId: membership.organizationId,
-          userId: user.id,
-        },
-      },
-      create: {
-        organizationId: membership.organizationId,
-        userId: user.id,
-        googleEmail,
-        accessTokenEncrypted: encryptGoogleToken(tokens.access_token),
-        refreshTokenEncrypted: tokens.refresh_token
-          ? encryptGoogleToken(tokens.refresh_token)
-          : null,
-        expiresAt: new Date(Date.now() + tokens.expires_in * 1000),
-        scopes: tokens.scope,
-      },
-      update: {
-        googleEmail,
-        accessTokenEncrypted: encryptGoogleToken(tokens.access_token),
-        refreshTokenEncrypted: tokens.refresh_token
-          ? encryptGoogleToken(tokens.refresh_token)
-          : existing?.refreshTokenEncrypted,
-        expiresAt: new Date(Date.now() + tokens.expires_in * 1000),
-        scopes: tokens.scope,
-      },
-    });
+    await prisma.$executeRaw`
+      INSERT INTO "google_connections" (
+        "id",
+        "organization_id",
+        "user_id",
+        "google_email",
+        "access_token_encrypted",
+        "refresh_token_encrypted",
+        "expires_at",
+        "scopes",
+        "created_at",
+        "updated_at"
+      ) VALUES (
+        ${crypto.randomUUID()},
+        ${membership.organizationId},
+        ${user.id},
+        ${googleEmail},
+        ${accessTokenEncrypted},
+        ${refreshTokenEncrypted},
+        ${expiresAt},
+        ${tokens.scope},
+        CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP
+      )
+      ON CONFLICT ("organization_id", "user_id") DO UPDATE SET
+        "google_email" = EXCLUDED."google_email",
+        "access_token_encrypted" = EXCLUDED."access_token_encrypted",
+        "refresh_token_encrypted" = COALESCE(
+          EXCLUDED."refresh_token_encrypted",
+          "google_connections"."refresh_token_encrypted"
+        ),
+        "expires_at" = EXCLUDED."expires_at",
+        "scopes" = EXCLUDED."scopes",
+        "updated_at" = CURRENT_TIMESTAMP
+    `;
 
     settingsUrl.searchParams.set("google", "connected");
     return NextResponse.redirect(settingsUrl);
