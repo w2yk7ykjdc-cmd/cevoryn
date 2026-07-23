@@ -9,6 +9,8 @@ import { getUser } from "@/lib/auth";
 import { ROUTES } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 
+import { InviteAcceptClient } from "./invite-accept-client";
+
 export const metadata: Metadata = { title: "Accept invite — Atlas" };
 
 interface InvitePageProps {
@@ -27,7 +29,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
   const invite = await prisma.invite.findUnique({
     where: { token },
     include: {
-      organization: { select: { id: true, name: true } },
+      organization: { select: { name: true } },
     },
   });
 
@@ -63,36 +65,27 @@ export default async function InvitePage({ params }: InvitePageProps) {
     );
   }
 
-  await prisma.$transaction(async (tx) => {
-    await tx.member.upsert({
-      where: {
-        userId_organizationId: {
-          userId: user.id,
-          organizationId: invite.organizationId,
-        },
-      },
-      update: {},
-      create: {
-        userId: user.id,
-        organizationId: invite.organizationId,
-        role: invite.role,
-        displayName: user.email.split("@")[0] ?? user.email,
-      },
-    });
-
-    await tx.invite.update({
-      where: { id: invite.id },
-      data: { status: "ACCEPTED" },
-    });
-  });
-
   return (
-    <InviteResult
-      title={`You're in ${invite.organization.name}`}
-      message="Your workspace access is active. Continue to Atlas to start working with your team."
-      actionLabel="Go to dashboard"
-      actionHref={ROUTES.DASHBOARD}
-    />
+    <main className="flex min-h-screen items-center justify-center bg-background p-6">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle>Join {invite.organization.name}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            You were invited as {invite.role.toLowerCase()}. Confirm below to add
+            this workspace to your Atlas account.
+          </p>
+          <InviteAcceptClient
+            token={token}
+            organizationName={invite.organization.name}
+          />
+          <Button asChild variant="outline" className="w-full">
+            <Link href={ROUTES.DASHBOARD}>Cancel</Link>
+          </Button>
+        </CardContent>
+      </Card>
+    </main>
   );
 }
 
