@@ -81,9 +81,7 @@ export function Header({
 
       <div className="hidden lg:block" />
 
-      <div className="relative z-[110] flex items-center gap-1">
-        <ThemeToggle />
-
+      <div className="relative z-[110] flex items-center gap-1 pr-1">
         <div ref={userMenuRef} className="relative z-[120]">
           <button
             type="button"
@@ -141,6 +139,8 @@ export function Header({
             </div>
           ) : null}
         </div>
+
+        <ThemeToggle />
       </div>
     </header>
   );
