@@ -16,9 +16,9 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const next = getSafeNextPath(searchParams.get("next"));
+  const supabase = await createClient();
 
   if (code) {
-    const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
@@ -26,7 +26,21 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
+    return NextResponse.redirect(new URL(next, origin));
+  }
+
+  const providerError =
+    searchParams.get("error_description") ?? searchParams.get("error");
   const loginUrl = new URL(ROUTES.LOGIN, origin);
-  loginUrl.searchParams.set("error", "auth_callback_error");
+  loginUrl.searchParams.set(
+    "error",
+    providerError ? "oauth_cancelled_or_denied" : "auth_callback_error"
+  );
+
   return NextResponse.redirect(loginUrl);
 }
