@@ -4,7 +4,10 @@ const serverSchema = z.object({
   DATABASE_URL: z.string().url(),
   DIRECT_URL: z.string().url().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
-  OPENAI_API_KEY: z.string().startsWith("sk-").optional(),
+  OPENAI_API_KEY: z.string().startsWith("sk-"),
+  OPENAI_MODEL: z.string().min(1).default("gpt-4o-mini"),
+  OPENAI_MAX_TOKENS: z.coerce.number().int().positive().default(2048),
+  DAILY_TOKEN_LIMIT_PER_ORG: z.coerce.number().int().positive().default(500000),
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
@@ -17,17 +20,14 @@ const clientSchema = z.object({
   NEXT_PUBLIC_APP_NAME: z.string().default("Atlas"),
   NEXT_PUBLIC_ENABLE_AI: z
     .string()
-    .transform((v) => v === "true")
+    .transform((value) => value === "true")
     .default("true"),
 });
 
 export type ServerEnv = z.infer<typeof serverSchema>;
 export type ClientEnv = z.infer<typeof clientSchema>;
 
-/**
- * Validate server environment variables.
- * Call at app startup or in server-side code.
- */
+/** Validate all server-only environment variables. */
 export function validateServerEnv(): ServerEnv {
   const parsed = serverSchema.safeParse(process.env);
 
@@ -42,10 +42,7 @@ export function validateServerEnv(): ServerEnv {
   return parsed.data;
 }
 
-/**
- * Validate client environment variables.
- * Safe to call in browser — only reads NEXT_PUBLIC_ vars.
- */
+/** Validate public environment variables without reading server secrets. */
 export function validateClientEnv(): ClientEnv {
   const parsed = clientSchema.safeParse({
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
