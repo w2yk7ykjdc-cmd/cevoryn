@@ -3,7 +3,6 @@
 import { LogOut, Menu, User } from "lucide-react";
 import { useEffect, useRef, useState, useTransition } from "react";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { signOutAction } from "@/features/auth/actions/auth";
 import type { MembershipContext } from "@/types";
@@ -68,7 +67,7 @@ export function Header({
   }
 
   return (
-    <header className="relative z-[100] flex h-14 shrink-0 items-center justify-between overflow-visible border-b bg-card px-4 isolate lg:px-6">
+    <header className="relative z-[100] isolate flex h-14 shrink-0 items-center justify-between overflow-visible border-b bg-card px-4 lg:px-6">
       <Button
         variant="ghost"
         size="icon"
@@ -81,21 +80,21 @@ export function Header({
 
       <div className="hidden lg:block" />
 
-      <div className="relative z-[110] flex items-center gap-1 pr-1">
+      <div className="relative z-[110] flex items-center gap-2 pr-1">
         <div ref={userMenuRef} className="relative z-[120]">
           <button
             type="button"
-            className="relative z-[130] inline-flex h-11 w-11 touch-manipulation items-center justify-center rounded-full pointer-events-auto"
+            className="relative z-[130] inline-flex h-11 min-w-11 touch-manipulation select-none items-center justify-center rounded-full border border-border bg-background px-3 text-sm font-semibold shadow-sm pointer-events-auto active:scale-95"
             aria-label="User menu"
             aria-haspopup="menu"
             aria-expanded={isUserMenuOpen}
-            onClick={() => setIsUserMenuOpen((open) => !open)}
+            onPointerDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              setIsUserMenuOpen((open) => !open);
+            }}
           >
-            <Avatar className="pointer-events-none h-9 w-9">
-              <AvatarFallback className="pointer-events-none text-xs">
-                {getInitials(membership.displayName)}
-              </AvatarFallback>
-            </Avatar>
+            {getInitials(membership.displayName)}
           </button>
 
           {isUserMenuOpen ? (
