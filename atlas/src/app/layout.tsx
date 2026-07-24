@@ -1,8 +1,11 @@
 import type { Metadata, Viewport } from "next";
 
 import { Providers } from "@/components/providers";
+import { validateClientEnv } from "@/lib/env";
 
 import "./globals.css";
+
+const clientEnv = validateClientEnv();
 
 const themeScript = `
 (function () {
@@ -22,9 +25,7 @@ export const metadata: Metadata = {
     template: "%s — Atlas",
   },
   description: "AI Chief of Staff for small teams",
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
-  ),
+  metadataBase: new URL(clientEnv.NEXT_PUBLIC_APP_URL),
   openGraph: {
     title: "Atlas",
     description: "AI Chief of Staff for small teams",
