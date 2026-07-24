@@ -18,11 +18,48 @@ type GoogleConnectionSummary = {
   google_email: string;
 };
 
+function isGoogleIntegrationConfigured(): boolean {
+  return Boolean(
+    process.env.GOOGLE_CLIENT_ID?.trim() &&
+      process.env.GOOGLE_CLIENT_SECRET?.trim() &&
+      process.env.GOOGLE_TOKEN_ENCRYPTION_KEY?.trim() &&
+      (process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+        process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim())
+  );
+}
+
+async function getConnectedGoogleEmail(
+  organizationId: string,
+  userId: string,
+  configured: boolean
+): Promise<string | null> {
+  if (!configured) return null;
+
+  try {
+    const rows = await prisma.$queryRaw<GoogleConnectionSummary[]>`
+      SELECT "google_email"
+      FROM "google_connections"
+      WHERE "organization_id" = ${organizationId}
+        AND "user_id" = ${userId}
+      LIMIT 1
+    `;
+
+    return rows[0]?.google_email ?? null;
+  } catch (error) {
+    console.error(
+      "[atlas:google] connection status unavailable",
+      error instanceof Error ? error.message : "unknown"
+    );
+    return null;
+  }
+}
+
 export default async function SettingsPage() {
   const user = await requireUser();
   const membership = await requireMembership(user.id);
+  const googleConfigured = isGoogleIntegrationConfigured();
 
-  const [org, memberCount, memoryCount, conversationCount, googleConnections] =
+  const [org, memberCount, memoryCount, conversationCount, connectedGoogleEmail] =
     await Promise.all([
       prisma.organization.findUnique({
         where: { id: membership.organizationId },
@@ -35,19 +72,16 @@ export default async function SettingsPage() {
       prisma.conversation.count({
         where: { organizationId: membership.organizationId },
       }),
-      prisma.$queryRaw<GoogleConnectionSummary[]>`
-        SELECT "google_email"
-        FROM "google_connections"
-        WHERE "organization_id" = ${membership.organizationId}
-          AND "user_id" = ${user.id}
-        LIMIT 1
-      `,
+      getConnectedGoogleEmail(
+        membership.organizationId,
+        user.id,
+        googleConfigured
+      ),
     ]);
 
   if (!org) return null;
 
   const canUpdateOrganization = hasPermission(membership.role, "org:update");
-  const connectedGoogleEmail = googleConnections[0]?.google_email ?? null;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 pb-8">
@@ -92,7 +126,10 @@ export default async function SettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <GoogleIntegrationCard connectedEmail={connectedGoogleEmail} />
+          <GoogleIntegrationCard
+            connectedEmail={connectedGoogleEmail}
+            configured={googleConfigured}
+          />
         </CardContent>
       </Card>
 
