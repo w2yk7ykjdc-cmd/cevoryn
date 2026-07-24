@@ -7,12 +7,14 @@ import {
   listBriefs,
 } from "@/features/brain/brief/brief.service";
 import {
-  unauthorizedResponse,
   forbiddenResponse,
-  notFoundResponse,
   internalErrorResponse,
+  notFoundResponse,
+  unauthorizedResponse,
 } from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
+import { buildGoogleBriefSections } from "@/lib/google-brief";
+import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/rbac";
 import { checkRateLimit } from "@/server/services/rate-limit.service";
 
@@ -71,12 +73,24 @@ export async function POST(request: NextRequest) {
 
     const type = body.type === "WEEKLY" ? "WEEKLY" : "DAILY";
     const result = await generateBrief(membership.organizationId, type);
+    const googleSections = await buildGoogleBriefSections(
+      membership.organizationId,
+      user.id
+    );
+    const sections = mergeBriefSections(result.sections, googleSections);
+
+    if (googleSections.length > 0) {
+      await prisma.brief.update({
+        where: { id: result.id },
+        data: { sections: JSON.parse(JSON.stringify(sections)) },
+      });
+    }
 
     return NextResponse.json(
       {
         data: {
           id: result.id,
-          sections: result.sections,
+          sections,
           trust: {
             confidence: result.trust.confidence,
             reasoning: result.trust.reasoning,
@@ -94,4 +108,9 @@ export async function POST(request: NextRequest) {
       "Failed to generate brief"
     );
   }
+}
+
+function mergeBriefSections<T>(baseSections: T[], googleSections: T[]): T[] {
+  if (googleSections.length === 0) return baseSections;
+  return [...googleSections, ...baseSections].slice(0, 5);
 }
