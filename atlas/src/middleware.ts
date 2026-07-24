@@ -9,9 +9,8 @@ const CANONICAL_PRODUCTION_HOST = "atlas-wb6b.vercel.app";
 
 export async function middleware(request: NextRequest) {
   const forwardedHost = request.headers.get("x-forwarded-host");
-  const host = (forwardedHost ?? request.headers.get("host") ?? "")
-    .split(":")[0]
-    .toLowerCase();
+  const rawHost = forwardedHost ?? request.headers.get("host") ?? "";
+  const host = (rawHost.split(":").at(0) ?? "").toLowerCase();
 
   if (host === LEGACY_PRODUCTION_HOST) {
     const canonicalUrl = request.nextUrl.clone();
