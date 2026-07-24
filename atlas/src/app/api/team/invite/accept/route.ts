@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -8,7 +9,7 @@ import {
   notFoundResponse,
   unauthorizedResponse,
 } from "@/lib/api-utils";
-import { getUser } from "@/lib/auth";
+import { ACTIVE_ORGANIZATION_COOKIE, getUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 const acceptInviteSchema = z.object({
@@ -88,6 +89,15 @@ export async function POST(request: Request) {
     if (!accepted) {
       return badRequestResponse("This invite has already been used or expired");
     }
+
+    const cookieStore = await cookies();
+    cookieStore.set(ACTIVE_ORGANIZATION_COOKIE, invite.organizationId, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+    });
 
     return NextResponse.json({
       data: {
