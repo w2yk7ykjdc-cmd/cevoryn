@@ -4,6 +4,7 @@ import { getValidGoogleAccessToken } from "@/lib/google-connection";
 
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1";
 const CALENDAR_API = "https://www.googleapis.com/calendar/v3";
+const GOOGLE_READ_TIMEOUT_MS = 10_000;
 
 export type GmailContextItem = {
   id: string;
@@ -51,10 +52,19 @@ async function googleFetch<T>(url: string, accessToken: string): Promise<T> {
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: "no-store",
+    signal: AbortSignal.timeout(GOOGLE_READ_TIMEOUT_MS),
   });
 
   if (!response.ok) {
-    throw new Error(`Google API request failed (${response.status})`);
+    const payload = (await response.json().catch(() => null)) as
+      | { error?: { status?: string } }
+      | null;
+    const providerCode = payload?.error?.status;
+    throw new Error(
+      providerCode
+        ? `Google API request failed (${response.status}, ${providerCode})`
+        : `Google API request failed (${response.status})`
+    );
   }
 
   return (await response.json()) as T;
