@@ -8,7 +8,9 @@ const GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo";
 export const GOOGLE_SCOPES = [
   "openid",
   "email",
+  "https://www.googleapis.com/auth/gmail.readonly",
   "https://www.googleapis.com/auth/gmail.compose",
+  "https://www.googleapis.com/auth/calendar.readonly",
   "https://www.googleapis.com/auth/calendar.events",
 ] as const;
 
@@ -29,6 +31,16 @@ function getGoogleConfig() {
     appUrl: appUrl.replace(/\/$/, ""),
     redirectUri: `${appUrl.replace(/\/$/, "")}/api/integrations/google/callback`,
   };
+}
+
+export function isGoogleIntegrationConfigured() {
+  return Boolean(
+    process.env.GOOGLE_CLIENT_ID?.trim() &&
+      process.env.GOOGLE_CLIENT_SECRET?.trim() &&
+      process.env.GOOGLE_TOKEN_ENCRYPTION_KEY?.trim() &&
+      (process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+        process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim())
+  );
 }
 
 export function getGoogleSettingsUrl(status?: "connected" | "disconnected" | "error") {
@@ -80,6 +92,32 @@ export async function exchangeGoogleCode(code: string) {
   };
 }
 
+export async function refreshGoogleAccessToken(refreshToken: string) {
+  const { clientId, clientSecret } = getGoogleConfig();
+  const response = await fetch(GOOGLE_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      refresh_token: refreshToken,
+      client_id: clientId,
+      client_secret: clientSecret,
+      grant_type: "refresh_token",
+    }),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Google token refresh failed (${response.status})`);
+  }
+
+  return (await response.json()) as {
+    access_token: string;
+    expires_in: number;
+    scope?: string;
+    token_type: string;
+  };
+}
+
 export async function fetchGoogleEmail(accessToken: string) {
   const response = await fetch(GOOGLE_USERINFO_URL, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -110,6 +148,25 @@ export function encryptGoogleToken(value: string) {
   const encrypted = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
   const tag = cipher.getAuthTag();
   return [iv, tag, encrypted].map((part) => part.toString("base64url")).join(".");
+}
+
+export function decryptGoogleToken(value: string) {
+  const parts = value.split(".");
+  if (parts.length !== 3) throw new Error("Invalid encrypted Google token");
+
+  const [ivValue, tagValue, encryptedValue] = parts;
+  const decipher = crypto.createDecipheriv(
+    "aes-256-gcm",
+    encryptionKey(),
+    Buffer.from(ivValue, "base64url")
+  );
+  decipher.setAuthTag(Buffer.from(tagValue, "base64url"));
+
+  const decrypted = Buffer.concat([
+    decipher.update(Buffer.from(encryptedValue, "base64url")),
+    decipher.final(),
+  ]);
+  return decrypted.toString("utf8");
 }
 
 export function createOAuthState() {
