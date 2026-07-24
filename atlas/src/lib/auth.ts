@@ -78,18 +78,19 @@ export async function getMembership(
 ): Promise<MembershipContext | null> {
   try {
     const members = await getMembershipRecords(userId);
-    if (members.length === 0) return null;
+    const defaultMember = members[0];
+    if (!defaultMember) return null;
 
     const cookieStore = await cookies();
     const requestedOrganizationId = cookieStore.get(
       ACTIVE_ORGANIZATION_COOKIE
     )?.value;
 
-    const member =
-      members.find(
-        (candidate) =>
-          candidate.organizationId === requestedOrganizationId
-      ) ?? members[0];
+    const member = requestedOrganizationId
+      ? members.find(
+          (candidate) => candidate.organizationId === requestedOrganizationId
+        ) ?? defaultMember
+      : defaultMember;
 
     return {
       memberId: member.id,
