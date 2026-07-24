@@ -25,6 +25,10 @@ function hasValidState(state: string | null, expectedState: string | undefined) 
   return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
 }
 
+function settingsErrorUrl(request: NextRequest): URL {
+  return new URL("/settings?google=error", request.url);
+}
+
 export async function GET(request: NextRequest) {
   try {
     const providerError = request.nextUrl.searchParams.get("error");
@@ -36,7 +40,7 @@ export async function GET(request: NextRequest) {
     cookieStore.delete("atlas_google_oauth_state");
 
     if (providerError || !code || !hasValidState(state, expectedState)) {
-      return NextResponse.redirect(getGoogleSettingsUrl("error"));
+      return NextResponse.redirect(settingsErrorUrl(request));
     }
 
     const user = await requireUser();
@@ -98,6 +102,6 @@ export async function GET(request: NextRequest) {
       "[atlas:google] callback failed",
       error instanceof Error ? error.message : "unknown"
     );
-    return NextResponse.redirect(getGoogleSettingsUrl("error"));
+    return NextResponse.redirect(settingsErrorUrl(request));
   }
 }
