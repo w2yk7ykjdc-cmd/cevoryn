@@ -10,8 +10,10 @@ import { handleUnauthorized } from "@/lib/client-auth";
 
 export function GoogleIntegrationCard({
   connectedEmail,
+  configured,
 }: {
   connectedEmail: string | null;
+  configured: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -55,6 +57,17 @@ export function GoogleIntegrationCard({
     } finally {
       setDisconnecting(false);
     }
+  }
+
+  if (!configured) {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Google integration is not configured for this deployment yet.
+        </p>
+        <Button disabled>Connect Google</Button>
+      </div>
+    );
   }
 
   if (!connectedEmail) {
