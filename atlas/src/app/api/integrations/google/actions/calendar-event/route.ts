@@ -10,6 +10,7 @@ import {
 import { getMembership, getUser } from "@/lib/auth";
 import { createGoogleCalendarEvent } from "@/lib/google-actions";
 import { GoogleConnectionError } from "@/lib/google-connection";
+import { cleanText, parseEmails } from "@/lib/google-utils";
 import { hasPermission } from "@/lib/rbac";
 
 export const runtime = "nodejs";
@@ -91,7 +92,9 @@ function parseCalendarEvent(
   const start = parseDate(body.start);
   const end = parseDate(body.end);
   if (!title) return { ok: false, message: "Event title is required" };
-  if (!start || !end) return { ok: false, message: "Valid start and end times are required" };
+  if (!start || !end) {
+    return { ok: false, message: "Valid start and end times are required" };
+  }
   if (end.getTime() <= start.getTime()) {
     return { ok: false, message: "Event end must be after its start" };
   }
@@ -99,11 +102,13 @@ function parseCalendarEvent(
     return { ok: false, message: "Event duration is too long" };
   }
 
-  const attendees = parseEmails(body.attendees, 50);
-  if (attendees === null) return { ok: false, message: "Invalid attendee email" };
+  const attendees = parseEmails(body.attendees, 50, true);
+  if (attendees === null) {
+    return { ok: false, message: "Invalid attendee email" };
+  }
 
   const timeZone = cleanText(body.timeZone, 80);
-  const description = cleanMultiline(body.description, 10_000);
+  const description = cleanText(body.description, 10_000, true);
   const location = cleanText(body.location, 500);
 
   return {
@@ -124,27 +129,4 @@ function parseDate(value: unknown): Date | null {
   if (typeof value !== "string" || value.length > 100) return null;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function parseEmails(value: unknown, max: number): string[] | null {
-  if (value === undefined) return [];
-  if (!Array.isArray(value) || value.length > max) return null;
-
-  const emails = value.map((item) =>
-    typeof item === "string" ? item.trim().toLowerCase() : ""
-  );
-  if (!emails.every((email) => email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
-    return null;
-  }
-  return Array.from(new Set(emails));
-}
-
-function cleanText(value: unknown, max: number): string {
-  if (typeof value !== "string") return "";
-  return value.replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
-}
-
-function cleanMultiline(value: unknown, max: number): string {
-  if (typeof value !== "string") return "";
-  return value.replace(/\r\n/g, "\n").trim().slice(0, max);
 }
