@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     const result = await createGoogleEmailDraft(
       membership.organizationId,
       user.id,
-      parsed.data
+      parsed.data,
     );
 
     return NextResponse.json(
@@ -44,20 +44,20 @@ export async function POST(request: NextRequest) {
           messageId: result.message?.id ?? null,
         },
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
     if (error instanceof GoogleConnectionError) {
       return NextResponse.json(
         { error: { code: error.code, message: error.message } },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
     return internalErrorResponse(
       "Google email draft",
       error,
-      "The Gmail draft could not be created"
+      "The Gmail draft could not be created",
     );
   }
 }
@@ -72,8 +72,10 @@ type DraftPayload = {
 };
 
 function parseEmailDraft(
-  value: unknown
-): { ok: true; data: Omit<DraftPayload, "approved"> } | { ok: false; message: string } {
+  value: unknown,
+):
+  | { ok: true; data: Omit<DraftPayload, "approved"> }
+  | { ok: false; message: string } {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return { ok: false, message: "Invalid request body" };
   }
