@@ -1,20 +1,21 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 import { getMembership, getUser } from "@/lib/auth";
-import {
-  createGoogleAuthorizationUrl,
-  createOAuthState,
-  getGoogleSettingsUrl,
-} from "@/lib/google-oauth";
+import { createGoogleAuthorizationUrl, createOAuthState } from "@/lib/google-oauth";
 
-export async function GET() {
+function settingsErrorUrl(request: NextRequest): URL {
+  return new URL("/settings?google=error", request.url);
+}
+
+export async function GET(request: NextRequest) {
   try {
     const user = await getUser();
-    if (!user) return NextResponse.redirect(getGoogleSettingsUrl("error"));
+    if (!user) return NextResponse.redirect(settingsErrorUrl(request));
 
     const membership = await getMembership(user.id);
-    if (!membership) return NextResponse.redirect(getGoogleSettingsUrl("error"));
+    if (!membership) return NextResponse.redirect(settingsErrorUrl(request));
 
     const state = createOAuthState();
     const cookieStore = await cookies();
@@ -32,6 +33,6 @@ export async function GET() {
       "[atlas:google] connect failed",
       error instanceof Error ? error.message : "unknown"
     );
-    return NextResponse.redirect(getGoogleSettingsUrl("error"));
+    return NextResponse.redirect(settingsErrorUrl(request));
   }
 }
