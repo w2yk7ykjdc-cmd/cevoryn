@@ -1,10 +1,17 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import "server-only";
 
 import { ROUTES } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
-import type { AuthUser, MembershipContext } from "@/types";
+import type {
+  AuthUser,
+  MembershipContext,
+  OrganizationMembershipOption,
+} from "@/types";
+
+export const ACTIVE_ORGANIZATION_COOKIE = "atlas-active-organization";
 
 // =============================================================================
 // User Authentication
@@ -37,25 +44,52 @@ export async function requireUser(): Promise<AuthUser> {
 // Organization Membership
 // =============================================================================
 
+async function getMembershipRecords(userId: string) {
+  return prisma.member.findMany({
+    where: { userId },
+    include: {
+      organization: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+export async function getOrganizationMemberships(
+  userId: string
+): Promise<OrganizationMembershipOption[]> {
+  const members = await getMembershipRecords(userId);
+
+  return members.map((member) => ({
+    organizationId: member.organization.id,
+    organizationName: member.organization.name,
+    organizationSlug: member.organization.slug,
+    role: member.role,
+  }));
+}
+
 export async function getMembership(
   userId: string
 ): Promise<MembershipContext | null> {
   try {
-    const member = await prisma.member.findFirst({
-      where: { userId },
-      include: {
-        organization: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
-      },
-      orderBy: { createdAt: "asc" },
-    });
+    const members = await getMembershipRecords(userId);
+    if (members.length === 0) return null;
 
-    if (!member) return null;
+    const cookieStore = await cookies();
+    const requestedOrganizationId = cookieStore.get(
+      ACTIVE_ORGANIZATION_COOKIE
+    )?.value;
+
+    const member =
+      members.find(
+        (candidate) =>
+          candidate.organizationId === requestedOrganizationId
+      ) ?? members[0];
 
     return {
       memberId: member.id,
