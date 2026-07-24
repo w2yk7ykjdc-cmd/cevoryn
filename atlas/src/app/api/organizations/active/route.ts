@@ -3,16 +3,16 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import {
-  ACTIVE_ORGANIZATION_COOKIE,
-  getOrganizationMemberships,
-  getUser,
-} from "@/lib/auth";
-import {
   badRequestResponse,
   forbiddenResponse,
   internalErrorResponse,
   unauthorizedResponse,
 } from "@/lib/api-utils";
+import {
+  ACTIVE_ORGANIZATION_COOKIE,
+  getOrganizationMemberships,
+  getUser,
+} from "@/lib/auth";
 
 const requestSchema = z.object({
   organizationId: z.string().cuid(),
