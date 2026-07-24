@@ -14,14 +14,22 @@ Google Cloud OAuth redirect URI:
 Requested scopes:
 
 - OpenID email identity
-- Gmail read-only access
+- Gmail read-only
 - Gmail compose
-- Google Calendar read-only access
+- Google Calendar read-only
 - Google Calendar events
+
+Database notes:
+
+- Apply `prisma/migrations/20260724150000_add_google_connections/migration.sql` before testing the OAuth callback.
+- The integration currently accesses `google_connections` through parameterized raw SQL.
+- Do not mark the integration ready until the migration exists in the target database and the callback can insert or update a connection successfully.
 
 Before merging:
 
 1. Run the new database migration.
 2. Add the environment variables to the preview deployment.
-3. Verify connect, callback, status, and disconnect flows.
-4. Confirm the Settings page still loads when no connection exists.
+3. Verify that the Google Cloud redirect URI exactly matches the preview or production application URL.
+4. Verify connect, callback, status, and disconnect flows.
+5. Confirm the Settings page still loads when no connection exists.
+6. Create a Gmail draft and Calendar event with explicit user approval.
