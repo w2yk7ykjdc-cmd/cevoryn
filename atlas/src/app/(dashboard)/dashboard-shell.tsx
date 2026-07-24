@@ -8,16 +8,21 @@ import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { Sidebar } from "@/components/layout/sidebar";
 import { cn } from "@/lib/utils";
-import type { MembershipContext } from "@/types";
+import type {
+  MembershipContext,
+  OrganizationMembershipOption,
+} from "@/types";
 
 interface DashboardShellProps {
   membership: MembershipContext;
+  memberships: OrganizationMembershipOption[];
   userEmail: string;
   children: ReactNode;
 }
 
 export function DashboardShell({
   membership,
+  memberships,
   userEmail,
   children,
 }: DashboardShellProps) {
@@ -29,7 +34,8 @@ export function DashboardShell({
     if (!viewport) return;
 
     const updateKeyboardState = () => {
-      const coveredHeight = window.innerHeight - viewport.height - viewport.offsetTop;
+      const coveredHeight =
+        window.innerHeight - viewport.height - viewport.offsetTop;
       setKeyboardOpen(coveredHeight > 120);
     };
 
@@ -58,6 +64,7 @@ export function DashboardShell({
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <Header
           membership={membership}
+          memberships={memberships}
           userEmail={userEmail}
           onMobileMenuToggle={() => setMobileNavOpen(true)}
         />
