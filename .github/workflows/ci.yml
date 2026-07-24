@@ -48,7 +48,17 @@ jobs:
         run: npm run lint
 
       - name: Check formatting
-        run: npm run format:check
+        run: |
+          npx prettier --list-different "src/**/*.{ts,tsx,css,json}" | tee prettier-different.txt
+          test ! -s prettier-different.txt
+
+      - name: Upload formatting diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prettier-different
+          path: atlas/prettier-different.txt
+          if-no-files-found: error
 
       - name: Test
         run: npm test
