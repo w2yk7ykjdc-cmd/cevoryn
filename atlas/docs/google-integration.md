@@ -22,7 +22,8 @@ Requested scopes:
 Database notes:
 
 - Apply `prisma/migrations/20260724150000_add_google_connections/migration.sql` before testing the OAuth callback.
-- The integration currently accesses `google_connections` through parameterized raw SQL.
+- The integration intentionally accesses `google_connections` through parameterized raw SQL.
+- The SQL migration is the source of truth for this table; do not add or change its columns without updating the callback, status, disconnect, and token-refresh queries together.
 - Do not mark the integration ready until the migration exists in the target database and the callback can insert or update a connection successfully.
 
 Before merging:
