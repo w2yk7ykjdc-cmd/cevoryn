@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import {
+  forbiddenResponse,
   internalErrorResponse,
   unauthorizedResponse,
 } from "@/lib/api-utils";
@@ -13,7 +14,7 @@ export async function DELETE() {
     if (!user) return unauthorizedResponse();
 
     const membership = await getMembership(user.id);
-    if (!membership) return unauthorizedResponse("No organization found");
+    if (!membership) return forbiddenResponse("No organization found");
 
     await prisma.$executeRaw`
       DELETE FROM "google_connections"
