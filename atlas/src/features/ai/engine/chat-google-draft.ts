@@ -74,8 +74,10 @@ export async function tryCreateGoogleDraftFromChat(params: {
     };
   }
 
+  const recipients = to ?? [];
+
   const result = await createGoogleEmailDraft(organizationId, userId, {
-    to,
+    to: recipients,
     subject,
     body,
   });
