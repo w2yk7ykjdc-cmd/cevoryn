@@ -154,7 +154,14 @@ export function decryptGoogleToken(value: string) {
   const parts = value.split(".");
   if (parts.length !== 3) throw new Error("Invalid encrypted Google token");
 
-  const [ivValue, tagValue, encryptedValue] = parts;
+  const ivValue = parts[0];
+  const tagValue = parts[1];
+  const encryptedValue = parts[2];
+
+  if (!ivValue || !tagValue || !encryptedValue) {
+    throw new Error("Invalid encrypted Google token");
+  }
+
   const decipher = crypto.createDecipheriv(
     "aes-256-gcm",
     encryptionKey(),
