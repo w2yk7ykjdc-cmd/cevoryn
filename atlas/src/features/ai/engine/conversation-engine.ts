@@ -14,6 +14,7 @@ import { buildContext } from "../context/context-builder";
 import { TITLE_GENERATION_PROMPT } from "../context/prompts";
 import { getAIProvider } from "../providers";
 
+import { tryCreateGoogleDraftFromChat } from "./chat-google-draft";
 import { recordUsage } from "./token-tracker";
 
 // Ensure brain modules are registered
@@ -24,12 +25,13 @@ initializeBrain();
  *
  * Pipeline:
  * 1. Save user message
- * 2. Gather brain and connected-workspace context
- * 3. Build full prompt with context
- * 4. Stream AI response
- * 5. Save assistant message + usage
- * 6. Notify brain modules (memory extraction, etc.)
- * 7. Auto-generate title on first exchange
+ * 2. Execute an explicitly requested Gmail draft action when complete
+ * 3. Gather brain and connected-workspace context
+ * 4. Build full prompt with context
+ * 5. Stream AI response
+ * 6. Save assistant message + usage
+ * 7. Notify brain modules (memory extraction, etc.)
+ * 8. Auto-generate title on first exchange
  */
 export async function* streamResponse(params: {
   conversationId: string;
@@ -49,7 +51,70 @@ export async function* streamResponse(params: {
     },
   });
 
-  // 2. Gather context sources in parallel. Google data is optional and must
+  // 2. A direct request to create a Gmail draft is itself explicit approval for
+  // draft creation only. Never send email, and never invent missing fields.
+  try {
+    const draftAction = await tryCreateGoogleDraftFromChat({
+      message: userMessageContent,
+      organizationId: membership.organizationId,
+      userId: membership.userId,
+      provider,
+    });
+
+    if (draftAction) {
+      const assistantMessage = await prisma.message.create({
+        data: {
+          conversationId,
+          role: "ASSISTANT",
+          content: draftAction.content,
+          model,
+          inputTokens: draftAction.usage.inputTokens,
+          outputTokens: draftAction.usage.outputTokens,
+          durationMs: 0,
+        },
+      });
+
+      await recordUsage({
+        organizationId: membership.organizationId,
+        userId: membership.userId,
+        conversationId,
+        model,
+        usage: draftAction.usage,
+      });
+
+      await prisma.conversation.update({
+        where: { id: conversationId },
+        data: { updatedAt: new Date() },
+      });
+
+      yield { type: "text", content: draftAction.content };
+      yield {
+        type: "done",
+        messageId: assistantMessage.id,
+        usage: draftAction.usage,
+      };
+      return;
+    }
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "The Gmail draft could not be created";
+    const content = `Gmail taslağı oluşturulamadı: ${message}`;
+    const assistantMessage = await prisma.message.create({
+      data: {
+        conversationId,
+        role: "ASSISTANT",
+        content,
+        model,
+      },
+    });
+    yield { type: "text", content };
+    yield { type: "done", messageId: assistantMessage.id };
+    return;
+  }
+
+  // 3. Gather context sources in parallel. Google data is optional and must
   // never prevent chat from working when no account is connected.
   const [brainContexts, googleContext] = await Promise.all([
     gatherBrainContext({
@@ -61,7 +126,7 @@ export async function* streamResponse(params: {
     buildGoogleModuleContext(membership.organizationId, membership.userId),
   ]);
 
-  // 3. Build context with optional modules injected
+  // 4. Build context with optional modules injected
   const moduleContexts = googleContext
     ? [...brainContexts, googleContext]
     : brainContexts;
@@ -72,7 +137,7 @@ export async function* streamResponse(params: {
     moduleContexts,
   });
 
-  // 4. Stream from AI provider
+  // 5. Stream from AI provider
   const startTime = Date.now();
   let fullContent = "";
 
@@ -91,7 +156,7 @@ export async function* streamResponse(params: {
       if (chunk.type === "finish" && chunk.usage) {
         const durationMs = Date.now() - startTime;
 
-        // 5. Save assistant message
+        // 6. Save assistant message
         const assistantMessage = await prisma.message.create({
           data: {
             conversationId,
@@ -117,7 +182,7 @@ export async function* streamResponse(params: {
           data: { updatedAt: new Date() },
         });
 
-        // 6. Notify brain modules (fire-and-forget)
+        // 7. Notify brain modules (fire-and-forget)
         processExchange({
           organizationId: membership.organizationId,
           userId: membership.userId,
@@ -129,7 +194,7 @@ export async function* streamResponse(params: {
           // Brain post-processing is non-critical
         });
 
-        // 7. Auto-title on first exchange
+        // 8. Auto-title on first exchange
         const messageCount = await prisma.message.count({
           where: { conversationId },
         });
@@ -139,7 +204,7 @@ export async function* streamResponse(params: {
               prisma.conversation.update({
                 where: { id: conversationId },
                 data: { title },
-              })
+              }),
             )
             .catch(() => {});
         }
@@ -161,7 +226,7 @@ export async function* streamResponse(params: {
 
 async function buildGoogleModuleContext(
   organizationId: string,
-  userId: string
+  userId: string,
 ): Promise<string | null> {
   try {
     const context = await getGoogleWorkspaceContext(organizationId, userId);
@@ -174,23 +239,31 @@ async function buildGoogleModuleContext(
     if (context.emails.length > 0) {
       lines.push(
         "### Recent Gmail signals",
-        ...context.emails.slice(0, 10).map((email) =>
-          `- [${cleanContextValue(email.date, 80)}] From: ${cleanContextValue(email.from, 160)} | Subject: ${cleanContextValue(email.subject, 180)} | Snippet: ${cleanContextValue(email.snippet, 280)}`
-        )
+        ...context.emails.slice(0, 10).map(
+          (email) =>
+            `- [${cleanContextValue(email.date, 80)}] From: ${cleanContextValue(email.from, 160)} | Subject: ${cleanContextValue(email.subject, 180)} | Snippet: ${cleanContextValue(email.snippet, 280)}`,
+        ),
       );
     } else {
-      lines.push("### Recent Gmail signals", "No recent email signals were returned.");
+      lines.push(
+        "### Recent Gmail signals",
+        "No recent email signals were returned.",
+      );
     }
 
     if (context.events.length > 0) {
       lines.push(
         "### Upcoming Calendar signals",
-        ...context.events.slice(0, 15).map((event) =>
-          `- ${cleanContextValue(event.start, 80)} to ${cleanContextValue(event.end ?? "unknown", 80)} | ${cleanContextValue(event.title, 180)} | Location: ${cleanContextValue(event.location ?? "not specified", 160)} | Attendees: ${event.attendees.length}`
-        )
+        ...context.events.slice(0, 15).map(
+          (event) =>
+            `- ${cleanContextValue(event.start, 80)} to ${cleanContextValue(event.end ?? "unknown", 80)} | ${cleanContextValue(event.title, 180)} | Location: ${cleanContextValue(event.location ?? "not specified", 160)} | Attendees: ${event.attendees.length}`,
+        ),
       );
     } else {
-      lines.push("### Upcoming Calendar signals", "No upcoming events were returned.");
+      lines.push(
+        "### Upcoming Calendar signals",
+        "No upcoming events were returned.",
+      );
     }
 
     return lines.join("\n");
@@ -200,7 +273,11 @@ async function buildGoogleModuleContext(
 }
 
 function cleanContextValue(value: string, maxLength: number): string {
-  return value.replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim().slice(0, maxLength);
+  return value
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLength);
 }
 
 /**
