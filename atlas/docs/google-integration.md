@@ -14,7 +14,9 @@ Google Cloud OAuth redirect URI:
 Requested scopes:
 
 - OpenID email identity
+- Gmail read-only access
 - Gmail compose
+- Google Calendar read-only access
 - Google Calendar events
 
 Before merging:
