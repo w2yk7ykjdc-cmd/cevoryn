@@ -10,6 +10,7 @@ import {
 import { getMembership, getUser } from "@/lib/auth";
 import { createGoogleEmailDraft } from "@/lib/google-actions";
 import { GoogleConnectionError } from "@/lib/google-connection";
+import { cleanText, parseEmails } from "@/lib/google-utils";
 import { hasPermission } from "@/lib/rbac";
 
 export const runtime = "nodejs";
@@ -85,8 +86,12 @@ function parseEmailDraft(
   const to = parseEmails(body.to, 20);
   const cc = parseEmails(body.cc, 20, true);
   const bcc = parseEmails(body.bcc, 20, true);
-  if (!to || to.length === 0) return { ok: false, message: "A valid recipient is required" };
-  if (cc === null || bcc === null) return { ok: false, message: "Invalid email address" };
+  if (!to || to.length === 0) {
+    return { ok: false, message: "A valid recipient is required" };
+  }
+  if (cc === null || bcc === null) {
+    return { ok: false, message: "Invalid email address" };
+  }
 
   const subject = cleanText(body.subject, 200);
   const messageBody = cleanText(body.body, 20_000, true);
@@ -103,26 +108,4 @@ function parseEmailDraft(
       body: messageBody,
     },
   };
-}
-
-function parseEmails(value: unknown, max: number, optional = false): string[] | null {
-  if (value === undefined && optional) return [];
-  if (!Array.isArray(value) || value.length > max) return null;
-
-  const emails = value.map((item) =>
-    typeof item === "string" ? item.trim().toLowerCase() : ""
-  );
-  return emails.every(isEmail) ? Array.from(new Set(emails)) : null;
-}
-
-function isEmail(value: string): boolean {
-  return value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-}
-
-function cleanText(value: unknown, max: number, preserveLines = false): string {
-  if (typeof value !== "string") return "";
-  const cleaned = preserveLines
-    ? value.replace(/\r\n/g, "\n").trim()
-    : value.replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim();
-  return cleaned.slice(0, max);
 }
