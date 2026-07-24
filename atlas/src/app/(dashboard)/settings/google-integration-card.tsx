@@ -18,6 +18,7 @@ export function GoogleIntegrationCard({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [disconnecting, setDisconnecting] = useState(false);
+  const [creatingDraft, setCreatingDraft] = useState(false);
 
   useEffect(() => {
     const status = searchParams.get("google");
@@ -28,6 +29,52 @@ export function GoogleIntegrationCard({
       router.replace("/settings", { scroll: false });
     }
   }, [router, searchParams]);
+
+  async function createTestDraft() {
+    if (!connectedEmail) return;
+
+    const approved = window.confirm(
+      `Create a Gmail draft addressed to ${connectedEmail}? Nothing will be sent.`,
+    );
+    if (!approved) return;
+
+    setCreatingDraft(true);
+
+    try {
+      const response = await fetch(
+        "/api/integrations/google/actions/email-draft",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            approved: true,
+            to: [connectedEmail],
+            subject: "Atlas Google Test",
+            body: "Google bağlantısı başarıyla çalışıyor.",
+          }),
+        },
+      );
+
+      if (handleUnauthorized(response)) return;
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(
+          payload?.error?.message ?? "The Gmail draft could not be created",
+        );
+      }
+
+      toast.success("Gmail test draft created");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "The Gmail draft could not be created",
+      );
+    } finally {
+      setCreatingDraft(false);
+    }
+  }
 
   async function disconnect() {
     setDisconnecting(true);
@@ -42,7 +89,7 @@ export function GoogleIntegrationCard({
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
         throw new Error(
-          payload?.error?.message ?? "Google account could not be disconnected"
+          payload?.error?.message ?? "Google account could not be disconnected",
         );
       }
 
@@ -52,7 +99,7 @@ export function GoogleIntegrationCard({
       toast.error(
         error instanceof Error
           ? error.message
-          : "Google account could not be disconnected"
+          : "Google account could not be disconnected",
       );
     } finally {
       setDisconnecting(false);
@@ -90,10 +137,16 @@ export function GoogleIntegrationCard({
         <p className="text-sm font-medium">Connected</p>
         <p className="text-sm text-muted-foreground">{connectedEmail}</p>
       </div>
-      <Button variant="outline" onClick={disconnect} disabled={disconnecting}>
-        {disconnecting && <Loader2 className="h-4 w-4 animate-spin" />}
-        {disconnecting ? "Disconnecting..." : "Disconnect"}
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={createTestDraft} disabled={creatingDraft || disconnecting}>
+          {creatingDraft && <Loader2 className="h-4 w-4 animate-spin" />}
+          {creatingDraft ? "Creating draft..." : "Create Gmail test draft"}
+        </Button>
+        <Button variant="outline" onClick={disconnect} disabled={disconnecting}>
+          {disconnecting && <Loader2 className="h-4 w-4 animate-spin" />}
+          {disconnecting ? "Disconnecting..." : "Disconnect"}
+        </Button>
+      </div>
     </div>
   );
 }
