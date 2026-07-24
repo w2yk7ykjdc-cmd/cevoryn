@@ -6,7 +6,7 @@
 export function cleanText(
   value: unknown,
   maxLength: number,
-  preserveNewlines = false
+  preserveNewlines = false,
 ): string {
   if (typeof value !== "string") return "";
 
@@ -21,13 +21,13 @@ export function cleanText(
 export function parseEmails(
   value: unknown,
   max: number,
-  optional = false
+  optional = false,
 ): string[] | null {
   if (value === undefined) return optional ? [] : null;
   if (!Array.isArray(value) || value.length > max) return null;
 
   const emails = value.map((item) =>
-    typeof item === "string" ? item.trim().toLowerCase() : ""
+    typeof item === "string" ? item.trim().toLowerCase() : "",
   );
 
   return emails.every(isEmail) ? Array.from(new Set(emails)) : null;
