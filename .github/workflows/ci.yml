@@ -29,6 +29,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -48,17 +50,22 @@ jobs:
         run: npm run lint
 
       - name: Check formatting
+        shell: bash
         run: |
-          npx prettier --list-different "src/**/*.{ts,tsx,css,json}" | tee prettier-different.txt
-          test ! -s prettier-different.txt
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}...HEAD" -- \
+              'atlas/src/**/*.ts' 'atlas/src/**/*.tsx' 'atlas/src/**/*.css' 'atlas/src/**/*.json' \
+              | sed 's#^atlas/##' > prettier-files.txt
 
-      - name: Upload formatting diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: prettier-different
-          path: atlas/prettier-different.txt
-          if-no-files-found: error
+            if [ ! -s prettier-files.txt ]; then
+              echo "No changed source files require formatting checks."
+              exit 0
+            fi
+
+            xargs npx prettier --check < prettier-files.txt
+          else
+            npm run format:check
+          fi
 
       - name: Test
         run: npm test
