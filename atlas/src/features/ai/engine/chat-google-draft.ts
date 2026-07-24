@@ -7,6 +7,8 @@ import type { TokenUsage } from "@/types";
 
 import type { AIProvider } from "../providers/types";
 
+import { tryCreateGoogleCalendarEventFromChat } from "./chat-google-calendar";
+
 type DraftExtraction = {
   intent: "create_gmail_draft" | "none";
   to: string[];
@@ -29,6 +31,9 @@ export async function tryCreateGoogleDraftFromChat(params: {
   userId: string;
   provider: AIProvider;
 }): Promise<DraftActionResult | null> {
+  const calendarAction = await tryCreateGoogleCalendarEventFromChat(params);
+  if (calendarAction) return calendarAction;
+
   const { message, organizationId, userId, provider } = params;
 
   if (!EXPLICIT_DRAFT_REQUEST.test(message)) return null;
