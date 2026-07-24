@@ -4,7 +4,22 @@ import type { NextRequest } from "next/server";
 
 import { AUTH_ROUTES, PUBLIC_ROUTES, ROUTES } from "@/lib/constants";
 
+const LEGACY_PRODUCTION_HOST = "atlas-kemal.vercel.app";
+const CANONICAL_PRODUCTION_HOST = "atlas-wb6b.vercel.app";
+
 export async function middleware(request: NextRequest) {
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const host = (forwardedHost ?? request.headers.get("host") ?? "")
+    .split(":")[0]
+    .toLowerCase();
+
+  if (host === LEGACY_PRODUCTION_HOST) {
+    const canonicalUrl = request.nextUrl.clone();
+    canonicalUrl.protocol = "https:";
+    canonicalUrl.host = CANONICAL_PRODUCTION_HOST;
+    return NextResponse.redirect(canonicalUrl, 308);
+  }
+
   const { pathname, search } = request.nextUrl;
 
   const isPublicRoute = PUBLIC_ROUTES.some(
