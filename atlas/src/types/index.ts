@@ -62,6 +62,13 @@ export interface MembershipContext {
   avatarUrl: string | null;
 }
 
+export interface OrganizationMembershipOption {
+  organizationId: string;
+  organizationName: string;
+  organizationSlug: string;
+  role: MemberRole;
+}
+
 export type ActionResult<T = void> =
   | { success: true; data: T }
   | { success: false; error: string; fieldErrors?: Record<string, string[]> };
