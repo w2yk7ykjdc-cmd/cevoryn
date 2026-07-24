@@ -22,8 +22,17 @@ type DraftActionResult = {
   usage: TokenUsage;
 };
 
-const EXPLICIT_DRAFT_REQUEST =
-  /(?:gmail|e[- ]?posta|mail).{0,80}(?:taslak|draft).{0,80}(?:oluştur|hazırla|yaz|create)|(?:taslak|draft).{0,80}(?:gmail|e[- ]?posta|mail).{0,80}(?:oluştur|hazırla|yaz|create)/i;
+function isExplicitDraftRequest(message: string): boolean {
+  const normalized = message.toLocaleLowerCase("tr-TR");
+  const hasEmailContext = /\b(?:gmail|e[- ]?posta|eposta|email|mail)\b/i.test(
+    normalized,
+  );
+  const hasDraftContext = /(?:taslak|taslağ|draft)/i.test(normalized);
+  const hasCreateAction =
+    /(?:oluştur|hazırla|yaz|kaydet|create|prepare|write|save)/i.test(normalized);
+
+  return hasEmailContext && hasDraftContext && hasCreateAction;
+}
 
 export async function tryCreateGoogleDraftFromChat(params: {
   message: string;
@@ -36,7 +45,7 @@ export async function tryCreateGoogleDraftFromChat(params: {
 
   const { message, organizationId, userId, provider } = params;
 
-  if (!EXPLICIT_DRAFT_REQUEST.test(message)) return null;
+  if (!isExplicitDraftRequest(message)) return null;
 
   const completion = await provider.complete({
     model: AI_CONFIG.defaultModel,
