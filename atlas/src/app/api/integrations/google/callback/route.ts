@@ -17,6 +17,14 @@ type StoredRefreshToken = {
   refresh_token_encrypted: string | null;
 };
 
+function hasValidState(state: string | null, expectedState: string | undefined) {
+  if (!state || !expectedState) return false;
+
+  const actual = Buffer.from(state);
+  const expected = Buffer.from(expectedState);
+  return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
+}
+
 export async function GET(request: NextRequest) {
   try {
     const providerError = request.nextUrl.searchParams.get("error");
@@ -27,13 +35,7 @@ export async function GET(request: NextRequest) {
 
     cookieStore.delete("atlas_google_oauth_state");
 
-    if (
-      providerError ||
-      !code ||
-      !state ||
-      !expectedState ||
-      !crypto.timingSafeEqual(Buffer.from(state), Buffer.from(expectedState))
-    ) {
+    if (providerError || !code || !hasValidState(state, expectedState)) {
       return NextResponse.redirect(getGoogleSettingsUrl("error"));
     }
 
