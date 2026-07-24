@@ -4,12 +4,17 @@ import { Menu } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import type { MembershipContext } from "@/types";
+import type {
+  MembershipContext,
+  OrganizationMembershipOption,
+} from "@/types";
 
+import { OrganizationSwitcher } from "./organization-switcher";
 import { ThemeToggle } from "./theme-toggle";
 
 interface HeaderProps {
   membership: MembershipContext;
+  memberships: OrganizationMembershipOption[];
   userEmail: string;
   onMobileMenuToggle: () => void;
 }
@@ -26,6 +31,7 @@ function getInitials(name: string): string {
 
 export function Header({
   membership,
+  memberships,
   onMobileMenuToggle,
 }: HeaderProps) {
   return (
@@ -40,13 +46,18 @@ export function Header({
         <Menu className="h-5 w-5" />
       </Button>
 
-      <div className="hidden lg:block" />
+      <div className="min-w-0 flex-1 px-2 lg:flex-none lg:px-0">
+        <OrganizationSwitcher
+          activeOrganizationId={membership.organizationId}
+          memberships={memberships}
+        />
+      </div>
 
       <div className="relative z-[110] flex items-center gap-2 pr-1">
         <Link
           href="/profile"
           aria-label="Open profile"
-          className="relative z-[130] inline-flex h-11 min-w-11 touch-manipulation select-none items-center justify-center rounded-full border border-border bg-background px-3 text-sm font-semibold shadow-sm pointer-events-auto active:scale-95"
+          className="pointer-events-auto relative z-[130] inline-flex h-11 min-w-11 touch-manipulation select-none items-center justify-center rounded-full border border-border bg-background px-3 text-sm font-semibold shadow-sm active:scale-95"
         >
           {getInitials(membership.displayName)}
         </Link>
