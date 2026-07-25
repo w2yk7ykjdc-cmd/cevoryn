@@ -4,6 +4,7 @@ import {
   Activity,
   LayoutDashboard,
   Newspaper,
+  Settings,
   Sparkles,
 } from "lucide-react";
 import Link from "next/link";
@@ -30,6 +31,12 @@ const ITEMS = [
     icon: Sparkles,
     primary: true,
     slotClass: "col-start-3",
+  },
+  {
+    label: "Settings",
+    href: "/settings",
+    icon: Settings,
+    slotClass: "col-start-4",
   },
   {
     label: "Health",
