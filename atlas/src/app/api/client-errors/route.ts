@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+const MAX_REPORT_BYTES = 4_096;
+
 const clientErrorSchema = z.object({
   boundary: z.enum(["route", "global"]),
   name: z.string().max(80).optional(),
@@ -10,16 +12,50 @@ const clientErrorSchema = z.object({
   occurredAt: z.string().datetime().optional(),
 });
 
-export async function POST(request: Request) {
+function isSameOriginBrowserRequest(request: Request): boolean {
+  const origin = request.headers.get("origin");
+  if (!origin) return false;
+
   try {
-    const body: unknown = await request.json();
+    return new URL(origin).origin === new URL(request.url).origin;
+  } catch {
+    return false;
+  }
+}
+
+function invalidReportResponse(status = 400) {
+  return NextResponse.json(
+    { error: { code: "INVALID_ERROR_REPORT", message: "Invalid error report" } },
+    { status }
+  );
+}
+
+export async function POST(request: Request) {
+  if (!isSameOriginBrowserRequest(request)) {
+    return invalidReportResponse(403);
+  }
+
+  const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
+  if (!contentType.startsWith("application/json")) {
+    return invalidReportResponse(415);
+  }
+
+  const declaredLength = Number(request.headers.get("content-length") ?? "0");
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_REPORT_BYTES) {
+    return invalidReportResponse(413);
+  }
+
+  try {
+    const rawBody = await request.text();
+    if (new TextEncoder().encode(rawBody).byteLength > MAX_REPORT_BYTES) {
+      return invalidReportResponse(413);
+    }
+
+    const body: unknown = JSON.parse(rawBody);
     const result = clientErrorSchema.safeParse(body);
 
     if (!result.success) {
-      return NextResponse.json(
-        { error: { code: "INVALID_ERROR_REPORT", message: "Invalid error report" } },
-        { status: 400 }
-      );
+      return invalidReportResponse();
     }
 
     console.error("[cevoryn] client_error", {
@@ -29,9 +65,6 @@ export async function POST(request: Request) {
 
     return new NextResponse(null, { status: 204 });
   } catch {
-    return NextResponse.json(
-      { error: { code: "INVALID_ERROR_REPORT", message: "Invalid error report" } },
-      { status: 400 }
-    );
+    return invalidReportResponse();
   }
 }
