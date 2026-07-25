@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu, MessageSquare } from "lucide-react";
+import { Menu } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -54,14 +54,6 @@ export function Header({
       </div>
 
       <div className="relative z-[110] flex items-center gap-2 pr-1">
-        <Link
-          href="/chat"
-          aria-label="Open Atlas chat"
-          className="pointer-events-auto relative z-[130] inline-flex h-11 min-w-11 touch-manipulation select-none items-center justify-center rounded-full border border-border bg-background text-foreground shadow-sm active:scale-95 lg:hidden"
-        >
-          <MessageSquare className="h-5 w-5" />
-        </Link>
-
         <Link
           href="/profile"
           aria-label="Open profile"
