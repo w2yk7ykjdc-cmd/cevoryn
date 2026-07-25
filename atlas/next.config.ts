@@ -4,7 +4,8 @@ const isDevelopment = process.env.NODE_ENV === "development";
 
 const scriptSrc = [
   "'self'",
-  ...(isDevelopment ? ["'unsafe-eval'", "'unsafe-inline'"] : []),
+  "'unsafe-inline'",
+  ...(isDevelopment ? ["'unsafe-eval'"] : []),
 ].join(" ");
 
 const nextConfig: NextConfig = {
