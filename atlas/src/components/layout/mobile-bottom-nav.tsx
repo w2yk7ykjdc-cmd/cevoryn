@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -47,17 +47,55 @@ const ITEMS = [
   },
 ] as const;
 
+const PREPARED_CHAT_KEY = "atlas-prepared-chat-href";
+
 export function MobileBottomNav() {
   const pathname = usePathname();
   const router = useRouter();
+  const [preparedChatHref, setPreparedChatHref] = useState("/chat");
 
   useEffect(() => {
     for (const item of ITEMS) {
-      if (item.href !== pathname) {
-        router.prefetch(item.href);
-      }
+      if (item.href !== pathname) router.prefetch(item.href);
     }
   }, [pathname, router]);
+
+  useEffect(() => {
+    if (pathname.startsWith("/chat")) return;
+
+    const cached = window.sessionStorage.getItem(PREPARED_CHAT_KEY);
+    if (cached) {
+      setPreparedChatHref(cached);
+      router.prefetch(cached);
+      return;
+    }
+
+    let cancelled = false;
+
+    void fetch("/api/conversations", { method: "POST" })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        const payload = await response.json().catch(() => null);
+        const id = payload?.data?.id;
+        return typeof id === "string" ? `/chat/${id}` : null;
+      })
+      .then((href) => {
+        if (!href || cancelled) return;
+        window.sessionStorage.setItem(PREPARED_CHAT_KEY, href);
+        setPreparedChatHref(href);
+        router.prefetch(href);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname, router]);
+
+  function consumePreparedChat() {
+    window.sessionStorage.removeItem(PREPARED_CHAT_KEY);
+    setPreparedChatHref("/chat");
+  }
 
   return (
     <nav
@@ -66,6 +104,7 @@ export function MobileBottomNav() {
     >
       <div className="mx-auto grid max-w-md grid-cols-5 items-end gap-1">
         {ITEMS.map((item, index) => {
+          const href = item.href === "/chat" ? preparedChatHref : item.href;
           const isActive =
             pathname === item.href || pathname.startsWith(`${item.href}/`);
           const Icon = item.icon;
@@ -75,14 +114,15 @@ export function MobileBottomNav() {
             return (
               <Link
                 key={`${item.href}-${index}`}
-                href={item.href}
+                href={href}
                 prefetch
-                onTouchStart={() => router.prefetch(item.href)}
-                onPointerEnter={() => router.prefetch(item.href)}
+                onClick={consumePreparedChat}
+                onTouchStart={() => router.prefetch(href)}
+                onPointerEnter={() => router.prefetch(href)}
                 aria-label="Open Atlas"
                 className={cn(
                   "-mt-6 flex flex-col items-center gap-1 text-xs font-medium",
-                  item.slotClass
+                  item.slotClass,
                 )}
               >
                 <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg ring-4 ring-background">
@@ -96,15 +136,15 @@ export function MobileBottomNav() {
           return (
             <Link
               key={`${item.href}-${index}`}
-              href={item.href}
+              href={href}
               prefetch
-              onTouchStart={() => router.prefetch(item.href)}
-              onPointerEnter={() => router.prefetch(item.href)}
+              onTouchStart={() => router.prefetch(href)}
+              onPointerEnter={() => router.prefetch(href)}
               aria-current={isActive ? "page" : undefined}
               className={cn(
                 "flex min-h-11 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[10px] font-medium transition-colors",
                 item.slotClass,
-                isActive ? "text-primary" : "text-muted-foreground"
+                isActive ? "text-primary" : "text-muted-foreground",
               )}
             >
               <Icon className="h-5 w-5" />
