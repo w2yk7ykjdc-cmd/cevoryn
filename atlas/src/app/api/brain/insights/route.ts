@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+import { runWithAIUsageContext } from "@/features/ai/usage-context";
 import {
   generateInsights,
   listInsights,
@@ -56,7 +57,14 @@ export async function POST() {
       );
     }
 
-    const created = await generateInsights(membership.organizationId);
+    const created = await runWithAIUsageContext(
+      {
+        organizationId: membership.organizationId,
+        userId: user.id,
+      },
+      () => generateInsights(membership.organizationId)
+    );
+
     return NextResponse.json({ data: { generated: created } });
   } catch (error) {
     return internalErrorResponse(
