@@ -4,7 +4,7 @@ import { getValidGoogleAccessToken } from "@/lib/google-connection";
 
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1";
 const CALENDAR_API = "https://www.googleapis.com/calendar/v3";
-const GOOGLE_READ_TIMEOUT_MS = 10_000;
+const GOOGLE_READ_TIMEOUT_MS = 1_200;
 
 export type GmailContextItem = {
   id: string;
@@ -81,11 +81,11 @@ function headerValue(message: GmailMessageResponse, name: string) {
 export async function getRecentGmailContext(
   organizationId: string,
   userId: string,
-  limit = 10
+  limit = 5
 ): Promise<GmailContextItem[]> {
   const accessToken = await getValidGoogleAccessToken(organizationId, userId);
   const listUrl = new URL(`${GMAIL_API}/users/me/messages`);
-  listUrl.searchParams.set("maxResults", String(Math.min(Math.max(limit, 1), 20)));
+  listUrl.searchParams.set("maxResults", String(Math.min(Math.max(limit, 1), 10)));
   listUrl.searchParams.set("q", "newer_than:7d -in:spam -in:trash");
 
   const list = await googleFetch<GmailListResponse>(listUrl.toString(), accessToken);
@@ -120,7 +120,7 @@ export async function getUpcomingCalendarContext(
   organizationId: string,
   userId: string,
   days = 7,
-  limit = 20
+  limit = 10
 ): Promise<CalendarContextItem[]> {
   const accessToken = await getValidGoogleAccessToken(organizationId, userId);
   const timeMin = new Date();
@@ -130,7 +130,7 @@ export async function getUpcomingCalendarContext(
   url.searchParams.set("timeMax", timeMax.toISOString());
   url.searchParams.set("singleEvents", "true");
   url.searchParams.set("orderBy", "startTime");
-  url.searchParams.set("maxResults", String(Math.min(Math.max(limit, 1), 50)));
+  url.searchParams.set("maxResults", String(Math.min(Math.max(limit, 1), 20)));
 
   const data = await googleFetch<CalendarListResponse>(url.toString(), accessToken);
 
