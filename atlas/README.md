@@ -1,4 +1,4 @@
-# Atlas
+# CEVORYN
 
 AI Chief of Staff for companies with 2–20 employees.
 
@@ -31,7 +31,7 @@ src/
 ├── features/
 │   ├── ai/           # Chat engine, streaming, providers
 │   ├── auth/         # Authentication
-│   ├── brain/        # Atlas Brain (Sprint 004)
+│   ├── brain/        # CEVORYN Brain (Sprint 004)
 │   │   ├── core/     # Module registry, engine, types
 │   │   ├── memory/   # Company Memory
 │   │   ├── insights/ # Insight Engine
@@ -59,7 +59,7 @@ src/
 - **002** — Auth, multi-tenant RBAC, onboarding, dashboard
 - **003** — AI chat engine, OpenAI streaming, conversations
 - **003.1** — Repository cleanup
-- **004** — Atlas Brain: Memory, Insights, Pulse, CEO Brief
+- **004** — CEVORYN Brain: Memory, Insights, Pulse, CEO Brief
 
 ## Deployment
 
