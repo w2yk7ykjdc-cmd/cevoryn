@@ -3,7 +3,6 @@
 import {
   Activity,
   LayoutDashboard,
-  MessageSquare,
   Newspaper,
   Sparkles,
 } from "lucide-react";
@@ -17,7 +16,6 @@ const ITEMS = [
   { label: "Brief", href: "/brief", icon: Newspaper },
   { label: "Atlas", href: "/chat", icon: Sparkles, primary: true },
   { label: "Health", href: "/health", icon: Activity },
-  { label: "Chat", href: "/chat", icon: MessageSquare },
 ] as const;
 
 export function MobileBottomNav() {
@@ -28,7 +26,7 @@ export function MobileBottomNav() {
       aria-label="Mobile primary navigation"
       className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2 backdrop-blur lg:hidden"
     >
-      <div className="mx-auto grid max-w-md grid-cols-5 items-end gap-1">
+      <div className="mx-auto grid max-w-md grid-cols-4 items-end gap-1">
         {ITEMS.map((item, index) => {
           const isActive =
             pathname === item.href || pathname.startsWith(`${item.href}/`);
