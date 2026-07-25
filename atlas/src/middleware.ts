@@ -84,7 +84,7 @@ export async function middleware(request: NextRequest) {
     }
 
     console.error(
-      "[atlas] Supabase middleware configuration is missing; redirecting protected request to login."
+      "[cevoryn] Supabase middleware configuration is missing; redirecting protected request to login."
     );
     const loginUrl = new URL(ROUTES.LOGIN, request.url);
     loginUrl.searchParams.set("next", returnPath);
