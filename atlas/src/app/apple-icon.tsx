@@ -34,7 +34,7 @@ export default function AppleIcon() {
             width: 132,
           }}
         >
-          A
+          C
         </div>
       </div>
     ),
