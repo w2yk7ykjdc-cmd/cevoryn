@@ -2,6 +2,8 @@
 
 import { Menu } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import type {
@@ -34,6 +36,12 @@ export function Header({
   memberships,
   onMobileMenuToggle,
 }: HeaderProps) {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.prefetch("/profile");
+  }, [router]);
+
   return (
     <header className="relative z-[100] isolate flex h-14 shrink-0 items-center justify-between overflow-visible border-b bg-card px-4 lg:px-6">
       <Button
@@ -56,6 +64,9 @@ export function Header({
       <div className="relative z-[110] flex items-center gap-2 pr-1">
         <Link
           href="/profile"
+          prefetch
+          onTouchStart={() => router.prefetch("/profile")}
+          onPointerEnter={() => router.prefetch("/profile")}
           aria-label="Open profile"
           className="pointer-events-auto relative z-[130] inline-flex h-11 min-w-11 touch-manipulation select-none items-center justify-center rounded-full border border-border bg-background px-3 text-sm font-semibold shadow-sm active:scale-95"
         >
