@@ -6,6 +6,37 @@ import { AUTH_ROUTES, PUBLIC_ROUTES, ROUTES } from "@/lib/constants";
 
 const LEGACY_PRODUCTION_HOST = "atlas-kemal.vercel.app";
 const CANONICAL_PRODUCTION_HOST = "atlas-wb6b.vercel.app";
+const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+function isAllowedApiMutation(request: NextRequest) {
+  if (!request.nextUrl.pathname.startsWith("/api/")) return true;
+  if (!MUTATING_METHODS.has(request.method.toUpperCase())) return true;
+
+  const fetchSite = request.headers.get("sec-fetch-site");
+  if (fetchSite === "cross-site") return false;
+
+  const origin = request.headers.get("origin");
+  if (!origin) return true;
+
+  const allowedOrigins = new Set([request.nextUrl.origin]);
+  const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+
+  if (configuredAppUrl) {
+    try {
+      allowedOrigins.add(new URL(configuredAppUrl).origin);
+    } catch {
+      console.error("[cevoryn] NEXT_PUBLIC_APP_URL is not a valid URL");
+    }
+  }
+
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const forwardedProto = request.headers.get("x-forwarded-proto") ?? "https";
+  if (forwardedHost) {
+    allowedOrigins.add(`${forwardedProto}://${forwardedHost}`);
+  }
+
+  return allowedOrigins.has(origin);
+}
 
 export async function middleware(request: NextRequest) {
   const rawHost =
@@ -22,6 +53,18 @@ export async function middleware(request: NextRequest) {
   }
 
   const { pathname, search } = request.nextUrl;
+
+  if (!isAllowedApiMutation(request)) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "INVALID_ORIGIN",
+          message: "Cross-site API mutations are not allowed",
+        },
+      },
+      { status: 403 }
+    );
+  }
 
   const isPublicRoute = PUBLIC_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`)
