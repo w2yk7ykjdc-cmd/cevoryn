@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "Atlas — AI Chief of Staff for small teams";
+export const alt = "CEVORYN — AI Chief of Staff for small teams";
 export const size = {
   width: 1200,
   height: 630,
@@ -44,10 +44,10 @@ export default function OpenGraphImage() {
               width: 112,
             }}
           >
-            A
+            C
           </div>
           <div style={{ fontSize: 76, fontWeight: 800, letterSpacing: "-3px" }}>
-            Atlas
+            CEVORYN
           </div>
           <div
             style={{
