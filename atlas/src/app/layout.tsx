@@ -1,21 +1,10 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 
 import { Providers } from "@/components/providers";
 import { BRAND, BRAND_TITLE_TEMPLATE } from "@/lib/brand";
 
 import "./globals.css";
-
-const themeScript = `
-(function () {
-  try {
-    var saved = localStorage.getItem("atlas-theme");
-    var theme = saved === "light" || saved === "dark" ? saved :
-      (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-    document.documentElement.classList.toggle("dark", theme === "dark");
-    document.documentElement.style.colorScheme = theme;
-  } catch (_) {}
-})();
-`;
 
 export const metadata: Metadata = {
   title: {
@@ -54,10 +43,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-      </head>
       <body className="font-sans">
+        <Script src="/theme-init.js" strategy="beforeInteractive" />
         <Providers>{children}</Providers>
       </body>
     </html>
