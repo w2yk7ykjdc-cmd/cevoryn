@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+import { runWithAIUsageContext } from "@/features/ai/usage-context";
 import { executeDecisionPipeline } from "@/features/brain/decisions/decision-engine";
 import {
   createDecision,
@@ -105,11 +106,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await executeDecisionPipeline({
-      organizationId: membership.organizationId,
-      problemDescription: parsed.data.problemDescription,
-      sourceInsightId: parsed.data.sourceInsightId,
-    });
+    const result = await runWithAIUsageContext(
+      {
+        organizationId: membership.organizationId,
+        userId: user.id,
+      },
+      () =>
+        executeDecisionPipeline({
+          organizationId: membership.organizationId,
+          problemDescription: parsed.data.problemDescription,
+          sourceInsightId: parsed.data.sourceInsightId,
+        })
+    );
 
     return NextResponse.json(
       {

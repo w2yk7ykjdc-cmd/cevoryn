@@ -27,6 +27,29 @@ export async function recordUsage(params: {
 }
 
 /**
+ * Record token usage for non-conversation AI operations such as Insights,
+ * Briefs, and Decision Canvas generation.
+ */
+export async function recordStandaloneUsage(params: {
+  organizationId: string;
+  userId: string;
+  model: string;
+  usage: TokenUsage;
+}): Promise<void> {
+  await prisma.usageRecord.create({
+    data: {
+      organizationId: params.organizationId,
+      userId: params.userId,
+      conversationId: null,
+      model: params.model,
+      inputTokens: params.usage.inputTokens,
+      outputTokens: params.usage.outputTokens,
+      totalTokens: params.usage.totalTokens,
+    },
+  });
+}
+
+/**
  * Get total tokens used by an organization in a date range.
  */
 export async function getOrgUsage(

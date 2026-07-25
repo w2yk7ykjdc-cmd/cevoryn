@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+import { runWithAIUsageContext } from "@/features/ai/usage-context";
 import {
   generateBrief,
   getLatestBrief,
@@ -72,7 +73,14 @@ export async function POST(request: NextRequest) {
     }
 
     const type = body.type === "WEEKLY" ? "WEEKLY" : "DAILY";
-    const result = await generateBrief(membership.organizationId, type);
+    const result = await runWithAIUsageContext(
+      {
+        organizationId: membership.organizationId,
+        userId: user.id,
+      },
+      () => generateBrief(membership.organizationId, type)
+    );
+
     const googleSections = await buildGoogleBriefSections(
       membership.organizationId,
       user.id
