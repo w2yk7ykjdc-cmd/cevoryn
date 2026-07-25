@@ -2,6 +2,7 @@ import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import { BRAND } from "@/lib/brand";
 import { ROUTES } from "@/lib/constants";
 
 export default function HomePage() {
@@ -9,10 +10,10 @@ export default function HomePage() {
     <main className="flex min-h-screen flex-col items-center justify-center px-4">
       <div className="mx-auto max-w-2xl text-center">
         <div className="mb-6 inline-flex items-center rounded-full border px-4 py-1.5 text-sm text-muted-foreground">
-          AI Chief of Staff for small teams
+          {BRAND.description}
         </div>
         <h1 className="text-balance text-4xl font-bold tracking-tight sm:text-5xl">
-          Atlas
+          {BRAND.name}
         </h1>
         <p className="mt-4 text-lg text-muted-foreground">
           The operations layer your team needs. Decisions, priorities, and

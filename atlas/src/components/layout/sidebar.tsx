@@ -20,6 +20,7 @@ import { LanguageSelector } from "@/components/language-selector";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { BRAND } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 import type { MembershipContext } from "@/types";
 
@@ -102,7 +103,9 @@ export function Sidebar({ membership }: SidebarProps) {
             {t("terms")}
           </Link>
         </div>
-        <p className="px-1 text-xs text-muted-foreground">Atlas RC3</p>
+        <p className="px-1 text-xs text-muted-foreground">
+          {BRAND.name} {BRAND.versionLabel}
+        </p>
       </div>
     </aside>
   );
