@@ -39,7 +39,7 @@ async function getAppUrl(): Promise<string> {
   const requestHeaders = await headers();
   const host = requestHeaders.get("host");
   if (host?.includes("localhost")) return `http://${host}`.replace(/\/$/, "");
-  return "https://atlas-wb6b.vercel.app";
+  return "https://cevoryn.vercel.app";
 }
 
 function getSafeRedirectPath(path: string | undefined, fallback: string): string {
