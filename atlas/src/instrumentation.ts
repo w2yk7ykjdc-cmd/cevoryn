@@ -11,5 +11,5 @@ export async function register() {
   validateServerEnv();
   validateClientEnv();
 
-  console.info("[atlas] Environment validation passed");
+  console.info("[cevoryn] Environment validation passed");
 }
