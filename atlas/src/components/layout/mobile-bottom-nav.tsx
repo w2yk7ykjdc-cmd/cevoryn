@@ -8,7 +8,8 @@ import {
   Sparkles,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -48,6 +49,15 @@ const ITEMS = [
 
 export function MobileBottomNav() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  useEffect(() => {
+    for (const item of ITEMS) {
+      if (item.href !== pathname) {
+        router.prefetch(item.href);
+      }
+    }
+  }, [pathname, router]);
 
   return (
     <nav
@@ -66,6 +76,9 @@ export function MobileBottomNav() {
               <Link
                 key={`${item.href}-${index}`}
                 href={item.href}
+                prefetch
+                onTouchStart={() => router.prefetch(item.href)}
+                onPointerEnter={() => router.prefetch(item.href)}
                 aria-label="Open Atlas"
                 className={cn(
                   "-mt-6 flex flex-col items-center gap-1 text-xs font-medium",
@@ -84,6 +97,9 @@ export function MobileBottomNav() {
             <Link
               key={`${item.href}-${index}`}
               href={item.href}
+              prefetch
+              onTouchStart={() => router.prefetch(item.href)}
+              onPointerEnter={() => router.prefetch(item.href)}
               aria-current={isActive ? "page" : undefined}
               className={cn(
                 "flex min-h-11 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[10px] font-medium transition-colors",
