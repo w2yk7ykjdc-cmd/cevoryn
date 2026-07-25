@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -29,6 +30,7 @@ export function LoginForm({
   authError,
   passwordReset = false,
 }: LoginFormProps) {
+  const router = useRouter();
   const [isPending, setIsPending] = useState(false);
   const signupHref = redirectTo
     ? `${ROUTES.SIGNUP}?next=${encodeURIComponent(redirectTo)}`
@@ -58,15 +60,13 @@ export function LoginForm({
             });
           });
         }
+        return;
       }
+
+      const target = result.data || ROUTES.DASHBOARD;
+      router.prefetch(target);
+      router.replace(target);
     } catch (error) {
-      const digest =
-        error && typeof error === "object" && "digest" in error
-          ? String(error.digest)
-          : "";
-
-      if (digest.startsWith("NEXT_REDIRECT")) throw error;
-
       console.error("Login failed:", error);
       toast.error("Unable to sign in. Please try again.");
     } finally {
