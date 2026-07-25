@@ -2,6 +2,8 @@ import "server-only";
 
 import OpenAI from "openai";
 
+import { recordStandaloneUsage } from "@/features/ai/engine/token-tracker";
+import { getAIUsageContext } from "@/features/ai/usage-context";
 import type { ChatMessage, TokenUsage } from "@/types";
 
 import type {
@@ -87,6 +89,16 @@ export class OpenAIProvider implements AIProvider {
       outputTokens: response.usage?.completion_tokens ?? 0,
       totalTokens: response.usage?.total_tokens ?? 0,
     };
+
+    const usageContext = getAIUsageContext();
+    if (usageContext && usage.totalTokens > 0) {
+      await recordStandaloneUsage({
+        organizationId: usageContext.organizationId,
+        userId: usageContext.userId,
+        model: params.model,
+        usage,
+      });
+    }
 
     return { content, usage };
   }
