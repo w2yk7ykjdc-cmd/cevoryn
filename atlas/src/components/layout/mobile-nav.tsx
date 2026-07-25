@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
+import { usePathname } from "next/navigation";
+
 import {
   Sheet,
   SheetContent,
@@ -16,14 +19,28 @@ interface MobileNavProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function MobileNav({ membership, open, onOpenChange }: MobileNavProps) {
+export function MobileNav({
+  membership,
+  open,
+  onOpenChange,
+}: MobileNavProps) {
+  const pathname = usePathname();
+
+  useEffect(() => {
+    onOpenChange(false);
+  }, [pathname, onOpenChange]);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="left" className="w-64 p-0">
         <SheetHeader className="sr-only">
           <SheetTitle>Navigation</SheetTitle>
         </SheetHeader>
-        <Sidebar membership={membership} />
+
+        <Sidebar
+          membership={membership}
+          onNavigate={() => onOpenChange(false)}
+        />
       </SheetContent>
     </Sheet>
   );
