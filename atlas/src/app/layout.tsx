@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 
 import { Providers } from "@/components/providers";
 import { BRAND, BRAND_TITLE_TEMPLATE } from "@/lib/brand";
@@ -42,10 +43,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <script src="/theme-init.js" />
-      </head>
       <body className="font-sans">
+        <Script src="/theme-init.js" strategy="beforeInteractive" />
         <Providers>{children}</Providers>
       </body>
     </html>
