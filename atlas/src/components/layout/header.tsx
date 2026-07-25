@@ -19,16 +19,6 @@ interface HeaderProps {
   onMobileMenuToggle: () => void;
 }
 
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-}
-
 export function Header({
   membership,
   memberships,
@@ -59,7 +49,7 @@ export function Header({
           aria-label="Open profile"
           className="pointer-events-auto relative z-[130] inline-flex h-11 min-w-11 touch-manipulation select-none items-center justify-center rounded-full border border-border bg-background px-3 text-sm font-semibold shadow-sm active:scale-95"
         >
-          {getInitials(membership.displayName)}
+          KK
         </Link>
 
         <ThemeToggle />
