@@ -73,15 +73,19 @@ export async function middleware(request: NextRequest) {
     },
   });
 
+  // Middleware runs for every client-side route request and prefetch. Reading
+  // the cookie-backed session here avoids a remote Supabase auth request on
+  // every screen transition. Protected server layouts/pages still call
+  // requireUser(), which validates the user with Supabase before returning data.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  if (user && isAuthRoute) {
+  if (session && isAuthRoute) {
     return NextResponse.redirect(new URL(ROUTES.DASHBOARD, request.url));
   }
 
-  if (!user && !isPublicRoute) {
+  if (!session && !isPublicRoute) {
     const loginUrl = new URL(ROUTES.LOGIN, request.url);
     loginUrl.searchParams.set("next", returnPath);
     return NextResponse.redirect(loginUrl);
