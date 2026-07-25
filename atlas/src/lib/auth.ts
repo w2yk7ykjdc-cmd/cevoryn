@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 import "server-only";
 
 import { ROUTES } from "@/lib/constants";
@@ -17,7 +18,7 @@ export const ACTIVE_ORGANIZATION_COOKIE = "atlas-active-organization";
 // User Authentication
 // =============================================================================
 
-export async function getUser(): Promise<AuthUser | null> {
+export const getUser = cache(async (): Promise<AuthUser | null> => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -32,7 +33,7 @@ export async function getUser(): Promise<AuthUser | null> {
     emailConfirmedAt: user.email_confirmed_at ?? null,
     createdAt: user.created_at,
   };
-}
+});
 
 export async function requireUser(): Promise<AuthUser> {
   const user = await getUser();
@@ -44,7 +45,7 @@ export async function requireUser(): Promise<AuthUser> {
 // Organization Membership
 // =============================================================================
 
-async function getMembershipRecords(userId: string) {
+const getMembershipRecords = cache(async (userId: string) => {
   return prisma.member.findMany({
     where: { userId },
     include: {
@@ -58,7 +59,7 @@ async function getMembershipRecords(userId: string) {
     },
     orderBy: { createdAt: "asc" },
   });
-}
+});
 
 export async function getOrganizationMemberships(
   userId: string
