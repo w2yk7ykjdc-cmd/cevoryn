@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 
 import { Providers } from "@/components/providers";
+import { BRAND, BRAND_TITLE_TEMPLATE } from "@/lib/brand";
 
 import "./globals.css";
 
@@ -18,16 +19,16 @@ const themeScript = `
 
 export const metadata: Metadata = {
   title: {
-    default: "Atlas",
-    template: "%s — Atlas",
+    default: BRAND.name,
+    template: BRAND_TITLE_TEMPLATE,
   },
-  description: "AI Chief of Staff for small teams",
+  description: BRAND.description,
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
   ),
   openGraph: {
-    title: "Atlas",
-    description: "AI Chief of Staff for small teams",
+    title: BRAND.name,
+    description: BRAND.description,
     type: "website",
   },
   robots: {
