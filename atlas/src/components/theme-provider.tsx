@@ -20,7 +20,8 @@ interface ThemeContextValue {
   toggleTheme: () => void;
 }
 
-const STORAGE_KEY = "atlas-theme";
+const STORAGE_KEY = "cevoryn-theme";
+const LEGACY_STORAGE_KEY = "atlas-theme";
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function getSystemTheme(): ResolvedTheme {
@@ -41,12 +42,16 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("light");
 
   useEffect(() => {
-    const saved = window.localStorage.getItem(STORAGE_KEY);
+    const saved =
+      window.localStorage.getItem(STORAGE_KEY) ??
+      window.localStorage.getItem(LEGACY_STORAGE_KEY);
     const initialTheme: Theme =
       saved === "light" || saved === "dark" || saved === "system"
         ? saved
         : "system";
 
+    window.localStorage.setItem(STORAGE_KEY, initialTheme);
+    window.localStorage.removeItem(LEGACY_STORAGE_KEY);
     setThemeState(initialTheme);
     setResolvedTheme(applyTheme(initialTheme));
   }, []);
@@ -62,6 +67,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const setTheme = useCallback((nextTheme: Theme) => {
     window.localStorage.setItem(STORAGE_KEY, nextTheme);
+    window.localStorage.removeItem(LEGACY_STORAGE_KEY);
     setThemeState(nextTheme);
     setResolvedTheme(applyTheme(nextTheme));
   }, []);
