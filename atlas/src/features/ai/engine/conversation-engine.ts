@@ -17,21 +17,13 @@ import { getAIProvider } from "../providers";
 import { tryCreateGoogleDraftFromChat } from "./chat-google-draft";
 import { recordUsage } from "./token-tracker";
 
+const GOOGLE_CONTEXT_TIMEOUT_MS = 500;
+
 // Ensure brain modules are registered
 initializeBrain();
 
 /**
  * Stream a response for a user message within a conversation.
- *
- * Pipeline:
- * 1. Save user message
- * 2. Execute an explicitly requested Gmail draft action when complete
- * 3. Gather brain and connected-workspace context
- * 4. Build full prompt with context
- * 5. Stream AI response
- * 6. Save assistant message + usage
- * 7. Notify brain modules (memory extraction, etc.)
- * 8. Auto-generate title on first exchange
  */
 export async function* streamResponse(params: {
   conversationId: string;
@@ -42,7 +34,6 @@ export async function* streamResponse(params: {
   const model = AI_CONFIG.defaultModel;
   const provider = getAIProvider();
 
-  // 1. Save user message
   await prisma.message.create({
     data: {
       conversationId,
@@ -51,8 +42,7 @@ export async function* streamResponse(params: {
     },
   });
 
-  // 2. A direct request to create a Gmail draft is itself explicit approval for
-  // draft creation only. Never send email, and never invent missing fields.
+  // Explicit Gmail/Calendar actions keep their dedicated execution path.
   try {
     const draftAction = await tryCreateGoogleDraftFromChat({
       message: userMessageContent,
@@ -114,8 +104,8 @@ export async function* streamResponse(params: {
     return;
   }
 
-  // 3. Gather context sources in parallel. Google data is optional and must
-  // never prevent chat from working when no account is connected.
+  // Google Workspace context is optional. Never let a slow Google request hold
+  // the first AI token for multiple seconds.
   const [brainContexts, googleContext] = await Promise.all([
     gatherBrainContext({
       organizationId: membership.organizationId,
@@ -123,10 +113,16 @@ export async function* streamResponse(params: {
       conversationId,
       latestMessage: userMessageContent,
     }),
-    buildGoogleModuleContext(membership.organizationId, membership.userId),
+    withTimeout(
+      buildGoogleModuleContext(
+        membership.organizationId,
+        membership.userId,
+      ),
+      GOOGLE_CONTEXT_TIMEOUT_MS,
+      null,
+    ),
   ]);
 
-  // 4. Build context with optional modules injected
   const moduleContexts = googleContext
     ? [...brainContexts, googleContext]
     : brainContexts;
@@ -137,7 +133,6 @@ export async function* streamResponse(params: {
     moduleContexts,
   });
 
-  // 5. Stream from AI provider
   const startTime = Date.now();
   let fullContent = "";
 
@@ -155,8 +150,6 @@ export async function* streamResponse(params: {
 
       if (chunk.type === "finish" && chunk.usage) {
         const durationMs = Date.now() - startTime;
-
-        // 6. Save assistant message
         const assistantMessage = await prisma.message.create({
           data: {
             conversationId,
@@ -182,7 +175,6 @@ export async function* streamResponse(params: {
           data: { updatedAt: new Date() },
         });
 
-        // 7. Notify brain modules (fire-and-forget)
         processExchange({
           organizationId: membership.organizationId,
           userId: membership.userId,
@@ -190,11 +182,10 @@ export async function* streamResponse(params: {
           userMessage: userMessageContent,
           assistantMessage: fullContent,
           membership,
-        }).catch((_err) => {
-          // Brain post-processing is non-critical
+        }).catch(() => {
+          // Brain post-processing is non-critical.
         });
 
-        // 8. Auto-title on first exchange
         const messageCount = await prisma.message.count({
           where: { conversationId },
         });
@@ -221,6 +212,25 @@ export async function* streamResponse(params: {
       error instanceof Error ? error.message : "AI response failed";
     console.error("AI stream error:", message);
     yield { type: "error", content: message };
+  }
+}
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  fallback: T,
+): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((resolve) => {
+        timeout = setTimeout(() => resolve(fallback), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
   }
 }
 
@@ -267,7 +277,7 @@ async function buildGoogleModuleContext(
     }
 
     return lines.join("\n");
-  } catch (_error) {
+  } catch {
     return null;
   }
 }
@@ -280,9 +290,6 @@ function cleanContextValue(value: string, maxLength: number): string {
     .slice(0, maxLength);
 }
 
-/**
- * Auto-generate a title for a conversation.
- */
 export async function generateTitle(firstMessage: string): Promise<string> {
   try {
     const provider = getAIProvider();
@@ -296,7 +303,7 @@ export async function generateTitle(firstMessage: string): Promise<string> {
       maxTokens: AI_CONFIG.titleMaxTokens,
     });
     return content.trim().slice(0, 100) || "New conversation";
-  } catch (_error) {
+  } catch {
     return "New conversation";
   }
 }
