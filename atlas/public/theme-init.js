@@ -1,6 +1,9 @@
 (function () {
   try {
-    var saved = localStorage.getItem("atlas-theme");
+    var storageKey = "cevoryn-theme";
+    var legacyStorageKey = "atlas-theme";
+    var saved =
+      localStorage.getItem(storageKey) ?? localStorage.getItem(legacyStorageKey);
     var theme =
       saved === "light" || saved === "dark"
         ? saved
@@ -8,6 +11,8 @@
           ? "dark"
           : "light";
 
+    localStorage.setItem(storageKey, saved || "system");
+    localStorage.removeItem(legacyStorageKey);
     document.documentElement.classList.toggle("dark", theme === "dark");
     document.documentElement.style.colorScheme = theme;
   } catch (_) {}
