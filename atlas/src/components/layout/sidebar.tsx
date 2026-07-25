@@ -26,6 +26,8 @@ import type { MembershipContext } from "@/types";
 
 interface SidebarProps {
   membership: MembershipContext;
+  /** Called whenever a navigation link is clicked. Used by MobileNav to close the drawer. */
+  onNavigate?: () => void;
 }
 
 const NAV_ITEMS = [
@@ -40,7 +42,7 @@ const NAV_ITEMS = [
   { labelKey: "feedback", href: "/feedback", icon: MessageCircle },
 ] as const;
 
-export function Sidebar({ membership }: SidebarProps) {
+export function Sidebar({ membership, onNavigate }: SidebarProps) {
   const pathname = usePathname();
   const { t } = useLanguage();
   const canViewAnalytics =
@@ -73,10 +75,12 @@ export function Sidebar({ membership }: SidebarProps) {
         ).map((item) => {
           const isActive =
             pathname === item.href || pathname.startsWith(`${item.href}/`);
+
           return (
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 isActive
@@ -96,10 +100,10 @@ export function Sidebar({ membership }: SidebarProps) {
         <LanguageSelector />
         <ThemeToggle />
         <div className="flex flex-wrap gap-x-3 gap-y-1 px-1 text-[11px] text-muted-foreground">
-          <Link className="hover:text-foreground" href="/privacy">
+          <Link className="hover:text-foreground" href="/privacy" onClick={onNavigate}>
             {t("privacy")}
           </Link>
-          <Link className="hover:text-foreground" href="/terms">
+          <Link className="hover:text-foreground" href="/terms" onClick={onNavigate}>
             {t("terms")}
           </Link>
         </div>
