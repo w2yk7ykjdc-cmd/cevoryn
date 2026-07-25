@@ -7,7 +7,7 @@ import { hasPermission } from "@/lib/rbac";
 
 import { TeamClient } from "./team-client";
 
-export const metadata: Metadata = { title: "Team — Atlas" };
+export const metadata: Metadata = { title: "Team" };
 
 export default async function TeamPage() {
   const user = await requireUser();
