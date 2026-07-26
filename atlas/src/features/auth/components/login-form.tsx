@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -23,12 +23,14 @@ interface LoginFormProps {
   redirectTo?: string;
   authError?: string;
   passwordReset?: boolean;
+  sessionExpired?: boolean;
 }
 
 export function LoginForm({
   redirectTo,
   authError,
   passwordReset = false,
+  sessionExpired = false,
 }: LoginFormProps) {
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
@@ -97,6 +99,19 @@ export function LoginForm({
         >
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
           <p>Your password has been updated. Sign in with your new password.</p>
+        </div>
+      )}
+
+      {sessionExpired && (
+        <div
+          role="status"
+          className="mb-4 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm"
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>
+            Your session expired. Sign in again to return to your work. An unsent
+            chat message will be restored automatically.
+          </p>
         </div>
       )}
 
