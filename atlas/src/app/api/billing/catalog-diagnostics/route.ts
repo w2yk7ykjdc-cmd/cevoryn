@@ -11,6 +11,7 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// Safe production diagnostic: validates configured Paddle catalog references.
 type PaddlePriceResponse = {
   data?: {
     id?: string;
