@@ -1,11 +1,23 @@
 "use client";
 
-const PENDING_CHAT_PREFIX = "atlas:pending-chat:";
+import { ROUTES } from "@/lib/constants";
+import { getSafeRedirectPath } from "@/lib/safe-redirect";
 
-/** Redirect the browser to login while preserving the current route. */
+const PENDING_CHAT_PREFIX = "cevoryn:pending-chat:";
+const LEGACY_PENDING_CHAT_PREFIX = "atlas:pending-chat:";
+
+function getPendingChatKey(prefix: string, conversationId: string): string {
+  return `${prefix}${conversationId}`;
+}
+
+/** Redirect the browser to login while preserving the current safe application route. */
 export function redirectToLogin(): void {
-  const next = `${window.location.pathname}${window.location.search}`;
-  window.location.assign(`/login?next=${encodeURIComponent(next)}`);
+  const currentPath = `${window.location.pathname}${window.location.search}`;
+  const next = getSafeRedirectPath(currentPath, ROUTES.DASHBOARD);
+  const loginUrl = new URL(ROUTES.LOGIN, window.location.origin);
+  loginUrl.searchParams.set("next", next);
+  loginUrl.searchParams.set("reason", "session_expired");
+  window.location.assign(`${loginUrl.pathname}${loginUrl.search}`);
 }
 
 /** Save an unsent chat message so it is not lost during re-authentication. */
@@ -15,8 +27,11 @@ export function preservePendingChatMessage(
 ): void {
   try {
     window.sessionStorage.setItem(
-      `${PENDING_CHAT_PREFIX}${conversationId}`,
+      getPendingChatKey(PENDING_CHAT_PREFIX, conversationId),
       content
+    );
+    window.sessionStorage.removeItem(
+      getPendingChatKey(LEGACY_PENDING_CHAT_PREFIX, conversationId)
     );
   } catch {
     // Storage can be unavailable in restricted browser modes.
@@ -28,9 +43,17 @@ export function consumePendingChatMessage(
   conversationId: string
 ): string | null {
   try {
-    const key = `${PENDING_CHAT_PREFIX}${conversationId}`;
-    const content = window.sessionStorage.getItem(key);
-    if (content) window.sessionStorage.removeItem(key);
+    const key = getPendingChatKey(PENDING_CHAT_PREFIX, conversationId);
+    const legacyKey = getPendingChatKey(
+      LEGACY_PENDING_CHAT_PREFIX,
+      conversationId
+    );
+    const content =
+      window.sessionStorage.getItem(key) ??
+      window.sessionStorage.getItem(legacyKey);
+
+    window.sessionStorage.removeItem(key);
+    window.sessionStorage.removeItem(legacyKey);
     return content;
   } catch {
     return null;
