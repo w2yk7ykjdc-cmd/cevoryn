@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 
 import { ROUTES } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
+import { getSafeRedirectPath } from "@/lib/safe-redirect";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/types";
 
@@ -40,11 +41,6 @@ async function getAppUrl(): Promise<string> {
   const host = requestHeaders.get("host");
   if (host?.includes("localhost")) return `http://${host}`.replace(/\/$/, "");
   return "https://cevoryn.vercel.app";
-}
-
-function getSafeRedirectPath(path: string | undefined, fallback: string): string {
-  if (!path || !path.startsWith("/") || path.startsWith("//")) return fallback;
-  return path;
 }
 
 function getConfirmationRedirectPath(redirectTo?: string): string {
