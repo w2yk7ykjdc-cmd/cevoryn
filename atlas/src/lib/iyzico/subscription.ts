@@ -23,7 +23,7 @@ export interface IyzicoSubscriptionCustomer {
   shippingAddress: IyzicoAddress;
 }
 
-interface InitializeSubscriptionResponse {
+export interface InitializeSubscriptionResponse {
   status: "success";
   conversationId?: string;
   token: string;
@@ -31,15 +31,24 @@ interface InitializeSubscriptionResponse {
   tokenExpireTime?: number;
 }
 
-interface RetrieveSubscriptionResponse {
+export type IyzicoSubscriptionState =
+  | "ACTIVE"
+  | "PENDING"
+  | "UNPAID"
+  | "UPGRADED"
+  | "CANCELED"
+  | "EXPIRED";
+
+export interface RetrieveSubscriptionResponse {
   status: "success";
+  conversationId?: string;
   token: string;
   data: {
     referenceCode: string;
     parentReferenceCode?: string;
     pricingPlanReferenceCode: string;
     customerReferenceCode: string;
-    subscriptionStatus: "ACTIVE" | "PENDING" | "UNPAID" | "UPGRADED" | "CANCELED" | "EXPIRED";
+    subscriptionStatus: IyzicoSubscriptionState;
     trialDays?: number;
     trialStartDate?: number;
     trialEndDate?: number;
