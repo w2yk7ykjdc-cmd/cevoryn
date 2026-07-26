@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { IyzicoCheckoutDialog } from "@/features/billing/components/iyzico-checkout-dialog";
 import {
   BILLING_PLANS,
   getPlanDefinition,
@@ -53,18 +54,12 @@ export function BillingActions({
   canManage,
 }: BillingActionsProps) {
   const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<BillingPlan | null>(null);
 
-  async function redirectFromBillingRequest(
-    endpoint: string,
-    body?: Record<string, string>
-  ) {
+  async function redirectFromBillingRequest(endpoint: string) {
     try {
-      setPendingAction(endpoint + (body?.plan ?? ""));
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: body ? { "Content-Type": "application/json" } : undefined,
-        body: body ? JSON.stringify(body) : undefined,
-      });
+      setPendingAction(endpoint);
+      const response = await fetch(endpoint, { method: "POST" });
       const result = (await response.json()) as BillingApiResponse;
 
       if (!response.ok || !result.url) {
@@ -90,7 +85,7 @@ export function BillingActions({
             type="button"
             variant="outline"
             disabled={pendingAction !== null}
-            onClick={() => redirectFromBillingRequest("/api/billing/portal")}
+            onClick={() => void redirectFromBillingRequest("/api/billing/portal")}
           >
             {managePending ? (
               <Loader2 className="animate-spin" />
@@ -106,8 +101,6 @@ export function BillingActions({
         {BILLING_PLANS.map((plan) => {
           const definition = getPlanDefinition(plan);
           const isCurrent = currentPlan === plan;
-          const checkoutPending =
-            pendingAction === `/api/billing/checkout${plan}`;
 
           return (
             <Card
@@ -151,12 +144,9 @@ export function BillingActions({
                         return;
                       }
 
-                      void redirectFromBillingRequest("/api/billing/checkout", {
-                        plan,
-                      });
+                      setSelectedPlan(plan);
                     }}
                   >
-                    {checkoutPending ? <Loader2 className="animate-spin" /> : null}
                     {isCurrent && hasActiveSubscription
                       ? "Current plan"
                       : hasActiveSubscription
@@ -173,6 +163,14 @@ export function BillingActions({
           );
         })}
       </div>
+
+      <IyzicoCheckoutDialog
+        plan={selectedPlan}
+        open={selectedPlan !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedPlan(null);
+        }}
+      />
     </div>
   );
 }
