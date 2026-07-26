@@ -18,6 +18,10 @@ import {
 import { getMembership, getUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/rbac";
+import {
+  assertMemberCapacity,
+  PlanLimitError,
+} from "@/server/services/entitlement.service";
 
 const MAX_INVITES_PER_HOUR = 10;
 
@@ -92,6 +96,15 @@ export async function POST(request: NextRequest) {
 
     if (!eligibility.ok) {
       return badRequestResponse(eligibility.message);
+    }
+
+    try {
+      await assertMemberCapacity(membership.organizationId);
+    } catch (error) {
+      if (error instanceof PlanLimitError) {
+        return badRequestResponse(error.message);
+      }
+      throw error;
     }
 
     const invite = await prisma.invite.create({

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import { runWithAIUsageContext } from "@/features/ai/usage-context";
+import { FeatureAccessError } from "@/features/billing/config/plans";
 import {
   generateInsights,
   listInsights,
@@ -17,6 +18,11 @@ import {
 } from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
+import {
+  assertAiTokenCapacity,
+  assertOrganizationFeatureAccess,
+  PlanLimitError,
+} from "@/server/services/entitlement.service";
 import { checkRateLimit } from "@/server/services/rate-limit.service";
 
 export async function GET(request: NextRequest) {
@@ -47,6 +53,32 @@ export async function POST() {
 
     if (!hasPermission(membership.role, "ai:use")) {
       return forbiddenResponse("Insufficient permissions");
+    }
+
+    try {
+      await Promise.all([
+        assertOrganizationFeatureAccess(membership.organizationId, "BRAIN"),
+        assertAiTokenCapacity(membership.organizationId),
+      ]);
+    } catch (error) {
+      if (error instanceof FeatureAccessError) {
+        return NextResponse.json(
+          {
+            error: {
+              code: error.code,
+              message: "Brain insight generation requires the Professional or Business plan.",
+            },
+          },
+          { status: 403 }
+        );
+      }
+      if (error instanceof PlanLimitError) {
+        return NextResponse.json(
+          { error: { code: error.code, message: error.message } },
+          { status: 429 }
+        );
+      }
+      throw error;
     }
 
     const rateLimit = await checkRateLimit(membership.organizationId);
