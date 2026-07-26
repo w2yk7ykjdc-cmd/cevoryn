@@ -13,22 +13,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify-preview-fix:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Confirm webhook route no longer redirects to login
-        run: |
-          echo "=== preview /api/billing/paddle/webhook ==="
-          curl -sS -D - -o body.txt --max-time 15 -X POST "https://cevoryn-git-claude-production-404-root-cause-nn474q-atlas-kemal.vercel.app/api/billing/paddle/webhook"
-          echo "--- body ---"
-          cat body.txt
-          echo
-          echo "=== preview /api/billing/checkout (should still require auth) ==="
-          curl -sS -D - -o body2.txt --max-time 15 -X POST "https://cevoryn-git-claude-production-404-root-cause-nn474q-atlas-kemal.vercel.app/api/billing/checkout"
-          echo "--- body ---"
-          cat body2.txt
-
   health:
     runs-on: ubuntu-latest
     timeout-minutes: 5
