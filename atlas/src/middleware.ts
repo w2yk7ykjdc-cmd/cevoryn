@@ -5,7 +5,7 @@ import type { NextRequest } from "next/server";
 import { AUTH_ROUTES, PUBLIC_ROUTES, ROUTES } from "@/lib/constants";
 
 const LEGACY_PRODUCTION_HOST = "atlas-kemal.vercel.app";
-const CANONICAL_PRODUCTION_HOST = "atlas-wb6b.vercel.app";
+const CANONICAL_PRODUCTION_HOST = "cevoryn.vercel.app";
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 function isAllowedApiMutation(request: NextRequest) {
@@ -139,6 +139,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$|api/health).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$|api/health|api/billing/paddle/webhook|api/stripe/webhook).*)",
   ],
 };
