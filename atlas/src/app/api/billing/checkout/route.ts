@@ -38,7 +38,17 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  const parsedBody = checkoutRequestSchema.safeParse(await request.json());
+  let requestBody: unknown;
+  try {
+    requestBody = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid checkout request body." },
+      { status: 400 }
+    );
+  }
+
+  const parsedBody = checkoutRequestSchema.safeParse(requestBody);
   if (!parsedBody.success) {
     return NextResponse.json({ error: "Invalid billing plan." }, { status: 400 });
   }
