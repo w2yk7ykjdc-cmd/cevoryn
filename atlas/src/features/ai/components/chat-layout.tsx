@@ -117,7 +117,7 @@ export function ChatLayout({
         await handleSend(content);
       } catch (_error) {
         toast.info(
-          "Saved successfully. Atlas could not generate the optional chat summary."
+          "Saved successfully. CEVORYN could not generate the optional chat summary."
         );
       }
     },
@@ -151,7 +151,7 @@ export function ChatLayout({
           throw new Error(message);
         }
 
-        showSavedToast("Decision saved to Atlas");
+        showSavedToast("Decision saved to CEVORYN");
         await sendOptionalWorkflowSummary(
           `A decision record was created for this problem: ${input}\n\nSummarize the recommendation, the largest risk, and the next step in plain language.`
         );
@@ -168,7 +168,7 @@ export function ChatLayout({
           description: input,
           priority: "MEDIUM",
           acceptanceCriteria: [],
-          reasoning: "Created directly from the Atlas chat action workflow",
+          reasoning: "Created directly from the CEVORYN chat action workflow",
           confidence: 0.8,
         }),
       });
@@ -181,7 +181,7 @@ export function ChatLayout({
         throw new Error(message);
       }
 
-      showSavedToast("Action saved to Atlas");
+      showSavedToast("Action saved to CEVORYN");
       await sendOptionalWorkflowSummary(
         `An action was saved for: ${input}\n\nRefine it into a concise execution note with an owner suggestion, a realistic deadline, and a measurable definition of done.`
       );

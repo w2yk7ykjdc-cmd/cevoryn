@@ -21,7 +21,7 @@ export default function DashboardError({
       <AlertTriangle className="h-10 w-10 text-destructive" />
       <h1 className="mt-4 text-xl font-semibold">Dashboard could not load</h1>
       <p className="mt-2 max-w-md text-sm text-muted-foreground">
-        Atlas encountered a temporary problem while loading this workspace. Try again without leaving the page.
+        CEVORYN encountered a temporary problem while loading this workspace. Try again without leaving the page.
       </p>
       {error.digest ? (
         <p className="mt-2 text-xs text-muted-foreground">Reference: {error.digest}</p>

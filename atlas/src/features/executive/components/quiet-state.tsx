@@ -51,7 +51,7 @@ export function QuietState({
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium">Use the quiet window for growth</p>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                Ask Atlas to identify the strongest growth opportunity, the biggest hidden risk, or one process worth improving next.
+                Ask CEVORYN to identify the strongest growth opportunity, the biggest hidden risk, or one process worth improving next.
               </p>
               <Button asChild size="sm" className="mt-3 h-8 text-xs">
                 <Link href="/chat?prompt=What%20is%20the%20best%20growth%20move%20for%20the%20business%20right%20now%3F">

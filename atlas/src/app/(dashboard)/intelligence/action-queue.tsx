@@ -128,7 +128,7 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
               {preview.length > 0 ? (
                 <div className="space-y-2 rounded-lg border bg-muted/40 p-3">
                   <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    What Atlas will prepare
+                    What CEVORYN will prepare
                   </p>
                   {preview.map((item) => (
                     <div key={item.label} className="grid gap-1 sm:grid-cols-[110px_1fr]">
@@ -139,7 +139,7 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
                 </div>
               ) : hasReviewed ? (
                 <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm text-muted-foreground">
-                  No structured execution details were provided. Atlas will use the action title and description.
+                  No structured execution details were provided. CEVORYN will use the action title and description.
                 </div>
               ) : (
                 <Button

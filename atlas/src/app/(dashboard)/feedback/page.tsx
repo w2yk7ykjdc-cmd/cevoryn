@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export const metadata: Metadata = { title: "Feedback — Atlas" };
+export const metadata: Metadata = { title: "Feedback — CEVORYN" };
 
 const FEEDBACK_EMAIL = "kemalkiyak06@gmail.com";
 
@@ -12,19 +12,19 @@ const feedbackOptions = [
   {
     title: "Report a problem",
     description: "Tell us what happened, what you expected, and which page you were using.",
-    subject: "Atlas beta — problem report",
+    subject: "CEVORYN beta — problem report",
     icon: Bug,
   },
   {
     title: "Suggest an improvement",
-    description: "Share a workflow, feature, or change that would make Atlas more useful.",
-    subject: "Atlas beta — improvement suggestion",
+    description: "Share a workflow, feature, or change that would make CEVORYN more useful.",
+    subject: "CEVORYN beta — improvement suggestion",
     icon: Lightbulb,
   },
   {
     title: "Share general feedback",
     description: "Tell us what feels valuable, confusing, slow, or unnecessary.",
-    subject: "Atlas beta — general feedback",
+    subject: "CEVORYN beta — general feedback",
     icon: MessageSquare,
   },
 ] as const;
@@ -34,7 +34,7 @@ export default function FeedbackPage() {
     <div className="mx-auto max-w-3xl space-y-6 pb-8">
       <div>
         <p className="text-sm text-muted-foreground">Private beta</p>
-        <h1 className="text-2xl font-bold tracking-tight">Help improve Atlas</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Help improve CEVORYN</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Feedback is reviewed directly and used to prioritize the next product changes.
         </p>

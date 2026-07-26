@@ -24,7 +24,7 @@ export default function ChatError({
 
       <h1 className="mt-5 text-xl font-semibold">Conversation could not load</h1>
       <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-        Atlas encountered a temporary problem while opening this conversation. Your saved messages are safe.
+        CEVORYN encountered a temporary problem while opening this conversation. Your saved messages are safe.
       </p>
 
       {error.digest ? (

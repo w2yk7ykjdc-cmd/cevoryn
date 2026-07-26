@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(getGoogleSettingsUrl("connected"));
   } catch (error) {
     console.error(
-      "[atlas:google] callback failed",
+      "[cevoryn:google] callback failed",
       error instanceof Error ? error.message : "unknown"
     );
     return NextResponse.redirect(settingsErrorUrl(request));

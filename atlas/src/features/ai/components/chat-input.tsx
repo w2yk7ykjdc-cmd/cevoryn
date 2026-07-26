@@ -27,10 +27,10 @@ const EXECUTIVE_MODES = [
 ] as const;
 
 const MODE_PLACEHOLDER: Record<ExecutiveMode, string> = {
-  CHAT: "Ask Atlas anything...",
+  CHAT: "Ask CEVORYN anything...",
   DECIDE: "Describe the decision you need to make...",
   PLAN: "Describe the outcome you want to plan...",
-  ACTION: "Describe the action Atlas should create...",
+  ACTION: "Describe the action CEVORYN should create...",
 };
 
 export function ChatInput({

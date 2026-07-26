@@ -19,7 +19,7 @@ import { ActionQueue } from "./action-queue";
 import { DecisionQueue } from "./decision-queue";
 import { HistoryActionButton } from "./history-action-button";
 
-export const metadata: Metadata = { title: "Intelligence — Atlas" };
+export const metadata: Metadata = { title: "Intelligence — CEVORYN" };
 export const dynamic = "force-dynamic";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -74,13 +74,13 @@ export default async function IntelligencePage({ searchParams }: { searchParams:
     <div className="mx-auto max-w-3xl space-y-6 pb-8">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm text-muted-foreground">Atlas Brain</p>
+          <p className="text-sm text-muted-foreground">CEVORYN Brain</p>
           <h1 className="text-2xl font-bold tracking-tight">Intelligence workspace</h1>
           <p className="mt-1 text-sm text-muted-foreground">Review signals, decisions, outcomes, and prepared actions.</p>
         </div>
         <Button asChild>
           <Link href="/chat?prompt=Review%20our%20open%20insights%2C%20decisions%2C%20and%20actions.">
-            Review with Atlas <ArrowRight className="h-4 w-4" />
+            Review with CEVORYN <ArrowRight className="h-4 w-4" />
           </Link>
         </Button>
       </header>

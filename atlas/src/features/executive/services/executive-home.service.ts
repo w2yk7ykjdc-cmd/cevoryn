@@ -193,7 +193,7 @@ function buildInsufficientReasons(
   const reasons: string[] = [];
   if (messageCount < MIN_DATA_THRESHOLD) {
     reasons.push(
-      `Only ${messageCount} conversation message${messageCount === 1 ? "" : "s"} this week. Atlas needs more conversations to identify patterns.`
+      `Only ${messageCount} conversation message${messageCount === 1 ? "" : "s"} this week. CEVORYN needs more conversations to identify patterns.`
     );
   }
   if (memoryCount < MIN_DATA_THRESHOLD) {

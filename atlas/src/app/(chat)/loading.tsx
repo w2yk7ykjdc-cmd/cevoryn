@@ -11,7 +11,7 @@ export default function ChatLoading() {
       <div>
         <p className="font-medium">Opening conversation</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Atlas is loading your messages and workspace context.
+          CEVORYN is loading your messages and workspace context.
         </p>
       </div>
     </div>

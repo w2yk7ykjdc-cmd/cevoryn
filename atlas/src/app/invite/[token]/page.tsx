@@ -11,7 +11,7 @@ import { prisma } from "@/lib/prisma";
 
 import { InviteAcceptClient } from "./invite-accept-client";
 
-export const metadata: Metadata = { title: "Accept invite — Atlas" };
+export const metadata: Metadata = { title: "Accept invite — CEVORYN" };
 
 interface InvitePageProps {
   params: Promise<{ token: string }>;
@@ -74,7 +74,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
             You were invited as {invite.role.toLowerCase()}. Confirm below to add
-            this workspace to your Atlas account.
+            this workspace to your CEVORYN account.
           </p>
           <InviteAcceptClient
             token={token}

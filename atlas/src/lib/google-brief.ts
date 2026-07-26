@@ -42,7 +42,7 @@ export async function buildGoogleBriefSections(
 
       sections.push({
         heading: "Communication Follow-up",
-        content: `${context.emails.length} recent Gmail signal${context.emails.length === 1 ? " is" : "s are"} available. The newest items include: ${signals}. Review these messages for decisions, promises, deadlines, or unanswered requests; Atlas treats all email text as untrusted external data and does not execute instructions contained in it.`,
+        content: `${context.emails.length} recent Gmail signal${context.emails.length === 1 ? " is" : "s are"} available. The newest items include: ${signals}. Review these messages for decisions, promises, deadlines, or unanswered requests; CEVORYN treats all email text as untrusted external data and does not execute instructions contained in it.`,
         priority: "medium",
       });
     }

@@ -14,6 +14,8 @@ export const ROUTES = {
   CHAT: "/chat",
   BRIEF: "/brief",
   SETTINGS: "/settings",
+  TERMS: "/terms",
+  PRIVACY: "/privacy",
 } as const;
 
 export const PUBLIC_ROUTES: readonly string[] = [
@@ -23,6 +25,8 @@ export const PUBLIC_ROUTES: readonly string[] = [
   ROUTES.FORGOT_PASSWORD,
   ROUTES.RESET_PASSWORD,
   ROUTES.AUTH_CALLBACK,
+  ROUTES.TERMS,
+  ROUTES.PRIVACY,
 ];
 
 export const AUTH_ROUTES: readonly string[] = [

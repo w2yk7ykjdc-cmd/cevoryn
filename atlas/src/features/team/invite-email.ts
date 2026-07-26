@@ -55,9 +55,9 @@ export async function sendTeamInviteEmail({
       body: JSON.stringify({
         from,
         to: [to],
-        subject: `Join ${organizationName} on Atlas`,
+        subject: `Join ${organizationName} on CEVORYN`,
         text: [
-          `You have been invited to join ${organizationName} on Atlas as ${role.toLowerCase()}.`,
+          `You have been invited to join ${organizationName} on CEVORYN as ${role.toLowerCase()}.`,
           "",
           `Accept the invitation: ${inviteUrl}`,
           "",
@@ -65,7 +65,7 @@ export async function sendTeamInviteEmail({
         ].join("\n"),
         html: `
           <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:32px;color:#111827">
-            <h1 style="font-size:24px;margin:0 0 16px">Join ${safeOrganizationName} on Atlas</h1>
+            <h1 style="font-size:24px;margin:0 0 16px">Join ${safeOrganizationName} on CEVORYN</h1>
             <p style="font-size:16px;line-height:1.6;margin:0 0 24px">
               You have been invited as <strong>${role.toLowerCase()}</strong>.
             </p>

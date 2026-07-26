@@ -11,7 +11,7 @@ import { prisma } from "@/lib/prisma";
 
 import { MorningBriefClient } from "./morning-brief-client";
 
-export const metadata: Metadata = { title: "Morning Brief — Atlas" };
+export const metadata: Metadata = { title: "Morning Brief — CEVORYN" };
 
 const PRIORITY_ORDER: Record<BriefSection["priority"], number> = {
   high: 0,

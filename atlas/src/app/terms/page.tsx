@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-export const metadata: Metadata = { title: "Terms — Atlas" };
+export const metadata: Metadata = { title: "Terms — CEVORYN" };
 
 export default function TermsPage() {
   return (
@@ -11,12 +11,12 @@ export default function TermsPage() {
           <p className="text-sm text-muted-foreground">Last updated: July 22, 2026</p>
           <h1 className="text-3xl font-bold tracking-tight">Terms of use</h1>
           <p className="text-muted-foreground">
-            These terms apply to the Atlas private beta.
+            These terms apply to the CEVORYN private beta.
           </p>
         </header>
 
         <LegalSection title="Beta service">
-          Atlas is a pre-release product. Features may change, be interrupted, or be removed. The service may contain defects and should not be treated as the sole system of record for critical business operations.
+          CEVORYN is a pre-release product. Features may change, be interrupted, or be removed. The service may contain defects and should not be treated as the sole system of record for critical business operations.
         </LegalSection>
 
         <LegalSection title="Account responsibility">
@@ -24,19 +24,19 @@ export default function TermsPage() {
         </LegalSection>
 
         <LegalSection title="AI-generated content">
-          Atlas can produce suggestions, summaries, decisions, drafts, and action plans using artificial intelligence. Outputs may be incomplete or incorrect. Users must review outputs and remain responsible for business, legal, financial, employment, medical, security, and operational decisions.
+          CEVORYN can produce suggestions, summaries, decisions, drafts, and action plans using artificial intelligence. Outputs may be incomplete or incorrect. Users must review outputs and remain responsible for business, legal, financial, employment, medical, security, and operational decisions.
         </LegalSection>
 
         <LegalSection title="Acceptable use">
-          Atlas may not be used to break the law, infringe rights, distribute malware, bypass security, impersonate others, process unlawfully obtained data, or create harmful automated actions.
+          CEVORYN may not be used to break the law, infringe rights, distribute malware, bypass security, impersonate others, process unlawfully obtained data, or create harmful automated actions.
         </LegalSection>
 
         <LegalSection title="User content">
-          Users retain ownership of content they submit. Users grant Atlas the limited rights needed to host, process, secure, and display that content for operating and improving the service.
+          Users retain ownership of content they submit. Users grant CEVORYN the limited rights needed to host, process, secure, and display that content for operating and improving the service.
         </LegalSection>
 
         <LegalSection title="Third-party services">
-          Some features depend on third-party providers such as hosting, authentication, AI, email, and calendar services. Their availability and terms may affect Atlas functionality.
+          Some features depend on third-party providers such as hosting, authentication, AI, email, and calendar services. Their availability and terms may affect CEVORYN functionality.
         </LegalSection>
 
         <LegalSection title="No warranty">
@@ -44,7 +44,7 @@ export default function TermsPage() {
         </LegalSection>
 
         <LegalSection title="Suspension and termination">
-          Access may be suspended or ended for security reasons, misuse, legal requirements, prolonged inactivity, or termination of the beta program. Users may stop using Atlas at any time.
+          Access may be suspended or ended for security reasons, misuse, legal requirements, prolonged inactivity, or termination of the beta program. Users may stop using CEVORYN at any time.
         </LegalSection>
 
         <LegalSection title="Contact">
@@ -54,7 +54,7 @@ export default function TermsPage() {
         <div className="border-t pt-6 text-sm text-muted-foreground">
           <Link className="underline underline-offset-4" href="/privacy">Privacy notice</Link>
           <span className="mx-2">·</span>
-          <Link className="underline underline-offset-4" href="/">Back to Atlas</Link>
+          <Link className="underline underline-offset-4" href="/">Back to CEVORYN</Link>
         </div>
       </div>
     </main>

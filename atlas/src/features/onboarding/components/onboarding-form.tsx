@@ -70,7 +70,7 @@ export function OnboardingForm({ userEmail }: OnboardingFormProps) {
         </div>
         <CardTitle className="text-2xl">Set up your workspace</CardTitle>
         <CardDescription>
-          Create your organization to get started with Atlas.
+          Create your organization to get started with CEVORYN.
         </CardDescription>
       </CardHeader>
       <CardContent>

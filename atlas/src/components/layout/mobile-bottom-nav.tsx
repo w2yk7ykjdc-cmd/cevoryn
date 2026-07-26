@@ -27,7 +27,7 @@ const ITEMS = [
     slotClass: "col-start-2",
   },
   {
-    label: "Atlas",
+    label: "CEVORYN",
     href: "/chat",
     icon: Sparkles,
     primary: true,
@@ -119,7 +119,7 @@ export function MobileBottomNav() {
                 onClick={consumePreparedChat}
                 onTouchStart={() => router.prefetch(href)}
                 onPointerEnter={() => router.prefetch(href)}
-                aria-label="Open Atlas"
+                aria-label="Open CEVORYN"
                 className={cn(
                   "-mt-6 flex flex-col items-center gap-1 text-xs font-medium",
                   item.slotClass,
@@ -128,7 +128,7 @@ export function MobileBottomNav() {
                 <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg ring-4 ring-background">
                   <Icon className="h-5 w-5" />
                 </span>
-                <span className="text-[10px]">Atlas</span>
+                <span className="text-[10px]">CEVORYN</span>
               </Link>
             );
           }

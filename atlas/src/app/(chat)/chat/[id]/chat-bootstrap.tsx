@@ -53,7 +53,7 @@ export function ChatBootstrap({ conversationId }: ChatBootstrapProps) {
     return (
       <div className="flex h-full w-full flex-col bg-background">
         <div className="flex h-14 shrink-0 items-center border-b px-4 text-sm font-medium">
-          Atlas
+          CEVORYN
         </div>
         <div className="flex flex-1 items-center justify-center">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />

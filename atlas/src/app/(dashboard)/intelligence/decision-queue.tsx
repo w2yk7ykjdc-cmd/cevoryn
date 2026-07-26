@@ -105,7 +105,7 @@ export function DecisionQueue({ decisions }: { decisions: DecisionQueueItem[] })
               {decision.recommendedDecision ? (
                 <div className="rounded-lg border bg-muted/40 p-3">
                   <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Atlas recommendation
+                    CEVORYN recommendation
                   </p>
                   <p className="mt-1 text-sm leading-relaxed">{decision.recommendedDecision}</p>
                 </div>

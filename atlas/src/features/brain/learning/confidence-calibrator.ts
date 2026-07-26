@@ -12,8 +12,8 @@ import type { CalibrationData } from "./types";
  * Compares predicted confidence with actual outcome scores
  * to compute a calibration adjustment factor.
  *
- * If Atlas is consistently overconfident, future confidence is reduced.
- * If Atlas is underconfident, future confidence is slightly increased.
+ * If CEVORYN is consistently overconfident, future confidence is reduced.
+ * If CEVORYN is underconfident, future confidence is slightly increased.
  *
  * Confidence must never be inflated.
  */
@@ -107,7 +107,7 @@ export async function computeCalibration(organizationId: string): Promise<{
 
 /**
  * Apply calibration to a raw confidence score.
- * The result is clamped to [0.05, 0.95] — Atlas never claims certainty.
+ * The result is clamped to [0.05, 0.95] — CEVORYN never claims certainty.
  */
 export function applyCalibration(
   rawConfidence: number,

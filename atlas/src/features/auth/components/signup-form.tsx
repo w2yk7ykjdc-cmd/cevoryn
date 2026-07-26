@@ -120,7 +120,7 @@ export function SignupForm({ redirectTo }: SignupFormProps) {
   return (
     <AuthCard
       title="Create an account"
-      description="Get started with Atlas for your team"
+      description="Get started with CEVORYN for your team"
       footer={
         <>
           Already have an account?{" "}

@@ -113,7 +113,7 @@ export function TopPriority({ item, onApproveAction }: TopPriorityProps) {
                   }}
                 >
                   <MessageSquare className="h-3.5 w-3.5" />
-                  Discuss with Atlas
+                  Discuss with CEVORYN
                 </Link>
               </Button>
             </div>

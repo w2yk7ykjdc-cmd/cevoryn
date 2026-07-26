@@ -4,7 +4,7 @@ import { brainRegistry } from "./core/module-registry";
 import { MemoryModule } from "./memory/memory.module";
 
 /**
- * Initialize the Atlas Brain.
+ * Initialize the CEVORYN Brain.
  * Call once at app startup (e.g. in a layout or instrumentation file).
  *
  * Only modules that provide non-conflicting conversational context belong here.

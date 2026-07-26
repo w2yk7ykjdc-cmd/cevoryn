@@ -10,7 +10,7 @@ import type { Evidence, TrustEnvelope } from "./types";
  * 2. Identify missing information
  * 3. Wrap all outputs in TrustEnvelopes
  *
- * Atlas NEVER presents uncertain conclusions as facts.
+ * CEVORYN NEVER presents uncertain conclusions as facts.
  */
 
 /**
@@ -64,7 +64,7 @@ function computeConfidence(evidence: Evidence[]): number {
   // Cap at 0.4 if fewer than 2 evidence pieces
   if (evidence.length < 2) return Math.min(raw, 0.4);
 
-  // Cap at 0.95 — Atlas never claims absolute certainty
+  // Cap at 0.95 — CEVORYN never claims absolute certainty
   return Math.min(raw, 0.95);
 }
 
@@ -75,7 +75,7 @@ function computeConfidence(evidence: Evidence[]): number {
 function detectMissingInfo(): string[] {
   const missing: string[] = [];
 
-  // These represent data sources Atlas could use but doesn't have yet
+  // These represent data sources CEVORYN could use but doesn't have yet
   missing.push("Calendar integration not connected");
   missing.push("Task management system not connected");
   missing.push("Email integration not connected");

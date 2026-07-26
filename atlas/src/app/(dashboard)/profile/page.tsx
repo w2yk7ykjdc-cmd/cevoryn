@@ -48,7 +48,7 @@ export default async function ProfilePage() {
         <p className="text-sm font-medium text-muted-foreground">Account</p>
         <h1 className="text-3xl font-bold tracking-tight">Profile</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Your personal and organization details in Atlas.
+          Your personal and organization details in CEVORYN.
         </p>
       </div>
 

@@ -9,7 +9,7 @@ import type { BrainExchangeParams } from "../core/types";
 import { createMemory } from "./memory.service";
 import type { CreateMemoryInput } from "./schemas";
 
-const EXTRACTION_PROMPT = `You are analyzing a conversation exchange between a user and Atlas AI.
+const EXTRACTION_PROMPT = `You are analyzing a conversation exchange between a user and CEVORYN AI.
 Extract any important facts, decisions, preferences, goals, team dynamics, project updates, or processes mentioned.
 
 Rules:
@@ -44,7 +44,7 @@ export async function extractMemories(
         { role: "system", content: EXTRACTION_PROMPT },
         {
           role: "user",
-          content: `User said: "${userMessage}"\n\nAtlas replied: "${assistantMessage}"`,
+          content: `User said: "${userMessage}"\n\nCEVORYN replied: "${assistantMessage}"`,
         },
       ],
       temperature: 0.2,

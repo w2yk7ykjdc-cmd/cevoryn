@@ -29,7 +29,7 @@ const createActionSchema = z.object({
     .string()
     .trim()
     .max(2000)
-    .default("Created from Atlas chat workflow"),
+    .default("Created from CEVORYN chat workflow"),
   confidence: z.number().min(0).max(1).default(0.8),
 });
 

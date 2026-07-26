@@ -53,7 +53,7 @@ export function TrustDisclosure({
           aria-hidden="true"
         />
         <span className="flex-1 text-muted-foreground">
-          Why Atlas thinks this
+          Why CEVORYN thinks this
         </span>
         <span
           className={cn(
