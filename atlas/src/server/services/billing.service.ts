@@ -59,34 +59,67 @@ function mapSubscription(row: SubscriptionRow): OrganizationSubscription {
   };
 }
 
+function isMissingBillingTableError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+
+  const candidate = error as {
+    code?: string;
+    meta?: { code?: string; message?: string };
+    message?: string;
+  };
+
+  return (
+    candidate.code === "42P01" ||
+    candidate.meta?.code === "42P01" ||
+    candidate.meta?.message?.includes('relation "subscriptions" does not exist') === true ||
+    candidate.message?.includes('relation "subscriptions" does not exist') === true
+  );
+}
+
 export async function getOrganizationSubscription(
   organizationId: string,
   client: DatabaseClient = prisma
 ): Promise<OrganizationSubscription | null> {
-  const rows = await client.$queryRaw<SubscriptionRow[]>(Prisma.sql`
-    SELECT *
-    FROM "subscriptions"
-    WHERE "organization_id" = ${organizationId}
-    LIMIT 1
-  `);
+  try {
+    const rows = await client.$queryRaw<SubscriptionRow[]>(Prisma.sql`
+      SELECT *
+      FROM "subscriptions"
+      WHERE "organization_id" = ${organizationId}
+      LIMIT 1
+    `);
 
-  const row = rows[0];
-  return row ? mapSubscription(row) : null;
+    const row = rows[0];
+    return row ? mapSubscription(row) : null;
+  } catch (error) {
+    if (isMissingBillingTableError(error)) {
+      console.warn(
+        "[cevoryn:billing] Subscription migration is not applied; using Starter entitlements."
+      );
+      return null;
+    }
+
+    throw error;
+  }
 }
 
 export async function getSubscriptionByStripeCustomerId(
   stripeCustomerId: string,
   client: DatabaseClient = prisma
 ): Promise<OrganizationSubscription | null> {
-  const rows = await client.$queryRaw<SubscriptionRow[]>(Prisma.sql`
-    SELECT *
-    FROM "subscriptions"
-    WHERE "stripe_customer_id" = ${stripeCustomerId}
-    LIMIT 1
-  `);
+  try {
+    const rows = await client.$queryRaw<SubscriptionRow[]>(Prisma.sql`
+      SELECT *
+      FROM "subscriptions"
+      WHERE "stripe_customer_id" = ${stripeCustomerId}
+      LIMIT 1
+    `);
 
-  const row = rows[0];
-  return row ? mapSubscription(row) : null;
+    const row = rows[0];
+    return row ? mapSubscription(row) : null;
+  } catch (error) {
+    if (isMissingBillingTableError(error)) return null;
+    throw error;
+  }
 }
 
 export async function ensureStripeCustomerRecord(
