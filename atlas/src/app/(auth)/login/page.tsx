@@ -10,6 +10,7 @@ interface PageProps {
     next?: string;
     error?: string;
     reset?: string;
+    reason?: string;
   }>;
 }
 
@@ -24,6 +25,7 @@ export default async function LoginPage({ searchParams }: PageProps) {
       redirectTo={redirectTo}
       authError={params.error}
       passwordReset={params.reset === "success"}
+      sessionExpired={params.reason === "session_expired"}
     />
   );
 }
