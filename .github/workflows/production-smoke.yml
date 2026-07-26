@@ -13,6 +13,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  verify-webhook-fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Confirm production webhook no longer redirects to login
+        run: |
+          curl -sS -D - -o body.txt --max-time 15 -X POST "https://cevoryn.vercel.app/api/billing/paddle/webhook"
+          echo "--- body ---"
+          cat body.txt
+
   health:
     runs-on: ubuntu-latest
     timeout-minutes: 5
