@@ -13,16 +13,41 @@ import {
   type BillingPlan,
 } from "@/features/billing/config/plans";
 
+type PaddleEnvironment = "sandbox" | "production";
+
+type PaddleCheckoutResponse = {
+  priceId?: string;
+  environment?: PaddleEnvironment;
+  customerEmail?: string;
+  customData?: { organizationId: string; plan: BillingPlan };
+  error?: string;
+};
+
+type PaddleInstance = {
+  Environment: { set(environment: "sandbox"): void };
+  Initialize(options: { token: string }): void;
+  Checkout: {
+    open(options: {
+      items: Array<{ priceId: string; quantity: number }>;
+      customer?: { email: string };
+      customData: Record<string, string>;
+      settings?: { displayMode: "overlay"; theme: "light" };
+    }): void;
+  };
+};
+
+declare global {
+  interface Window {
+    Paddle?: PaddleInstance;
+    __cevorynPaddleInitialized?: boolean;
+  }
+}
+
 interface BillingActionsProps {
   currentPlan: BillingPlan;
   hasBillingAccount: boolean;
   hasActiveSubscription: boolean;
   canManage: boolean;
-}
-
-interface BillingApiResponse {
-  url?: string;
-  error?: string;
 }
 
 const featureLabels: Record<BillingPlan, string[]> = {
@@ -46,6 +71,44 @@ const featureLabels: Record<BillingPlan, string[]> = {
   ],
 };
 
+async function loadPaddle(environment: PaddleEnvironment): Promise<PaddleInstance> {
+  const token = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN?.trim();
+  if (!token) throw new Error("Paddle checkout is not configured.");
+
+  if (!window.Paddle) {
+    await new Promise<void>((resolve, reject) => {
+      const existing = document.querySelector<HTMLScriptElement>(
+        'script[data-cevoryn-paddle="true"]'
+      );
+      if (existing) {
+        existing.addEventListener("load", () => resolve(), { once: true });
+        existing.addEventListener("error", () => reject(new Error("Paddle.js failed to load.")), {
+          once: true,
+        });
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = "https://cdn.paddle.com/paddle/v2/paddle.js";
+      script.async = true;
+      script.dataset.cevorynPaddle = "true";
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error("Paddle.js failed to load."));
+      document.head.appendChild(script);
+    });
+  }
+
+  if (!window.Paddle) throw new Error("Paddle.js is unavailable.");
+
+  if (!window.__cevorynPaddleInitialized) {
+    if (environment === "sandbox") window.Paddle.Environment.set("sandbox");
+    window.Paddle.Initialize({ token });
+    window.__cevorynPaddleInitialized = true;
+  }
+
+  return window.Paddle;
+}
+
 export function BillingActions({
   currentPlan,
   hasBillingAccount,
@@ -54,24 +117,29 @@ export function BillingActions({
 }: BillingActionsProps) {
   const [pendingAction, setPendingAction] = useState<string | null>(null);
 
-  async function redirectFromBillingRequest(
-    endpoint: string,
-    body?: Record<string, string>
-  ) {
+  async function openCheckout(plan: BillingPlan) {
+    const action = `checkout:${plan}`;
     try {
-      setPendingAction(endpoint + (body?.plan ?? ""));
-      const response = await fetch(endpoint, {
+      setPendingAction(action);
+      const response = await fetch("/api/billing/checkout", {
         method: "POST",
-        headers: body ? { "Content-Type": "application/json" } : undefined,
-        body: body ? JSON.stringify(body) : undefined,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan }),
       });
-      const result = (await response.json()) as BillingApiResponse;
+      const result = (await response.json()) as PaddleCheckoutResponse;
 
-      if (!response.ok || !result.url) {
+      if (!response.ok || !result.priceId || !result.environment || !result.customData) {
         throw new Error(result.error ?? "Billing request failed.");
       }
 
-      window.location.assign(result.url);
+      const paddle = await loadPaddle(result.environment);
+      paddle.Checkout.open({
+        items: [{ priceId: result.priceId, quantity: 1 }],
+        customer: result.customerEmail ? { email: result.customerEmail } : undefined,
+        customData: result.customData,
+        settings: { displayMode: "overlay", theme: "light" },
+      });
+      setPendingAction(null);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Billing is unavailable."
@@ -80,7 +148,20 @@ export function BillingActions({
     }
   }
 
-  const managePending = pendingAction === "/api/billing/portal";
+  async function openPortal() {
+    try {
+      setPendingAction("portal");
+      const response = await fetch("/api/billing/portal", { method: "POST" });
+      const result = (await response.json()) as { url?: string; error?: string };
+      if (!response.ok || !result.url) {
+        throw new Error(result.error ?? "Billing portal is unavailable.");
+      }
+      window.location.assign(result.url);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Billing is unavailable.");
+      setPendingAction(null);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -90,9 +171,9 @@ export function BillingActions({
             type="button"
             variant="outline"
             disabled={pendingAction !== null}
-            onClick={() => redirectFromBillingRequest("/api/billing/portal")}
+            onClick={() => void openPortal()}
           >
-            {managePending ? (
+            {pendingAction === "portal" ? (
               <Loader2 className="animate-spin" />
             ) : (
               <CreditCard />
@@ -106,8 +187,7 @@ export function BillingActions({
         {BILLING_PLANS.map((plan) => {
           const definition = getPlanDefinition(plan);
           const isCurrent = currentPlan === plan;
-          const checkoutPending =
-            pendingAction === `/api/billing/checkout${plan}`;
+          const checkoutPending = pendingAction === `checkout:${plan}`;
 
           return (
             <Card
@@ -147,13 +227,10 @@ export function BillingActions({
                     disabled={pendingAction !== null || (isCurrent && hasActiveSubscription)}
                     onClick={() => {
                       if (hasActiveSubscription) {
-                        void redirectFromBillingRequest("/api/billing/portal");
-                        return;
+                        void openPortal();
+                      } else {
+                        void openCheckout(plan);
                       }
-
-                      void redirectFromBillingRequest("/api/billing/checkout", {
-                        plan,
-                      });
                     }}
                   >
                     {checkoutPending ? <Loader2 className="animate-spin" /> : null}
