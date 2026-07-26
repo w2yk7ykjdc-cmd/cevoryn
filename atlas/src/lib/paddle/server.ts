@@ -26,6 +26,21 @@ export function getBillingPlanFromPaddlePriceId(priceId: string): BillingPlan | 
   return pairs.find(([, configured]) => configured === priceId)?.[0] ?? null;
 }
 
+type PaddleErrorPayload = {
+  error?: {
+    detail?: string;
+  };
+};
+
+function getPaddleErrorDetail(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== "object" || !("error" in payload)) {
+    return undefined;
+  }
+
+  const error = (payload as PaddleErrorPayload).error;
+  return error?.detail;
+}
+
 export async function paddleApi<T>(path: string, init: RequestInit = {}): Promise<T> {
   const apiKey = process.env.PADDLE_API_KEY?.trim();
   if (!apiKey) throw new PaddleConfigurationError("PADDLE_API_KEY is not configured.");
@@ -40,10 +55,12 @@ export async function paddleApi<T>(path: string, init: RequestInit = {}): Promis
     cache: "no-store",
   });
 
-  const payload = (await response.json().catch(() => null)) as T | { error?: { detail?: string } } | null;
+  const payload: unknown = await response.json().catch(() => null);
   if (!response.ok) {
-    const detail = payload && "error" in payload ? payload.error?.detail : undefined;
-    throw new Error(detail ?? `Paddle API request failed with ${response.status}.`);
+    throw new Error(
+      getPaddleErrorDetail(payload) ?? `Paddle API request failed with ${response.status}.`
+    );
   }
+
   return payload as T;
 }
