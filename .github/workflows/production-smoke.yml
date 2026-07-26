@@ -13,6 +13,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  debug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Debug host responses
+        run: |
+          for host in atlas-kemal.vercel.app atlas-wb6b.vercel.app cevoryn.vercel.app; do
+            echo "=== https://$host/api/health ==="
+            curl -sS -D - -o body.txt --max-time 15 "https://$host/api/health" || echo "curl exit $?"
+            echo "--- body ---"
+            cat body.txt
+            echo
+          done
+
   health:
     runs-on: ubuntu-latest
     timeout-minutes: 5
