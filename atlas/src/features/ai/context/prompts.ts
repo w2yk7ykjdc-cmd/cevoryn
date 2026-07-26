@@ -1,5 +1,6 @@
 import "server-only";
 
+import { BRAND } from "@/lib/brand";
 import type { MembershipContext } from "@/types";
 
 /**
@@ -45,7 +46,10 @@ function buildOrgContext(
 function buildWorkspaceBootstrapContext(
   membership: MembershipContext
 ): string {
-  if (membership.organizationName.trim().toLocaleLowerCase("en-US") !== "atlas") {
+  if (
+    membership.organizationName.trim().toLocaleLowerCase("en-US") !==
+    BRAND.name.toLocaleLowerCase("en-US")
+  ) {
     return "";
   }
 

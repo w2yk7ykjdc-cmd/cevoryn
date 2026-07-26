@@ -14,7 +14,7 @@ AI Chief of Staff for companies with 2–20 employees.
 ## Getting Started
 
 ```bash
-git clone https://github.com/your-org/atlas.git && cd atlas
+git clone https://github.com/w2yk7ykjdc-cmd/cevoryn.git && cd cevoryn/atlas
 npm install
 cp .env.example .env.local   # fill in Supabase + OpenAI keys
 npx prisma generate
