@@ -19,7 +19,8 @@ jobs:
         working-directory: atlas
 
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/atlas
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cevoryn
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/cevoryn
       NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
       NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
       NEXT_PUBLIC_APP_URL: http://localhost:3000

@@ -1,5 +1,5 @@
 // =============================================================================
-// Atlas — Route & App Constants
+// CEVORYN — Route & App Constants
 // =============================================================================
 
 export const ROUTES = {
@@ -32,8 +32,6 @@ export const AUTH_ROUTES: readonly string[] = [
 ];
 
 export const APP_CONFIG = {
-  name: "Atlas",
-  description: "AI Chief of Staff for small teams",
   orgSlugMaxLength: 48,
   orgNameMaxLength: 100,
   displayNameMaxLength: 100,

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import type {
   MembershipContext,
@@ -12,7 +13,6 @@ import type {
 } from "@/types";
 
 import { OrganizationSwitcher } from "./organization-switcher";
-import { ThemeToggle } from "./theme-toggle";
 
 interface HeaderProps {
   membership: MembershipContext;
