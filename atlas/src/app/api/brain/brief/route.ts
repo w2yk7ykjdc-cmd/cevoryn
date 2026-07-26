@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import { runWithAIUsageContext } from "@/features/ai/usage-context";
+import { FeatureAccessError } from "@/features/billing/config/plans";
 import {
   generateBrief,
   getLatestBrief,
@@ -17,6 +18,11 @@ import { getMembership, getUser } from "@/lib/auth";
 import { buildGoogleBriefSections } from "@/lib/google-brief";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/rbac";
+import {
+  assertAiTokenCapacity,
+  assertOrganizationFeatureAccess,
+  PlanLimitError,
+} from "@/server/services/entitlement.service";
 import { checkRateLimit } from "@/server/services/rate-limit.service";
 
 export async function GET(request: NextRequest) {
@@ -56,6 +62,9 @@ export async function POST(request: NextRequest) {
     if (!hasPermission(membership.role, "ai:use")) {
       return forbiddenResponse("Insufficient permissions");
     }
+
+    await assertOrganizationFeatureAccess(membership.organizationId, "BRAIN");
+    await assertAiTokenCapacity(membership.organizationId);
 
     let body: { type?: string } = {};
     try {
@@ -110,6 +119,25 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
+    if (error instanceof FeatureAccessError) {
+      return NextResponse.json(
+        {
+          error: {
+            code: error.code,
+            message: "CEO Brief is available on Professional and Business plans.",
+          },
+        },
+        { status: 403 }
+      );
+    }
+
+    if (error instanceof PlanLimitError) {
+      return NextResponse.json(
+        { error: { code: error.code, message: error.message } },
+        { status: 429 }
+      );
+    }
+
     return internalErrorResponse(
       "Brief POST",
       error,
