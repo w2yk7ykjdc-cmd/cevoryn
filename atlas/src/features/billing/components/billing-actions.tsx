@@ -23,9 +23,23 @@ type PaddleCheckoutResponse = {
   error?: string;
 };
 
+type PaddleEvent = {
+  name?: string;
+  type?: string;
+  code?: string;
+  detail?: string;
+  error?: {
+    code?: string;
+    detail?: string;
+  };
+};
+
 type PaddleInstance = {
   Environment: { set(environment: "sandbox"): void };
-  Initialize(options: { token: string }): void;
+  Initialize(options: {
+    token: string;
+    eventCallback?: (event: PaddleEvent) => void;
+  }): void;
   Checkout: {
     open(options: {
       items: Array<{ priceId: string; quantity: number }>;
@@ -71,9 +85,41 @@ const featureLabels: Record<BillingPlan, string[]> = {
   ],
 };
 
+function getPaddleErrorMessage(event: PaddleEvent): string | null {
+  const code = event.code ?? event.error?.code;
+  const detail = event.detail ?? event.error?.detail;
+
+  if (code === "transaction_default_checkout_url_not_set") {
+    return "Paddle default payment link is not configured for this sandbox account.";
+  }
+
+  if (code === "invalid_client_token") {
+    return "The Paddle client-side token is invalid or belongs to the wrong environment.";
+  }
+
+  return detail ?? (code ? `Paddle checkout error: ${code}` : null);
+}
+
+function handlePaddleEvent(event: PaddleEvent): void {
+  if (event.name !== "checkout.error" && event.name !== "checkout.payment.error") {
+    return;
+  }
+
+  console.error("[cevoryn:paddle] Checkout error", event);
+  toast.error(getPaddleErrorMessage(event) ?? "Paddle checkout could not be opened.");
+}
+
 async function loadPaddle(environment: PaddleEnvironment): Promise<PaddleInstance> {
   const token = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN?.trim();
   if (!token) throw new Error("Paddle checkout is not configured.");
+
+  if (environment === "sandbox" && !token.startsWith("test_")) {
+    throw new Error("Paddle sandbox requires a test_ client-side token.");
+  }
+
+  if (environment === "production" && !token.startsWith("live_")) {
+    throw new Error("Paddle production requires a live_ client-side token.");
+  }
 
   if (!window.Paddle) {
     await new Promise<void>((resolve, reject) => {
@@ -102,7 +148,7 @@ async function loadPaddle(environment: PaddleEnvironment): Promise<PaddleInstanc
 
   if (!window.__cevorynPaddleInitialized) {
     if (environment === "sandbox") window.Paddle.Environment.set("sandbox");
-    window.Paddle.Initialize({ token });
+    window.Paddle.Initialize({ token, eventCallback: handlePaddleEvent });
     window.__cevorynPaddleInitialized = true;
   }
 
