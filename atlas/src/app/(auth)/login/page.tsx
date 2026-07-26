@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { LoginForm } from "@/features/auth/components/login-form";
+import { getSafeRedirectPath } from "@/lib/safe-redirect";
 
 export const metadata: Metadata = { title: "Sign in" };
 
@@ -14,10 +15,13 @@ interface PageProps {
 
 export default async function LoginPage({ searchParams }: PageProps) {
   const params = await searchParams;
+  const redirectTo = params.next
+    ? getSafeRedirectPath(params.next)
+    : undefined;
 
   return (
     <LoginForm
-      redirectTo={params.next}
+      redirectTo={redirectTo}
       authError={params.error}
       passwordReset={params.reset === "success"}
     />
