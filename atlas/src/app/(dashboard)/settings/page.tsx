@@ -10,6 +10,7 @@ import { hasPermission } from "@/lib/rbac";
 
 import { GoogleIntegrationCard } from "./google-integration-card";
 import { OrganizationNameForm } from "./organization-name-form";
+import { TeamManagementCard } from "./team-management-card";
 import { TestDataCleanup } from "./test-data-cleanup";
 
 export const metadata: Metadata = { title: "Settings — Atlas" };
@@ -58,30 +59,51 @@ export default async function SettingsPage() {
   const user = await requireUser();
   const membership = await requireMembership(user.id);
   const googleConfigured = isGoogleIntegrationConfigured();
+  const now = new Date();
 
-  const [org, memberCount, memoryCount, conversationCount, connectedGoogleEmail] =
-    await Promise.all([
-      prisma.organization.findUnique({
-        where: { id: membership.organizationId },
-        select: { name: true, slug: true, createdAt: true },
-      }),
-      prisma.member.count({ where: { organizationId: membership.organizationId } }),
-      prisma.memory.count({
-        where: { organizationId: membership.organizationId, isActive: true },
-      }),
-      prisma.conversation.count({
-        where: { organizationId: membership.organizationId },
-      }),
-      getConnectedGoogleEmail(
-        membership.organizationId,
-        user.id,
-        googleConfigured
-      ),
-    ]);
+  const [
+    org,
+    members,
+    pendingInvites,
+    memoryCount,
+    conversationCount,
+    connectedGoogleEmail,
+  ] = await Promise.all([
+    prisma.organization.findUnique({
+      where: { id: membership.organizationId },
+      select: { name: true, slug: true, createdAt: true },
+    }),
+    prisma.member.findMany({
+      where: { organizationId: membership.organizationId },
+      orderBy: [{ role: "asc" }, { createdAt: "asc" }],
+      select: { id: true, displayName: true, role: true },
+    }),
+    prisma.invite.findMany({
+      where: {
+        organizationId: membership.organizationId,
+        status: "PENDING",
+        expiresAt: { gt: now },
+      },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, email: true, role: true, expiresAt: true },
+    }),
+    prisma.memory.count({
+      where: { organizationId: membership.organizationId, isActive: true },
+    }),
+    prisma.conversation.count({
+      where: { organizationId: membership.organizationId },
+    }),
+    getConnectedGoogleEmail(
+      membership.organizationId,
+      user.id,
+      googleConfigured
+    ),
+  ]);
 
   if (!org) return null;
 
   const canUpdateOrganization = hasPermission(membership.role, "org:update");
+  const canInviteMembers = hasPermission(membership.role, "members:invite");
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 pb-8">
@@ -117,6 +139,16 @@ export default async function SettingsPage() {
           />
         </CardContent>
       </Card>
+
+      <TeamManagementCard
+        members={members}
+        initialInvites={pendingInvites.map((invite) => ({
+          ...invite,
+          expiresAt: invite.expiresAt.toISOString(),
+        }))}
+        canInvite={canInviteMembers}
+        canInviteAdmins={membership.role === "OWNER"}
+      />
 
       <Card>
         <CardHeader className="pb-3">
@@ -161,7 +193,7 @@ export default async function SettingsPage() {
         <CardContent>
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
-              <p className="text-2xl font-bold">{memberCount}</p>
+              <p className="text-2xl font-bold">{members.length}</p>
               <p className="text-xs text-muted-foreground">Members</p>
             </div>
             <div>
