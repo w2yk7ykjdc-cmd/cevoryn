@@ -22,7 +22,7 @@ type TeamMember = {
 type PendingInvite = {
   id: string;
   email: string;
-  role: Exclude<MemberRole, "OWNER">;
+  role: MemberRole;
   expiresAt: string;
 };
 
@@ -177,7 +177,10 @@ export function TeamManagementCard({
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium">{invite.email}</p>
                         <p className="text-xs text-muted-foreground">
-                          Expires {new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(invite.expiresAt))}
+                          Expires{" "}
+                          {new Intl.DateTimeFormat("en-US", {
+                            dateStyle: "medium",
+                          }).format(new Date(invite.expiresAt))}
                         </p>
                       </div>
                     </div>
