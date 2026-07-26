@@ -17,6 +17,10 @@ import {
 } from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
+import {
+  assertAiTokenCapacity,
+  PlanLimitError,
+} from "@/server/services/entitlement.service";
 import { checkRateLimit } from "@/server/services/rate-limit.service";
 
 export async function GET(request: NextRequest) {
@@ -71,6 +75,41 @@ export async function POST(request: NextRequest) {
           },
         },
         { status: 400 }
+      );
+    }
+
+    try {
+      await assertAiTokenCapacity(membership.organizationId);
+    } catch (error) {
+      if (!(error instanceof PlanLimitError)) throw error;
+
+      const canvas = createFallbackCanvas(parsed.data.problemDescription);
+      const decision = await createDecision({
+        organizationId: membership.organizationId,
+        canvas,
+        priorityScore: canvas.priorityScore,
+      });
+
+      return NextResponse.json(
+        {
+          data: {
+            decisionId: decision.id,
+            canvas,
+            actionsGenerated: 0,
+            trust: {
+              confidence: canvas.confidenceScore,
+              reasoning:
+                "Decision saved without AI analysis because the monthly plan limit was reached.",
+              missingInformation: [
+                "Full AI analysis will be available after the monthly allowance resets or the plan is upgraded.",
+              ],
+              dataFreshness: "current",
+            },
+            degraded: true,
+            limitCode: error.code,
+          },
+        },
+        { status: 201 }
       );
     }
 
