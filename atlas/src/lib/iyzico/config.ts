@@ -25,12 +25,22 @@ export function getIyzicoConfig() {
   };
 }
 
-export function getIyzicoPricingPlanReferenceCode(plan: BillingPlan): string {
-  const envName: Record<BillingPlan, string> = {
-    STARTER: "IYZICO_PLAN_STARTER",
-    PROFESSIONAL: "IYZICO_PLAN_PROFESSIONAL",
-    BUSINESS: "IYZICO_PLAN_BUSINESS",
-  };
+const PLAN_ENV_NAMES: Record<BillingPlan, string> = {
+  STARTER: "IYZICO_PLAN_STARTER",
+  PROFESSIONAL: "IYZICO_PLAN_PROFESSIONAL",
+  BUSINESS: "IYZICO_PLAN_BUSINESS",
+};
 
-  return requireEnv(envName[plan]);
+export function getIyzicoPricingPlanReferenceCode(plan: BillingPlan): string {
+  return requireEnv(PLAN_ENV_NAMES[plan]);
+}
+
+export function getBillingPlanFromIyzicoReferenceCode(referenceCode: string): BillingPlan {
+  for (const plan of Object.keys(PLAN_ENV_NAMES) as BillingPlan[]) {
+    if (getIyzicoPricingPlanReferenceCode(plan) === referenceCode) return plan;
+  }
+
+  throw new IyzicoConfigurationError(
+    `Unknown iyzico pricing plan reference code: ${referenceCode}`
+  );
 }
