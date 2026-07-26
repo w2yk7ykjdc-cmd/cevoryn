@@ -44,7 +44,20 @@ jobs:
         run: npm run db:validate
 
       - name: Type-check
-        run: npm run type-check
+        shell: bash
+        run: |
+          set +e
+          npm run type-check 2>&1 | tee typecheck.log
+          status=${PIPESTATUS[0]}
+          exit "$status"
+
+      - name: Upload type-check log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: typecheck-log
+          path: atlas/typecheck.log
+          if-no-files-found: ignore
 
       - name: Lint
         run: npm run lint
