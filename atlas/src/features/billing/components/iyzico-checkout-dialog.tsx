@@ -7,12 +7,12 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import type { BillingPlan } from "@/features/billing/config/plans";
 
 interface IyzicoCheckoutDialogProps {
@@ -108,74 +108,77 @@ export function IyzicoCheckoutDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{plan ? `${plan} aboneliği` : "Abonelik"}</DialogTitle>
-          <DialogDescription>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="bottom"
+        className="mx-auto max-h-[92vh] w-full overflow-y-auto sm:max-w-2xl"
+      >
+        <SheetHeader>
+          <SheetTitle>{plan ? `${plan} aboneliği` : "Abonelik"}</SheetTitle>
+          <SheetDescription>
             Fatura bilgilerini girin. Kart bilgileri doğrudan iyzico ödeme formunda işlenir ve CEVORYN tarafından saklanmaz.
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
-        {checkoutHtml ? (
-          <div>
+        <div className="mt-6">
+          {checkoutHtml ? (
             <div id="iyzipay-checkout-form" className="responsive" ref={checkoutContainerRef} />
-          </div>
-        ) : (
-          <form className="grid gap-4" onSubmit={handleSubmit}>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Ad" name="name" autoComplete="given-name" required />
-              <Field label="Soyad" name="surname" autoComplete="family-name" required />
-              <Field
-                label="Telefon"
-                name="gsmNumber"
-                type="tel"
-                placeholder="+905551112233"
-                autoComplete="tel"
-                required
-              />
-              <Field
-                label="T.C. kimlik / vergi numarası"
-                name="identityNumber"
-                inputMode="numeric"
-                placeholder="10 veya 11 hane"
-                required
-              />
-              <Field label="Şehir" name="city" autoComplete="address-level2" required />
-              <Field label="Posta kodu" name="zipCode" autoComplete="postal-code" required />
-              <Field
-                label="Ülke"
-                name="country"
-                defaultValue="Türkiye"
-                autoComplete="country-name"
-                required
-              />
-            </div>
+          ) : (
+            <form className="grid gap-4" onSubmit={handleSubmit}>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Ad" name="name" autoComplete="given-name" required />
+                <Field label="Soyad" name="surname" autoComplete="family-name" required />
+                <Field
+                  label="Telefon"
+                  name="gsmNumber"
+                  type="tel"
+                  placeholder="+905551112233"
+                  autoComplete="tel"
+                  required
+                />
+                <Field
+                  label="T.C. kimlik / vergi numarası"
+                  name="identityNumber"
+                  inputMode="numeric"
+                  placeholder="10 veya 11 hane"
+                  required
+                />
+                <Field label="Şehir" name="city" autoComplete="address-level2" required />
+                <Field label="Posta kodu" name="zipCode" autoComplete="postal-code" required />
+                <Field
+                  label="Ülke"
+                  name="country"
+                  defaultValue="Türkiye"
+                  autoComplete="country-name"
+                  required
+                />
+              </div>
 
-            <label className="grid gap-1.5 text-sm font-medium">
-              Fatura adresi
-              <textarea
-                name="address"
-                minLength={10}
-                maxLength={500}
-                required
-                autoComplete="street-address"
-                className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              />
-            </label>
+              <label className="grid gap-1.5 text-sm font-medium">
+                Fatura adresi
+                <textarea
+                  name="address"
+                  minLength={10}
+                  maxLength={500}
+                  required
+                  autoComplete="street-address"
+                  className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                />
+              </label>
 
-            <p className="text-xs text-muted-foreground">
-              Bu bilgiler ödeme kuruluşunun yasal ve faturalama gereklilikleri için iyzico'ya gönderilir.
-            </p>
+              <p className="text-xs text-muted-foreground">
+                Bu bilgiler ödeme kuruluşunun yasal ve faturalama gereklilikleri için iyzico'ya gönderilir.
+              </p>
 
-            <Button type="submit" disabled={submitting || !plan}>
-              {submitting ? <Loader2 className="animate-spin" /> : null}
-              Güvenli ödemeye geç
-            </Button>
-          </form>
-        )}
-      </DialogContent>
-    </Dialog>
+              <Button type="submit" disabled={submitting || !plan}>
+                {submitting ? <Loader2 className="animate-spin" /> : null}
+                Güvenli ödemeye geç
+              </Button>
+            </form>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 
