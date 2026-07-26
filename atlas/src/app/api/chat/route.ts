@@ -13,6 +13,10 @@ import { getMembership, getUser } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { sendMessage } from "@/server/services/ai.service";
 import { getConversation } from "@/server/services/conversation.service";
+import {
+  assertAiTokenCapacity,
+  PlanLimitError,
+} from "@/server/services/entitlement.service";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -56,6 +60,23 @@ export async function POST(request: NextRequest) {
       membership.userId
     );
     if (!conversation) return notFoundResponse("Conversation not found");
+
+    try {
+      await assertAiTokenCapacity(membership.organizationId);
+    } catch (error) {
+      if (error instanceof PlanLimitError) {
+        return NextResponse.json(
+          {
+            error: {
+              code: error.code,
+              message: error.message,
+            },
+          },
+          { status: 429 }
+        );
+      }
+      throw error;
+    }
 
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
