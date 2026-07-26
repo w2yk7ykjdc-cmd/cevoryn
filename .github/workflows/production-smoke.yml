@@ -19,9 +19,9 @@ jobs:
     steps:
       - name: Debug host responses
         run: |
-          for host in atlas-kemal.vercel.app atlas-wb6b.vercel.app cevoryn.vercel.app; do
-            echo "=== https://$host/api/health ==="
-            curl -sS -D - -o body.txt --max-time 15 "https://$host/api/health" || echo "curl exit $?"
+          for path in /api/billing/checkout /api/billing/portal /api/billing/paddle/webhook /api/billing/catalog-diagnostics /api/billing/diagnostics /api/billing/public-catalog-diagnostics /settings/billing; do
+            echo "=== https://cevoryn.vercel.app$path ==="
+            curl -sS -D - -o body.txt --max-time 15 "https://cevoryn.vercel.app$path" || echo "curl exit $?"
             echo "--- body ---"
             cat body.txt
             echo
