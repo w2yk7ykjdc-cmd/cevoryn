@@ -167,7 +167,7 @@ export function IyzicoCheckoutDialog({
               </label>
 
               <p className="text-xs text-muted-foreground">
-                Bu bilgiler ödeme kuruluşunun yasal ve faturalama gereklilikleri için iyzico'ya gönderilir.
+                Bu bilgiler ödeme kuruluşunun yasal ve faturalama gereklilikleri için iyzico sistemine gönderilir.
               </p>
 
               <Button type="submit" disabled={submitting || !plan}>
