@@ -30,7 +30,7 @@ jobs:
         env:
           PADDLE_API_KEY: ${{ inputs.paddle_sandbox_api_key }}
         run: |
-          for id in "pri_01kyhe028gq2t7hvq426xtws9p"; do
+          for id in "pri_01kyjqfyy4xy5rwn9ptkmj3fnj"; do
             echo "=== $id ==="
             curl -sS -D - -o body.json --max-time 15 \
               "https://sandbox-api.paddle.com/prices/$id?include=product" \
