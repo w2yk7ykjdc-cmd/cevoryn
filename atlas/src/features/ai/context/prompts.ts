@@ -1,7 +1,16 @@
 import "server-only";
 
-import { BRAND } from "@/lib/brand";
 import type { MembershipContext } from "@/types";
+
+/**
+ * Slug of the founder's own dogfooding workspace. This identifies a specific
+ * organization, not the product's marketing brand - the two are unrelated
+ * and were previously conflated here (the check used to compare against the
+ * brand name, which broke the moment the product was renamed to CEVORYN
+ * while this organization's own name/slug stayed "Atlas"). The slug is not
+ * user-editable from the app, unlike the display name, so it won't drift.
+ */
+const PRODUCT_OWNER_ORG_SLUG = "atlas";
 
 /**
  * Build the CEVORYN system prompt with organization and user context.
@@ -46,10 +55,7 @@ function buildOrgContext(
 function buildWorkspaceBootstrapContext(
   membership: MembershipContext
 ): string {
-  if (
-    membership.organizationName.trim().toLocaleLowerCase("en-US") !==
-    BRAND.name.toLocaleLowerCase("en-US")
-  ) {
+  if (membership.organizationSlug !== PRODUCT_OWNER_ORG_SLUG) {
     return "";
   }
 
