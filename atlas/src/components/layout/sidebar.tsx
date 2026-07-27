@@ -84,7 +84,7 @@ export function Sidebar({ membership, onNavigate }: SidebarProps) {
       <Separator />
 
       <nav
-        className="flex-1 space-y-1 px-3 py-4"
+        className="space-y-1 overflow-y-auto px-3 py-4"
         aria-label={t("mainNavigation")}
       >
         {visibleItems.map((item) => {
@@ -100,10 +100,10 @@ export function Sidebar({ membership, onNavigate }: SidebarProps) {
               onPointerEnter={() => router.prefetch(item.href)}
               onClick={onNavigate}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-lg border-l-2 px-3 py-2 text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                  ? "border-primary bg-accent font-semibold text-accent-foreground"
+                  : "border-transparent text-muted-foreground hover:bg-accent/50 hover:text-foreground"
               )}
               aria-current={isActive ? "page" : undefined}
             >
@@ -114,7 +114,7 @@ export function Sidebar({ membership, onNavigate }: SidebarProps) {
         })}
       </nav>
 
-      <div className="space-y-2 border-t px-3 py-3">
+      <div className="space-y-2 border-t px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-3">
         <LanguageSelector />
         <ThemeToggle />
 
