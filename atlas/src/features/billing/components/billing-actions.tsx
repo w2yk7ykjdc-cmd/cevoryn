@@ -8,10 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  BILLING_FEATURES,
   BILLING_PLANS,
   getPlanDefinition,
+  type BillingFeature,
   type BillingPlan,
 } from "@/features/billing/config/plans";
+import type { PlanPrice } from "@/server/services/paddle-catalog.service";
 
 type PaddleEnvironment = "sandbox" | "production";
 
@@ -62,28 +65,43 @@ interface BillingActionsProps {
   hasBillingAccount: boolean;
   hasActiveSubscription: boolean;
   canManage: boolean;
+  planPrices: Partial<Record<BillingPlan, PlanPrice>>;
 }
 
-const featureLabels: Record<BillingPlan, string[]> = {
-  STARTER: [
-    "1 team member",
-    "250K monthly AI tokens",
-    "Core chat and dashboard",
-    "Basic decision support",
-  ],
-  PROFESSIONAL: [
-    "Up to 5 team members",
-    "1.5M monthly AI tokens",
-    "CEVORYN Brain",
-    "Advanced reports and briefs",
-  ],
-  BUSINESS: [
-    "Up to 20 team members",
-    "5M monthly AI tokens",
-    "Advanced RBAC",
-    "Priority support",
-  ],
+function formatPlanPrice(price: PlanPrice): string {
+  const amount = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: price.currencyCode,
+    minimumFractionDigits: price.amount % 1 === 0 ? 0 : 2,
+  }).format(price.amount);
+
+  return `${amount}/${price.interval}`;
+}
+
+const FEATURE_LABELS: Record<BillingFeature, string> = {
+  CHAT: "AI chat",
+  DASHBOARD: "Dashboard",
+  DECISION_SUPPORT: "Decision support",
+  BRAIN: "CEVORYN Brain",
+  ADVANCED_REPORTS: "Advanced reports and briefs",
+  TEAM: "Team collaboration",
+  ADVANCED_RBAC: "Advanced RBAC",
+  PRIORITY_SUPPORT: "Priority support",
 };
+
+function formatMemberLimit(maxMembers: number): string {
+  return maxMembers === 1 ? "1 team member" : `Up to ${maxMembers} team members`;
+}
+
+function formatTokenLimit(monthlyAiTokens: number): string {
+  const millions = monthlyAiTokens / 1_000_000;
+  if (millions >= 1) {
+    return `${Number.isInteger(millions) ? millions : millions.toFixed(1)}M monthly AI tokens`;
+  }
+
+  const thousands = monthlyAiTokens / 1_000;
+  return `${Number.isInteger(thousands) ? thousands : thousands.toFixed(1)}K monthly AI tokens`;
+}
 
 function getPaddleErrorMessage(event: PaddleEvent): string | null {
   const code = event.code ?? event.error?.code;
@@ -160,6 +178,7 @@ export function BillingActions({
   hasBillingAccount,
   hasActiveSubscription,
   canManage,
+  planPrices,
 }: BillingActionsProps) {
   const [pendingAction, setPendingAction] = useState<string | null>(null);
 
@@ -252,15 +271,29 @@ export function BillingActions({
                 <p className="text-sm text-muted-foreground">
                   {definition.description}
                 </p>
-                <p className="text-sm font-medium">Monthly subscription</p>
+                <p className="text-lg font-semibold">
+                  {planPrices[plan]
+                    ? formatPlanPrice(planPrices[plan])
+                    : "Price unavailable"}
+                </p>
               </CardHeader>
 
               <CardContent className="space-y-5">
                 <ul className="space-y-2">
-                  {featureLabels[plan].map((feature) => (
+                  <li className="flex gap-2 text-sm font-medium">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>{formatMemberLimit(definition.limits.maxMembers)}</span>
+                  </li>
+                  <li className="flex gap-2 text-sm font-medium">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>{formatTokenLimit(definition.limits.monthlyAiTokens)}</span>
+                  </li>
+                  {BILLING_FEATURES.filter((feature) =>
+                    definition.features.has(feature)
+                  ).map((feature) => (
                     <li key={feature} className="flex gap-2 text-sm">
                       <Check className="mt-0.5 h-4 w-4 shrink-0" />
-                      <span>{feature}</span>
+                      <span>{FEATURE_LABELS[feature]}</span>
                     </li>
                   ))}
                 </ul>

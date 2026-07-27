@@ -4,7 +4,6 @@ import type { NextRequest } from "next/server";
 
 import { AUTH_ROUTES, PUBLIC_ROUTES, ROUTES } from "@/lib/constants";
 
-const LEGACY_PRODUCTION_HOST = "atlas-kemal.vercel.app";
 const CANONICAL_PRODUCTION_HOST = "cevoryn.vercel.app";
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
@@ -45,7 +44,16 @@ export async function middleware(request: NextRequest) {
     "";
   const host = rawHost.split(":")[0]?.toLowerCase() ?? "";
 
-  if (host === LEGACY_PRODUCTION_HOST) {
+  // Every Vercel production deployment is also reachable at a unique,
+  // per-deployment hostname (e.g. cevoryn-<hash>-<team>.vercel.app) in
+  // addition to the stable production alias. Force those back to the
+  // canonical host so auth cookies, OAuth redirects, and shared links stay
+  // consistent regardless of which URL someone lands on.
+  if (
+    process.env.VERCEL_ENV === "production" &&
+    host &&
+    host !== CANONICAL_PRODUCTION_HOST
+  ) {
     const canonicalUrl = request.nextUrl.clone();
     canonicalUrl.protocol = "https:";
     canonicalUrl.host = CANONICAL_PRODUCTION_HOST;
