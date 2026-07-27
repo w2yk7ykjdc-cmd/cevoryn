@@ -2,11 +2,6 @@ name: Production Smoke
 
 on:
   workflow_dispatch:
-    inputs:
-      paddle_sandbox_api_key:
-        description: "Temporary: Paddle sandbox API key for a one-off catalog check"
-        required: false
-        type: string
   schedule:
     - cron: "17 * * * *"
 
@@ -18,29 +13,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  paddle-sandbox-catalog-check:
-    if: ${{ inputs.paddle_sandbox_api_key != '' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Mask the key in logs
-        run: echo "::add-mask::${{ inputs.paddle_sandbox_api_key }}"
-
-      - name: Check the three sandbox price IDs
-        env:
-          PADDLE_API_KEY: ${{ inputs.paddle_sandbox_api_key }}
-        run: |
-          for id in "pri_01kyjqfyy4xy5rwn9ptkmj3fnj"; do
-            echo "=== $id ==="
-            curl -sS -D - -o body.json --max-time 15 \
-              "https://sandbox-api.paddle.com/prices/$id?include=product" \
-              -H "Authorization: Bearer $PADDLE_API_KEY" \
-              -H "Accept: application/json"
-            echo "--- body ---"
-            cat body.json
-            echo
-          done
-
   health:
     runs-on: ubuntu-latest
     timeout-minutes: 5
