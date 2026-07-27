@@ -51,7 +51,7 @@ These require a real browser, email delivery, and authenticated user interaction
 - [ ] Confirm `prisma migrate deploy` has actually been applied to the production database - `npm run build` does not run migrations automatically, so `google_connections`, `subscriptions`, and `billing_webhook_events` must be verified to exist.
 - [ ] Confirm `PADDLE_ENV`, `PADDLE_API_KEY`, `PADDLE_PRICE_STARTER/PROFESSIONAL/BUSINESS`, and `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN` all belong to the same environment (sandbox or production) in Vercel.
 - [ ] Confirm the Google Cloud OAuth client's redirect URI exactly matches `<NEXT_PUBLIC_APP_URL>/api/integrations/google/callback` for the current production domain.
-- [ ] Decide whether the legacy Stripe integration (`/api/stripe/webhook`, `src/lib/stripe/*`) is still needed for existing Stripe customers, or can be removed now that checkout/portal are Paddle-only. Do not remove it without confirming no active Stripe subscriptions depend on it.
+- [x] Legacy Stripe integration (`/api/stripe/webhook`, `src/lib/stripe/*`, the `stripe` npm dependency) removed - confirmed no active Stripe customers depend on it. The `subscriptions` table still has `stripe_customer_id`/`stripe_subscription_id`/`stripe_price_id` columns; those are kept as-is (Paddle rows populate `stripe_customer_id` with a `paddle:<id>` placeholder to satisfy the `NOT NULL` constraint from the original migration) rather than doing a separate column-rename migration.
 - [ ] Complete a real Paddle sandbox checkout end-to-end.
 
 ## Release boundary
