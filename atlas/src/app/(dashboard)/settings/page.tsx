@@ -1,7 +1,9 @@
-import { Building2, Link2, Shield, ShieldAlert } from "lucide-react";
+import { Building2, CreditCard, Link2, Shield, ShieldAlert } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { requireMembership, requireUser } from "@/lib/auth";
@@ -115,6 +117,23 @@ export default async function SettingsPage() {
               dateStyle: "long",
             }).format(org.createdAt)}
           />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <CreditCard className="h-4 w-4" />
+            Billing
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href="/settings/billing"
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            Manage billing
+          </Link>
         </CardContent>
       </Card>
 
