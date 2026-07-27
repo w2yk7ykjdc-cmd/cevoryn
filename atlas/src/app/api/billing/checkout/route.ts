@@ -58,7 +58,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
 
     if (
-      currentSubscription?.stripeSubscriptionId &&
+      currentSubscription &&
       isSubscriptionActive(currentSubscription.subscriptionStatus)
     ) {
       return NextResponse.json(
