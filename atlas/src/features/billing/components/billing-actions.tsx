@@ -12,6 +12,7 @@ import {
   getPlanDefinition,
   type BillingPlan,
 } from "@/features/billing/config/plans";
+import type { PlanPrice } from "@/server/services/paddle-catalog.service";
 
 type PaddleEnvironment = "sandbox" | "production";
 
@@ -62,6 +63,17 @@ interface BillingActionsProps {
   hasBillingAccount: boolean;
   hasActiveSubscription: boolean;
   canManage: boolean;
+  planPrices: Partial<Record<BillingPlan, PlanPrice>>;
+}
+
+function formatPlanPrice(price: PlanPrice): string {
+  const amount = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: price.currencyCode,
+    minimumFractionDigits: price.amount % 1 === 0 ? 0 : 2,
+  }).format(price.amount);
+
+  return `${amount}/${price.interval}`;
 }
 
 const featureLabels: Record<BillingPlan, string[]> = {
@@ -160,6 +172,7 @@ export function BillingActions({
   hasBillingAccount,
   hasActiveSubscription,
   canManage,
+  planPrices,
 }: BillingActionsProps) {
   const [pendingAction, setPendingAction] = useState<string | null>(null);
 
@@ -252,7 +265,11 @@ export function BillingActions({
                 <p className="text-sm text-muted-foreground">
                   {definition.description}
                 </p>
-                <p className="text-sm font-medium">Monthly subscription</p>
+                <p className="text-lg font-semibold">
+                  {planPrices[plan]
+                    ? formatPlanPrice(planPrices[plan])
+                    : "Price unavailable"}
+                </p>
               </CardHeader>
 
               <CardContent className="space-y-5">

@@ -8,6 +8,7 @@ import { getPlanDefinition, type BillingPlan } from "@/features/billing/config/p
 import { isSubscriptionActive } from "@/features/billing/types";
 import { requireMembership, requireUser } from "@/lib/auth";
 import { getOrganizationSubscription } from "@/server/services/billing.service";
+import { getPlanPrices } from "@/server/services/paddle-catalog.service";
 
 export const metadata: Metadata = { title: "Billing — CEVORYN" };
 
@@ -22,9 +23,10 @@ function formatDate(value: Date | null): string {
 export default async function BillingPage() {
   const user = await requireUser();
   const membership = await requireMembership(user.id);
-  const subscription = await getOrganizationSubscription(
-    membership.organizationId
-  );
+  const [subscription, planPrices] = await Promise.all([
+    getOrganizationSubscription(membership.organizationId),
+    getPlanPrices(),
+  ]);
 
   const currentPlan: BillingPlan = subscription?.plan ?? "STARTER";
   const planDefinition = getPlanDefinition(currentPlan);
@@ -108,6 +110,7 @@ export default async function BillingPage() {
         hasBillingAccount={Boolean(subscription?.stripeCustomerId)}
         hasActiveSubscription={active}
         canManage={canManage}
+        planPrices={planPrices}
       />
     </div>
   );
