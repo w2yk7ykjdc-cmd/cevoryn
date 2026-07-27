@@ -16,6 +16,9 @@ interface SubscriptionRow {
   stripe_customer_id: string;
   stripe_subscription_id: string | null;
   stripe_price_id: string | null;
+  paddle_customer_id: string | null;
+  paddle_subscription_id: string | null;
+  paddle_price_id: string | null;
   plan: BillingPlan;
   subscription_status: SubscriptionStatus;
   current_period_start: Date | null;
@@ -33,6 +36,9 @@ function mapSubscription(row: SubscriptionRow): OrganizationSubscription {
     stripeCustomerId: row.stripe_customer_id,
     stripeSubscriptionId: row.stripe_subscription_id,
     stripePriceId: row.stripe_price_id,
+    paddleCustomerId: row.paddle_customer_id,
+    paddleSubscriptionId: row.paddle_subscription_id,
+    paddlePriceId: row.paddle_price_id,
     plan: row.plan,
     subscriptionStatus: row.subscription_status,
     currentPeriodStart: row.current_period_start,

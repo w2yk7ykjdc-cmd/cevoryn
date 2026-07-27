@@ -19,6 +19,9 @@ export interface OrganizationSubscription {
   stripeCustomerId: string;
   stripeSubscriptionId: string | null;
   stripePriceId: string | null;
+  paddleCustomerId: string | null;
+  paddleSubscriptionId: string | null;
+  paddlePriceId: string | null;
   plan: BillingPlan;
   subscriptionStatus: SubscriptionStatus;
   currentPeriodStart: Date | null;
