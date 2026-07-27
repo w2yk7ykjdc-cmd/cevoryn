@@ -30,7 +30,7 @@ jobs:
         env:
           PADDLE_API_KEY: ${{ inputs.paddle_sandbox_api_key }}
         run: |
-          for pair in "STARTER:pri_01kyhdm9vg0rd5qmn7vm47zh7e" "PROFESSIONAL:pri_01kyhdtjakwgwgxvtxrq2rmp4f" "BUSINESS:pri_01kyhe0129d02f2vp17bzrrzhz"; do
+          for pair in "STARTER:pri_01kyfeqs00ac0b9yktsyqkfg20" "PROFESSIONAL:pri_01kyfewe73c9s1kaw79xq6r22e" "BUSINESS:pri_01kyfeyy0e3c3may1akqwcpqd3"; do
             name="${pair%%:*}"
             id="${pair##*:}"
             echo "=== $name ($id) ==="
