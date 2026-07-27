@@ -10,7 +10,7 @@ interface InsufficientDataProps {
 
 const STARTER_STEPS = [
   {
-    title: "Tell Atlas how the business works",
+    title: "Tell CEVORYN how the business works",
     description: "Share your goals, current priorities, team structure, and constraints.",
     href: "/chat",
     label: "Start in Chat",
@@ -18,7 +18,7 @@ const STARTER_STEPS = [
   },
   {
     title: "Generate your first executive brief",
-    description: "Turn the context Atlas already has into a focused daily summary.",
+    description: "Turn the context CEVORYN already has into a focused daily summary.",
     href: "/brief",
     label: "Open Morning Brief",
     icon: BookOpen,
@@ -34,9 +34,9 @@ export function InsufficientData({ reasons }: InsufficientDataProps) {
             <Database className="h-5 w-5 text-muted-foreground" />
           </div>
           <div>
-            <p className="text-lg font-semibold">Give Atlas enough context to lead</p>
+            <p className="text-lg font-semibold">Give CEVORYN enough context to lead</p>
             <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-              Atlas is ready, but it needs a clearer picture of your company before it can rank priorities reliably.
+              CEVORYN is ready, but it needs a clearer picture of your company before it can rank priorities reliably.
             </p>
           </div>
         </div>
@@ -74,7 +74,7 @@ export function InsufficientData({ reasons }: InsufficientDataProps) {
         {reasons.length > 0 && (
           <div className="rounded-lg bg-muted/50 p-3">
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              What Atlas is still missing
+              What CEVORYN is still missing
             </p>
             <ul className="space-y-1.5 text-xs text-muted-foreground">
               {reasons.map((reason, i) => (

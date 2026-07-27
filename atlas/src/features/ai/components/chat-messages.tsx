@@ -24,7 +24,7 @@ export function ChatMessages({ messages }: ChatMessagesProps) {
         <div>
           <p className="font-medium">Start a conversation</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Ask Atlas anything about strategy, operations, or your team.
+            Ask CEVORYN anything about strategy, operations, or your team.
           </p>
         </div>
       </div>

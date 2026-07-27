@@ -12,7 +12,7 @@ export function buildBriefPrompt(params: {
 }): string {
   const periodLabel = params.type === "DAILY" ? "today" : "this week";
 
-  return `You are Atlas, preparing a ${params.type.toLowerCase()} briefing for the leadership of "${params.orgName}".
+  return `You are CEVORYN, preparing a ${params.type.toLowerCase()} briefing for the leadership of "${params.orgName}".
 
 ## Data Available
 

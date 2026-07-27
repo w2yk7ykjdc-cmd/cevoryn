@@ -24,7 +24,7 @@ export function AuthCard({
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
-        <div className="mb-2 text-2xl font-bold tracking-tight">Atlas</div>
+        <div className="mb-2 text-2xl font-bold tracking-tight">CEVORYN</div>
         <CardTitle className="text-xl">{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>

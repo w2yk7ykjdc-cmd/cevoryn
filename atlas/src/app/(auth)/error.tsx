@@ -23,7 +23,7 @@ export default function AuthError({
       </div>
       <h1 className="mt-5 text-xl font-semibold">Sign-in page could not load</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Atlas encountered a temporary authentication problem. Your account has not been changed.
+        CEVORYN encountered a temporary authentication problem. Your account has not been changed.
       </p>
       {error.digest ? (
         <p className="mt-2 text-xs text-muted-foreground">Reference: {error.digest}</p>

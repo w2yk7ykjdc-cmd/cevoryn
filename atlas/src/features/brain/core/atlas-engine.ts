@@ -6,7 +6,7 @@ import { brainRegistry } from "./module-registry";
 import type { BrainContextParams, BrainExchangeParams } from "./types";
 
 /**
- * Atlas Engine — the central nervous system.
+ * CEVORYN Engine — the central nervous system.
  *
  * Integrates brain modules into the conversation pipeline:
  * 1. Before AI call: gather context from all modules

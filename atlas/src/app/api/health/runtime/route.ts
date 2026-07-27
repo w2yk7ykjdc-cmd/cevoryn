@@ -7,7 +7,7 @@ export async function GET() {
   return NextResponse.json(
     {
       ok: true,
-      service: "atlas",
+      service: "cevoryn",
       check: "runtime",
       timestamp: new Date().toISOString(),
       node: process.version,

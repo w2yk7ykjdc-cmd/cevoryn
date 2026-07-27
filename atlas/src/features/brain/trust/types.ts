@@ -1,11 +1,11 @@
 /**
  * Trust Engine Types
  *
- * Every recommendation Atlas makes MUST be wrapped in a TrustEnvelope.
+ * Every recommendation CEVORYN makes MUST be wrapped in a TrustEnvelope.
  * This enforces transparency: the user always sees WHY something is recommended,
- * HOW confident Atlas is, and WHAT information is missing.
+ * HOW confident CEVORYN is, and WHAT information is missing.
  *
- * Atlas must NEVER present uncertain conclusions as facts.
+ * CEVORYN must NEVER present uncertain conclusions as facts.
  */
 
 /** A piece of supporting evidence for a recommendation */

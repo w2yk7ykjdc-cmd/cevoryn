@@ -24,7 +24,7 @@ import { requireMembership, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Company Health — Atlas" };
+export const metadata: Metadata = { title: "Company Health — CEVORYN" };
 
 export default async function HealthPage() {
   const user = await requireUser();
@@ -172,7 +172,7 @@ export default async function HealthPage() {
 function buildDimensionAction(name: string, score: number): string {
   if (name === "Engagement") return score < 40 ? "Run one focused team check-in and capture blockers before noon." : "Protect communication cadence and close unanswered threads.";
   if (name === "Velocity") return score < 40 ? "Select one blocked outcome, assign a single owner, and define a same-day checkpoint." : "Reduce work in progress and finish the highest-value open action.";
-  return score < 40 ? "Clarify ownership for the most important decision and record the missing context in Atlas." : "Keep company context current so decisions remain grounded.";
+  return score < 40 ? "Clarify ownership for the most important decision and record the missing context in CEVORYN." : "Keep company context current so decisions remain grounded.";
 }
 
 function buildHealthSummary(score: number, trend: "improving" | "stable" | "declining", weakestArea: string | undefined, openInsights: number): string {

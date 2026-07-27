@@ -27,7 +27,7 @@ export function trackEvent(payload: AnalyticsPayload): void {
   // In production, replace with DB insert or event queue
   if (process.env.NODE_ENV === "development") {
     console.warn(
-      `[atlas:analytics] ${payload.event}`,
+      `[cevoryn:analytics] ${payload.event}`,
       JSON.stringify({
         org: payload.organizationId.slice(0, 8),
         ts: payload.timestamp,

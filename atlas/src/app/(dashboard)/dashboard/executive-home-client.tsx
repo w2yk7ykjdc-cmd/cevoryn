@@ -30,7 +30,7 @@ interface ExecutiveHomeClientProps {
 const COMMANDS = [
   {
     href: "/chat",
-    title: "Ask Atlas",
+    title: "Ask CEVORYN",
     description: "Turn a business problem into a decision or action plan.",
     icon: MessageSquareText,
   },

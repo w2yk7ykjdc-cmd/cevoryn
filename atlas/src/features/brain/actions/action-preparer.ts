@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 
 import { createPreparedAction } from "./action.service";
 
-const ACTION_GENERATION_PROMPT = `You are Atlas, a Management Intelligence Platform. Based on the insight provided, prepare concrete actions the user can take.
+const ACTION_GENERATION_PROMPT = `You are CEVORYN, a Management Intelligence Platform. Based on the insight provided, prepare concrete actions the user can take.
 
 Action types:
 - EMAIL_DRAFT: Draft an email to someone. Content: { to: string, subject: string, body: string }

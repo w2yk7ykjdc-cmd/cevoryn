@@ -84,7 +84,7 @@ export async function getValidGoogleAccessToken(
     return refreshed.access_token;
   } catch (error) {
     console.error(
-      "[atlas:google] token refresh failed",
+      "[cevoryn:google] token refresh failed",
       error instanceof Error ? error.message : "unknown"
     );
     throw new GoogleConnectionError(

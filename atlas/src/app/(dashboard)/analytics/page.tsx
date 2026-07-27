@@ -20,7 +20,7 @@ import { requireMembership, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/rbac";
 
-export const metadata: Metadata = { title: "Product Analytics — Atlas" };
+export const metadata: Metadata = { title: "Product Analytics — CEVORYN" };
 export const dynamic = "force-dynamic";
 
 export default async function AnalyticsPage() {

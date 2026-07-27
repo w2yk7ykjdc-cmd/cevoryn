@@ -14,9 +14,9 @@ const PROGRESS_KEY = "atlas:onboarding-guide-progress:v2";
 const STEPS = [
   {
     id: "context",
-    title: "Tell Atlas what matters",
+    title: "Tell CEVORYN what matters",
     description: "Start a chat and explain your priorities, risks, and current goals.",
-    href: "/chat?prompt=Help%20me%20set%20up%20Atlas.%20Ask%20me%20for%20our%20top%20goals%2C%20risks%2C%20and%20current%20priorities.",
+    href: "/chat?prompt=Help%20me%20set%20up%20CEVORYN.%20Ask%20me%20for%20our%20top%20goals%2C%20risks%2C%20and%20current%20priorities.",
   },
   {
     id: "brief",
@@ -85,9 +85,9 @@ export function OnboardingGuide() {
       <CardHeader className="flex flex-row items-start justify-between gap-4 pb-3">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-primary">Getting started</p>
-          <CardTitle className="mt-1 text-lg">Set up Atlas in four steps</CardTitle>
+          <CardTitle className="mt-1 text-lg">Set up CEVORYN in four steps</CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">
-            {completed.length} of {STEPS.length} steps opened. Atlas becomes more useful as company context grows.
+            {completed.length} of {STEPS.length} steps opened. CEVORYN becomes more useful as company context grows.
           </p>
         </div>
         <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={dismiss} aria-label="Dismiss onboarding guide">

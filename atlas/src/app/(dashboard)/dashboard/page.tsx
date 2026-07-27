@@ -5,7 +5,7 @@ import { requireMembership, requireUser } from "@/lib/auth";
 
 import { ExecutiveHomeClient } from "./executive-home-client";
 
-export const metadata: Metadata = { title: "Atlas — Executive Home" };
+export const metadata: Metadata = { title: "CEVORYN — Executive Home" };
 
 /**
  * Executive Home — server component.

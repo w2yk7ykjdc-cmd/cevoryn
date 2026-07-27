@@ -49,7 +49,7 @@ export function GoogleIntegrationCard({
           body: JSON.stringify({
             approved: true,
             to: [connectedEmail],
-            subject: "Atlas Google Test",
+            subject: "CEVORYN Google Test",
             body: "Google bağlantısı başarıyla çalışıyor.",
           }),
         },
@@ -121,7 +121,7 @@ export function GoogleIntegrationCard({
     return (
       <div className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          Connect Gmail and Google Calendar so Atlas can prepare email drafts and
+          Connect Gmail and Google Calendar so CEVORYN can prepare email drafts and
           calendar actions for your approval.
         </p>
         <Button asChild>

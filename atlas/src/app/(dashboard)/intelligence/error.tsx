@@ -28,7 +28,7 @@ export default function IntelligenceError({
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Atlas could not retrieve the latest insights and decisions. Your data was not changed.
+            CEVORYN could not retrieve the latest insights and decisions. Your data was not changed.
           </p>
           <Button onClick={reset}>
             <RotateCcw className="h-4 w-4" />

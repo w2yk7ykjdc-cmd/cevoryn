@@ -11,7 +11,7 @@ import type { Evidence, TrustEnvelope } from "../trust/types";
 import { computeDecisionScore, parseScoringResponse } from "./decision-scorer";
 import type { DecisionCanvas, DecisionOption } from "./types";
 
-const CANVAS_GENERATION_PROMPT = `You are Atlas, a Management Intelligence Platform.
+const CANVAS_GENERATION_PROMPT = `You are CEVORYN, a Management Intelligence Platform.
 Transform the given business problem into a structured Decision Canvas.
 
 You MUST return a JSON object with exactly these fields:

@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import { Prisma } from "@prisma/client";
 import "server-only";
 
@@ -26,19 +24,6 @@ interface SubscriptionRow {
   trial_end: Date | null;
   created_at: Date;
   updated_at: Date;
-}
-
-export interface SubscriptionSyncInput {
-  organizationId: string;
-  stripeCustomerId: string;
-  stripeSubscriptionId: string | null;
-  stripePriceId: string | null;
-  plan: BillingPlan;
-  subscriptionStatus: SubscriptionStatus;
-  currentPeriodStart: Date | null;
-  currentPeriodEnd: Date | null;
-  cancelAtPeriodEnd: boolean;
-  trialEnd: Date | null;
 }
 
 function mapSubscription(row: SubscriptionRow): OrganizationSubscription {
@@ -100,133 +85,4 @@ export async function getOrganizationSubscription(
 
     throw error;
   }
-}
-
-export async function getSubscriptionByStripeCustomerId(
-  stripeCustomerId: string,
-  client: DatabaseClient = prisma
-): Promise<OrganizationSubscription | null> {
-  try {
-    const rows = await client.$queryRaw<SubscriptionRow[]>(Prisma.sql`
-      SELECT *
-      FROM "subscriptions"
-      WHERE "stripe_customer_id" = ${stripeCustomerId}
-      LIMIT 1
-    `);
-
-    const row = rows[0];
-    return row ? mapSubscription(row) : null;
-  } catch (error) {
-    if (isMissingBillingTableError(error)) return null;
-    throw error;
-  }
-}
-
-export async function ensureStripeCustomerRecord(
-  organizationId: string,
-  stripeCustomerId: string,
-  plan: BillingPlan,
-  client: DatabaseClient = prisma
-): Promise<OrganizationSubscription> {
-  const rows = await client.$queryRaw<SubscriptionRow[]>(Prisma.sql`
-    INSERT INTO "subscriptions" (
-      "id",
-      "organization_id",
-      "stripe_customer_id",
-      "plan",
-      "subscription_status",
-      "updated_at"
-    )
-    VALUES (
-      ${randomUUID()},
-      ${organizationId},
-      ${stripeCustomerId},
-      ${plan}::"BillingPlan",
-      'INCOMPLETE'::"SubscriptionStatus",
-      CURRENT_TIMESTAMP
-    )
-    ON CONFLICT ("organization_id") DO UPDATE SET
-      "stripe_customer_id" = EXCLUDED."stripe_customer_id",
-      "plan" = EXCLUDED."plan",
-      "updated_at" = CURRENT_TIMESTAMP
-    RETURNING *
-  `);
-
-  const row = rows[0];
-  if (!row) throw new Error("Failed to persist Stripe customer.");
-  return mapSubscription(row);
-}
-
-export async function syncOrganizationSubscription(
-  input: SubscriptionSyncInput,
-  client: DatabaseClient = prisma
-): Promise<OrganizationSubscription> {
-  const rows = await client.$queryRaw<SubscriptionRow[]>(Prisma.sql`
-    INSERT INTO "subscriptions" (
-      "id",
-      "organization_id",
-      "stripe_customer_id",
-      "stripe_subscription_id",
-      "stripe_price_id",
-      "plan",
-      "subscription_status",
-      "current_period_start",
-      "current_period_end",
-      "cancel_at_period_end",
-      "trial_end",
-      "updated_at"
-    )
-    VALUES (
-      ${randomUUID()},
-      ${input.organizationId},
-      ${input.stripeCustomerId},
-      ${input.stripeSubscriptionId},
-      ${input.stripePriceId},
-      ${input.plan}::"BillingPlan",
-      ${input.subscriptionStatus}::"SubscriptionStatus",
-      ${input.currentPeriodStart},
-      ${input.currentPeriodEnd},
-      ${input.cancelAtPeriodEnd},
-      ${input.trialEnd},
-      CURRENT_TIMESTAMP
-    )
-    ON CONFLICT ("organization_id") DO UPDATE SET
-      "stripe_customer_id" = EXCLUDED."stripe_customer_id",
-      "stripe_subscription_id" = EXCLUDED."stripe_subscription_id",
-      "stripe_price_id" = EXCLUDED."stripe_price_id",
-      "plan" = EXCLUDED."plan",
-      "subscription_status" = EXCLUDED."subscription_status",
-      "current_period_start" = EXCLUDED."current_period_start",
-      "current_period_end" = EXCLUDED."current_period_end",
-      "cancel_at_period_end" = EXCLUDED."cancel_at_period_end",
-      "trial_end" = EXCLUDED."trial_end",
-      "updated_at" = CURRENT_TIMESTAMP
-    RETURNING *
-  `);
-
-  const row = rows[0];
-  if (!row) throw new Error("Failed to synchronize subscription.");
-  return mapSubscription(row);
-}
-
-export async function runIdempotentWebhookEvent(
-  eventId: string,
-  eventType: string,
-  handler: (client: Prisma.TransactionClient) => Promise<void>
-): Promise<boolean> {
-  return prisma.$transaction(async (transaction) => {
-    const claimed = await transaction.$executeRaw(Prisma.sql`
-      INSERT INTO "stripe_webhook_events" (
-        "stripe_event_id",
-        "event_type"
-      )
-      VALUES (${eventId}, ${eventType})
-      ON CONFLICT ("stripe_event_id") DO NOTHING
-    `);
-
-    if (claimed === 0) return false;
-
-    await handler(transaction);
-    return true;
-  });
 }

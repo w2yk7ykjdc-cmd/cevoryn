@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(createGoogleAuthorizationUrl(state));
   } catch (error) {
     console.error(
-      "[atlas:google] connect failed",
+      "[cevoryn:google] connect failed",
       error instanceof Error ? error.message : "unknown"
     );
     return NextResponse.redirect(settingsErrorUrl(request));

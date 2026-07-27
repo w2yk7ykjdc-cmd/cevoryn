@@ -105,7 +105,7 @@ export async function getMembership(
     };
   } catch (error) {
     const prismaError = error as { code?: string; meta?: { modelName?: string } };
-    console.error("[atlas:auth] getMembership failed", {
+    console.error("[cevoryn:auth] getMembership failed", {
       prismaCode: prismaError.code ?? "UNKNOWN",
       model: prismaError.meta?.modelName ?? "member",
       userId: userId.slice(0, 8) + "...",
@@ -114,7 +114,7 @@ export async function getMembership(
 
     if (prismaError.code === "P2021" || prismaError.code === "P2010") {
       console.error(
-        "[atlas:auth] Database schema not migrated. Run: npx prisma migrate deploy"
+        "[cevoryn:auth] Database schema not migrated. Run: npx prisma migrate deploy"
       );
       return null;
     }

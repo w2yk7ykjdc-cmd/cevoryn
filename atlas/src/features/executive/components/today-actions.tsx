@@ -55,7 +55,7 @@ export function TodayActions({ actions: initialActions }: TodayActionsProps) {
             Ready to execute
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Atlas prepared these next steps. You stay in control.
+            CEVORYN prepared these next steps. You stay in control.
           </p>
         </div>
         <Badge variant="secondary" className="shrink-0">
@@ -102,7 +102,7 @@ function ActionCard({
         });
 
         if (!response.ok) {
-          toast.error("Atlas could not approve this action. Please try again.");
+          toast.error("CEVORYN could not approve this action. Please try again.");
           return;
         }
 
@@ -113,7 +113,7 @@ function ActionCard({
         toast.success("Action approved and moved forward");
         onDismiss();
       } catch (_error) {
-        toast.error("Atlas could not approve this action. Please try again.");
+        toast.error("CEVORYN could not approve this action. Please try again.");
       }
     });
   }
@@ -128,7 +128,7 @@ function ActionCard({
         });
 
         if (!response.ok) {
-          toast.error("Atlas could not dismiss this action. Please try again.");
+          toast.error("CEVORYN could not dismiss this action. Please try again.");
           return;
         }
 
@@ -139,7 +139,7 @@ function ActionCard({
         toast.success("Action dismissed");
         onDismiss();
       } catch (_error) {
-        toast.error("Atlas could not dismiss this action. Please try again.");
+        toast.error("CEVORYN could not dismiss this action. Please try again.");
       }
     });
   }

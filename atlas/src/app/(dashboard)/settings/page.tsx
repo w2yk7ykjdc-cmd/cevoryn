@@ -12,7 +12,7 @@ import { GoogleIntegrationCard } from "./google-integration-card";
 import { OrganizationNameForm } from "./organization-name-form";
 import { TestDataCleanup } from "./test-data-cleanup";
 
-export const metadata: Metadata = { title: "Settings — Atlas" };
+export const metadata: Metadata = { title: "Settings — CEVORYN" };
 
 type GoogleConnectionSummary = {
   google_email: string;
@@ -47,7 +47,7 @@ async function getConnectedGoogleEmail(
     return rows[0]?.google_email ?? null;
   } catch (error) {
     console.error(
-      "[atlas:google] connection status unavailable",
+      "[cevoryn:google] connection status unavailable",
       error instanceof Error ? error.message : "unknown"
     );
     return null;
