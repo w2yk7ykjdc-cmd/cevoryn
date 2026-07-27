@@ -54,6 +54,17 @@ These require a real browser, email delivery, and authenticated user interaction
 - [x] Legacy Stripe integration (`/api/stripe/webhook`, `src/lib/stripe/*`, the `stripe` npm dependency) removed - confirmed no active Stripe customers depend on it. The `subscriptions` table still has `stripe_customer_id`/`stripe_subscription_id`/`stripe_price_id` columns; those are kept as-is (Paddle rows populate `stripe_customer_id` with a `paddle:<id>` placeholder to satisfy the `NOT NULL` constraint from the original migration) rather than doing a separate column-rename migration.
 - [x] A genuine Paddle sandbox account/API key does exist for this vendor (`pdl_sdbx_apikey_...`, found under the sandbox toggle on vendors.paddle.com). Verified via a temporary CI job against `sandbox-api.paddle.com`: all three configured price IDs (Starter, Professional, Business) return `200 OK` with active status under the correct `CEVORYN` product. Static code review (see #50) also found and fixed a real bug: the checkout route's duplicate-subscription guard checked a field (`stripeSubscriptionId`) that Paddle-originated rows never populate, so it could never block a customer with an active Paddle subscription from starting a second checkout.
 - [ ] Full browser-driven sandbox checkout (Paddle.js overlay + webhook delivery + `subscriptions` row update) has not been run yet - the catalog check above only confirmed the API credentials and price IDs are valid, not the end-to-end flow.
+- [x] `/settings/billing` plan cards now show a real price per plan (fetched live from Paddle's Prices API - see #52), and the feature/limit bullets are derived directly from `PLAN_CONFIG` instead of a hand-maintained list that had drifted (Business was missing "CEVORYN Brain" and "Advanced reports" even though the plan actually includes both).
+- [x] `/settings/billing` is now reachable - it existed but had no link from the sidebar, mobile nav, or the Settings page itself (fixed in #52).
+- [x] Production canonicalization now covers every non-canonical host, not just the one legacy domain: any host other than `cevoryn.vercel.app` redirects to it when `VERCEL_ENV === "production"`, including Vercel's per-deployment preview-style URLs (`<project>-<hash>-<team>.vercel.app`) which are otherwise always live in parallel with the alias.
+
+## Known open work outside this branch
+
+Not part of this hardening pass - flagged here so they aren't lost:
+
+- PR #37 (`feature/team-management-ui`) - open, unmerged. `/team` already exists and is reachable on `main`; this PR may now be redundant or conflicting and should be checked before merging.
+- PR #35 (`feature/iyzico-subscriptions`) - open, unmerged. Adds a second, parallel payment provider (iyzico) alongside the Paddle integration that is now live; needs a product decision on whether iyzico is still wanted before this is touched.
+- Issues #17, #4, #1 - pre-existing broad readiness/hardening checklists, largely superseded by the specific fixes tracked in this document. Worth a pass to close out or re-scope stale items.
 
 ## Release boundary
 
