@@ -45,10 +45,10 @@ These require a real browser, email delivery, and authenticated user interaction
 6. Verify mobile chat input remains visible above the keyboard.
 7. Complete a Paddle sandbox checkout end-to-end and confirm the `subscriptions` row updates via the webhook (not yet run - see "Billing readiness" below).
 
-## Billing readiness (not yet confirmed)
+## Billing readiness
 
-- [ ] Run `scripts/audit-stale-identifiers.sql` against production to confirm no organization is silently missing the AI system prompt's "product owner" context (see `features/ai/context/prompts.ts`).
-- [ ] Confirm `prisma migrate deploy` has actually been applied to the production database - `npm run build` does not run migrations automatically, so `google_connections`, `subscriptions`, and `billing_webhook_events` must be verified to exist.
+- [x] Ran `scripts/audit-stale-identifiers.sql` (queries 1, 5, and 4) against production via the Supabase SQL Editor. Found and fixed a real regression: `organizations` has a row with `name = "atlas"`, `slug = "atlas"` (the founder's own workspace) that the AI system prompt's "product owner" context depends on matching - see #48. No duplicate `subscriptions` rows per organization (0 rows) and no orphaned `subscriptions` rows with a missing organization (0 rows) - both clean.
+- [x] `prisma migrate deploy` confirmed applied to the production database - the `subscriptions` table queries above returned real data (not a "relation does not exist" error), confirming at least that migration is live.
 - [ ] Confirm `PADDLE_ENV`, `PADDLE_API_KEY`, `PADDLE_PRICE_STARTER/PROFESSIONAL/BUSINESS`, and `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN` all belong to the same environment (sandbox or production) in Vercel.
 - [ ] Confirm the Google Cloud OAuth client's redirect URI exactly matches `<NEXT_PUBLIC_APP_URL>/api/integrations/google/callback` for the current production domain.
 - [x] Legacy Stripe integration (`/api/stripe/webhook`, `src/lib/stripe/*`, the `stripe` npm dependency) removed - confirmed no active Stripe customers depend on it. The `subscriptions` table still has `stripe_customer_id`/`stripe_subscription_id`/`stripe_price_id` columns; those are kept as-is (Paddle rows populate `stripe_customer_id` with a `paddle:<id>` placeholder to satisfy the `NOT NULL` constraint from the original migration) rather than doing a separate column-rename migration.
