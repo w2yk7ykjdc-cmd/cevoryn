@@ -30,10 +30,8 @@ jobs:
         env:
           PADDLE_API_KEY: ${{ inputs.paddle_sandbox_api_key }}
         run: |
-          for pair in "STARTER:pri_01kyfeqs00ac0b9yktsyqkfg20" "PROFESSIONAL:pri_01kyfewe73c9s1kaw79xq6r22e" "BUSINESS:pri_01kyfeyy0e3c3may1akqwcpqd3"; do
-            name="${pair%%:*}"
-            id="${pair##*:}"
-            echo "=== $name ($id) ==="
+          for id in "pri_01kyjqfyy4xy5rwn9ptkmj3fn" "pri_01kyjqbwqcsmkt48qd12rwstj1" "pri_01kyjq7njsy7bt9vs768zpv8hw"; do
+            echo "=== $id ==="
             curl -sS -D - -o body.json --max-time 15 \
               "https://sandbox-api.paddle.com/prices/$id?include=product" \
               -H "Authorization: Bearer $PADDLE_API_KEY" \
