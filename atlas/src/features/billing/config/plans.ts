@@ -38,7 +38,7 @@ const sharedFeatures = new Set<BillingFeature>([
 export const PLAN_CONFIG: Record<BillingPlan, PlanDefinition> = {
   STARTER: {
     name: "Starter",
-    description: "CEVORYN'in temel yapay zekâ ve karar desteği özellikleri.",
+    description: "CEVORYN's core AI and decision support features.",
     recommended: false,
     limits: {
       maxOrganizations: 1,
@@ -49,7 +49,7 @@ export const PLAN_CONFIG: Record<BillingPlan, PlanDefinition> = {
   },
   PROFESSIONAL: {
     name: "Professional",
-    description: "Büyüyen ekipler için Brain, raporlar ve gelişmiş karar desteği.",
+    description: "Brain, reports, and advanced decision support for growing teams.",
     recommended: true,
     limits: {
       maxOrganizations: 1,
@@ -65,7 +65,7 @@ export const PLAN_CONFIG: Record<BillingPlan, PlanDefinition> = {
   },
   BUSINESS: {
     name: "Business",
-    description: "Daha büyük ekipler için yüksek limitler ve gelişmiş yönetim.",
+    description: "Higher limits and advanced administration for larger teams.",
     recommended: false,
     limits: {
       maxOrganizations: 1,
