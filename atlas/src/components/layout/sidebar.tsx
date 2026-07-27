@@ -5,6 +5,7 @@ import {
   BarChart3,
   BrainCircuit,
   Building2,
+  CreditCard,
   LayoutDashboard,
   MessageCircle,
   MessageSquare,
@@ -39,6 +40,7 @@ const NAV_ITEMS = [
   { labelKey: "analytics", href: "/analytics", icon: BarChart3, adminOnly: true },
   { labelKey: "team", href: "/team", icon: Users },
   { labelKey: "settings", href: "/settings", icon: Settings },
+  { labelKey: "billing", href: "/settings/billing", icon: CreditCard },
   { labelKey: "feedback", href: "/feedback", icon: MessageCircle },
 ] as const;
 
