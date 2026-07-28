@@ -148,7 +148,8 @@ export function Sidebar({ membership, onNavigate }: SidebarProps) {
         </div>
 
         <p className="px-1 text-xs text-muted-foreground">
-          {BRAND.name} {BRAND.versionLabel}
+          © {new Date().getFullYear()} {BRAND.name}. All rights reserved. ·{" "}
+          {BRAND.versionLabel}
         </p>
       </div>
     </aside>
