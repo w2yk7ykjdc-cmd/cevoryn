@@ -16,6 +16,7 @@ export const ROUTES = {
   SETTINGS: "/settings",
   TERMS: "/terms",
   PRIVACY: "/privacy",
+  REFUNDS: "/refunds",
 } as const;
 
 export const PUBLIC_ROUTES: readonly string[] = [
@@ -27,6 +28,7 @@ export const PUBLIC_ROUTES: readonly string[] = [
   ROUTES.AUTH_CALLBACK,
   ROUTES.TERMS,
   ROUTES.PRIVACY,
+  ROUTES.REFUNDS,
 ];
 
 export const AUTH_ROUTES: readonly string[] = [
