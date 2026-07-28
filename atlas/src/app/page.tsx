@@ -33,6 +33,18 @@ export default function HomePage() {
           </Link>
         </div>
       </div>
+
+      <footer className="mt-16 flex gap-4 text-sm text-muted-foreground">
+        <Link className="hover:text-foreground" href={ROUTES.TERMS}>
+          Terms
+        </Link>
+        <Link className="hover:text-foreground" href={ROUTES.PRIVACY}>
+          Privacy
+        </Link>
+        <Link className="hover:text-foreground" href={ROUTES.REFUNDS}>
+          Refunds
+        </Link>
+      </footer>
     </main>
   );
 }

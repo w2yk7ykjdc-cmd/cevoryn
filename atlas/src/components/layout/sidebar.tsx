@@ -136,6 +136,15 @@ export function Sidebar({ membership, onNavigate }: SidebarProps) {
           >
             {t("terms")}
           </Link>
+
+          <Link
+            className="hover:text-foreground"
+            href="/refunds"
+            prefetch
+            onClick={onNavigate}
+          >
+            {t("refunds")}
+          </Link>
         </div>
 
         <p className="px-1 text-xs text-muted-foreground">

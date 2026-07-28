@@ -46,6 +46,8 @@ export default function PrivacyPage() {
         <div className="border-t pt-6 text-sm text-muted-foreground">
           <Link className="underline underline-offset-4" href="/terms">Terms of use</Link>
           <span className="mx-2">·</span>
+          <Link className="underline underline-offset-4" href="/refunds">Refund policy</Link>
+          <span className="mx-2">·</span>
           <Link className="underline underline-offset-4" href="/">Back to CEVORYN</Link>
         </div>
       </div>
