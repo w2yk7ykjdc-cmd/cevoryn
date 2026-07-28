@@ -12,10 +12,6 @@ function formatRole(role: string): string {
 function formatDisplayName(name: string): string {
   const normalized = name.trim().replace(/\s+/g, " ");
 
-  if (normalized.toLocaleLowerCase("tr-TR") === "kemal kiyak") {
-    return "Kemal Kıyak";
-  }
-
   return normalized
     .split(" ")
     .map((part) => {

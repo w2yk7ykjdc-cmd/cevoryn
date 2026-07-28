@@ -50,7 +50,7 @@ export function GoogleIntegrationCard({
             approved: true,
             to: [connectedEmail],
             subject: "CEVORYN Google Test",
-            body: "Google bağlantısı başarıyla çalışıyor.",
+            body: "The Google connection is working successfully.",
           }),
         },
       );
