@@ -34,16 +34,21 @@ export default function HomePage() {
         </div>
       </div>
 
-      <footer className="mt-16 flex gap-4 text-sm text-muted-foreground">
-        <Link className="hover:text-foreground" href={ROUTES.TERMS}>
-          Terms
-        </Link>
-        <Link className="hover:text-foreground" href={ROUTES.PRIVACY}>
-          Privacy
-        </Link>
-        <Link className="hover:text-foreground" href={ROUTES.REFUNDS}>
-          Refunds
-        </Link>
+      <footer className="mt-16 flex flex-col items-center gap-3 text-sm text-muted-foreground">
+        <div className="flex gap-4">
+          <Link className="hover:text-foreground" href={ROUTES.TERMS}>
+            Terms
+          </Link>
+          <Link className="hover:text-foreground" href={ROUTES.PRIVACY}>
+            Privacy
+          </Link>
+          <Link className="hover:text-foreground" href={ROUTES.REFUNDS}>
+            Refunds
+          </Link>
+        </div>
+        <p className="text-xs">
+          © {new Date().getFullYear()} {BRAND.name}. All rights reserved.
+        </p>
       </footer>
     </main>
   );
