@@ -1,16 +1,8 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/get-current-user";
 import { PaddleCheckoutButton } from "@/components/paddle-checkout-button";
 
 export default async function PricingPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user || !user.email) {
-    redirect("/login");
-  }
+  const user = await requireUser();
 
   return (
     <div className="mx-auto flex min-h-screen max-w-3xl flex-col gap-8 px-4 py-16">
