@@ -2,6 +2,11 @@ name: Production Smoke
 
 on:
   workflow_dispatch:
+    inputs:
+      paddle_webhook_secret:
+        description: "Temporary: PADDLE_WEBHOOK_SECRET value to test-sign a webhook request with"
+        required: false
+        type: string
   schedule:
     - cron: "17 * * * *"
 
@@ -13,6 +18,39 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  paddle-webhook-signature-check:
+    if: ${{ inputs.paddle_webhook_secret != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Mask the secret in logs
+        run: echo "::add-mask::${{ inputs.paddle_webhook_secret }}"
+
+      - name: Send a signed test webhook to production
+        env:
+          PADDLE_WEBHOOK_SECRET: ${{ inputs.paddle_webhook_secret }}
+        run: |
+          node -e '
+            const crypto = require("crypto");
+            const secret = process.env.PADDLE_WEBHOOK_SECRET;
+            const body = JSON.stringify({ event_id: "evt_test_diag_1", event_type: "test.event", data: {} });
+            const ts = Math.floor(Date.now() / 1000);
+            const h1 = crypto.createHmac("sha256", secret).update(`${ts}:${body}`).digest("hex");
+            const fs = require("fs");
+            fs.writeFileSync("body.json", body);
+            fs.writeFileSync("signature.txt", `ts=${ts};h1=${h1}`);
+          '
+          echo "=== Request ==="
+          curl -sS -D - -o response.json --max-time 15 \
+            "https://cevoryn.vercel.app/api/billing/paddle/webhook" \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "Paddle-Signature: $(cat signature.txt)" \
+            --data-binary @body.json
+          echo "--- response body ---"
+          cat response.json
+          echo
+
   health:
     runs-on: ubuntu-latest
     timeout-minutes: 5
