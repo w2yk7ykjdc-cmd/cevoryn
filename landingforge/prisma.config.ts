@@ -9,7 +9,8 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
-    directUrl: process.env["DIRECT_URL"],
+    // Direct (non-pooled) connection: required for migrations/introspection,
+    // which don't work reliably through Supabase's pgbouncer pooler.
+    url: process.env["DIRECT_URL"],
   },
 });
