@@ -52,11 +52,7 @@ jobs:
                 }
                 for (const dest of parsed.data) {
                   console.log("---");
-                  console.log("id:          ", dest.id);
-                  console.log("description: ", dest.description);
-                  console.log("destination: ", dest.destination);
-                  console.log("active:      ", dest.active);
-                  console.log("secret_key:  ", dest.secret_key);
+                  console.log(JSON.stringify(dest, null, 2));
                 }
               });
             '
