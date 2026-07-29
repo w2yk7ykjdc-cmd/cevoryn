@@ -57,6 +57,42 @@ jobs:
               });
             '
 
+  paddle-fix-notification-events:
+    if: ${{ inputs.paddle_api_key != '' && inputs.paddle_rotate_notification_setting_id != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Mask the key in logs
+        run: echo "::add-mask::${{ inputs.paddle_api_key }}"
+
+      - name: Subscribe the destination to subscription.* events
+        env:
+          PADDLE_API_KEY: ${{ inputs.paddle_api_key }}
+          NOTIFICATION_SETTING_ID: ${{ inputs.paddle_rotate_notification_setting_id }}
+        run: |
+          curl -sS --max-time 15 \
+            "https://sandbox-api.paddle.com/notification-settings/$NOTIFICATION_SETTING_ID" \
+            -X PATCH \
+            -H "Authorization: Bearer $PADDLE_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "subscribed_events": [
+                "subscription.created",
+                "subscription.updated",
+                "subscription.canceled",
+                "subscription.paused",
+                "subscription.resumed"
+              ]
+            }' \
+            | node -e '
+              let raw = "";
+              process.stdin.on("data", (chunk) => { raw += chunk; });
+              process.stdin.on("end", () => {
+                const parsed = JSON.parse(raw);
+                console.log(JSON.stringify(parsed, null, 2));
+              });
+            '
+
   paddle-rotate-webhook-secret:
     if: ${{ inputs.paddle_api_key != '' && inputs.paddle_rotate_notification_setting_id != '' }}
     runs-on: ubuntu-latest
