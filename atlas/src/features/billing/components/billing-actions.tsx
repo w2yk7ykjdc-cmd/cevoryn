@@ -213,6 +213,29 @@ export function BillingActions({
     }
   }
 
+  async function changePlan(plan: BillingPlan) {
+    const action = `checkout:${plan}`;
+    try {
+      setPendingAction(action);
+      const response = await fetch("/api/billing/change-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan }),
+      });
+      const result = (await response.json()) as { success?: boolean; error?: string };
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error ?? "Plan change failed.");
+      }
+
+      toast.success(`Plan change to ${getPlanDefinition(plan).name} is being processed.`);
+      window.location.reload();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Billing is unavailable.");
+      setPendingAction(null);
+    }
+  }
+
   async function openPortal() {
     try {
       setPendingAction("portal");
@@ -306,7 +329,7 @@ export function BillingActions({
                     disabled={pendingAction !== null || (isCurrent && hasActiveSubscription)}
                     onClick={() => {
                       if (hasActiveSubscription) {
-                        void openPortal();
+                        void changePlan(plan);
                       } else {
                         void openCheckout(plan);
                       }
