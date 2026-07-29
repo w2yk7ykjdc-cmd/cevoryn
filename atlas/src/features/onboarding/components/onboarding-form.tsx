@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { signOutAction } from "@/features/auth/actions/auth";
 
 import { completeOnboardingAction } from "../actions/onboarding";
 import { onboardingSchema } from "../schemas/onboarding";
@@ -114,6 +115,15 @@ export function OnboardingForm({ userEmail }: OnboardingFormProps) {
             Create workspace
           </Button>
         </form>
+
+        <p className="mt-4 text-center text-xs text-muted-foreground">
+          Signed in as {userEmail}.{" "}
+          <form action={signOutAction} className="inline">
+            <button type="submit" className="underline hover:text-foreground">
+              Not you? Sign out
+            </button>
+          </form>
+        </p>
       </CardContent>
     </Card>
   );
