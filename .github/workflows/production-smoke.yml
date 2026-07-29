@@ -11,6 +11,10 @@ on:
         description: "Temporary: sandbox PADDLE_API_KEY to look up the real notification destination secret"
         required: false
         type: string
+      paddle_rotate_notification_setting_id:
+        description: "Temporary: notification-settings id to rotate the secret key for (requires paddle_api_key)"
+        required: false
+        type: string
   schedule:
     - cron: "17 * * * *"
 
@@ -54,6 +58,33 @@ jobs:
                   console.log("active:      ", dest.active);
                   console.log("secret_key:  ", dest.secret_key);
                 }
+              });
+            '
+
+  paddle-rotate-webhook-secret:
+    if: ${{ inputs.paddle_api_key != '' && inputs.paddle_rotate_notification_setting_id != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Mask the key in logs
+        run: echo "::add-mask::${{ inputs.paddle_api_key }}"
+
+      - name: Rotate the notification destination secret and print it
+        env:
+          PADDLE_API_KEY: ${{ inputs.paddle_api_key }}
+          NOTIFICATION_SETTING_ID: ${{ inputs.paddle_rotate_notification_setting_id }}
+        run: |
+          curl -sS --max-time 15 \
+            "https://sandbox-api.paddle.com/notification-settings/$NOTIFICATION_SETTING_ID/secret-key" \
+            -X POST \
+            -H "Authorization: Bearer $PADDLE_API_KEY" \
+            -H "Content-Type: application/json" \
+            | node -e '
+              let raw = "";
+              process.stdin.on("data", (chunk) => { raw += chunk; });
+              process.stdin.on("end", () => {
+                const parsed = JSON.parse(raw);
+                console.log(JSON.stringify(parsed, null, 2));
               });
             '
 
