@@ -7,6 +7,10 @@ on:
         description: "Temporary: PADDLE_WEBHOOK_SECRET value to test-sign a webhook request with"
         required: false
         type: string
+      paddle_api_key:
+        description: "Temporary: sandbox PADDLE_API_KEY to look up the real notification destination secret"
+        required: false
+        type: string
   schedule:
     - cron: "17 * * * *"
 
@@ -18,6 +22,41 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  paddle-notification-secret-check:
+    if: ${{ inputs.paddle_api_key != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Mask the key in logs
+        run: echo "::add-mask::${{ inputs.paddle_api_key }}"
+
+      - name: List sandbox notification destinations
+        env:
+          PADDLE_API_KEY: ${{ inputs.paddle_api_key }}
+        run: |
+          curl -sS --max-time 15 \
+            "https://sandbox-api.paddle.com/notification-settings" \
+            -H "Authorization: Bearer $PADDLE_API_KEY" \
+            | node -e '
+              let raw = "";
+              process.stdin.on("data", (chunk) => { raw += chunk; });
+              process.stdin.on("end", () => {
+                const parsed = JSON.parse(raw);
+                if (!parsed.data) {
+                  console.log("No data field in response:", JSON.stringify(parsed, null, 2));
+                  return;
+                }
+                for (const dest of parsed.data) {
+                  console.log("---");
+                  console.log("id:          ", dest.id);
+                  console.log("description: ", dest.description);
+                  console.log("destination: ", dest.destination);
+                  console.log("active:      ", dest.active);
+                  console.log("secret_key:  ", dest.secret_key);
+                }
+              });
+            '
+
   paddle-webhook-signature-check:
     if: ${{ inputs.paddle_webhook_secret != '' }}
     runs-on: ubuntu-latest
