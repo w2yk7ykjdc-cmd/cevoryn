@@ -21,9 +21,9 @@ CREATE TABLE "users" (
     "name" TEXT,
     "avatar_url" TEXT,
     "plan" "Plan" NOT NULL DEFAULT 'FREE',
-    "stripe_customer_id" TEXT,
-    "stripe_sub_id" TEXT,
-    "stripe_sub_status" TEXT,
+    "paddle_customer_id" TEXT,
+    "paddle_subscription_id" TEXT,
+    "paddle_sub_status" TEXT,
     "current_period_end" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
@@ -157,10 +157,10 @@ CREATE UNIQUE INDEX "users_supabase_id_key" ON "users"("supabase_id");
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "users_stripe_customer_id_key" ON "users"("stripe_customer_id");
+CREATE UNIQUE INDEX "users_paddle_customer_id_key" ON "users"("paddle_customer_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "users_stripe_sub_id_key" ON "users"("stripe_sub_id");
+CREATE UNIQUE INDEX "users_paddle_subscription_id_key" ON "users"("paddle_subscription_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "projects_slug_key" ON "projects"("slug");
