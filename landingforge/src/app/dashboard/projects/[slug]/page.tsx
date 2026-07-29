@@ -56,7 +56,12 @@ export default async function ProjectPage({
             key={page.id}
             className="flex items-center justify-between rounded border px-4 py-3"
           >
-            <span className="font-mono text-sm">{page.slug}</span>
+            <Link
+              href={`/dashboard/projects/${project.slug}/pages/${page.id}`}
+              className="font-mono text-sm hover:underline"
+            >
+              {page.slug}
+            </Link>
             <span className="text-xs text-gray-500">{page.status}</span>
             <form>
               <input type="hidden" name="pageId" value={page.id} />
