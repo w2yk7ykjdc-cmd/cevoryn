@@ -55,10 +55,12 @@ export async function signup(formData: FormData) {
     });
 
     if (error) {
+      console.error("[signup] Supabase signUp error:", error);
       redirect(`/login?error=${encodeURIComponent(error.message)}`);
     }
   } catch (e) {
     if (isRedirectError(e)) throw e;
+    console.error("[signup] Unexpected exception:", e);
     const message = e instanceof Error ? e.message : "Beklenmeyen bir hata olustu";
     redirect(`/login?error=${encodeURIComponent(message)}`);
   }
