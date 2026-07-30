@@ -38,6 +38,15 @@ export default async function LoginPage({
             className="rounded border px-3 py-2"
           />
         </label>
+        <label className="flex flex-col gap-1 text-sm">
+          Sifre (tekrar) - sadece hesap olustururken gerekli
+          <input
+            name="passwordConfirm"
+            type="password"
+            minLength={6}
+            className="rounded border px-3 py-2"
+          />
+        </label>
 
         <button
           formAction={login}
