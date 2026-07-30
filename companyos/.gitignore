@@ -42,6 +42,9 @@ prisma/generated/
 logs/
 *.log
 
+# redis dump (local, non-docker dev)
+dump.rdb
+
 # editor
 .idea/
 .vscode/*

@@ -101,7 +101,7 @@ outbox-relay job scheduled.
 cp .env.example .env          # fill in BETTER_AUTH_SECRET and at least one AI provider key
 docker compose up -d postgres redis
 npm install
-npm run db:migrate            # creates the initial migration against your local Postgres
+npm run db:migrate            # applies the committed migrations to your local Postgres
 npm run dev                   # web app on http://localhost:3000
 npm run worker                # background worker, in a second terminal
 ```
@@ -130,5 +130,22 @@ Redis connectivity — wire it into your orchestrator's health checks.
 ```bash
 npm run type-check   # tsc --noEmit
 npm run lint          # eslint
-npm run build         # next build (Turbopack, production)
+npm test              # vitest: integration tests (see below)
+npm run build          # next build (Turbopack, production)
 ```
+
+`npm test` runs real integration tests against Postgres and Redis (started
+via `docker compose up -d postgres redis`, or any reachable instance your
+`.env` points at) — there is no mocked DB/auth layer. Coverage: sign-up/
+sign-in and organization creation (`tests/auth.test.ts`), RBAC permission
+boundaries across all four roles (`tests/rbac.test.ts`), tenant isolation
+guarantees on `getTenantScopedClient` (`tests/tenant-isolation.test.ts`),
+the Tool Engine's permission gate and invocation logging
+(`tests/tool-engine.test.ts`), and the audit log service
+(`tests/audit-log.test.ts`). Each test creates its own users/organizations
+with random emails and slugs, so the suite is safe to run repeatedly
+against the same database.
+
+CI (`.github/workflows/companyos-ci.yml`) runs this exact sequence — plus
+`prisma migrate deploy` against fresh Postgres/Redis service containers —
+on every push and pull request that touches `companyos/**`.
