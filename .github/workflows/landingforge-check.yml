@@ -37,6 +37,13 @@ jobs:
             -d "{\"email\":\"$testEmail\",\"password\":\"Debug123456!\",\"mode\":\"signup\"}" \
             "https://cevoryn-pbu6.vercel.app/api/auth" | tee auth.txt
 
+      - name: Check /api/debug-signup
+        continue-on-error: true
+        run: |
+          echo "### /api/debug-signup"
+          curl --silent --show-error --max-time 20 -w "\nhttp_code=%{http_code}\n" \
+            "https://cevoryn-pbu6.vercel.app/api/debug-signup" | tee debug-signup.txt
+
       - name: Publish summary
         if: always()
         run: |
@@ -56,5 +63,10 @@ jobs:
             echo "### /api/auth signup"
             echo '```'
             cat auth.txt 2>/dev/null || echo "no response"
+            echo '```'
+            echo
+            echo "### /api/debug-signup"
+            echo '```'
+            cat debug-signup.txt 2>/dev/null || echo "no response"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
