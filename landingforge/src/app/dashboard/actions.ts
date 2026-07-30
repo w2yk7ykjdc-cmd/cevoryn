@@ -37,6 +37,24 @@ export async function createProject(formData: FormData) {
   redirect(`/dashboard/projects/${slug}`);
 }
 
+export async function toggleProjectPublished(formData: FormData) {
+  const user = await requireUser();
+  const projectId = formData.get("projectId") as string;
+
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, userId: user.id },
+  });
+  if (!project) return;
+
+  await prisma.project.update({
+    where: { id: project.id },
+    data: { published: !project.published },
+  });
+
+  revalidatePath("/dashboard");
+  revalidatePath(`/dashboard/projects/${project.slug}`);
+}
+
 export async function deleteProject(formData: FormData) {
   const user = await requireUser();
   const projectId = formData.get("projectId") as string;

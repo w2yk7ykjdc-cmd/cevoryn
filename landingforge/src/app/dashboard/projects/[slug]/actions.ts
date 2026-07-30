@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { PageStatus } from "@prisma/client";
 import { requireUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 
@@ -37,6 +38,29 @@ export async function createPage(formData: FormData) {
   await prisma.page.create({ data: { projectId, slug } });
 
   revalidatePath(`/dashboard/projects/${project.slug}`);
+}
+
+export async function togglePagePublished(formData: FormData) {
+  const user = await requireUser();
+  const pageId = formData.get("pageId") as string;
+  const projectSlug = formData.get("projectSlug") as string;
+
+  const page = await prisma.page.findFirst({
+    where: { id: pageId, project: { userId: user.id } },
+  });
+  if (!page) return;
+
+  await prisma.page.update({
+    where: { id: page.id },
+    data: {
+      status:
+        page.status === PageStatus.PUBLISHED
+          ? PageStatus.DRAFT
+          : PageStatus.PUBLISHED,
+    },
+  });
+
+  revalidatePath(`/dashboard/projects/${projectSlug}`);
 }
 
 export async function deletePage(formData: FormData) {

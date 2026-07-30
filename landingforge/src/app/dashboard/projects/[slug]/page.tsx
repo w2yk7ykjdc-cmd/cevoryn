@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
-import { createPage, deletePage } from "./actions";
+import { createPage, deletePage, togglePagePublished } from "./actions";
+import { toggleProjectPublished } from "../../actions";
 
 export default async function ProjectPage({
   params,
@@ -24,12 +25,37 @@ export default async function ProjectPage({
 
   return (
     <div className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-4 py-10">
-      <div>
-        <Link href="/dashboard" className="text-sm text-gray-500 hover:underline">
-          &larr; Projeler
-        </Link>
-        <h1 className="text-2xl font-semibold">{project.name}</h1>
+      <div className="flex items-start justify-between">
+        <div>
+          <Link href="/dashboard" className="text-sm text-gray-500 hover:underline">
+            &larr; Projeler
+          </Link>
+          <h1 className="text-2xl font-semibold">{project.name}</h1>
+        </div>
+        <form>
+          <input type="hidden" name="projectId" value={project.id} />
+          <button
+            formAction={toggleProjectPublished}
+            className="rounded border px-3 py-2 text-sm font-medium hover:bg-gray-50"
+          >
+            {project.published ? "Yayindan kaldir" : "Yayinla"}
+          </button>
+        </form>
       </div>
+
+      {project.published && (
+        <p className="text-sm text-gray-500">
+          Yayinda:{" "}
+          <a
+            href={`/${project.slug}`}
+            className="underline"
+            target="_blank"
+            rel="noreferrer"
+          >
+            /{project.slug}
+          </a>
+        </p>
+      )}
 
       {error && (
         <p className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>
@@ -62,17 +88,28 @@ export default async function ProjectPage({
             >
               {page.slug}
             </Link>
-            <span className="text-xs text-gray-500">{page.status}</span>
-            <form>
-              <input type="hidden" name="pageId" value={page.id} />
-              <input type="hidden" name="projectSlug" value={project.slug} />
-              <button
-                formAction={deletePage}
-                className="text-sm text-red-600 hover:underline"
-              >
-                Sil
-              </button>
-            </form>
+            <div className="flex items-center gap-3">
+              <form>
+                <input type="hidden" name="pageId" value={page.id} />
+                <input type="hidden" name="projectSlug" value={project.slug} />
+                <button
+                  formAction={togglePagePublished}
+                  className="text-xs text-gray-500 hover:underline"
+                >
+                  {page.status}
+                </button>
+              </form>
+              <form>
+                <input type="hidden" name="pageId" value={page.id} />
+                <input type="hidden" name="projectSlug" value={project.slug} />
+                <button
+                  formAction={deletePage}
+                  className="text-sm text-red-600 hover:underline"
+                >
+                  Sil
+                </button>
+              </form>
+            </div>
           </li>
         ))}
         {project.pages.length === 0 && (
