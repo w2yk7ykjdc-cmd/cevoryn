@@ -1,0 +1,317 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [vector]
+}
+
+model User {
+  id            String         @id
+  name          String
+  email         String
+  emailVerified Boolean        @default(false)
+  image         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  role          String?
+  banned        Boolean?       @default(false)
+  banReason     String?
+  banExpires    DateTime?
+  sessions      Session[]
+  accounts      Account[]
+  members       Member[]
+  invitations   Invitation[]
+  apiKeys       ApiKey[]
+  conversations Conversation[]
+  memoryRecords MemoryRecord[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id                   String   @id
+  expiresAt            DateTime
+  token                String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  ipAddress            String?
+  userAgent            String?
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeOrganizationId String?
+  impersonatedBy       String?
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model Organization {
+  id                String             @id
+  name              String
+  slug              String
+  logo              String?
+  createdAt         DateTime
+  metadata          String?
+  organizationroles OrganizationRole[]
+  members           Member[]
+  invitations       Invitation[]
+  auditLogs         AuditLog[]
+  domainEvents      DomainEvent[]
+  apiKeys           ApiKey[]
+  conversations     Conversation[]
+  memoryRecords     MemoryRecord[]
+
+  @@unique([slug])
+  @@map("organization")
+}
+
+model OrganizationRole {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role           String
+  permission     String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime?    @updatedAt
+
+  @@index([organizationId])
+  @@index([role])
+  @@map("organizationRole")
+}
+
+model Member {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String       @default("member")
+  createdAt      DateTime
+
+  @@index([organizationId])
+  @@index([userId])
+  @@map("member")
+}
+
+model Invitation {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String?
+  status         String       @default("pending")
+  expiresAt      DateTime
+  createdAt      DateTime     @default(now())
+  inviterId      String
+  user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([email])
+  @@map("invitation")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Audit trail
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Immutable, append-only compliance log. Never updated or deleted by the
+/// application. One row per state-changing action across the tenant.
+model AuditLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actorId        String?
+  actorType      String
+  action         String
+  targetType     String
+  targetId       String
+  metadata       Json         @default("{}")
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, action])
+  @@index([organizationId, targetType, targetId])
+  @@map("audit_log")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Event bus (transactional outbox)
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Durable outbox row for every domain event. `processedAt` is set once the
+/// event has been published to Redis; unprocessed rows are replayed by the
+/// background relay job so a Redis outage never silently drops an event.
+model DomainEvent {
+  id             String        @id @default(cuid())
+  type           String
+  payload        Json
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now())
+  processedAt    DateTime?
+
+  @@index([processedAt, createdAt])
+  @@index([organizationId, type])
+  @@map("domain_event")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// API keys (programmatic + agent tool access)
+// ─────────────────────────────────────────────────────────────────────────
+
+model ApiKey {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdById    String
+  createdBy      User         @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  name           String
+  keyPrefix      String
+  keyHash        String
+  scopes         String[]
+  lastUsedAt     DateTime?
+  expiresAt      DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@unique([keyHash])
+  @@index([organizationId])
+  @@index([keyPrefix])
+  @@map("api_key")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// AI Runtime: conversations, messages, tool invocations, memory
+// ─────────────────────────────────────────────────────────────────────────
+
+enum MessageRole {
+  system
+  user
+  assistant
+  tool
+}
+
+model Conversation {
+  id             String           @id @default(cuid())
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title          String?
+  provider       String
+  model          String
+  archivedAt     DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  messages       Message[]
+  toolCalls      ToolInvocation[]
+  memoryRecords  MemoryRecord[]
+
+  @@index([organizationId, userId, createdAt])
+  @@map("conversation")
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           MessageRole
+  content        String
+  toolCallId     String?
+  toolName       String?
+  toolArgs       Json?
+  inputTokens    Int?
+  outputTokens   Int?
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
+  @@map("message")
+}
+
+/// One row per tool invocation the AI Runtime executes on behalf of a
+/// conversation. Kept separately from `Message` so tool executions remain
+/// auditable and queryable (latency, failure rate, permission denials) even
+/// though a summarized result is also appended to the conversation as a
+/// `tool` message.
+model ToolInvocation {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  toolName       String
+  input          Json
+  output         Json?
+  status         String
+  errorMessage   String?
+  durationMs     Int
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
+  @@index([toolName, status])
+  @@map("tool_invocation")
+}
+
+enum MemoryKind {
+  fact
+  preference
+  summary
+}
+
+/// Long-term memory store. `embedding` is a pgvector column queried with raw
+/// SQL cosine-distance operators (Prisma has no native vector query builder
+/// yet) — see `src/server/ai/memory/long-term.ts`.
+model MemoryRecord {
+  id             String                       @id @default(cuid())
+  organizationId String
+  organization   Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String?
+  user           User?                        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  conversationId String?
+  conversation   Conversation?                @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  kind           MemoryKind
+  content        String
+  embedding      Unsupported("vector(1536)")?
+  metadata       Json                         @default("{}")
+  createdAt      DateTime                     @default(now())
+
+  @@index([organizationId, kind])
+  @@map("memory_record")
+}
