@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
-import { signOut } from "@/app/login/actions";
-import { createProject, deleteProject } from "./actions";
+import { createProject, deleteProject, signOut } from "./actions";
 
 export default async function DashboardPage({
   searchParams,
