@@ -44,20 +44,18 @@ export async function signup(formData: FormData) {
     redirect(`/login?error=${encodeURIComponent("Sifreler eslesmiyor")}`);
   }
 
+  let hasSession = false;
+
   try {
     const supabase = await createClient();
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm`,
-      },
-    });
+    const { data, error } = await supabase.auth.signUp({ email, password });
 
     if (error) {
       console.error("[signup] Supabase signUp error:", error);
       redirect(`/login?error=${encodeURIComponent(error.message)}`);
     }
+
+    hasSession = Boolean(data.session);
   } catch (e) {
     if (isRedirectError(e)) throw e;
     console.error("[signup] Unexpected exception:", e);
@@ -65,7 +63,12 @@ export async function signup(formData: FormData) {
     redirect(`/login?error=${encodeURIComponent(message)}`);
   }
 
-  redirect("/login?message=Hesabini onaylamak icin e-postani kontrol et");
+  if (hasSession) {
+    revalidatePath("/", "layout");
+    redirect("/dashboard");
+  }
+
+  redirect("/login?message=Hesap olusturuldu, giris yap");
 }
 
 export async function signOut() {
