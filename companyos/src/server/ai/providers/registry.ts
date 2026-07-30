@@ -1,4 +1,3 @@
-import "server-only";
 import { env } from "@/env";
 import type { AIProvider, ProviderId } from "@/server/ai/providers/types";
 import { createOpenAIProvider } from "@/server/ai/providers/openai";

@@ -1,4 +1,3 @@
-import "server-only";
 import Redis from "ioredis";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/server/db/client";

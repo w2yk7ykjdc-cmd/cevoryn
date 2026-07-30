@@ -1,4 +1,3 @@
-import "server-only";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db/client";
 import { publishEvent } from "@/server/events/event-bus";

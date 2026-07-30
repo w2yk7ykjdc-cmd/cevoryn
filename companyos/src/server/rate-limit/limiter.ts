@@ -1,4 +1,3 @@
-import "server-only";
 import { redis } from "@/server/redis/client";
 
 export type RateLimitResult = {

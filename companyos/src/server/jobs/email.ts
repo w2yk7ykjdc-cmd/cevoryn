@@ -1,4 +1,3 @@
-import "server-only";
 import { env } from "@/env";
 import { logger } from "@/server/logger/logger";
 

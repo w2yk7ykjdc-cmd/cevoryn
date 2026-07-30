@@ -1,4 +1,3 @@
-import "server-only";
 import { prisma } from "@/server/db/client";
 import type { ChatMessage, ToolCall } from "@/server/ai/providers/types";
 import type { MessageRole, Prisma } from "@prisma/client";

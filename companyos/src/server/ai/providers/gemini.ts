@@ -1,4 +1,3 @@
-import "server-only";
 import { GoogleGenAI, FunctionCallingConfigMode } from "@google/genai";
 import type { Content, Part } from "@google/genai";
 import type {

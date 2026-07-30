@@ -1,4 +1,3 @@
-import "server-only";
 import { prisma } from "@/server/db/client";
 import { resolveDefaultTarget } from "@/server/ai/providers/registry";
 import type { ProviderId } from "@/server/ai/providers/types";

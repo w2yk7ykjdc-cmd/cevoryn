@@ -1,4 +1,3 @@
-import "server-only";
 import "@/server/ai/tools/builtin"; // registers built-in tools as a side effect
 import { prisma } from "@/server/db/client";
 import { getProvider, resolveProviderForModel } from "@/server/ai/providers/registry";

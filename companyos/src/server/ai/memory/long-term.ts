@@ -1,4 +1,3 @@
-import "server-only";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db/client";
 import { getEmbeddingProvider } from "@/server/ai/providers/registry";

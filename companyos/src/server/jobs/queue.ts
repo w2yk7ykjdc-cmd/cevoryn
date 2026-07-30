@@ -1,10 +1,11 @@
-import "server-only";
 import { Queue, type JobsOptions } from "bullmq";
 import { createBullConnection } from "@/server/redis/client";
 import { env } from "@/env";
 import type { JobMap, JobName, JobPayload } from "@/server/jobs/types";
 
-const QUEUE_NAME = `${env.JOB_QUEUE_PREFIX}:jobs`;
+// BullMQ queue names cannot contain ":" (it uses that as the Redis key
+// delimiter internally), so the prefix is joined with "-" instead.
+const QUEUE_NAME = `${env.JOB_QUEUE_PREFIX}-jobs`;
 
 let queue: Queue<JobMap[JobName]> | undefined;
 

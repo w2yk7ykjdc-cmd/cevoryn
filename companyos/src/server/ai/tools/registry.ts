@@ -1,4 +1,3 @@
-import "server-only";
 import { z } from "zod";
 import type { ToolDefinition } from "@/server/ai/providers/types";
 import type { RegisteredTool } from "@/server/ai/tools/types";

@@ -1,4 +1,3 @@
-import "server-only";
 import { headers as nextHeaders } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/server/auth/auth";

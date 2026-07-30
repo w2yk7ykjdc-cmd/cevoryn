@@ -1,4 +1,3 @@
-import "server-only";
 import type { Prisma } from "@prisma/client";
 import type { ToolCall } from "@/server/ai/providers/types";
 import type { ToolContext, ToolExecutionResult } from "@/server/ai/tools/types";

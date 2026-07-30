@@ -1,4 +1,3 @@
-import "server-only";
 
 /**
  * Importing this module registers every built-in tool as a side effect.

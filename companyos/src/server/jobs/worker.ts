@@ -1,3 +1,7 @@
+// Next.js loads .env files itself; this standalone entrypoint (run via
+// `tsx`, outside Next) has to load them explicitly, and must do so before
+// anything else imports `@/env`.
+import "dotenv/config";
 import { Worker, type Job } from "bullmq";
 import { createBullConnection } from "@/server/redis/client";
 import { subscribeEvent, shutdownEventBus } from "@/server/events/event-bus";
