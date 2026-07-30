@@ -1,6 +1,6 @@
 import { Worker, type Job } from "bullmq";
 import { createBullConnection } from "@/server/redis/client";
-import { subscribeEvent } from "@/server/events/event-bus";
+import { subscribeEvent, shutdownEventBus } from "@/server/events/event-bus";
 import { enqueue, scheduleRecurringJobs, QUEUE_NAME } from "@/server/jobs/queue";
 import { logger } from "@/server/logger/logger";
 import { env } from "@/env";
@@ -65,6 +65,7 @@ async function main() {
   const shutdown = async () => {
     logger.info("worker shutting down");
     await worker.close();
+    await shutdownEventBus();
     process.exit(0);
   };
   process.on("SIGTERM", shutdown);

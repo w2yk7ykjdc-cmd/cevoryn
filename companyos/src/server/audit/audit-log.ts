@@ -82,7 +82,10 @@ export async function listAuditLogs(input: ListAuditLogsInput) {
           ? { gte: input.from, lte: input.to }
           : undefined,
     },
-    orderBy: { createdAt: "desc" },
+    // `id` (cuid, monotonically increasing) breaks ties within the same
+    // millisecond so cursor pagination stays deterministic even when
+    // several entries are recorded back-to-back.
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: limit + 1,
     ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
   });

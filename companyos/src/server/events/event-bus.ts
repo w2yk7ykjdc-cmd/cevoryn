@@ -142,6 +142,13 @@ export function subscribeEvent<E extends EventName>(
   };
 }
 
+/** Closes the publisher/subscriber connections. Call on graceful shutdown (worker, tests). */
+export async function shutdownEventBus(): Promise<void> {
+  await Promise.all([publisher?.quit(), subscriber?.quit()]);
+  publisher = undefined;
+  subscriber = undefined;
+}
+
 function extractOrganizationId(payload: unknown): string | null {
   if (
     payload &&
