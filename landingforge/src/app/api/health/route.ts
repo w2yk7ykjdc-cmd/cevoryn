@@ -1,7 +1,22 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
+  const deployment = {
+    gitCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
+    gitCommitMessage: process.env.VERCEL_GIT_COMMIT_MESSAGE ?? null,
+    deploymentId: process.env.VERCEL_DEPLOYMENT_ID ?? null,
+  };
+
+  let database: { ok: boolean; error: string | null };
+  try {
+    await prisma.user.count();
+    database = { ok: true, error: null };
+  } catch (e) {
+    database = { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+
   const envVarPresent = {
     NEXT_PUBLIC_SUPABASE_URL: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
     NEXT_PUBLIC_SUPABASE_ANON_KEY: Boolean(
@@ -30,5 +45,5 @@ export async function GET() {
     };
   }
 
-  return NextResponse.json({ envVarPresent, supabaseConnection });
+  return NextResponse.json({ deployment, envVarPresent, supabaseConnection, database });
 }
