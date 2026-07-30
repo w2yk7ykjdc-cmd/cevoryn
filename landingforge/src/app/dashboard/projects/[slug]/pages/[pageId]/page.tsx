@@ -3,7 +3,12 @@ import { notFound } from "next/navigation";
 import { SectionType } from "@prisma/client";
 import { requireUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
-import { createSection, deleteSection, generateSectionContent } from "./actions";
+import {
+  createSection,
+  deleteSection,
+  generateSectionContent,
+  upsertSeoMeta,
+} from "./actions";
 
 export default async function PageDetail({
   params,
@@ -21,10 +26,13 @@ export default async function PageDetail({
         orderBy: { order: "asc" },
         include: { contents: true },
       },
+      seoMeta: true,
     },
   });
 
   if (!page) notFound();
+
+  const seo = page.seoMeta.find((s) => s.locale === page.project.primaryLocale);
 
   return (
     <div className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-4 py-10">
@@ -37,6 +45,54 @@ export default async function PageDetail({
         </Link>
         <h1 className="font-mono text-2xl font-semibold">{page.slug}</h1>
       </div>
+
+      <details className="rounded border p-4" open={!seo}>
+        <summary className="cursor-pointer text-sm font-medium">
+          SEO ({page.project.primaryLocale})
+        </summary>
+        <form className="mt-3 flex flex-col gap-2">
+          <input type="hidden" name="pageId" value={page.id} />
+          <input type="hidden" name="locale" value={page.project.primaryLocale} />
+          <input
+            name="title"
+            placeholder="Title"
+            defaultValue={seo?.title}
+            required
+            className="rounded border px-3 py-2 text-sm"
+          />
+          <textarea
+            name="description"
+            placeholder="Description"
+            defaultValue={seo?.description}
+            required
+            className="rounded border px-3 py-2 text-sm"
+          />
+          <input
+            name="ogTitle"
+            placeholder="OG title (opsiyonel)"
+            defaultValue={seo?.ogTitle ?? ""}
+            className="rounded border px-3 py-2 text-sm"
+          />
+          <input
+            name="ogDescription"
+            placeholder="OG description (opsiyonel)"
+            defaultValue={seo?.ogDescription ?? ""}
+            className="rounded border px-3 py-2 text-sm"
+          />
+          <input
+            name="keywords"
+            placeholder="anahtar, kelime, virgul, ile"
+            defaultValue={seo?.keywords.join(", ") ?? ""}
+            className="rounded border px-3 py-2 text-sm"
+          />
+          <button
+            formAction={upsertSeoMeta}
+            className="self-start rounded border px-3 py-2 text-sm font-medium hover:bg-gray-50"
+          >
+            SEO kaydet
+          </button>
+        </form>
+      </details>
 
       <form className="flex gap-2">
         <input type="hidden" name="pageId" value={page.id} />

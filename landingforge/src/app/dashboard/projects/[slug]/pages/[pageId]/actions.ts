@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { SectionType } from "@prisma/client";
+import { SectionType, UsageType } from "@prisma/client";
 import { requireUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 import { getOpenAIClient } from "@/lib/openai";
@@ -82,10 +82,60 @@ export async function generateSectionContent(formData: FormData) {
 
   const fields = JSON.parse(response.output_text);
 
-  await prisma.sectionContent.upsert({
-    where: { sectionId_locale: { sectionId, locale } },
-    update: { fields, aiGenerated: true, aiReviewedAt: null, humanEdited: false },
-    create: { sectionId, locale, fields, aiGenerated: true },
+  await prisma.$transaction([
+    prisma.sectionContent.upsert({
+      where: { sectionId_locale: { sectionId, locale } },
+      update: { fields, aiGenerated: true, aiReviewedAt: null, humanEdited: false },
+      create: { sectionId, locale, fields, aiGenerated: true },
+    }),
+    prisma.apiUsage.create({
+      data: {
+        userId: user.id,
+        type: UsageType.GENERATE_COPY,
+        tokensUsed: response.usage?.total_tokens ?? 0,
+        locale,
+      },
+    }),
+  ]);
+
+  revalidatePath(`/dashboard/projects/${page.project.slug}/pages/${pageId}`);
+}
+
+export async function upsertSeoMeta(formData: FormData) {
+  const user = await requireUser();
+  const pageId = formData.get("pageId") as string;
+  const locale = formData.get("locale") as string;
+
+  const page = await ownedPage(pageId, user.id);
+  if (!page) redirect("/dashboard");
+
+  const title = (formData.get("title") as string)?.trim();
+  const description = (formData.get("description") as string)?.trim();
+  const ogTitle = (formData.get("ogTitle") as string)?.trim();
+  const ogDescription = (formData.get("ogDescription") as string)?.trim();
+  const keywords = (formData.get("keywords") as string)
+    .split(",")
+    .map((k) => k.trim())
+    .filter(Boolean);
+
+  await prisma.seoMeta.upsert({
+    where: { pageId_locale: { pageId, locale } },
+    update: {
+      title,
+      description,
+      ogTitle: ogTitle || null,
+      ogDescription: ogDescription || null,
+      keywords,
+    },
+    create: {
+      pageId,
+      locale,
+      title,
+      description,
+      ogTitle: ogTitle || null,
+      ogDescription: ogDescription || null,
+      keywords,
+    },
   });
 
   revalidatePath(`/dashboard/projects/${page.project.slug}/pages/${pageId}`);

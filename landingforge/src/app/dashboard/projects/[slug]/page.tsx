@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
-import { createPage, deletePage, togglePagePublished } from "./actions";
+import { createPage, deletePage, togglePagePublished, upsertTheme } from "./actions";
 import { toggleProjectPublished } from "../../actions";
 
 export default async function ProjectPage({
@@ -18,7 +18,7 @@ export default async function ProjectPage({
 
   const project = await prisma.project.findFirst({
     where: { slug, userId: user.id },
-    include: { pages: { orderBy: { createdAt: "asc" } } },
+    include: { pages: { orderBy: { createdAt: "asc" } }, theme: true },
   });
 
   if (!project) notFound();
@@ -60,6 +60,91 @@ export default async function ProjectPage({
       {error && (
         <p className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>
       )}
+
+      <details className="rounded border p-4">
+        <summary className="cursor-pointer text-sm font-medium">Tema</summary>
+        <form className="mt-3 grid grid-cols-2 gap-3">
+          <input type="hidden" name="projectId" value={project.id} />
+          <label className="flex flex-col gap-1 text-xs text-gray-500">
+            Ana renk
+            <input
+              type="color"
+              name="primaryColor"
+              defaultValue={project.theme?.primaryColor ?? "#2563EB"}
+              className="h-9 w-full rounded border"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-gray-500">
+            Vurgu rengi
+            <input
+              type="color"
+              name="accentColor"
+              defaultValue={project.theme?.accentColor ?? "#F59E0B"}
+              className="h-9 w-full rounded border"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-gray-500">
+            Arkaplan
+            <input
+              type="color"
+              name="bgColor"
+              defaultValue={project.theme?.bgColor ?? "#FFFFFF"}
+              className="h-9 w-full rounded border"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-gray-500">
+            Metin rengi
+            <input
+              type="color"
+              name="textColor"
+              defaultValue={project.theme?.textColor ?? "#111827"}
+              className="h-9 w-full rounded border"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-gray-500">
+            Baslik fontu
+            <input
+              name="fontDisplay"
+              defaultValue={project.theme?.fontDisplay ?? "Inter"}
+              className="rounded border px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-gray-500">
+            Govde fontu
+            <input
+              name="fontBody"
+              defaultValue={project.theme?.fontBody ?? "Inter"}
+              className="rounded border px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-gray-500">
+            Kose yuvarlakligi (px)
+            <input
+              type="number"
+              name="borderRadius"
+              min={0}
+              max={32}
+              defaultValue={project.theme?.borderRadius ?? 8}
+              className="rounded border px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="col-span-2 flex flex-col gap-1 text-xs text-gray-500">
+            Ozel CSS (opsiyonel)
+            <textarea
+              name="customCss"
+              defaultValue={project.theme?.customCss ?? ""}
+              rows={3}
+              className="rounded border px-3 py-2 font-mono text-xs"
+            />
+          </label>
+          <button
+            formAction={upsertTheme}
+            className="col-span-2 self-start rounded border px-3 py-2 text-sm font-medium hover:bg-gray-50"
+          >
+            Temayi kaydet
+          </button>
+        </form>
+      </details>
 
       <form className="flex gap-2">
         <input type="hidden" name="projectId" value={project.id} />

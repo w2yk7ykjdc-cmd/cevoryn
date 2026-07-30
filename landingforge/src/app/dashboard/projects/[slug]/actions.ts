@@ -63,6 +63,52 @@ export async function togglePagePublished(formData: FormData) {
   revalidatePath(`/dashboard/projects/${projectSlug}`);
 }
 
+export async function upsertTheme(formData: FormData) {
+  const user = await requireUser();
+  const projectId = formData.get("projectId") as string;
+
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, userId: user.id },
+  });
+  if (!project) redirect("/dashboard");
+
+  const primaryColor = formData.get("primaryColor") as string;
+  const accentColor = formData.get("accentColor") as string;
+  const bgColor = formData.get("bgColor") as string;
+  const textColor = formData.get("textColor") as string;
+  const fontDisplay = (formData.get("fontDisplay") as string)?.trim() || "Inter";
+  const fontBody = (formData.get("fontBody") as string)?.trim() || "Inter";
+  const borderRadius = Number(formData.get("borderRadius")) || 8;
+  const customCss = (formData.get("customCss") as string)?.trim() || null;
+
+  await prisma.theme.upsert({
+    where: { projectId },
+    update: {
+      primaryColor,
+      accentColor,
+      bgColor,
+      textColor,
+      fontDisplay,
+      fontBody,
+      borderRadius,
+      customCss,
+    },
+    create: {
+      projectId,
+      primaryColor,
+      accentColor,
+      bgColor,
+      textColor,
+      fontDisplay,
+      fontBody,
+      borderRadius,
+      customCss,
+    },
+  });
+
+  revalidatePath(`/dashboard/projects/${project.slug}`);
+}
+
 export async function deletePage(formData: FormData) {
   const user = await requireUser();
   const pageId = formData.get("pageId") as string;
