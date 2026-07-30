@@ -9,12 +9,32 @@ export default async function DashboardPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { error } = await searchParams;
-  const user = await requireUser();
 
-  const projects = await prisma.project.findMany({
-    where: { userId: user.id },
-    orderBy: { createdAt: "desc" },
-  });
+  let user;
+  let projects;
+  try {
+    user = await requireUser();
+    projects = await prisma.project.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: "desc" },
+    });
+  } catch (e) {
+    if (
+      typeof e === "object" &&
+      e !== null &&
+      "digest" in e &&
+      typeof (e as { digest: unknown }).digest === "string" &&
+      (e as { digest: string }).digest.startsWith("NEXT_REDIRECT")
+    ) {
+      throw e;
+    }
+    return (
+      <pre className="mx-auto max-w-2xl overflow-x-auto whitespace-pre-wrap break-words p-4 text-xs text-red-700">
+        DASHBOARD ERROR:{"\n"}
+        {e instanceof Error ? e.stack || e.message : String(e)}
+      </pre>
+    );
+  }
 
   return (
     <div className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-4 py-10">
