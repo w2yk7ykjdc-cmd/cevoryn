@@ -31,7 +31,7 @@ jobs:
         continue-on-error: true
         run: |
           echo "### /api/auth signup"
-          testEmail="ci-check-$(date +%s)@example.com"
+          testEmail="ci-check-$(date +%s)@gmail.com"
           curl --silent --show-error --max-time 20 -w "\nhttp_code=%{http_code}\n" \
             -X POST -H "Content-Type: application/json" \
             -d "{\"email\":\"$testEmail\",\"password\":\"Debug123456!\",\"mode\":\"signup\"}" \
