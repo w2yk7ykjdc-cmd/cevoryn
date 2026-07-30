@@ -9,7 +9,7 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Check /api/health
         continue-on-error: true
@@ -44,6 +44,68 @@ jobs:
           curl --silent --show-error --max-time 20 -w "\nhttp_code=%{http_code}\n" \
             "https://cevoryn-pbu6.vercel.app/api/debug-signup" | tee debug-signup.txt
 
+      - name: Set up Node for browser flow test
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Playwright
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1
+          npx playwright install --with-deps chromium
+
+      - name: Browser flow - signup then dashboard
+        continue-on-error: true
+        run: |
+          cat > flow.js <<'EOF'
+          const { chromium } = require('playwright');
+
+          (async () => {
+            const browser = await chromium.launch();
+            const page = await browser.newPage();
+            const email = `ci-flow-${Date.now()}@gmail.com`;
+            const password = 'Debug123456!';
+            const base = 'https://cevoryn-pbu6.vercel.app';
+
+            const log = (...args) => console.log(...args);
+
+            page.on('console', (msg) => log('[console]', msg.type(), msg.text()));
+            page.on('pageerror', (err) => log('[pageerror]', err.message));
+
+            log('Navigating to /login');
+            await page.goto(`${base}/login`, { waitUntil: 'networkidle' });
+
+            await page.fill('input[type="email"]', email);
+            await page.fill('input[type="password"]', password);
+            log('Submitting signup form for', email);
+            await Promise.all([
+              page.waitForURL(/.*/, { timeout: 15000 }).catch(() => {}),
+              page.click('button[type="submit"]'),
+            ]);
+
+            await page.waitForTimeout(3000);
+            log('URL after submit:', page.url());
+
+            if (!page.url().includes('/dashboard')) {
+              log('Not redirected to dashboard automatically, navigating manually');
+              await page.goto(`${base}/dashboard`, { waitUntil: 'networkidle' });
+            }
+
+            await page.waitForTimeout(1000);
+            const bodyText = await page.evaluate(() => document.body.innerText);
+            log('=== DASHBOARD PAGE BODY START ===');
+            log(bodyText);
+            log('=== DASHBOARD PAGE BODY END ===');
+
+            await browser.close();
+          })().catch((e) => {
+            console.error('FLOW SCRIPT ERROR', e);
+            process.exit(1);
+          });
+          EOF
+          node flow.js | tee flow.txt
+
       - name: Publish summary
         if: always()
         run: |
@@ -68,5 +130,10 @@ jobs:
             echo "### /api/debug-signup"
             echo '```'
             cat debug-signup.txt 2>/dev/null || echo "no response"
+            echo '```'
+            echo
+            echo "### Browser flow (signup -> dashboard)"
+            echo '```'
+            cat flow.txt 2>/dev/null || echo "no response"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
