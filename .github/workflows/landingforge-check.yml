@@ -27,6 +27,16 @@ jobs:
           echo "---first 40 lines of body---"
           head -40 login.html
 
+      - name: Check /api/auth (signup)
+        continue-on-error: true
+        run: |
+          echo "### /api/auth signup"
+          testEmail="ci-check-$(date +%s)@example.com"
+          curl --silent --show-error --max-time 20 -w "\nhttp_code=%{http_code}\n" \
+            -X POST -H "Content-Type: application/json" \
+            -d "{\"email\":\"$testEmail\",\"password\":\"Debug123456!\",\"mode\":\"signup\"}" \
+            "https://cevoryn-pbu6.vercel.app/api/auth" | tee auth.txt
+
       - name: Publish summary
         if: always()
         run: |
@@ -41,5 +51,10 @@ jobs:
             echo "### /login"
             echo '```'
             cat login-status.txt 2>/dev/null || echo "no response"
+            echo '```'
+            echo
+            echo "### /api/auth signup"
+            echo '```'
+            cat auth.txt 2>/dev/null || echo "no response"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
