@@ -1,0 +1,98 @@
+{
+  "nav": {
+    "overview": "Genel Bakış",
+    "workspace": "Çalışma Alanı",
+    "home": "Ana Sayfa",
+    "brief": "Özet",
+    "intelligence": "İçgörüler",
+    "health": "Durum",
+    "chat": "Sohbet",
+    "analytics": "Analizler",
+    "team": "Ekip",
+    "settings": "Ayarlar",
+    "billing": "Faturalandırma",
+    "feedback": "Geri Bildirim",
+    "privacy": "Gizlilik",
+    "terms": "Koşullar",
+    "refunds": "İade Politikası",
+    "mainNavigation": "Ana menü"
+  },
+  "theme": {
+    "darkMode": "Karanlık mod",
+    "lightMode": "Aydınlık mod",
+    "switchToDark": "Karanlık moda geç",
+    "switchToLight": "Aydınlık moda geç"
+  },
+  "language": {
+    "label": "Dil",
+    "english": "İngilizce",
+    "turkish": "Türkçe"
+  },
+  "landing": {
+    "tagline": "Küçük ekipler için AI Chief of Staff",
+    "subtitle": "Ekibinizin ihtiyaç duyduğu operasyon katmanı. Kararlar, öncelikler ve uygulama — AI destekli, 2-20 kişilik ekipler için tasarlandı.",
+    "getStarted": "Hemen başla",
+    "signIn": "Giriş yap",
+    "copyright": "© {year} {name}. Tüm hakları saklıdır.",
+    "features": {
+      "chat": {
+        "title": "Çalışma alanı bağlamıyla AI sohbet",
+        "description": "Öncelikler, planlar veya riskler hakkında sor. Yanıtlar, ekibinizin gerçek aktivitesine ve bağlı Google Takvim/Gmail sinyallerine dayanır — genel geçer tavsiyeler değil."
+      },
+      "decisions": {
+        "title": "Karar desteği",
+        "description": "Bir karar kaydedin, yapılandırılmış bir öneri alın ve sonucu daha sonra takip edin — böylece bir sonraki karar daha isabetli olur."
+      },
+      "actions": {
+        "title": "Hazırlanmış aksiyonlar",
+        "description": "AI tarafından taslak haline getirilmiş sonraki adımları bir kuyrukta inceleyin, onaylayın ya da reddedin — sizin adınıza hiçbir şey bir tıklama olmadan gerçekleşmez."
+      },
+      "brief": {
+        "title": "Sabah özeti",
+        "description": "Çalışma alanınızın gerçek aktivitesinden oluşturulan, neyin değiştiğine ve nelere dikkat edilmesi gerektiğine dair kısa bir günlük özet."
+      },
+      "pulse": {
+        "title": "Şirket Nabzı",
+        "description": "Konuşmalar, yanıt süresi ve ekip kapsamı genelinde canlı bir katılım skoru, katkıda bulunan faktörlerle birlikte gösterilir."
+      },
+      "team": {
+        "title": "Ekip iş birliği",
+        "description": "Ekibinizi rol tabanlı erişimle davet edin. Herkes aynı çalışma alanı bağlamından çalışır."
+      }
+    }
+  },
+  "pricing": {
+    "title": "Fiyatlandırma",
+    "subtitle": "2-20 kişilik ekipler için basit, şeffaf planlar. İstediğiniz zaman iptal edin.",
+    "recommended": "Önerilen",
+    "contactUs": "Bize ulaşın",
+    "getStarted": "Hemen başla",
+    "perMonth": "/ay",
+    "memberLimit": "{count} ekip üyesine kadar",
+    "memberLimitOne": "1 ekip üyesi",
+    "plans": {
+      "STARTER": {
+        "name": "Starter",
+        "description": "CEVORYN'in temel AI ve karar desteği özellikleri."
+      },
+      "PROFESSIONAL": {
+        "name": "Professional",
+        "description": "Büyüyen ekipler için Brain, raporlar ve gelişmiş karar desteği."
+      },
+      "BUSINESS": {
+        "name": "Business",
+        "description": "Daha büyük ekipler için daha yüksek limitler ve gelişmiş yönetim."
+      }
+    },
+    "features": {
+      "CHAT": "AI sohbet",
+      "DASHBOARD": "Kontrol paneli",
+      "DECISION_SUPPORT": "Karar desteği",
+      "BRAIN": "CEVORYN Brain",
+      "ADVANCED_REPORTS": "Gelişmiş raporlar ve özetler",
+      "TEAM": "Ekip iş birliği",
+      "ADVANCED_RBAC": "Gelişmiş rol yönetimi",
+      "PRIORITY_SUPPORT": "Öncelikli destek"
+    }
+  }
+}

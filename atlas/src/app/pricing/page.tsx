@@ -1,6 +1,7 @@
 import { ArrowRight, Check } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -11,47 +12,38 @@ import {
 } from "@/features/billing/config/plans";
 import { BRAND } from "@/lib/brand";
 import { ROUTES } from "@/lib/constants";
-import { getPlanPrices, type PlanPrice } from "@/server/services/paddle-catalog.service";
+import {
+  getPlanPrices,
+  type PlanPrice,
+} from "@/server/services/paddle-catalog.service";
 
 export const metadata: Metadata = { title: "Pricing — CEVORYN" };
 
-const FEATURE_LABELS: Record<BillingFeature, string> = {
-  CHAT: "AI chat",
-  DASHBOARD: "Dashboard",
-  DECISION_SUPPORT: "Decision support",
-  BRAIN: "CEVORYN Brain",
-  ADVANCED_REPORTS: "Advanced reports and briefs",
-  TEAM: "Team collaboration",
-  ADVANCED_RBAC: "Advanced RBAC",
-  PRIORITY_SUPPORT: "Priority support",
-};
-
-function formatPlanPrice(price: PlanPrice): string {
+function formatPlanPrice(price: PlanPrice, perMonthLabel: string): string {
   const amount = new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: price.currencyCode,
     minimumFractionDigits: price.amount % 1 === 0 ? 0 : 2,
   }).format(price.amount);
 
-  return `${amount}/${price.interval}`;
-}
-
-function formatMemberLimit(maxMembers: number): string {
-  return maxMembers === 1 ? "1 team member" : `Up to ${maxMembers} team members`;
+  return price.interval === "month"
+    ? `${amount}${perMonthLabel}`
+    : `${amount}/${price.interval}`;
 }
 
 export default async function PricingPage() {
   const planPrices = await getPlanPrices();
+  const t = await getTranslations("pricing");
+  const tNav = await getTranslations("nav");
+  const tLanding = await getTranslations("landing");
 
   return (
     <main className="flex min-h-screen flex-col items-center px-4 py-16">
       <div className="mx-auto max-w-2xl text-center">
         <h1 className="text-balance text-4xl font-bold tracking-tight sm:text-5xl">
-          Pricing
+          {t("title")}
         </h1>
-        <p className="mt-4 text-lg text-muted-foreground">
-          Simple, transparent plans for teams of 2–20. Cancel anytime.
-        </p>
+        <p className="mt-4 text-lg text-muted-foreground">{t("subtitle")}</p>
       </div>
 
       <div className="mx-auto mt-12 grid max-w-5xl gap-6 sm:grid-cols-3">
@@ -67,35 +59,42 @@ export default async function PricingPage() {
             >
               {definition.recommended && (
                 <span className="mb-3 w-fit rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground">
-                  Recommended
+                  {t("recommended")}
                 </span>
               )}
-              <h2 className="text-lg font-semibold">{definition.name}</h2>
+              <h2 className="text-lg font-semibold">
+                {t(`plans.${plan}.name`)}
+              </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                {definition.description}
+                {t(`plans.${plan}.description`)}
               </p>
               <p className="mt-4 text-3xl font-bold tracking-tight">
-                {price ? formatPlanPrice(price) : "Contact us"}
+                {price ? formatPlanPrice(price, t("perMonth")) : t("contactUs")}
               </p>
 
               <ul className="mt-6 flex-1 space-y-2 text-left text-sm">
                 <li className="flex items-start gap-2">
                   <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                  {formatMemberLimit(definition.limits.maxMembers)}
+                  {definition.limits.maxMembers === 1
+                    ? t("memberLimitOne")
+                    : t("memberLimit", { count: definition.limits.maxMembers })}
                 </li>
                 {BILLING_FEATURES.filter((feature) =>
                   definition.features.has(feature)
-                ).map((feature) => (
+                ).map((feature: BillingFeature) => (
                   <li key={feature} className="flex items-start gap-2">
                     <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                    {FEATURE_LABELS[feature]}
+                    {t(`features.${feature}`)}
                   </li>
                 ))}
               </ul>
 
               <Link href={ROUTES.SIGNUP} className="mt-6">
-                <Button className="w-full" variant={definition.recommended ? "default" : "outline"}>
-                  Get started
+                <Button
+                  className="w-full"
+                  variant={definition.recommended ? "default" : "outline"}
+                >
+                  {tLanding("getStarted")}
                   <ArrowRight />
                 </Button>
               </Link>
@@ -107,17 +106,20 @@ export default async function PricingPage() {
       <footer className="mt-16 flex flex-col items-center gap-3 text-sm text-muted-foreground">
         <div className="flex gap-4">
           <Link className="hover:text-foreground" href={ROUTES.TERMS}>
-            Terms
+            {tNav("terms")}
           </Link>
           <Link className="hover:text-foreground" href={ROUTES.PRIVACY}>
-            Privacy
+            {tNav("privacy")}
           </Link>
           <Link className="hover:text-foreground" href={ROUTES.REFUNDS}>
-            Refunds
+            {tNav("refunds")}
           </Link>
         </div>
         <p className="text-xs">
-          © {new Date().getFullYear()} {BRAND.name}. All rights reserved.
+          {tLanding("copyright", {
+            year: new Date().getFullYear(),
+            name: BRAND.name,
+          })}
         </p>
       </footer>
     </main>

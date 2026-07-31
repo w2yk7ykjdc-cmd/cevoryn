@@ -1,0 +1,98 @@
+{
+  "nav": {
+    "overview": "Overview",
+    "workspace": "Workspace",
+    "home": "Home",
+    "brief": "Brief",
+    "intelligence": "Intelligence",
+    "health": "Health",
+    "chat": "Chat",
+    "analytics": "Analytics",
+    "team": "Team",
+    "settings": "Settings",
+    "billing": "Billing",
+    "feedback": "Feedback",
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "refunds": "Refunds",
+    "mainNavigation": "Main navigation"
+  },
+  "theme": {
+    "darkMode": "Dark mode",
+    "lightMode": "Light mode",
+    "switchToDark": "Switch to dark mode",
+    "switchToLight": "Switch to light mode"
+  },
+  "language": {
+    "label": "Language",
+    "english": "English",
+    "turkish": "Turkish"
+  },
+  "landing": {
+    "tagline": "AI Chief of Staff for small teams",
+    "subtitle": "The operations layer your team needs. Decisions, priorities, and execution — powered by AI, built for teams of 2–20.",
+    "getStarted": "Get started",
+    "signIn": "Sign in",
+    "copyright": "© {year} {name}. All rights reserved.",
+    "features": {
+      "chat": {
+        "title": "AI chat with workspace context",
+        "description": "Ask about priorities, plans, or risks. Answers are grounded in your team's activity and connected Google Calendar/Gmail signals, not generic advice."
+      },
+      "decisions": {
+        "title": "Decision support",
+        "description": "Log a decision, get a structured recommendation, and track the outcome afterward so the next decision gets sharper."
+      },
+      "actions": {
+        "title": "Prepared actions",
+        "description": "Review AI-drafted next steps in a queue and approve or dismiss them — nothing happens on your behalf without a click."
+      },
+      "brief": {
+        "title": "Morning brief",
+        "description": "A short daily summary of what changed and what needs attention, built from your workspace's real activity."
+      },
+      "pulse": {
+        "title": "Company Pulse",
+        "description": "A live engagement score across conversations, response time, and team coverage, with the contributing factors shown."
+      },
+      "team": {
+        "title": "Team collaboration",
+        "description": "Invite your team with role-based access. Everyone works from the same workspace context."
+      }
+    }
+  },
+  "pricing": {
+    "title": "Pricing",
+    "subtitle": "Simple, transparent plans for teams of 2–20. Cancel anytime.",
+    "recommended": "Recommended",
+    "contactUs": "Contact us",
+    "getStarted": "Get started",
+    "perMonth": "/month",
+    "memberLimit": "Up to {count} team members",
+    "memberLimitOne": "1 team member",
+    "plans": {
+      "STARTER": {
+        "name": "Starter",
+        "description": "CEVORYN's core AI and decision support features."
+      },
+      "PROFESSIONAL": {
+        "name": "Professional",
+        "description": "Brain, reports, and advanced decision support for growing teams."
+      },
+      "BUSINESS": {
+        "name": "Business",
+        "description": "Higher limits and advanced administration for larger teams."
+      }
+    },
+    "features": {
+      "CHAT": "AI chat",
+      "DASHBOARD": "Dashboard",
+      "DECISION_SUPPORT": "Decision support",
+      "BRAIN": "CEVORYN Brain",
+      "ADVANCED_REPORTS": "Advanced reports and briefs",
+      "TEAM": "Team collaboration",
+      "ADVANCED_RBAC": "Advanced RBAC",
+      "PRIORITY_SUPPORT": "Priority support"
+    }
+  }
+}
