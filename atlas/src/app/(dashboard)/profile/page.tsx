@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { signOutAction } from "@/features/auth/actions/auth";
 import { getMembership, requireUser } from "@/lib/auth";
 
+import { DisplayNameForm } from "./display-name-form";
+
 function formatRole(role: string): string {
   return role.charAt(0) + role.slice(1).toLowerCase();
 }
@@ -65,11 +67,11 @@ export default async function ProfilePage() {
           <CardTitle>Account details</CardTitle>
         </CardHeader>
         <CardContent className="divide-y">
-          <div className="flex items-center gap-3 py-4 first:pt-0">
-            <UserRound className="h-5 w-5 shrink-0 text-muted-foreground" />
-            <div className="min-w-0">
+          <div className="flex items-start gap-3 py-4 first:pt-0">
+            <UserRound className="mt-2 h-5 w-5 shrink-0 text-muted-foreground" />
+            <div className="min-w-0 flex-1 space-y-2">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Name</p>
-              <p className="truncate font-medium">{displayName}</p>
+              <DisplayNameForm initialName={displayName} />
             </div>
           </div>
 
