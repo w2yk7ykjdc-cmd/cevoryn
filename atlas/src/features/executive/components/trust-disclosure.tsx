@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronDown, ChevronUp, Info } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import type { Evidence } from "@/features/brain/trust/types";
@@ -29,6 +30,7 @@ export function TrustDisclosure({
   evidence,
   missingInformation,
 }: TrustDisclosureProps) {
+  const t = useTranslations("executive.trustDisclosure");
   const [isOpen, setIsOpen] = useState(false);
   const level = getConfidenceLevel(confidence);
   const pct = Math.round(confidence * 100);
@@ -53,7 +55,7 @@ export function TrustDisclosure({
           aria-hidden="true"
         />
         <span className="flex-1 text-muted-foreground">
-          Why CEVORYN thinks this
+          {t("whyCevorynThinks")}
         </span>
         <span
           className={cn(
@@ -61,7 +63,7 @@ export function TrustDisclosure({
             CONFIDENCE_STYLES[level]
           )}
         >
-          {pct}% confidence
+          {t("confidence", { pct })}
         </span>
         {isOpen ? (
           <ChevronUp className="h-4 w-4 text-muted-foreground" />
@@ -76,7 +78,7 @@ export function TrustDisclosure({
           {reasoning && (
             <div>
               <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Reasoning
+                {t("reasoning")}
               </p>
               <p className="text-foreground">{reasoning}</p>
             </div>
@@ -86,7 +88,7 @@ export function TrustDisclosure({
           {evidence.length > 0 && (
             <div>
               <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Evidence ({evidence.length})
+                {t("evidence", { count: evidence.length })}
               </p>
               <ul className="space-y-1.5">
                 {evidence.map((e, i) => (
@@ -107,7 +109,7 @@ export function TrustDisclosure({
           {missingInformation.length > 0 && (
             <div>
               <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Missing information
+                {t("missingInformation")}
               </p>
               <ul className="space-y-0.5 text-xs text-muted-foreground">
                 {missingInformation.map((info, i) => (

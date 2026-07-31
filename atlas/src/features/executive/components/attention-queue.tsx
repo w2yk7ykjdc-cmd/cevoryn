@@ -2,6 +2,7 @@
 
 import { ArrowRight, MessageSquare } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,21 +18,23 @@ interface AttentionQueueProps {
 }
 
 export function AttentionQueue({ items }: AttentionQueueProps) {
+  const t = useTranslations("executive.attentionQueue");
+
   if (items.length === 0) return null;
 
   return (
-    <section aria-label="Items requiring attention">
+    <section aria-label={t("heading")}>
       <div className="mb-3 flex items-end justify-between gap-3">
         <div>
           <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-            Decide next
+            {t("heading")}
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Review the next highest-impact items after today&apos;s priority.
+            {t("subheading")}
           </p>
         </div>
         <Badge variant="secondary" className="shrink-0">
-          {items.length} pending
+          {t("pending", { count: items.length })}
         </Badge>
       </div>
 
@@ -45,8 +48,13 @@ export function AttentionQueue({ items }: AttentionQueueProps) {
 }
 
 function AttentionCard({ item, rank }: { item: AttentionItem; rank: number }) {
+  const t = useTranslations("executive.attentionQueue");
   const prompt = encodeURIComponent(
-    `Help me decide what to do about this ${item.type}: ${item.title}. Recommended action: ${item.recommendedAction || "Review the situation and propose the best next step."}`
+    t("chatPrompt", {
+      type: item.type,
+      title: item.title,
+      action: item.recommendedAction || t("defaultRecommendedAction"),
+    })
   );
 
   function trackDiscussion() {
@@ -67,7 +75,10 @@ function AttentionCard({ item, rank }: { item: AttentionItem; rank: number }) {
 
           <div className="min-w-0 flex-1">
             <div className="mb-1 flex flex-wrap items-center gap-2">
-              <Badge variant="outline" className="shrink-0 text-[10px] uppercase">
+              <Badge
+                variant="outline"
+                className="shrink-0 text-[10px] uppercase"
+              >
                 {item.type}
               </Badge>
               <ConfidenceBadge confidence={item.confidence} />
@@ -84,23 +95,28 @@ function AttentionCard({ item, rank }: { item: AttentionItem; rank: number }) {
             {item.recommendedAction && (
               <div className="mt-3 rounded-md bg-muted/50 p-2.5">
                 <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                  Suggested next move
+                  {t("suggestedMove")}
                 </p>
                 <p className="mt-1 text-xs">{item.recommendedAction}</p>
               </div>
             )}
 
             <div className="mt-3 flex flex-wrap gap-2">
-              <Button asChild size="sm" variant="outline" onClick={trackDiscussion}>
+              <Button
+                asChild
+                size="sm"
+                variant="outline"
+                onClick={trackDiscussion}
+              >
                 <Link href={`/chat?prompt=${prompt}`}>
                   <MessageSquare className="h-3.5 w-3.5" />
-                  Discuss
+                  {t("discuss")}
                 </Link>
               </Button>
 
               <Button asChild size="sm" variant="ghost">
                 <Link href={item.type === "decision" ? "/dashboard" : "/brief"}>
-                  Review context
+                  {t("reviewContext")}
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               </Button>

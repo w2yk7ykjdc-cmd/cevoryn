@@ -160,6 +160,166 @@
       "createFailed": "Failed to create organization. Please try again."
     }
   },
+  "dashboard": {
+    "greeting": {
+      "morning": "Good morning",
+      "afternoon": "Good afternoon",
+      "evening": "Good evening",
+      "withName": "{timeOfDay}, {name}"
+    },
+    "pulse": {
+      "everythingUnderControl": "Everything is under control.",
+      "oneIssue": "One issue needs your attention today.",
+      "issuesNeedAttention": "{count} issues need your attention.",
+      "itemsToReview": "{count} items to review.",
+      "trendingUp": " Things are trending upward.",
+      "trendingDown": " Activity is trending down."
+    },
+    "quietMessage": "Nothing urgent requires your attention today. Focus on growth.",
+    "insufficientData": {
+      "fewMessages": "Only {count} conversation {count, plural, one {message} other {messages}} this week. CEVORYN needs more conversations to identify patterns.",
+      "limitedKnowledge": "Limited company knowledge stored. Use chat to share context about your business.",
+      "calendarNotConnected": "Calendar integration not connected",
+      "tasksNotConnected": "Task management system not connected"
+    },
+    "stats": {
+      "attention": "Attention",
+      "attentionCaption": "items needing review",
+      "actions": "Actions",
+      "actionsCaption": "prepared for execution",
+      "knowledge": "Knowledge",
+      "knowledgeCaption": "active company memories"
+    },
+    "commandCenter": {
+      "heading": "Executive command center",
+      "subheading": "Move from insight to action without searching through the app.",
+      "open": "Open"
+    },
+    "commands": {
+      "chat": {
+        "title": "Ask CEVORYN",
+        "description": "Turn a business problem into a decision or action plan."
+      },
+      "brief": {
+        "title": "Morning Brief",
+        "description": "Review the latest priorities, risks, and opportunities."
+      },
+      "health": {
+        "title": "Company Health",
+        "description": "See what is improving, declining, or missing."
+      }
+    },
+    "companyPulse": "Company Pulse",
+    "trend": {
+      "improving": "Improving",
+      "stable": "Stable",
+      "declining": "Declining"
+    }
+  },
+  "executive": {
+    "topPriority": {
+      "needsAttention": "Needs your attention today",
+      "whyMatters": "Why this matters",
+      "todaysMove": "Today's move",
+      "takeAction": "Take action",
+      "discuss": "Discuss with CEVORYN",
+      "chatPrompt": "Help me decide what to do about this: {title}. Recommended action: {action}"
+    },
+    "severity": {
+      "CRITICAL": "CRITICAL",
+      "WARNING": "WARNING",
+      "SUGGESTION": "SUGGESTION",
+      "INFO": "INFO"
+    },
+    "attentionQueue": {
+      "heading": "Decide next",
+      "subheading": "Review the next highest-impact items after today's priority.",
+      "pending": "{count} pending",
+      "suggestedMove": "Suggested next move",
+      "discuss": "Discuss",
+      "reviewContext": "Review context",
+      "defaultRecommendedAction": "Review the situation and propose the best next step.",
+      "chatPrompt": "Help me decide what to do about this {type}: {title}. Recommended action: {action}"
+    },
+    "trustDisclosure": {
+      "whyCevorynThinks": "Why CEVORYN thinks this",
+      "confidence": "{pct}% confidence",
+      "reasoning": "Reasoning",
+      "evidence": "Evidence ({count})",
+      "missingInformation": "Missing information"
+    },
+    "insufficientData": {
+      "heading": "Give CEVORYN enough context to lead",
+      "subheading": "CEVORYN is ready, but it needs a clearer picture of your company before it can rank priorities reliably.",
+      "step1Title": "Tell CEVORYN how the business works",
+      "step1Description": "Share your goals, current priorities, team structure, and constraints.",
+      "step1Label": "Start in Chat",
+      "step2Title": "Generate your first executive brief",
+      "step2Description": "Turn the context CEVORYN already has into a focused daily summary.",
+      "step2Label": "Open Morning Brief",
+      "stillMissing": "What CEVORYN is still missing"
+    },
+    "quietState": {
+      "heading": "The business is under control",
+      "resolvedThisWeek": "issues resolved this week",
+      "memoriesAvailable": "company memories available",
+      "useQuietWindow": "Use the quiet window for growth",
+      "growthPrompt": "Ask CEVORYN to identify the strongest growth opportunity, the biggest hidden risk, or one process worth improving next.",
+      "findNextMove": "Find the next move",
+      "growthChatPrompt": "What is the best growth move for the business right now?"
+    },
+    "onboardingGuide": {
+      "eyebrow": "Getting started",
+      "heading": "Set up CEVORYN",
+      "progress": "{completed} of {total} steps done. CEVORYN becomes more useful as it learns about your company.",
+      "dismiss": "Dismiss onboarding guide",
+      "footer": "Steps complete automatically as you use CEVORYN - nothing to mark off by hand.",
+      "workspace": {
+        "title": "Workspace created",
+        "description": "Your CEVORYN workspace is set up and ready."
+      },
+      "googleConnected": {
+        "title": "Connect Google",
+        "description": "Link Calendar and Gmail so CEVORYN can ground answers in real activity."
+      },
+      "teamInvited": {
+        "title": "Invite your team",
+        "description": "Add the people who should share company context and decisions."
+      },
+      "hasChatted": {
+        "title": "Start your first chat",
+        "description": "Tell CEVORYN your priorities, risks, and current goals.",
+        "chatPrompt": "Help me set up CEVORYN. Ask me for our top goals, risks, and current priorities."
+      }
+    },
+    "todayActions": {
+      "heading": "Ready to execute",
+      "subheading": "CEVORYN prepared these next steps. You stay in control.",
+      "ready": "{count} ready",
+      "confidence": "{pct}% confidence",
+      "dismiss": "Dismiss",
+      "actionApprovedError": "CEVORYN could not approve this action. Please try again.",
+      "actionDismissedError": "CEVORYN could not dismiss this action. Please try again.",
+      "actionDismissed": "Action dismissed",
+      "handoffWarning": "Approved, but the next app could not be opened. Open Intelligence to continue manually.",
+      "types": {
+        "EMAIL_DRAFT": {
+          "label": "Email ready",
+          "approveLabel": "Approve draft"
+        },
+        "TASK": { "label": "Task ready", "approveLabel": "Copy task details" },
+        "CALENDAR_PROPOSAL": {
+          "label": "Meeting ready",
+          "approveLabel": "Approve meeting"
+        },
+        "FOLLOW_UP": {
+          "label": "Follow-up ready",
+          "approveLabel": "Copy follow-up details"
+        },
+        "default": { "label": "Action ready", "approveLabel": "Copy details" }
+      }
+    }
+  },
   "pricing": {
     "title": "Pricing",
     "subtitle": "Simple, transparent plans for teams of 2–20. Cancel anytime.",

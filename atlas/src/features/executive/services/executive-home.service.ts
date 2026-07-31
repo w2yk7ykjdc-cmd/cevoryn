@@ -1,5 +1,7 @@
 import "server-only";
 
+import { getLocale, getTranslations } from "next-intl/server";
+
 import type { PulseMetrics } from "@/features/brain/core/types";
 import type { DecisionCanvas } from "@/features/brain/decisions/types";
 import { computePulseScore } from "@/features/brain/pulse/pulse-scorer";
@@ -27,6 +29,8 @@ const EXECUTIVE_TIME_ZONE = "Europe/Istanbul";
 export async function loadExecutiveHome(
   membership: MembershipContext
 ): Promise<ExecutiveHomeData> {
+  const t = await getTranslations("dashboard");
+  const locale = await getLocale();
   const orgId = membership.organizationId;
   const now = new Date();
   const dayStart = new Date(now);
@@ -100,7 +104,7 @@ export async function loadExecutiveHome(
   const state = determineState(messageCount, memoryCount, topInsights.length);
   const insufficientDataReasons =
     state === "insufficient_data"
-      ? buildInsufficientReasons(messageCount, memoryCount)
+      ? buildInsufficientReasons(messageCount, memoryCount, t)
       : [];
 
   const previousMetrics = previousSnapshot
@@ -116,7 +120,8 @@ export async function loadExecutiveHome(
           statement: buildPulseStatement(
             pulseScore.score,
             pulseScore.trend,
-            topInsights.length
+            topInsights.length,
+            t
           ),
         }
       : null;
@@ -158,20 +163,24 @@ export async function loadExecutiveHome(
     }).format(now)
   );
   const timeOfDay =
-    hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-  const greeting = `${timeOfDay}, ${membership.displayName}`;
+    hour < 12
+      ? t("greeting.morning")
+      : hour < 17
+        ? t("greeting.afternoon")
+        : t("greeting.evening");
+  const greeting = t("greeting.withName", {
+    timeOfDay,
+    name: membership.displayName,
+  });
 
-  const dateLabel = new Intl.DateTimeFormat("en-US", {
+  const dateLabel = new Intl.DateTimeFormat(locale, {
     timeZone: EXECUTIVE_TIME_ZONE,
     weekday: "long",
     month: "long",
     day: "numeric",
   }).format(now);
 
-  const quietMessage =
-    state === "quiet"
-      ? "Nothing urgent requires your attention today. Focus on growth."
-      : "";
+  const quietMessage = state === "quiet" ? t("quietMessage") : "";
 
   return {
     greeting,
@@ -203,44 +212,44 @@ function determineState(
   return "active";
 }
 
+type DashboardTranslator = Awaited<ReturnType<typeof getTranslations>>;
+
 function buildInsufficientReasons(
   messageCount: number,
-  memoryCount: number
+  memoryCount: number,
+  t: DashboardTranslator
 ): string[] {
   const reasons: string[] = [];
   if (messageCount < MIN_DATA_THRESHOLD) {
-    reasons.push(
-      `Only ${messageCount} conversation message${messageCount === 1 ? "" : "s"} this week. CEVORYN needs more conversations to identify patterns.`
-    );
+    reasons.push(t("insufficientData.fewMessages", { count: messageCount }));
   }
   if (memoryCount < MIN_DATA_THRESHOLD) {
-    reasons.push(
-      "Limited company knowledge stored. Use chat to share context about your business."
-    );
+    reasons.push(t("insufficientData.limitedKnowledge"));
   }
-  reasons.push("Calendar integration not connected");
-  reasons.push("Task management system not connected");
+  reasons.push(t("insufficientData.calendarNotConnected"));
+  reasons.push(t("insufficientData.tasksNotConnected"));
   return reasons;
 }
 
 function buildPulseStatement(
   score: number,
   trend: string,
-  insightCount: number
+  insightCount: number,
+  t: DashboardTranslator
 ): string {
-  if (insightCount === 0) return "Everything is under control.";
-  if (insightCount === 1) return "One issue needs your attention today.";
+  if (insightCount === 0) return t("pulse.everythingUnderControl");
+  if (insightCount === 1) return t("pulse.oneIssue");
 
   const urgency =
     score < 40
-      ? `${insightCount} issues need your attention.`
-      : `${insightCount} items to review.`;
+      ? t("pulse.issuesNeedAttention", { count: insightCount })
+      : t("pulse.itemsToReview", { count: insightCount });
 
   const trendNote =
     trend === "improving"
-      ? " Things are trending upward."
+      ? t("pulse.trendingUp")
       : trend === "declining"
-        ? " Activity is trending down."
+        ? t("pulse.trendingDown")
         : "";
 
   return urgency + trendNote;

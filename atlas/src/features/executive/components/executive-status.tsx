@@ -1,4 +1,5 @@
 import { TrendingDown, TrendingUp, Minus } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { cn } from "@/lib/utils";
 
@@ -13,13 +14,11 @@ interface ExecutiveStatusProps {
 const TREND_CONFIG = {
   improving: {
     icon: TrendingUp,
-    label: "Improving",
     color: "text-emerald-600 dark:text-emerald-400",
   },
-  stable: { icon: Minus, label: "Stable", color: "text-muted-foreground" },
+  stable: { icon: Minus, color: "text-muted-foreground" },
   declining: {
     icon: TrendingDown,
-    label: "Declining",
     color: "text-amber-600 dark:text-amber-400",
   },
 } as const;
@@ -29,6 +28,8 @@ export function ExecutiveStatus({
   dateLabel,
   pulse,
 }: ExecutiveStatusProps) {
+  const t = useTranslations("dashboard");
+
   return (
     <div className="space-y-4">
       <div>
@@ -45,7 +46,7 @@ export function ExecutiveStatus({
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">Company Pulse</span>
+              <span className="text-sm font-medium">{t("companyPulse")}</span>
               <TrendBadge trend={pulse.trend} />
             </div>
             <p className="mt-0.5 text-sm text-muted-foreground">
@@ -63,6 +64,7 @@ function TrendBadge({
 }: {
   trend: "improving" | "stable" | "declining";
 }) {
+  const t = useTranslations("dashboard.trend");
   const config = TREND_CONFIG[trend];
   const Icon = config.icon;
 
@@ -74,7 +76,7 @@ function TrendBadge({
       )}
     >
       <Icon className="h-3 w-3" aria-hidden="true" />
-      {config.label}
+      {t(trend)}
     </span>
   );
 }
