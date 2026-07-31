@@ -61,6 +61,105 @@
       }
     }
   },
+  "auth": {
+    "login": {
+      "title": "Sign in",
+      "description": "Enter your credentials to access your workspace",
+      "continueWithGoogle": "Continue with Google",
+      "or": "or",
+      "email": "Email",
+      "password": "Password",
+      "forgotPassword": "Forgot password?",
+      "submit": "Sign in",
+      "noAccount": "Don't have an account?",
+      "signUpLink": "Sign up",
+      "passwordResetSuccess": "Your password has been updated. Sign in with your new password.",
+      "sessionExpired": "Your session expired. Sign in again to return to your work. An unsent chat message will be restored automatically.",
+      "genericError": "Unable to sign in. Please try again."
+    },
+    "signup": {
+      "title": "Create an account",
+      "description": "Get started with CEVORYN for your team",
+      "email": "Email",
+      "password": "Password",
+      "confirmPassword": "Confirm password",
+      "submit": "Create account",
+      "haveAccount": "Already have an account?",
+      "signInLink": "Sign in",
+      "checkEmailTitle": "Check your email",
+      "checkEmailDescription": "We sent you a confirmation link",
+      "checkEmailBody": "Click the link sent to <strong>{email}</strong> to activate your account. The link can expire, so open the newest email.",
+      "resend": "Resend confirmation email",
+      "resendSuccess": "A new confirmation email was sent.",
+      "backToSignIn": "Back to sign in",
+      "genericError": "Something went wrong. Please try again."
+    },
+    "forgotPassword": {
+      "title": "Reset password",
+      "description": "Enter your email to receive a reset link",
+      "email": "Email",
+      "submit": "Send reset link",
+      "backToSignIn": "Back to sign in",
+      "checkEmailTitle": "Check your email",
+      "checkEmailDescription": "We sent a password reset link",
+      "checkEmailBody": "If an account exists with that email, you will receive a reset link shortly.",
+      "linkExpired": "This reset link is invalid or has expired. Request a new link below.",
+      "genericError": "Something went wrong. Please try again."
+    },
+    "resetPassword": {
+      "title": "Choose a new password",
+      "description": "Use at least 8 characters, including uppercase, lowercase, and a number",
+      "newPassword": "New password",
+      "confirmNewPassword": "Confirm new password",
+      "submit": "Update password",
+      "backToSignIn": "Back to sign in",
+      "genericError": "Something went wrong. Please request a new reset link."
+    },
+    "validation": {
+      "invalidEmail": "Enter a valid email address",
+      "passwordMinLength": "Password must be at least 8 characters",
+      "passwordComplexity": "Password must include uppercase, lowercase, and a number",
+      "passwordsDoNotMatch": "Passwords do not match"
+    },
+    "errors": {
+      "invalidCredentials": "Invalid email or password.",
+      "emailNotConfirmed": "Please confirm your email before signing in.",
+      "alreadyRegistered": "An account with this email already exists.",
+      "passwordRequirements": "Password must meet the security requirements.",
+      "rateLimited": "Too many authentication requests. Please wait and try again.",
+      "signupDisabled": "New account registration is currently disabled.",
+      "generic": "Authentication failed. Please try again.",
+      "inviteInvalid": "This invite is invalid, expired, or belongs to another email.",
+      "inviteNotConfigured": "Invite activation is not configured. Please contact the workspace owner.",
+      "inviteAccountFailed": "The invited account could not be prepared. Please try again.",
+      "inviteAlreadyExists": "An account with this email already exists. Please sign in to accept the invite.",
+      "inviteCreateFailed": "The invited account could not be created. Please try again.",
+      "googleSignInFailed": "Google sign-in could not be started.",
+      "invalidInput": "Invalid input",
+      "resetLinkInvalid": "This reset link is invalid or has expired. Request a new link.",
+      "resetPasswordFailed": "Your password could not be updated. Request a new reset link and try again."
+    }
+  },
+  "onboarding": {
+    "heading": "Set up your workspace",
+    "subheading": "Create your organization to get started with CEVORYN.",
+    "yourName": "Your name",
+    "workspaceName": "Workspace name",
+    "workspaceNameHelp": "This is your workspace name — usually your company or team name.",
+    "submit": "Create workspace",
+    "signedInAs": "Signed in as {email}.",
+    "notYou": "Not you? Sign out",
+    "validation": {
+      "orgNameMin": "Organization name must be at least 2 characters",
+      "orgNameMax": "Organization name must be under {max} characters",
+      "nameMin": "Your name must be at least 2 characters",
+      "nameMax": "Name must be under {max} characters"
+    },
+    "errors": {
+      "invalidInput": "Invalid input",
+      "createFailed": "Failed to create organization. Please try again."
+    }
+  },
   "pricing": {
     "title": "Pricing",
     "subtitle": "Simple, transparent plans for teams of 2–20. Cancel anytime.",

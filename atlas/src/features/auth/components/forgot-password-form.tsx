@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertTriangle, ArrowLeft, Loader2, Mail } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -13,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { ROUTES } from "@/lib/constants";
 
 import { forgotPasswordAction } from "../actions/auth";
-import { forgotPasswordSchema } from "../schemas/auth";
+import { createForgotPasswordSchema } from "../schemas/auth";
 import type { ForgotPasswordInput } from "../schemas/auth";
 
 import { AuthCard } from "./auth-card";
@@ -25,6 +26,8 @@ interface ForgotPasswordFormProps {
 export function ForgotPasswordForm({
   resetLinkError = false,
 }: ForgotPasswordFormProps) {
+  const t = useTranslations("auth.forgotPassword");
+  const tValidation = useTranslations("auth.validation");
   const [isPending, setIsPending] = useState(false);
   const [isSent, setIsSent] = useState(false);
 
@@ -33,7 +36,14 @@ export function ForgotPasswordForm({
     handleSubmit,
     formState: { errors },
   } = useForm<ForgotPasswordInput>({
-    resolver: zodResolver(forgotPasswordSchema),
+    resolver: zodResolver(
+      createForgotPasswordSchema({
+        invalidEmail: tValidation("invalidEmail"),
+        passwordMinLength: tValidation("passwordMinLength"),
+        passwordComplexity: tValidation("passwordComplexity"),
+        passwordsDoNotMatch: tValidation("passwordsDoNotMatch"),
+      })
+    ),
     defaultValues: { email: "" },
   });
 
@@ -47,7 +57,7 @@ export function ForgotPasswordForm({
         toast.error(result.error);
       }
     } catch (_error) {
-      toast.error("Something went wrong. Please try again.");
+      toast.error(t("genericError"));
     } finally {
       setIsPending(false);
     }
@@ -56,19 +66,18 @@ export function ForgotPasswordForm({
   if (isSent) {
     return (
       <AuthCard
-        title="Check your email"
-        description="We sent a password reset link"
+        title={t("checkEmailTitle")}
+        description={t("checkEmailDescription")}
       >
         <div className="flex flex-col items-center gap-4 py-4">
           <Mail className="h-12 w-12 text-muted-foreground" />
           <p className="text-center text-sm text-muted-foreground">
-            If an account exists with that email, you will receive a reset link
-            shortly.
+            {t("checkEmailBody")}
           </p>
           <Link href={ROUTES.LOGIN}>
             <Button variant="outline">
               <ArrowLeft />
-              Back to sign in
+              {t("backToSignIn")}
             </Button>
           </Link>
         </div>
@@ -78,15 +87,15 @@ export function ForgotPasswordForm({
 
   return (
     <AuthCard
-      title="Reset password"
-      description="Enter your email to receive a reset link"
+      title={t("title")}
+      description={t("description")}
       footer={
         <Link
           href={ROUTES.LOGIN}
           className="inline-flex items-center gap-1 font-medium underline underline-offset-4 hover:text-primary"
         >
           <ArrowLeft className="h-3 w-3" />
-          Back to sign in
+          {t("backToSignIn")}
         </Link>
       }
     >
@@ -96,13 +105,13 @@ export function ForgotPasswordForm({
           className="mb-4 flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm"
         >
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-          <p>This reset link is invalid or has expired. Request a new link below.</p>
+          <p>{t("linkExpired")}</p>
         </div>
       )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">{t("email")}</Label>
           <Input
             id="email"
             type="email"
@@ -118,7 +127,7 @@ export function ForgotPasswordForm({
 
         <Button type="submit" className="w-full" disabled={isPending}>
           {isPending && <Loader2 className="animate-spin" />}
-          Send reset link
+          {t("submit")}
         </Button>
       </form>
     </AuthCard>

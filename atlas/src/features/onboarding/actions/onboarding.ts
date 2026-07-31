@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import { getMembership, requireUser } from "@/lib/auth";
 import { ROUTES } from "@/lib/constants";
@@ -13,6 +14,7 @@ import type { OnboardingInput } from "../schemas/onboarding";
 export async function completeOnboardingAction(
   input: OnboardingInput
 ): Promise<ActionResult> {
+  const t = await getTranslations("onboarding.errors");
   const user = await requireUser();
 
   // Guard: prevent duplicate org creation
@@ -25,7 +27,7 @@ export async function completeOnboardingAction(
   if (!parsed.success) {
     return {
       success: false,
-      error: "Invalid input",
+      error: t("invalidInput"),
       fieldErrors: parsed.error.flatten().fieldErrors as Record<
         string,
         string[]
@@ -49,7 +51,7 @@ export async function completeOnboardingAction(
 
     return {
       success: false,
-      error: "Failed to create organization. Please try again.",
+      error: t("createFailed"),
     };
   }
 

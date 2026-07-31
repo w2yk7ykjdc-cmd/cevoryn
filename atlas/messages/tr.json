@@ -61,6 +61,105 @@
       }
     }
   },
+  "auth": {
+    "login": {
+      "title": "Giriş yap",
+      "description": "Çalışma alanına erişmek için bilgilerini gir",
+      "continueWithGoogle": "Google ile devam et",
+      "or": "veya",
+      "email": "E-posta",
+      "password": "Şifre",
+      "forgotPassword": "Şifremi unuttum?",
+      "submit": "Giriş yap",
+      "noAccount": "Hesabın yok mu?",
+      "signUpLink": "Kayıt ol",
+      "passwordResetSuccess": "Şifren güncellendi. Yeni şifrenle giriş yap.",
+      "sessionExpired": "Oturumun sona erdi. Devam etmek için tekrar giriş yap. Gönderilmemiş bir sohbet mesajı otomatik olarak geri yüklenecek.",
+      "genericError": "Giriş yapılamadı. Lütfen tekrar dene."
+    },
+    "signup": {
+      "title": "Hesap oluştur",
+      "description": "Ekibin için CEVORYN'e hemen başla",
+      "email": "E-posta",
+      "password": "Şifre",
+      "confirmPassword": "Şifreyi onayla",
+      "submit": "Hesap oluştur",
+      "haveAccount": "Zaten bir hesabın var mı?",
+      "signInLink": "Giriş yap",
+      "checkEmailTitle": "E-postanı kontrol et",
+      "checkEmailDescription": "Sana bir onay bağlantısı gönderdik",
+      "checkEmailBody": "Hesabını etkinleştirmek için <strong>{email}</strong> adresine gönderilen bağlantıya tıkla. Bağlantının süresi dolabilir, en son gelen e-postayı aç.",
+      "resend": "Onay e-postasını yeniden gönder",
+      "resendSuccess": "Yeni bir onay e-postası gönderildi.",
+      "backToSignIn": "Girişe dön",
+      "genericError": "Bir şeyler ters gitti. Lütfen tekrar dene."
+    },
+    "forgotPassword": {
+      "title": "Şifreyi sıfırla",
+      "description": "Sıfırlama bağlantısı almak için e-postanı gir",
+      "email": "E-posta",
+      "submit": "Sıfırlama bağlantısı gönder",
+      "backToSignIn": "Girişe dön",
+      "checkEmailTitle": "E-postanı kontrol et",
+      "checkEmailDescription": "Bir şifre sıfırlama bağlantısı gönderdik",
+      "checkEmailBody": "Bu e-postayla bir hesap varsa, kısa süre içinde bir sıfırlama bağlantısı alacaksın.",
+      "linkExpired": "Bu sıfırlama bağlantısı geçersiz veya süresi dolmuş. Aşağıdan yeni bir bağlantı iste.",
+      "genericError": "Bir şeyler ters gitti. Lütfen tekrar dene."
+    },
+    "resetPassword": {
+      "title": "Yeni bir şifre seç",
+      "description": "En az 8 karakter kullan; büyük harf, küçük harf ve rakam içermeli",
+      "newPassword": "Yeni şifre",
+      "confirmNewPassword": "Yeni şifreyi onayla",
+      "submit": "Şifreyi güncelle",
+      "backToSignIn": "Girişe dön",
+      "genericError": "Bir şeyler ters gitti. Lütfen yeni bir sıfırlama bağlantısı iste."
+    },
+    "validation": {
+      "invalidEmail": "Geçerli bir e-posta adresi gir",
+      "passwordMinLength": "Şifre en az 8 karakter olmalı",
+      "passwordComplexity": "Şifre büyük harf, küçük harf ve rakam içermeli",
+      "passwordsDoNotMatch": "Şifreler eşleşmiyor"
+    },
+    "errors": {
+      "invalidCredentials": "E-posta veya şifre hatalı.",
+      "emailNotConfirmed": "Giriş yapmadan önce lütfen e-postanı onayla.",
+      "alreadyRegistered": "Bu e-posta ile zaten bir hesap var.",
+      "passwordRequirements": "Şifre güvenlik gereksinimlerini karşılamalı.",
+      "rateLimited": "Çok fazla kimlik doğrulama isteği. Lütfen bekleyip tekrar dene.",
+      "signupDisabled": "Yeni hesap kaydı şu anda devre dışı.",
+      "generic": "Kimlik doğrulama başarısız. Lütfen tekrar dene.",
+      "inviteInvalid": "Bu davet geçersiz, süresi dolmuş veya başka bir e-postaya ait.",
+      "inviteNotConfigured": "Davet etkinleştirme yapılandırılmamış. Lütfen çalışma alanı sahibiyle iletişime geç.",
+      "inviteAccountFailed": "Davet edilen hesap hazırlanamadı. Lütfen tekrar dene.",
+      "inviteAlreadyExists": "Bu e-posta ile zaten bir hesap var. Daveti kabul etmek için giriş yap.",
+      "inviteCreateFailed": "Davet edilen hesap oluşturulamadı. Lütfen tekrar dene.",
+      "googleSignInFailed": "Google ile giriş başlatılamadı.",
+      "invalidInput": "Geçersiz giriş",
+      "resetLinkInvalid": "Bu sıfırlama bağlantısı geçersiz veya süresi dolmuş. Yeni bir bağlantı iste.",
+      "resetPasswordFailed": "Şifren güncellenemedi. Yeni bir sıfırlama bağlantısı isteyip tekrar dene."
+    }
+  },
+  "onboarding": {
+    "heading": "Çalışma alanını oluştur",
+    "subheading": "CEVORYN'e başlamak için organizasyonunu oluştur.",
+    "yourName": "Adın",
+    "workspaceName": "Çalışma alanı adı",
+    "workspaceNameHelp": "Bu senin çalışma alanı adın — genellikle şirket veya ekip adın.",
+    "submit": "Çalışma alanı oluştur",
+    "signedInAs": "{email} olarak giriş yaptın.",
+    "notYou": "Sen değil misin? Çıkış yap",
+    "validation": {
+      "orgNameMin": "Organizasyon adı en az 2 karakter olmalı",
+      "orgNameMax": "Organizasyon adı {max} karakterin altında olmalı",
+      "nameMin": "Adın en az 2 karakter olmalı",
+      "nameMax": "Ad {max} karakterin altında olmalı"
+    },
+    "errors": {
+      "invalidInput": "Geçersiz giriş",
+      "createFailed": "Organizasyon oluşturulamadı. Lütfen tekrar dene."
+    }
+  },
   "pricing": {
     "title": "Fiyatlandırma",
     "subtitle": "2-20 kişilik ekipler için basit, şeffaf planlar. İstediğiniz zaman iptal edin.",

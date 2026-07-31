@@ -3,6 +3,7 @@
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import { ROUTES } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
@@ -21,15 +22,25 @@ import type {
   SignupInput,
 } from "../schemas/auth";
 
-function sanitizeAuthError(message: string): string {
+type AuthErrors = Awaited<ReturnType<typeof getTranslations>>;
+
+function sanitizeAuthError(message: string, t: AuthErrors): string {
   const normalized = message.toLowerCase();
-  if (normalized.includes("invalid login credentials")) return "Invalid email or password.";
-  if (normalized.includes("email not confirmed")) return "Please confirm your email before signing in.";
-  if (normalized.includes("already registered") || normalized.includes("already exists")) return "An account with this email already exists.";
-  if (normalized.includes("password") && normalized.includes("character")) return "Password must meet the security requirements.";
-  if (normalized.includes("rate limit") || normalized.includes("too many")) return "Too many authentication requests. Please wait and try again.";
-  if (normalized.includes("signup") && normalized.includes("disabled")) return "New account registration is currently disabled.";
-  return "Authentication failed. Please try again.";
+  if (normalized.includes("invalid login credentials"))
+    return t("invalidCredentials");
+  if (normalized.includes("email not confirmed")) return t("emailNotConfirmed");
+  if (
+    normalized.includes("already registered") ||
+    normalized.includes("already exists")
+  )
+    return t("alreadyRegistered");
+  if (normalized.includes("password") && normalized.includes("character"))
+    return t("passwordRequirements");
+  if (normalized.includes("rate limit") || normalized.includes("too many"))
+    return t("rateLimited");
+  if (normalized.includes("signup") && normalized.includes("disabled"))
+    return t("signupDisabled");
+  return t("generic");
 }
 
 async function getAppUrl(): Promise<string> {
@@ -52,93 +63,215 @@ function getInviteToken(path: string): string | null {
   return match?.[1] ? decodeURIComponent(match[1]) : null;
 }
 
-async function activateInvitedUser(input: SignupInput, nextPath: string): Promise<ActionResult | null> {
+async function activateInvitedUser(
+  input: SignupInput,
+  nextPath: string,
+  t: AuthErrors
+): Promise<ActionResult | null> {
   const token = getInviteToken(nextPath);
   if (!token) return null;
-  const invite = await prisma.invite.findUnique({ where: { token }, select: { email: true, status: true, expiresAt: true } });
-  if (!invite || invite.status !== "PENDING" || invite.expiresAt.getTime() <= Date.now() || invite.email.toLowerCase() !== input.email.toLowerCase()) {
-    return { success: false, error: "This invite is invalid, expired, or belongs to another email." };
+  const invite = await prisma.invite.findUnique({
+    where: { token },
+    select: { email: true, status: true, expiresAt: true },
+  });
+  if (
+    !invite ||
+    invite.status !== "PENDING" ||
+    invite.expiresAt.getTime() <= Date.now() ||
+    invite.email.toLowerCase() !== input.email.toLowerCase()
+  ) {
+    return { success: false, error: t("inviteInvalid") };
   }
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  if (!supabaseUrl || !serviceRoleKey) return { success: false, error: "Invite activation is not configured. Please contact the workspace owner." };
-  const admin = createAdminClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
-  const { data: created, error: createError } = await admin.auth.admin.createUser({ email: input.email, password: input.password, email_confirm: true });
+  if (!supabaseUrl || !serviceRoleKey)
+    return { success: false, error: t("inviteNotConfigured") };
+  const admin = createAdminClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { data: created, error: createError } =
+    await admin.auth.admin.createUser({
+      email: input.email,
+      password: input.password,
+      email_confirm: true,
+    });
   if (createError) {
     const normalized = createError.message.toLowerCase();
-    const userAlreadyExists = normalized.includes("already") || normalized.includes("exists");
-    if (!userAlreadyExists) return { success: false, error: sanitizeAuthError(createError.message) };
-    const { data: usersPage, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    if (listError) return { success: false, error: sanitizeAuthError(listError.message) };
-    const existingUser = usersPage.users.find((user) => user.email?.toLowerCase() === input.email.toLowerCase());
-    if (!existingUser) return { success: false, error: "The invited account could not be prepared. Please try again." };
-    if (existingUser.email_confirmed_at) return { success: false, error: "An account with this email already exists. Please sign in to accept the invite." };
-    const { error: updateError } = await admin.auth.admin.updateUserById(existingUser.id, { password: input.password, email_confirm: true });
-    if (updateError) return { success: false, error: sanitizeAuthError(updateError.message) };
+    const userAlreadyExists =
+      normalized.includes("already") || normalized.includes("exists");
+    if (!userAlreadyExists)
+      return {
+        success: false,
+        error: sanitizeAuthError(createError.message, t),
+      };
+    const { data: usersPage, error: listError } =
+      await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    if (listError)
+      return { success: false, error: sanitizeAuthError(listError.message, t) };
+    const existingUser = usersPage.users.find(
+      (user) => user.email?.toLowerCase() === input.email.toLowerCase()
+    );
+    if (!existingUser)
+      return { success: false, error: t("inviteAccountFailed") };
+    if (existingUser.email_confirmed_at)
+      return { success: false, error: t("inviteAlreadyExists") };
+    const { error: updateError } = await admin.auth.admin.updateUserById(
+      existingUser.id,
+      { password: input.password, email_confirm: true }
+    );
+    if (updateError)
+      return {
+        success: false,
+        error: sanitizeAuthError(updateError.message, t),
+      };
   } else if (!created.user) {
-    return { success: false, error: "The invited account could not be created. Please try again." };
+    return { success: false, error: t("inviteCreateFailed") };
   }
   const supabase = await createClient();
-  const { error: signInError } = await supabase.auth.signInWithPassword({ email: input.email, password: input.password });
-  if (signInError) return { success: false, error: sanitizeAuthError(signInError.message) };
+  const { error: signInError } = await supabase.auth.signInWithPassword({
+    email: input.email,
+    password: input.password,
+  });
+  if (signInError)
+    return { success: false, error: sanitizeAuthError(signInError.message, t) };
   redirect(nextPath);
 }
 
 export async function googleLoginAction(formData: FormData): Promise<void> {
+  const t = await getTranslations("auth.errors");
   const requestedRedirect = formData.get("redirectTo");
-  const nextPath = getSafeRedirectPath(typeof requestedRedirect === "string" ? requestedRedirect : undefined, ROUTES.DASHBOARD);
+  const nextPath = getSafeRedirectPath(
+    typeof requestedRedirect === "string" ? requestedRedirect : undefined,
+    ROUTES.DASHBOARD
+  );
   const appUrl = await getAppUrl();
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: `${appUrl}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(nextPath)}` } });
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${appUrl}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(nextPath)}`,
+    },
+  });
   if (error || !data.url) {
-    const message = error?.message ?? "Google sign-in could not be started.";
-    redirect(`${ROUTES.LOGIN}?error=${encodeURIComponent(sanitizeAuthError(message))}`);
+    const message = error
+      ? sanitizeAuthError(error.message, t)
+      : t("googleSignInFailed");
+    redirect(`${ROUTES.LOGIN}?error=${encodeURIComponent(message)}`);
   }
   redirect(data.url);
 }
 
-export async function loginAction(input: LoginInput, redirectTo?: string): Promise<ActionResult<string>> {
+export async function loginAction(
+  input: LoginInput,
+  redirectTo?: string
+): Promise<ActionResult<string>> {
+  const t = await getTranslations("auth.errors");
   const parsed = loginSchema.safeParse(input);
   if (!parsed.success) {
-    return { success: false, error: "Invalid input", fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]> };
+    return {
+      success: false,
+      error: t("invalidInput"),
+      fieldErrors: parsed.error.flatten().fieldErrors as Record<
+        string,
+        string[]
+      >,
+    };
   }
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email: parsed.data.email, password: parsed.data.password });
-  if (error) return { success: false, error: sanitizeAuthError(error.message) };
-  return { success: true, data: getSafeRedirectPath(redirectTo, ROUTES.DASHBOARD) };
+  const { error } = await supabase.auth.signInWithPassword({
+    email: parsed.data.email,
+    password: parsed.data.password,
+  });
+  if (error)
+    return { success: false, error: sanitizeAuthError(error.message, t) };
+  return {
+    success: true,
+    data: getSafeRedirectPath(redirectTo, ROUTES.DASHBOARD),
+  };
 }
 
-export async function signupAction(input: SignupInput, redirectTo?: string): Promise<ActionResult> {
+export async function signupAction(
+  input: SignupInput,
+  redirectTo?: string
+): Promise<ActionResult> {
+  const t = await getTranslations("auth.errors");
   const parsed = signupSchema.safeParse(input);
-  if (!parsed.success) return { success: false, error: "Invalid input", fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]> };
+  if (!parsed.success)
+    return {
+      success: false,
+      error: t("invalidInput"),
+      fieldErrors: parsed.error.flatten().fieldErrors as Record<
+        string,
+        string[]
+      >,
+    };
   const nextPath = getConfirmationRedirectPath(redirectTo);
-  const inviteResult = await activateInvitedUser(parsed.data, nextPath);
+  const inviteResult = await activateInvitedUser(parsed.data, nextPath, t);
   if (inviteResult) return inviteResult;
   const appUrl = await getAppUrl();
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.signUp({ email: parsed.data.email, password: parsed.data.password, options: { emailRedirectTo: `${appUrl}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(nextPath)}` } });
-  if (error) return { success: false, error: sanitizeAuthError(error.message) };
+  const { data, error } = await supabase.auth.signUp({
+    email: parsed.data.email,
+    password: parsed.data.password,
+    options: {
+      emailRedirectTo: `${appUrl}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(nextPath)}`,
+    },
+  });
+  if (error)
+    return { success: false, error: sanitizeAuthError(error.message, t) };
   if (data.session) redirect(nextPath);
   return { success: true, data: undefined };
 }
 
-export async function resendConfirmationAction(input: ForgotPasswordInput, redirectTo?: string): Promise<ActionResult> {
+export async function resendConfirmationAction(
+  input: ForgotPasswordInput,
+  redirectTo?: string
+): Promise<ActionResult> {
+  const t = await getTranslations("auth.errors");
   const parsed = forgotPasswordSchema.safeParse(input);
-  if (!parsed.success) return { success: false, error: "Enter a valid email address.", fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]> };
+  if (!parsed.success)
+    return {
+      success: false,
+      error: t("invalidInput"),
+      fieldErrors: parsed.error.flatten().fieldErrors as Record<
+        string,
+        string[]
+      >,
+    };
   const nextPath = getConfirmationRedirectPath(redirectTo);
   const appUrl = await getAppUrl();
   const supabase = await createClient();
-  const { error } = await supabase.auth.resend({ type: "signup", email: parsed.data.email, options: { emailRedirectTo: `${appUrl}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(nextPath)}` } });
-  if (error) return { success: false, error: sanitizeAuthError(error.message) };
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email: parsed.data.email,
+    options: {
+      emailRedirectTo: `${appUrl}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(nextPath)}`,
+    },
+  });
+  if (error)
+    return { success: false, error: sanitizeAuthError(error.message, t) };
   return { success: true, data: undefined };
 }
 
-export async function forgotPasswordAction(input: ForgotPasswordInput): Promise<ActionResult> {
+export async function forgotPasswordAction(
+  input: ForgotPasswordInput
+): Promise<ActionResult> {
+  const t = await getTranslations("auth.errors");
   const parsed = forgotPasswordSchema.safeParse(input);
-  if (!parsed.success) return { success: false, error: "Invalid input", fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]> };
+  if (!parsed.success)
+    return {
+      success: false,
+      error: t("invalidInput"),
+      fieldErrors: parsed.error.flatten().fieldErrors as Record<
+        string,
+        string[]
+      >,
+    };
   const appUrl = await getAppUrl();
   const supabase = await createClient();
-  await supabase.auth.resetPasswordForEmail(parsed.data.email, { redirectTo: `${appUrl}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(ROUTES.RESET_PASSWORD)}` });
+  await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+    redirectTo: `${appUrl}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(ROUTES.RESET_PASSWORD)}`,
+  });
   return { success: true, data: undefined };
 }
 
