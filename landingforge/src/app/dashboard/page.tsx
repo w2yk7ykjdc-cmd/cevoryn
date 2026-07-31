@@ -57,20 +57,32 @@ export default async function DashboardPage({
         <p className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>
       )}
 
-      <form className="flex gap-2">
-        <input
-          name="name"
-          placeholder="Yeni proje adi"
-          required
-          className="flex-1 rounded border px-3 py-2 text-sm"
-        />
-        <button
-          formAction={createProject}
-          className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          Olustur
-        </button>
-      </form>
+      <Link
+        href="/dashboard/new"
+        className="rounded bg-blue-600 px-4 py-3 text-center text-sm font-medium text-white hover:bg-blue-700"
+      >
+        Isini anlat, AI sayfani yayinlasin
+      </Link>
+
+      <details className="rounded border p-3 text-sm">
+        <summary className="cursor-pointer text-gray-500">
+          Veya bos bir proje olustur
+        </summary>
+        <form className="mt-3 flex gap-2">
+          <input
+            name="name"
+            placeholder="Yeni proje adi"
+            required
+            className="flex-1 rounded border px-3 py-2 text-sm"
+          />
+          <button
+            formAction={createProject}
+            className="rounded border px-4 py-2 text-sm font-medium hover:bg-gray-50"
+          >
+            Olustur
+          </button>
+        </form>
+      </details>
 
       <ul className="flex flex-col gap-2">
         {projects.map((project) => (

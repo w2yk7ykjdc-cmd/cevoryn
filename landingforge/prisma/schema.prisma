@@ -36,6 +36,7 @@ model Project {
   name          String
   slug          String   @unique
   customDomain  String?  @unique @map("custom_domain")
+  customDomainStatus DomainStatus @default(NONE) @map("custom_domain_status")
   primaryLocale String   @default("en") @map("primary_locale")
   locales       String[] @default(["en"])
   favicon       String?
@@ -178,4 +179,11 @@ enum UsageType {
   GENERATE_COPY
   SEO_META
   LOCALIZE
+}
+
+enum DomainStatus {
+  NONE
+  PENDING
+  VERIFIED
+  FAILED
 }
