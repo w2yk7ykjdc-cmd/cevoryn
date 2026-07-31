@@ -17,6 +17,7 @@ export const ROUTES = {
   TERMS: "/terms",
   PRIVACY: "/privacy",
   REFUNDS: "/refunds",
+  PRICING: "/pricing",
 } as const;
 
 export const PUBLIC_ROUTES: readonly string[] = [
@@ -29,6 +30,7 @@ export const PUBLIC_ROUTES: readonly string[] = [
   ROUTES.TERMS,
   ROUTES.PRIVACY,
   ROUTES.REFUNDS,
+  ROUTES.PRICING,
 ];
 
 export const AUTH_ROUTES: readonly string[] = [
