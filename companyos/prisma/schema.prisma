@@ -9,32 +9,34 @@ datasource db {
 }
 
 model User {
-  id               String         @id
-  name             String
-  email            String
-  emailVerified    Boolean        @default(false)
-  image            String?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  role             String?
-  banned           Boolean?       @default(false)
-  banReason        String?
-  banExpires       DateTime?
-  sessions         Session[]
-  accounts         Account[]
-  members          Member[]
-  invitations      Invitation[]
-  apiKeys          ApiKey[]
-  conversations    Conversation[]
-  memoryRecords    MemoryRecord[]
-  companiesCreated Company[]
-  contactsCreated  Contact[]
-  contactNotes     ContactNote[]
-  leadsOwned       Lead[]         @relation("LeadOwner")
-  leadsCreated     Lead[]         @relation("LeadCreatedBy")
-  leadActivities   LeadActivity[]
-  tasksAssigned    Task[]         @relation("TaskAssignee")
-  tasksCreated     Task[]         @relation("TaskCreatedBy")
+  id                    String          @id
+  name                  String
+  email                 String
+  emailVerified         Boolean         @default(false)
+  image                 String?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  role                  String?
+  banned                Boolean?        @default(false)
+  banReason             String?
+  banExpires            DateTime?
+  sessions              Session[]
+  accounts              Account[]
+  members               Member[]
+  invitations           Invitation[]
+  apiKeys               ApiKey[]
+  conversations         Conversation[]
+  memoryRecords         MemoryRecord[]
+  companiesCreated      Company[]
+  contactsCreated       Contact[]
+  contactNotes          ContactNote[]
+  leadsOwned            Lead[]          @relation("LeadOwner")
+  leadsCreated          Lead[]          @relation("LeadCreatedBy")
+  leadActivities        LeadActivity[]
+  tasksAssigned         Task[]          @relation("TaskAssignee")
+  tasksCreated          Task[]          @relation("TaskCreatedBy")
+  agentRuns             AgentRun[]
+  agentApprovalsDecided AgentApproval[] @relation("AgentApprovalDecidedBy")
 
   @@unique([email])
   @@map("user")
@@ -112,6 +114,8 @@ model Organization {
   leads             Lead[]
   leadActivities    LeadActivity[]
   tasks             Task[]
+  agentRuns         AgentRun[]
+  agentApprovals    AgentApproval[]
 
   @@unique([slug])
   @@map("organization")
@@ -260,6 +264,7 @@ model Conversation {
   messages       Message[]
   toolCalls      ToolInvocation[]
   memoryRecords  MemoryRecord[]
+  agentRuns      AgentRun[]
 
   @@index([organizationId, userId, createdAt])
   @@map("conversation")
@@ -548,4 +553,113 @@ model Task {
   @@index([organizationId, dueDate])
   @@index([leadId])
   @@map("task")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Sprint 2: Agent orchestration — multi-step planning, tool execution,
+// human-in-the-loop approval for the AI Sales Employee
+// ─────────────────────────────────────────────────────────────────────────
+
+enum AgentRunStatus {
+  planning
+  running
+  waiting_approval
+  completed
+  failed
+  rejected
+}
+
+enum AgentStepStatus {
+  pending
+  running
+  succeeded
+  failed
+  skipped
+}
+
+enum AgentApprovalStatus {
+  pending
+  approved
+  rejected
+}
+
+/// One row per user request handed to the AI Sales Employee agent. Tracks
+/// the plan the model proposed and the overall outcome of executing it.
+/// `goal` is the original user instruction; `plan` is the ordered list of
+/// proposed tool calls the planner produced (informational — `AgentStep`
+/// rows are the source of truth for what actually ran).
+model AgentRun {
+  id             String          @id @default(cuid())
+  organizationId String
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  conversationId String
+  conversation   Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal           String
+  plan           Json
+  status         AgentRunStatus  @default(planning)
+  resultSummary  String?
+  errorMessage   String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  completedAt    DateTime?
+  steps          AgentStep[]
+  approvals      AgentApproval[]
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, status])
+  @@index([conversationId])
+  @@map("agent_run")
+}
+
+/// One row per planned tool call within an `AgentRun`, in execution order.
+/// `input`/`output` mirror `ToolInvocation` but are scoped to the run so a
+/// run's full step-by-step trace can be reconstructed and displayed without
+/// joining across conversations.
+model AgentStep {
+  id           String          @id @default(cuid())
+  agentRunId   String
+  agentRun     AgentRun        @relation(fields: [agentRunId], references: [id], onDelete: Cascade)
+  stepIndex    Int
+  toolName     String
+  input        Json
+  output       Json?
+  status       AgentStepStatus @default(pending)
+  errorMessage String?
+  approvalId   String?         @unique
+  approval     AgentApproval?  @relation(fields: [approvalId], references: [id], onDelete: SetNull)
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime        @default(now())
+
+  @@unique([agentRunId, stepIndex])
+  @@index([agentRunId])
+  @@map("agent_step")
+}
+
+/// A human-approval gate for a single risky step. Created when the agent
+/// reaches a step whose tool is classified as requiring approval; the run
+/// halts in `waiting_approval` until a member with the underlying tool's
+/// own required permission approves or rejects it.
+model AgentApproval {
+  id             String              @id @default(cuid())
+  organizationId String
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  agentRunId     String
+  agentRun       AgentRun            @relation(fields: [agentRunId], references: [id], onDelete: Cascade)
+  step           AgentStep?
+  toolName       String
+  input          Json
+  reason         String
+  status         AgentApprovalStatus @default(pending)
+  decidedById    String?
+  decidedBy      User?               @relation("AgentApprovalDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+  decidedAt      DateTime?
+  decisionNote   String?
+  createdAt      DateTime            @default(now())
+
+  @@index([organizationId, status])
+  @@index([agentRunId])
+  @@map("agent_approval")
 }

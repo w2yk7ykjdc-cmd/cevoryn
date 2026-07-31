@@ -24,6 +24,9 @@ const TENANT_SCOPED_MODELS = new Set([
   "Lead",
   "LeadActivity",
   "Task",
+  "AgentRun",
+  "AgentStep", // scoped indirectly via AgentRun, listed for documentation
+  "AgentApproval",
 ]);
 
 const DIRECTLY_SCOPED_MODELS = new Set([
@@ -39,6 +42,8 @@ const DIRECTLY_SCOPED_MODELS = new Set([
   "Lead",
   "LeadActivity",
   "Task",
+  "AgentRun",
+  "AgentApproval",
 ]);
 
 export class CrossTenantAccessError extends Error {
