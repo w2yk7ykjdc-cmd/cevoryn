@@ -31,12 +31,17 @@ export async function enqueue<J extends JobName>(
   return job.id ?? "";
 }
 
-/** Schedules (or re-schedules idempotently) the recurring outbox relay job. */
+/** Schedules (or re-schedules idempotently) every recurring job the worker owns. */
 export async function scheduleRecurringJobs(): Promise<void> {
   await getQueue().upsertJobScheduler(
     "relay-outbox-events-scheduler",
     { every: 30_000 },
     { name: "relay-outbox-events", data: {} },
+  );
+  await getQueue().upsertJobScheduler(
+    "sweep-task-reminders-scheduler",
+    { every: 60_000 },
+    { name: "sweep-task-reminders", data: {} },
   );
 }
 

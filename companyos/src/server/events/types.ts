@@ -57,6 +57,12 @@ export type EventMap = {
     status: "success" | "error";
     durationMs: number;
   };
+  "task.reminder_due": {
+    taskId: string;
+    organizationId: string;
+    assigneeId: string | null;
+    title: string;
+  };
 };
 
 export type EventName = keyof EventMap;

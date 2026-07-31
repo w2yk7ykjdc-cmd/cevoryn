@@ -22,6 +22,7 @@ export type JobMap = {
     content: string;
     kind: MemoryKind;
   };
+  "sweep-task-reminders": Record<string, never>;
 };
 
 export type JobName = keyof JobMap;

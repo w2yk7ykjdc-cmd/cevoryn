@@ -12,6 +12,7 @@ import type { JobMap, JobName } from "@/server/jobs/types";
 import { sendInvitationEmailProcessor } from "@/server/jobs/processors/send-invitation-email";
 import { relayOutboxEventsProcessor } from "@/server/jobs/processors/relay-outbox-events";
 import { generateMemoryEmbeddingProcessor } from "@/server/jobs/processors/generate-memory-embedding";
+import { sweepTaskRemindersProcessor } from "@/server/jobs/processors/sweep-task-reminders";
 
 /**
  * Background worker process. Runs as its own container/process (see
@@ -33,6 +34,8 @@ async function processJob(job: Job<JobMap[JobName], void, JobName>): Promise<voi
       return relayOutboxEventsProcessor();
     case "generate-memory-embedding":
       return generateMemoryEmbeddingProcessor(job.data as JobMap["generate-memory-embedding"]);
+    case "sweep-task-reminders":
+      return sweepTaskRemindersProcessor();
     default:
       logger.warn({ jobName: job.name }, "no processor registered for job");
   }
