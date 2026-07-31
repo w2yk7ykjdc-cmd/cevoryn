@@ -17,6 +17,7 @@ import {
   assertAiTokenCapacity,
   PlanLimitError,
 } from "@/server/services/entitlement.service";
+import { checkRateLimit } from "@/server/services/rate-limit.service";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -60,6 +61,14 @@ export async function POST(request: NextRequest) {
       membership.userId
     );
     if (!conversation) return notFoundResponse("Conversation not found");
+
+    const rateLimit = await checkRateLimit(membership.organizationId);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: { code: "RATE_LIMITED", message: "Daily token limit reached" } },
+        { status: 429 }
+      );
+    }
 
     try {
       await assertAiTokenCapacity(membership.organizationId);

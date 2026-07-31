@@ -27,6 +27,20 @@ export class GoogleConnectionError extends Error {
   }
 }
 
+export async function findConnectedGoogleUserId(
+  organizationId: string
+): Promise<string | null> {
+  const rows = await prisma.$queryRaw<Array<{ user_id: string }>>`
+    SELECT "user_id"
+    FROM "google_connections"
+    WHERE "organization_id" = ${organizationId}
+    ORDER BY "updated_at" DESC
+    LIMIT 1
+  `;
+
+  return rows[0]?.user_id ?? null;
+}
+
 export async function getValidGoogleAccessToken(
   organizationId: string,
   userId: string

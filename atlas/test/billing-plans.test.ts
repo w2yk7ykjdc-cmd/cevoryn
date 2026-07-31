@@ -11,10 +11,11 @@ import {
   hasFeature,
 } from "../src/features/billing/config/plans";
 
-test("Starter limits team membership to one user", () => {
-  assert.equal(getPlanLimits("STARTER").maxMembers, 1);
+test("Starter allows a small team of up to three members", () => {
+  assert.equal(getPlanLimits("STARTER").maxMembers, 3);
   assert.equal(canInviteMember("STARTER", 0), true);
-  assert.equal(canInviteMember("STARTER", 1), false);
+  assert.equal(canInviteMember("STARTER", 2), true);
+  assert.equal(canInviteMember("STARTER", 3), false);
 });
 
 test("Professional is the first plan with Brain and reports", () => {
