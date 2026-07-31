@@ -115,7 +115,9 @@ export function MorningBriefClient({
           <h1 className="text-2xl font-bold tracking-tight">
             {briefTitle ?? `Good morning, ${displayName.split(" ")[0]}`}
           </h1>
-          {briefDate && <p className="text-sm text-muted-foreground">{briefDate}</p>}
+          <p className="text-sm text-muted-foreground">
+            {briefDate ? `${briefDate} — today's` : "Today's"} priorities in one place.
+          </p>
         </div>
         <Button asChild variant="outline" size="sm">
           <Link href="/chat">

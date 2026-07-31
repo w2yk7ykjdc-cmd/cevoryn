@@ -70,7 +70,7 @@ export default async function HealthPage() {
     <div className="mx-auto max-w-5xl space-y-6 pb-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm text-muted-foreground">Operating diagnosis</p>
+          <p className="text-sm text-muted-foreground">Engagement trend</p>
           <h1 className="text-2xl font-bold tracking-tight">Company Health</h1>
           <p className="text-sm text-muted-foreground">{membership.organizationName}</p>
         </div>
@@ -110,8 +110,8 @@ export default async function HealthPage() {
             <p className="text-sm leading-relaxed">
               {buildNextMove(weakestDimension?.name, weakestDimension?.score ?? 0, openInsights)}
             </p>
-            <Link href={`/chat?prompt=${encodeURIComponent(`Act as my chief of staff. Diagnose why ${weakestDimension?.name ?? "our weakest operating area"} is underperforming and produce one owner, one measurable outcome, and a 24-hour action plan.`)}`}>
-              <Button size="sm">Create recovery plan <ArrowRight className="h-4 w-4" /></Button>
+            <Link href={`/chat?prompt=${encodeURIComponent(`Act as my chief of staff. Look at why ${weakestDimension?.name ?? "our weakest area"} is lagging and suggest one owner, one measurable outcome, and a 24-hour next step.`)}`}>
+              <Button size="sm">Get a focused plan <ArrowRight className="h-4 w-4" /></Button>
             </Link>
           </CardContent>
         </Card>
@@ -125,7 +125,7 @@ export default async function HealthPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Operating diagnosis</CardTitle>
+          <CardTitle className="text-base">Engagement breakdown</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 lg:grid-cols-3">
           {diagnoses.map((dimension) => {
@@ -176,8 +176,8 @@ function buildDimensionAction(name: string, score: number): string {
 }
 
 function buildHealthSummary(score: number, trend: "improving" | "stable" | "declining", weakestArea: string | undefined, openInsights: number): string {
-  const level = score >= 70 ? "Operating health is strong" : score >= 40 ? "Operating health is mixed" : "Operating health needs intervention";
-  const direction = trend === "improving" ? "and improving" : trend === "declining" ? "and moving in the wrong direction" : "and broadly stable";
+  const level = score >= 70 ? "Team engagement is strong" : score >= 40 ? "Team engagement is mixed" : "Team engagement is low so far";
+  const direction = trend === "improving" ? "and improving" : trend === "declining" ? "and trending down" : "and broadly stable";
   return `${level} ${direction}. ${weakestArea ? `${weakestArea} is the main constraint.` : ""} ${openInsights > 0 ? `${openInsights} open insight${openInsights === 1 ? "" : "s"} need review.` : "No open insight is waiting."}`;
 }
 

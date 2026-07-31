@@ -75,7 +75,7 @@ export default async function IntelligencePage({ searchParams }: { searchParams:
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm text-muted-foreground">CEVORYN Brain</p>
-          <h1 className="text-2xl font-bold tracking-tight">Intelligence workspace</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Intelligence</h1>
           <p className="mt-1 text-sm text-muted-foreground">Review signals, decisions, outcomes, and prepared actions.</p>
         </div>
         <Button asChild>

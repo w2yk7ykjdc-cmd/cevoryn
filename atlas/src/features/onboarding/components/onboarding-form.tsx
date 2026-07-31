@@ -93,7 +93,7 @@ export function OnboardingForm({ userEmail }: OnboardingFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="organizationName">Organization name</Label>
+            <Label htmlFor="organizationName">Workspace name</Label>
             <Input
               id="organizationName"
               placeholder="Acme Inc."
@@ -106,7 +106,7 @@ export function OnboardingForm({ userEmail }: OnboardingFormProps) {
               </p>
             )}
             <p className="text-xs text-muted-foreground">
-              This is the name of your company or team.
+              This is your workspace name — usually your company or team name.
             </p>
           </div>
 
