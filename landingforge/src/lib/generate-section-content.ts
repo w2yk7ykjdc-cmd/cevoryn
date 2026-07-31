@@ -1,7 +1,8 @@
-import { SectionType, UsageType } from "@prisma/client";
+import { Plan, SectionType, UsageType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getOpenAIClient } from "@/lib/openai";
 import { getSectionSchema } from "@/lib/section-schemas";
+import { assertWithinUsageLimit } from "@/lib/usage-limits";
 
 export async function generateAndSaveSectionContent({
   sectionId,
@@ -9,13 +10,17 @@ export async function generateAndSaveSectionContent({
   locale,
   projectName,
   userId,
+  plan,
 }: {
   sectionId: string;
   sectionType: SectionType;
   locale: string;
   projectName: string;
   userId: string;
+  plan: Plan;
 }): Promise<Record<string, unknown>> {
+  await assertWithinUsageLimit(userId, plan);
+
   const { name, description, schema } = getSectionSchema(sectionType);
 
   const response = await getOpenAIClient().responses.create({

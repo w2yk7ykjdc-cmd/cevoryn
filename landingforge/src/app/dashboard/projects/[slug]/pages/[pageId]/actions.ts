@@ -6,6 +6,7 @@ import { SectionType } from "@prisma/client";
 import { requireUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 import { generateAndSaveSectionContent } from "@/lib/generate-section-content";
+import { UsageLimitExceededError } from "@/lib/usage-limits";
 
 async function ownedPage(pageId: string, userId: string) {
   return prisma.page.findFirst({
@@ -59,13 +60,24 @@ export async function generateSectionContent(formData: FormData) {
   });
   if (!section) redirect(`/dashboard/projects/${page.project.slug}/pages/${pageId}`);
 
-  await generateAndSaveSectionContent({
-    sectionId,
-    sectionType: section.type,
-    locale,
-    projectName: page.project.name,
-    userId: user.id,
-  });
+  try {
+    await generateAndSaveSectionContent({
+      sectionId,
+      sectionType: section.type,
+      locale,
+      projectName: page.project.name,
+      userId: user.id,
+      plan: user.plan,
+    });
+  } catch (e) {
+    const message =
+      e instanceof UsageLimitExceededError
+        ? "Aylik AI kullanim limitine ulastin."
+        : "Icerik uretilirken bir hata olustu, tekrar dene.";
+    redirect(
+      `/dashboard/projects/${page.project.slug}/pages/${pageId}?error=${encodeURIComponent(message)}`,
+    );
+  }
 
   revalidatePath(`/dashboard/projects/${page.project.slug}/pages/${pageId}`);
 }
