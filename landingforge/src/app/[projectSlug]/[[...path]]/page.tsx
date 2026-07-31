@@ -17,8 +17,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const { locale } = await searchParams;
   const data = await getPublicPage(projectSlug, path, locale);
   const canonicalPath = path && path.length > 0 ? `/${path.join("/")}` : "";
-  const canonicalUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/${projectSlug}${canonicalPath}`;
-  return buildPublicPageMetadata(data, canonicalUrl);
+  return buildPublicPageMetadata(data, canonicalPath);
 }
 
 export default async function PublicProjectPage({ params, searchParams }: Props) {

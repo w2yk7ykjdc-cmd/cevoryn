@@ -1,5 +1,6 @@
 import type { getPublicPage } from "@/lib/get-public-page";
 import { SectionRenderer } from "@/components/section-renderer";
+import { getCanonicalOrigin } from "@/lib/canonical-origin";
 
 type PublicPageData = NonNullable<Awaited<ReturnType<typeof getPublicPage>>>;
 
@@ -30,7 +31,13 @@ export function PublicProjectView({ data }: { data: PublicPageData }) {
   );
 }
 
-export function buildPublicPageMetadata(data: PublicPageData | null, canonicalUrl: string) {
+// The canonical URL is derived from the project's own record, not from
+// whichever host actually served this request - a project reachable both
+// at /{slug} on our own domain and on its own verified custom domain must
+// declare exactly one of them canonical, or search engines see duplicate
+// content. A verified custom domain wins; otherwise our own path-based URL
+// is the only stable address the page has.
+export function buildPublicPageMetadata(data: PublicPageData | null, pagePath: string) {
   if (!data) return {};
   const seo = data.page.seoMeta[0];
   const base = seo
@@ -45,5 +52,7 @@ export function buildPublicPageMetadata(data: PublicPageData | null, canonicalUr
       }
     : { title: data.project.name };
 
-  return { ...base, alternates: { canonical: canonicalUrl } };
+  const canonicalOrigin = getCanonicalOrigin(data.project);
+
+  return { ...base, alternates: { canonical: `${canonicalOrigin}${pagePath}` } };
 }

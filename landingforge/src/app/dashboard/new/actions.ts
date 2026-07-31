@@ -17,6 +17,16 @@ const DEFAULT_SECTIONS: SectionType[] = [
   SectionType.FOOTER,
 ];
 
+function isRedirectError(e: unknown): boolean {
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    "digest" in e &&
+    typeof (e as { digest: unknown }).digest === "string" &&
+    (e as { digest: string }).digest.startsWith("NEXT_REDIRECT")
+  );
+}
+
 export async function createProjectFromBrief(formData: FormData) {
   const user = await requireUser();
 
@@ -71,7 +81,11 @@ export async function createProjectFromBrief(formData: FormData) {
       ),
     );
 
-    const results = await Promise.all(
+    // allSettled, not all: one section's AI call failing shouldn't discard
+    // the tokens already spent on the other four. Only the hero is treated
+    // as load-bearing (see below) - everything else degrades gracefully to
+    // "empty, retry later from the existing per-section generate button".
+    const outcomes = await Promise.allSettled(
       sections.map((section) =>
         generateAndSaveSectionContent({
           sectionId: section.id,
@@ -85,17 +99,30 @@ export async function createProjectFromBrief(formData: FormData) {
     );
 
     const heroIndex = DEFAULT_SECTIONS.indexOf(SectionType.HERO);
-    const heroFields = results[heroIndex] as
-      | { headline?: string; subheadline?: string }
-      | undefined;
+    const heroOutcome = outcomes[heroIndex];
+
+    // No hero means no headline and no SEO fallback content - that's not a
+    // publishable page, so treat it the same as a total failure.
+    if (heroOutcome.status === "rejected") {
+      throw heroOutcome.reason;
+    }
+
+    const heroFields = heroOutcome.value as {
+      headline?: string;
+      subheadline?: string;
+    };
+
+    const failedTypes = outcomes
+      .map((outcome, i) => (outcome.status === "rejected" ? DEFAULT_SECTIONS[i] : null))
+      .filter((type): type is SectionType => type !== null);
 
     await prisma.seoMeta.create({
       data: {
         pageId: page.id,
         locale: "en",
-        title: heroFields?.headline || projectName,
+        title: heroFields.headline || projectName,
         description:
-          heroFields?.subheadline || truncateAtWordBoundary(businessDescription, 155),
+          heroFields.subheadline || truncateAtWordBoundary(businessDescription, 155),
       },
     });
 
@@ -103,10 +130,20 @@ export async function createProjectFromBrief(formData: FormData) {
       where: { id: project.id },
       data: { published: true },
     });
+
+    const query =
+      failedTypes.length > 0
+        ? `launched=1&partial=${encodeURIComponent(failedTypes.join(","))}`
+        : "launched=1";
+
+    redirect(`/dashboard/projects/${project.slug}?${query}`);
   } catch (e) {
-    // Don't leave a half-built, unpublished "zombie" project behind - the
-    // schema's cascade deletes clean up the theme/page/sections/contents
-    // created so far in one call.
+    if (isRedirectError(e)) throw e;
+
+    // Only reachable when nothing worth keeping was produced (hero failed,
+    // or an earlier setup step threw) - clean up so no half-built,
+    // unpublished project lingers. Cascade deletes take theme/page/
+    // sections/contents with it in one call.
     await prisma.project.delete({ where: { id: project.id } }).catch(() => {});
 
     const message =
@@ -115,6 +152,4 @@ export async function createProjectFromBrief(formData: FormData) {
         : "Sayfa olustururken bir hata oldu, tekrar dene.";
     redirect(`/dashboard/new?error=${encodeURIComponent(message)}`);
   }
-
-  redirect(`/dashboard/projects/${project.slug}?launched=1`);
 }

@@ -12,10 +12,10 @@ export default async function ProjectPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ error?: string; launched?: string }>;
+  searchParams: Promise<{ error?: string; launched?: string; partial?: string }>;
 }) {
   const { slug } = await params;
-  const { error, launched } = await searchParams;
+  const { error, launched, partial } = await searchParams;
   const user = await requireUser();
 
   const project = await prisma.project.findFirst({
@@ -68,6 +68,15 @@ export default async function ProjectPage({
             </code>
             <CopyLinkButton url={`${process.env.NEXT_PUBLIC_APP_URL}/${project.slug}`} />
           </div>
+          {partial && project.pages[0] && (
+            <p className="mt-2 text-xs text-amber-700">
+              Su bolumler olusturulamadi: {partial.split(",").join(", ")}. Asagidaki{" "}
+              <Link href={`/dashboard/projects/${project.slug}/pages/${project.pages[0].id}`} className="underline">
+                sayfa detayindan
+              </Link>{" "}
+              tek tek yeniden uretebilirsin.
+            </p>
+          )}
         </div>
       )}
 
