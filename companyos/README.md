@@ -47,6 +47,9 @@ src/
       runtime/               conversation orchestration loop (tool calling, streaming)
       tools/                 tool registry, RBAC-checked executor, built-in tools
       memory/                short-term (conversation history) + long-term (pgvector) memory
+      planner/               LLM-backed multi-step plan generation
+      approval/              risk policy + human-approval service for gated tool calls
+      agent/                 multi-step run executor: plans, executes, halts, pauses, resumes
 ```
 
 ### Multi-tenancy
@@ -137,6 +140,64 @@ model calls it, reads the result, and decides what to do (create a task,
 record its analysis on the timeline, or just answer), which keeps the
 analysis itself fully unit-testable independent of any AI provider.
 
+### Agent orchestration (Sprint 2)
+
+Sprint 1's AI Sales Employee could use one tool at a time, chosen turn by
+turn inside the chat loop. Sprint 2 adds a second, parallel entrypoint —
+`/dashboard/agent` — that takes a single natural-language goal and drives it
+to completion across multiple tool calls, safely:
+
+```
+src/server/ai/planner/    Analyzes a goal into an ordered tool-call plan
+src/server/ai/approval/   Risk policy + human-approval service for gated calls
+src/server/ai/agent/      Executes a plan step by step, halts, pauses, resumes
+```
+
+**Planner.** `createPlan` (`src/server/ai/planner/planner.ts`) hands the
+model a synthetic `propose_plan` tool — never added to the real Tool Engine
+registry — alongside a text catalog of every real registered tool and its
+JSON Schema. The model calls `propose_plan` exactly once with the ordered
+steps it wants to take; if it decides no tool call is needed, it proposes an
+empty list and the planner falls back to a direct text answer. A plan step
+whose `toolName` isn't a real registered tool, or whose shape doesn't match
+the `propose_plan` schema (including the hard cap of 8 steps), is rejected
+with `PlannerValidationError` before anything runs.
+
+**Multi-tool execution.** `startAgentRun` (`src/server/ai/agent/executor.ts`)
+persists the plan as an `AgentRun` with one `AgentStep` row per step, then
+executes each step in order through the exact same `executeToolCall` the
+chat runtime uses — the model has no path to the database that bypasses the
+RBAC-checked Tool Engine. A failing step halts the entire run immediately
+(`status: "failed"`); no later step is ever attempted once one has failed,
+so a multi-step action can't leave a tenant's data partially applied without
+it being visible in the run. Every step transition and the run's own
+start/completion/failure are written to `AuditLog` with `actorType: "ai"`,
+on top of whatever audit entries the underlying tool handler writes itself.
+
+**Human approval.** `src/server/ai/approval/policy.ts` classifies every tool
+as `auto` (read-only lookups and append-only annotations) or
+`requires_approval` (secure by default — an unrecognized tool name requires
+approval) — currently only `create_task` is gated, since it's the one tool
+that assigns real, actionable work to a person. When the executor reaches a
+gated step, it opens an `AgentApproval` row and pauses the run
+(`status: "waiting_approval"`) instead of calling the tool. `decideApproval`
+(`src/server/ai/approval/service.ts`) requires the decider to hold the
+*underlying tool's own* `requiredPermission` — there is no separate
+"approver" permission, so this reuses Sprint 0's RBAC check exactly rather
+than adding new permission surface. Approving resumes the run and executes
+the step normally; rejecting marks that one step `"skipped"` and the run
+continues with the remaining steps, since a rejection is a valid outcome,
+not a system failure.
+
+**LLM integration.** The planner is the only place a model is called during
+an agent run, and it never sees real data beyond the tool catalog and the
+conversation — every subsequent action goes through `executeToolCall`. Both
+the planner and the executor accept a DI'd `provider` (or `providerId`),
+so calling code (and tests) can supply any `AIProvider`; the default target
+comes from `resolveDefaultTarget()`/`resolveProviderForModel()`, the same
+Sprint 0 provider registry the chat runtime resolves against — no new
+provider plumbing.
+
 ## Getting started
 
 ```bash
@@ -189,6 +250,9 @@ via `docker compose up -d postgres redis`, or any reachable instance your
 - `tests/lead-analysis.test.ts` — the deterministic `analyzeLead` risk/next-action rules (pure, no DB)
 - `tests/ai-sales-employee.test.ts` — the AI tools via `executeToolCall`, including a real RBAC denial (a viewer genuinely can't `create_task`)
 - `tests/e2e-scenario.test.ts` — the full acceptance scenario below, driven end to end
+- `tests/planner.test.ts` — `createPlan` against a scripted `AIProvider` test double: valid plans, the direct-answer fallback, and every validation-error path (malformed args, unknown tool, over the step cap)
+- `tests/approval-policy.test.ts` — the risk classification table, including the secure-by-default fallback for unrecognized tools
+- `tests/agent-executor.test.ts` — the full agent run loop against the real Tool Engine: multi-step completion, halt-on-error (a genuine RBAC denial mid-run), pause/approve/resume, pause/reject/continue, and RBAC preserved on the approval decision itself
 
 Each test creates its own users/organizations with random emails and slugs,
 so the suite is safe to run repeatedly against the same database.
