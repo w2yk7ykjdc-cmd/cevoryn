@@ -19,11 +19,13 @@ export function GoogleIntegrationCard({
   const searchParams = useSearchParams();
   const [disconnecting, setDisconnecting] = useState(false);
   const [creatingDraft, setCreatingDraft] = useState(false);
+  const [confirmingDraft, setConfirmingDraft] = useState(false);
 
   useEffect(() => {
     const status = searchParams.get("google");
     if (status === "connected") toast.success("Google account connected");
-    if (status === "error") toast.error("Google account could not be connected");
+    if (status === "error")
+      toast.error("Google account could not be connected");
 
     if (status) {
       router.replace("/settings", { scroll: false });
@@ -33,11 +35,7 @@ export function GoogleIntegrationCard({
   async function createTestDraft() {
     if (!connectedEmail) return;
 
-    const approved = window.confirm(
-      `Create a Gmail draft addressed to ${connectedEmail}? Nothing will be sent.`,
-    );
-    if (!approved) return;
-
+    setConfirmingDraft(false);
     setCreatingDraft(true);
 
     try {
@@ -52,7 +50,7 @@ export function GoogleIntegrationCard({
             subject: "CEVORYN Google Test",
             body: "The Google connection is working successfully.",
           }),
-        },
+        }
       );
 
       if (handleUnauthorized(response)) return;
@@ -60,7 +58,7 @@ export function GoogleIntegrationCard({
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
         throw new Error(
-          payload?.error?.message ?? "The Gmail draft could not be created",
+          payload?.error?.message ?? "The Gmail draft could not be created"
         );
       }
 
@@ -69,7 +67,7 @@ export function GoogleIntegrationCard({
       toast.error(
         error instanceof Error
           ? error.message
-          : "The Gmail draft could not be created",
+          : "The Gmail draft could not be created"
       );
     } finally {
       setCreatingDraft(false);
@@ -89,7 +87,7 @@ export function GoogleIntegrationCard({
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
         throw new Error(
-          payload?.error?.message ?? "Google account could not be disconnected",
+          payload?.error?.message ?? "Google account could not be disconnected"
         );
       }
 
@@ -99,7 +97,7 @@ export function GoogleIntegrationCard({
       toast.error(
         error instanceof Error
           ? error.message
-          : "Google account could not be disconnected",
+          : "Google account could not be disconnected"
       );
     } finally {
       setDisconnecting(false);
@@ -121,8 +119,8 @@ export function GoogleIntegrationCard({
     return (
       <div className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          Connect Gmail and Google Calendar so CEVORYN can prepare email drafts and
-          calendar actions for your approval.
+          Connect Gmail and Google Calendar so CEVORYN can prepare email drafts
+          and calendar actions for your approval.
         </p>
         <Button asChild>
           <a href="/api/integrations/google/connect">Connect Google</a>
@@ -137,16 +135,49 @@ export function GoogleIntegrationCard({
         <p className="text-sm font-medium">Connected</p>
         <p className="text-sm text-muted-foreground">{connectedEmail}</p>
       </div>
-      <div className="flex flex-wrap gap-2">
-        <Button onClick={createTestDraft} disabled={creatingDraft || disconnecting}>
-          {creatingDraft && <Loader2 className="h-4 w-4 animate-spin" />}
-          {creatingDraft ? "Creating draft..." : "Create Gmail test draft"}
-        </Button>
-        <Button variant="outline" onClick={disconnect} disabled={disconnecting}>
-          {disconnecting && <Loader2 className="h-4 w-4 animate-spin" />}
-          {disconnecting ? "Disconnecting..." : "Disconnect"}
-        </Button>
-      </div>
+      {confirmingDraft ? (
+        <div className="space-y-2 rounded-md border p-3">
+          <p className="text-sm text-muted-foreground">
+            Create a Gmail draft addressed to {connectedEmail}? Nothing will be
+            sent.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              onClick={createTestDraft}
+              disabled={creatingDraft}
+            >
+              {creatingDraft && <Loader2 className="h-4 w-4 animate-spin" />}
+              {creatingDraft ? "Creating draft..." : "Create draft"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setConfirmingDraft(false)}
+              disabled={creatingDraft}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={() => setConfirmingDraft(true)}
+            disabled={disconnecting}
+          >
+            Create Gmail test draft
+          </Button>
+          <Button
+            variant="outline"
+            onClick={disconnect}
+            disabled={disconnecting}
+          >
+            {disconnecting && <Loader2 className="h-4 w-4 animate-spin" />}
+            {disconnecting ? "Disconnecting..." : "Disconnect"}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
