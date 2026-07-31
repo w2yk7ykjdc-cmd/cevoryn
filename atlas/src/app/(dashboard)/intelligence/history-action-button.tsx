@@ -1,6 +1,7 @@
 "use client";
 
 import { ExternalLink, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -14,7 +15,13 @@ interface HistoryActionButtonProps {
   description: string;
 }
 
-export function HistoryActionButton({ id, type, title, description }: HistoryActionButtonProps) {
+export function HistoryActionButton({
+  id,
+  type,
+  title,
+  description,
+}: HistoryActionButtonProps) {
+  const t = useTranslations("intelligence.historyAction");
   const [loading, setLoading] = useState(false);
 
   async function relaunch() {
@@ -24,7 +31,7 @@ export function HistoryActionButton({ id, type, title, description }: HistoryAct
       if (handleUnauthorized(response)) return;
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        throw new Error(payload?.error?.message ?? "Action details could not be loaded");
+        throw new Error(payload?.error?.message ?? t("detailsLoadFailed"));
       }
 
       const content = asRecord(payload?.data?.content);
@@ -42,7 +49,10 @@ export function HistoryActionButton({ id, type, title, description }: HistoryAct
           text: text(content.title) || title,
           details: text(content.description) || description,
         });
-        const dates = buildCalendarDates(text(content.suggestedDate), text(content.duration));
+        const dates = buildCalendarDates(
+          text(content.suggestedDate),
+          text(content.duration)
+        );
         if (dates) params.set("dates", dates);
         window.location.href = `https://calendar.google.com/calendar/render?${params.toString()}`;
         return;
@@ -54,18 +64,28 @@ export function HistoryActionButton({ id, type, title, description }: HistoryAct
         .join("\n");
       const value = note ? `${title}\n\n${note}` : `${title}\n\n${description}`;
       const copied = await copyText(value);
-      toast.success(copied ? "Execution note copied." : "Open the action details and copy them manually.");
+      toast.success(copied ? t("executionNoteCopied") : t("openManually"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Action could not be reopened");
+      toast.error(error instanceof Error ? error.message : t("reopenFailed"));
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <Button type="button" variant="ghost" size="sm" disabled={loading} onClick={relaunch}>
-      {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
-      Reopen
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      disabled={loading}
+      onClick={relaunch}
+    >
+      {loading ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <ExternalLink className="h-3.5 w-3.5" />
+      )}
+      {t("reopen")}
     </Button>
   );
 }
@@ -82,16 +102,23 @@ function text(value: unknown): string {
 
 function formatValue(value: unknown): string {
   if (typeof value === "string") return value.trim();
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (typeof value === "number" || typeof value === "boolean")
+    return String(value);
   if (Array.isArray(value)) return value.map(String).join(", ");
   return "";
 }
 
 function formatLabel(value: string): string {
-  return value.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/_/g, " ").replace(/^./, (letter) => letter.toUpperCase());
+  return value
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/_/g, " ")
+    .replace(/^./, (letter) => letter.toUpperCase());
 }
 
-function buildCalendarDates(suggestedDate: string, duration: string): string | null {
+function buildCalendarDates(
+  suggestedDate: string,
+  duration: string
+): string | null {
   const start = new Date(suggestedDate);
   if (Number.isNaN(start.getTime())) return null;
   const parsedMinutes = Number.parseInt(duration, 10);
@@ -101,7 +128,10 @@ function buildCalendarDates(suggestedDate: string, duration: string): string | n
 }
 
 function toCalendarUtc(value: Date): string {
-  return value.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+  return value
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d{3}Z$/, "Z");
 }
 
 async function copyText(value: string): Promise<boolean> {

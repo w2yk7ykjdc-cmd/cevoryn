@@ -2,6 +2,7 @@
 
 import { Check, Eye, Loader2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -25,6 +26,7 @@ interface ActionQueueItem {
 }
 
 export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
+  const t = useTranslations("intelligence.actionQueue");
   const router = useRouter();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -44,16 +46,22 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
     try {
       await fetchDetails(id);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Action details could not be loaded");
+      toast.error(
+        error instanceof Error ? error.message : t("detailsLoadFailed")
+      );
     } finally {
       setLoadingId(null);
     }
   }
 
-  async function updateStatus(action: ActionQueueItem, status: "APPROVED" | "DISMISSED") {
+  async function updateStatus(
+    action: ActionQueueItem,
+    status: "APPROVED" | "DISMISSED"
+  ) {
     setUpdatingId(action.id);
     try {
-      const content = status === "APPROVED" ? await fetchDetails(action.id) : null;
+      const content =
+        status === "APPROVED" ? await fetchDetails(action.id) : null;
 
       const response = await fetch(`/api/brain/actions/${action.id}`, {
         method: "PATCH",
@@ -63,10 +71,11 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
       if (handleUnauthorized(response)) return;
 
       const payload = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(payload?.error?.message ?? "Action update failed");
+      if (!response.ok)
+        throw new Error(payload?.error?.message ?? t("actionUpdateFailed"));
 
       if (status === "DISMISSED") {
-        toast.success("Action dismissed");
+        toast.success(t("actionDismissed"));
         router.refresh();
         return;
       }
@@ -80,10 +89,10 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
           "Approved action handoff error:",
           handoffError instanceof Error ? handoffError.message : "unknown"
         );
-        toast.warning("Action approved, but the next app could not be opened. Use the reviewed details to continue manually.");
+        toast.warning(t("handoffWarning"));
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not update action");
+      toast.error(error instanceof Error ? error.message : t("updateFailed"));
     } finally {
       setUpdatingId(null);
     }
@@ -93,7 +102,7 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
     return (
       <Card>
         <CardContent className="py-8 text-center text-sm text-muted-foreground">
-          No prepared actions are waiting for review.
+          {t("noActions")}
         </CardContent>
       </Card>
     );
@@ -105,7 +114,10 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
         const preview = getActionPreview(action.type, details[action.id]);
         const isUpdating = updatingId === action.id;
         const isLoading = loadingId === action.id;
-        const hasReviewed = Object.prototype.hasOwnProperty.call(details, action.id);
+        const hasReviewed = Object.prototype.hasOwnProperty.call(
+          details,
+          action.id
+        );
 
         return (
           <Card key={action.id}>
@@ -114,10 +126,13 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
                 <div>
                   <CardTitle className="text-base">{action.title}</CardTitle>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {action.type.split("_").join(" ")} · {Math.round(action.confidence * 100)}% confidence
+                    {action.type.split("_").join(" ")} ·{" "}
+                    {t("confidence", {
+                      pct: Math.round(action.confidence * 100),
+                    })}
                   </p>
                 </div>
-                <Badge variant="secondary">PENDING</Badge>
+                <Badge variant="secondary">{t("pending")}</Badge>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -126,18 +141,25 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
               {preview.length > 0 ? (
                 <div className="space-y-2 rounded-lg border bg-muted/40 p-3">
                   <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    What CEVORYN will prepare
+                    {t("whatCevorynWillPrepare")}
                   </p>
                   {preview.map((item) => (
-                    <div key={item.label} className="grid gap-1 sm:grid-cols-[110px_1fr]">
-                      <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
-                      <p className="whitespace-pre-wrap break-words text-sm">{item.value}</p>
+                    <div
+                      key={item.label}
+                      className="grid gap-1 sm:grid-cols-[110px_1fr]"
+                    >
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {item.label}
+                      </p>
+                      <p className="whitespace-pre-wrap break-words text-sm">
+                        {item.value}
+                      </p>
                     </div>
                   ))}
                 </div>
               ) : hasReviewed ? (
                 <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm text-muted-foreground">
-                  No structured execution details were provided. CEVORYN will use the action title and description.
+                  {t("noStructuredDetails")}
                 </div>
               ) : (
                 <Button
@@ -146,20 +168,32 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
                   disabled={isLoading || updatingId !== null}
                   onClick={() => loadDetails(action.id)}
                 >
-                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
-                  Review details
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                  {t("reviewDetails")}
                 </Button>
               )}
 
-              {action.reasoning ? <p className="text-xs text-muted-foreground">{action.reasoning}</p> : null}
+              {action.reasoning ? (
+                <p className="text-xs text-muted-foreground">
+                  {action.reasoning}
+                </p>
+              ) : null}
               <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
                   disabled={!hasReviewed || updatingId !== null}
                   onClick={() => updateStatus(action, "APPROVED")}
                 >
-                  {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                  Approve & continue
+                  {isUpdating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4" />
+                  )}
+                  {t("approveAndContinue")}
                 </Button>
                 <Button
                   size="sm"
@@ -168,7 +202,7 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
                   onClick={() => updateStatus(action, "DISMISSED")}
                 >
                   <X className="h-4 w-4" />
-                  Dismiss
+                  {t("dismiss")}
                 </Button>
               </div>
             </CardContent>
@@ -178,4 +212,3 @@ export function ActionQueue({ actions }: { actions: ActionQueueItem[] }) {
     </div>
   );
 }
-
