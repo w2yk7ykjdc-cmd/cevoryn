@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertTriangle, RotateCcw } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,8 @@ export default function ChatError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const t = useTranslations("chat");
+
   useEffect(() => {
     console.error("Chat error:", error);
   }, [error]);
@@ -22,18 +25,20 @@ export default function ChatError({
         <AlertTriangle className="h-7 w-7 text-destructive" />
       </div>
 
-      <h1 className="mt-5 text-xl font-semibold">Conversation could not load</h1>
+      <h1 className="mt-5 text-xl font-semibold">{t("errorTitle")}</h1>
       <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-        CEVORYN encountered a temporary problem while opening this conversation. Your saved messages are safe.
+        {t("errorDescription")}
       </p>
 
       {error.digest ? (
-        <p className="mt-2 text-xs text-muted-foreground">Reference: {error.digest}</p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          {t("errorReference", { digest: error.digest })}
+        </p>
       ) : null}
 
       <Button onClick={reset} className="mt-6">
         <RotateCcw className="h-4 w-4" />
-        Try again
+        {t("tryAgain")}
       </Button>
     </div>
   );
