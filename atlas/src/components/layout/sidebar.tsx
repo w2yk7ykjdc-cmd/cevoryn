@@ -32,17 +32,22 @@ interface SidebarProps {
 }
 
 const NAV_ITEMS = [
-  { labelKey: "home", href: "/dashboard", icon: LayoutDashboard },
-  { labelKey: "brief", href: "/brief", icon: Newspaper },
-  { labelKey: "intelligence", href: "/intelligence", icon: BrainCircuit },
-  { labelKey: "health", href: "/health", icon: Activity },
-  { labelKey: "chat", href: "/chat", icon: MessageSquare },
-  { labelKey: "analytics", href: "/analytics", icon: BarChart3, adminOnly: true },
-  { labelKey: "team", href: "/team", icon: Users },
-  { labelKey: "settings", href: "/settings", icon: Settings },
-  { labelKey: "billing", href: "/settings/billing", icon: CreditCard },
-  { labelKey: "feedback", href: "/feedback", icon: MessageCircle },
+  { labelKey: "home", href: "/dashboard", icon: LayoutDashboard, group: "overview" },
+  { labelKey: "brief", href: "/brief", icon: Newspaper, group: "overview" },
+  { labelKey: "intelligence", href: "/intelligence", icon: BrainCircuit, group: "overview" },
+  { labelKey: "health", href: "/health", icon: Activity, group: "overview" },
+  { labelKey: "chat", href: "/chat", icon: MessageSquare, group: "overview" },
+  { labelKey: "analytics", href: "/analytics", icon: BarChart3, adminOnly: true, group: "workspace" },
+  { labelKey: "team", href: "/team", icon: Users, group: "workspace" },
+  { labelKey: "settings", href: "/settings", icon: Settings, group: "workspace" },
+  { labelKey: "billing", href: "/settings/billing", icon: CreditCard, group: "workspace", indent: true },
+  { labelKey: "feedback", href: "/feedback", icon: MessageCircle, group: "workspace" },
 ] as const;
+
+const GROUP_LABELS = {
+  overview: "navOverview",
+  workspace: "navWorkspace",
+} as const;
 
 export function Sidebar({ membership, onNavigate }: SidebarProps) {
   const pathname = usePathname();
@@ -87,29 +92,44 @@ export function Sidebar({ membership, onNavigate }: SidebarProps) {
         className="space-y-1 overflow-y-auto px-3 py-4"
         aria-label={t("mainNavigation")}
       >
-        {visibleItems.map((item) => {
+        {visibleItems.map((item, index) => {
           const isActive =
             pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const previousGroup = visibleItems[index - 1]?.group;
+          const showGroupLabel = item.group !== previousGroup;
+          const isIndented = "indent" in item && item.indent;
 
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              prefetch
-              onTouchStart={() => router.prefetch(item.href)}
-              onPointerEnter={() => router.prefetch(item.href)}
-              onClick={onNavigate}
-              className={cn(
-                "flex items-center gap-3 rounded-lg border-l-2 px-3 py-2 text-sm font-medium transition-colors",
-                isActive
-                  ? "border-primary bg-accent font-semibold text-accent-foreground"
-                  : "border-transparent text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+            <div key={item.href}>
+              {showGroupLabel && (
+                <p
+                  className={cn(
+                    "px-3 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70",
+                    index > 0 && "pt-3"
+                  )}
+                >
+                  {t(GROUP_LABELS[item.group])}
+                </p>
               )}
-              aria-current={isActive ? "page" : undefined}
-            >
-              <item.icon className="h-4 w-4 shrink-0" />
-              {t(item.labelKey)}
-            </Link>
+              <Link
+                href={item.href}
+                prefetch
+                onTouchStart={() => router.prefetch(item.href)}
+                onPointerEnter={() => router.prefetch(item.href)}
+                onClick={onNavigate}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg border-l-2 py-2 text-sm font-medium transition-colors",
+                  isIndented ? "ml-4 px-2" : "px-3",
+                  isActive
+                    ? "border-primary bg-accent font-semibold text-accent-foreground"
+                    : "border-transparent text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                )}
+                aria-current={isActive ? "page" : undefined}
+              >
+                <item.icon className={cn("shrink-0", isIndented ? "h-3.5 w-3.5" : "h-4 w-4")} />
+                {t(item.labelKey)}
+              </Link>
+            </div>
           );
         })}
       </nav>
