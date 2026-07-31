@@ -656,5 +656,120 @@
     "paddleUnavailable": "Paddle.js is unavailable.",
     "tokenLimitMillions": "{count}M monthly AI tokens",
     "tokenLimitThousands": "{count}K monthly AI tokens"
+  },
+  "team": {
+    "title": "Team",
+    "memberCount": "{count, plural, one {# member} other {# members}} in {orgName}",
+    "inviteCard": {
+      "title": "Invite a team member",
+      "emailPlaceholder": "colleague@company.com",
+      "roleLabel": "Invite role",
+      "inviteButton": "Invite"
+    },
+    "toasts": {
+      "tooManyAttempts": "Too many invite attempts. Try again in about {minutes, plural, one {# minute} other {# minutes}}.",
+      "inviteFailed": "Failed to create invite",
+      "inviteCreatedCopyLink": "Invite created. Copy the link below and share it directly.",
+      "inviteCreatedEmailFailed": "Invite created, but the email could not be sent. Copy the invite link instead.",
+      "inviteCreatedFor": "Invite created for {email}",
+      "somethingWentWrong": "Something went wrong",
+      "roleUpdateFailed": "Failed to update role",
+      "roleUpdated": "Member role updated",
+      "removeConfirm": "Remove {name} from {orgName}?",
+      "removeFailed": "Failed to remove member",
+      "removed": "Member removed",
+      "inviteLinkLoadFailed": "Invite link could not be loaded",
+      "inviteLinkCopied": "Invite link copied",
+      "inviteLinkCopyFailed": "Invite link could not be copied",
+      "renewFailed": "Failed to renew invite",
+      "renewedEmailFailed": "Invite renewed, but the email could not be sent. Copy the new link instead.",
+      "renewedAndEmailed": "Invite renewed and emailed",
+      "cancelConfirm": "Cancel the invite for {email}?",
+      "cancelFailed": "Failed to cancel invite",
+      "cancelled": "Invite cancelled"
+    },
+    "pendingInvites": "Pending Invites",
+    "expires": "Expires {date}",
+    "copyLink": "Copy link",
+    "renewInviteAria": "Renew invite for {email}",
+    "cancelInviteAria": "Cancel invite for {email}",
+    "you": "(you)",
+    "joined": "Joined {date}",
+    "roleAria": "Role for {name}",
+    "removeAria": "Remove {name}"
+  },
+  "profile": {
+    "accountLabel": "Account",
+    "title": "Profile",
+    "subtitle": "Your personal and organization details in CEVORYN.",
+    "accountDetails": "Account details",
+    "name": "Name",
+    "email": "Email",
+    "workspace": "Workspace",
+    "role": "Role",
+    "roles": {
+      "OWNER": "Owner",
+      "ADMIN": "Admin",
+      "MEMBER": "Member"
+    },
+    "session": "Session",
+    "signOut": "Sign out",
+    "nameInvalidLength": "Name must be between 1 and 80 characters",
+    "updateFailed": "Failed to update name",
+    "updated": "Name updated",
+    "nameLabel": "Your name",
+    "save": "Save"
+  },
+  "feedback": {
+    "privateBeta": "Private beta",
+    "title": "Help improve CEVORYN",
+    "subtitle": "Feedback is reviewed directly and used to prioritize the next product changes.",
+    "options": {
+      "reportProblem": {
+        "title": "Report a problem",
+        "description": "Tell us what happened, what you expected, and which page you were using.",
+        "subject": "CEVORYN beta — problem report"
+      },
+      "suggestImprovement": {
+        "title": "Suggest an improvement",
+        "description": "Share a workflow, feature, or change that would make CEVORYN more useful.",
+        "subject": "CEVORYN beta — improvement suggestion"
+      },
+      "generalFeedback": {
+        "title": "Share general feedback",
+        "description": "Tell us what feels valuable, confusing, slow, or unnecessary.",
+        "subject": "CEVORYN beta — general feedback"
+      }
+    },
+    "bodyTemplate": "Page or workflow:\n\nWhat happened or what should change:\n\nWhy this matters:\n",
+    "sendFeedback": "Send feedback",
+    "sensitiveWarning": "Do not include passwords, API keys, private customer data, or other sensitive information in feedback messages."
+  },
+  "analytics": {
+    "title": "Product Analytics",
+    "subtitle": "Real usage and execution signals for the last 30 days.",
+    "activeUsers": "Active users",
+    "ofTeam": "{percent}% of team",
+    "userMessages": "User messages",
+    "inDays": "{count} in 7 days",
+    "briefsGenerated": "Briefs generated",
+    "conversationsCount": "{count} conversations",
+    "actionsApproved": "Actions approved",
+    "completionRate": "{percent}% completion",
+    "executionFunnel": "Execution funnel",
+    "openInsights": "Open insights",
+    "openInsightsDescription": "Signals waiting for review",
+    "insightsActedOn": "Insights acted on",
+    "insightsActedOnDescription": "Converted into action",
+    "decisionsProgressed": "Decisions progressed",
+    "decisionsProgressedDescription": "Accepted or executed",
+    "usageMomentum": "Usage momentum",
+    "conversations7d": "7-day conversations",
+    "conversations7dDescription": "New work sessions this week",
+    "conversations30d": "30-day conversations",
+    "conversations30dDescription": "New work sessions this month",
+    "errorTitle": "Analytics could not be loaded",
+    "errorDescription": "Your product data is safe. Retry without leaving this page.",
+    "tryAgain": "Try again"
   }
 }

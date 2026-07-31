@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertTriangle, RotateCcw } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,8 @@ export default function AnalyticsError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const t = useTranslations("analytics");
+
   useEffect(() => {
     console.error("Analytics route failed", error);
   }, [error]);
@@ -24,14 +27,14 @@ export default function AnalyticsError({
           <AlertTriangle className="h-6 w-6 text-destructive" />
         </div>
         <div>
-          <h1 className="text-lg font-semibold">Analytics could not be loaded</h1>
+          <h1 className="text-lg font-semibold">{t("errorTitle")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Your product data is safe. Retry without leaving this page.
+            {t("errorDescription")}
           </p>
         </div>
         <Button onClick={reset}>
           <RotateCcw className="h-4 w-4" />
-          Try again
+          {t("tryAgain")}
         </Button>
       </CardContent>
     </Card>

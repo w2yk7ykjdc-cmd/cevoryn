@@ -662,5 +662,120 @@
     "paddleUnavailable": "Paddle.js kullanılamıyor.",
     "tokenLimitMillions": "{count}M aylık AI token",
     "tokenLimitThousands": "{count}K aylık AI token"
+  },
+  "team": {
+    "title": "Ekip",
+    "memberCount": "{orgName} içinde {count, plural, one {# üye} other {# üye}}",
+    "inviteCard": {
+      "title": "Bir ekip üyesi davet et",
+      "emailPlaceholder": "meslektas@sirket.com",
+      "roleLabel": "Davet rolü",
+      "inviteButton": "Davet et"
+    },
+    "toasts": {
+      "tooManyAttempts": "Çok fazla davet denemesi yapıldı. Yaklaşık {minutes, plural, one {# dakika} other {# dakika}} sonra tekrar deneyin.",
+      "inviteFailed": "Davet oluşturulamadı",
+      "inviteCreatedCopyLink": "Davet oluşturuldu. Aşağıdaki bağlantıyı kopyalayıp doğrudan paylaşın.",
+      "inviteCreatedEmailFailed": "Davet oluşturuldu ancak e-posta gönderilemedi. Bunun yerine davet bağlantısını kopyalayın.",
+      "inviteCreatedFor": "{email} için davet oluşturuldu",
+      "somethingWentWrong": "Bir şeyler ters gitti",
+      "roleUpdateFailed": "Rol güncellenemedi",
+      "roleUpdated": "Üye rolü güncellendi",
+      "removeConfirm": "{name}, {orgName} organizasyonundan kaldırılsın mı?",
+      "removeFailed": "Üye kaldırılamadı",
+      "removed": "Üye kaldırıldı",
+      "inviteLinkLoadFailed": "Davet bağlantısı yüklenemedi",
+      "inviteLinkCopied": "Davet bağlantısı kopyalandı",
+      "inviteLinkCopyFailed": "Davet bağlantısı kopyalanamadı",
+      "renewFailed": "Davet yenilenemedi",
+      "renewedEmailFailed": "Davet yenilendi ancak e-posta gönderilemedi. Bunun yerine yeni bağlantıyı kopyalayın.",
+      "renewedAndEmailed": "Davet yenilendi ve e-postayla gönderildi",
+      "cancelConfirm": "{email} için davet iptal edilsin mi?",
+      "cancelFailed": "Davet iptal edilemedi",
+      "cancelled": "Davet iptal edildi"
+    },
+    "pendingInvites": "Bekleyen Davetler",
+    "expires": "{date} tarihinde sona eriyor",
+    "copyLink": "Bağlantıyı kopyala",
+    "renewInviteAria": "{email} için daveti yenile",
+    "cancelInviteAria": "{email} için daveti iptal et",
+    "you": "(siz)",
+    "joined": "{date} tarihinde katıldı",
+    "roleAria": "{name} için rol",
+    "removeAria": "{name} kişisini kaldır"
+  },
+  "profile": {
+    "accountLabel": "Hesap",
+    "title": "Profil",
+    "subtitle": "CEVORYN'deki kişisel ve organizasyon bilgileriniz.",
+    "accountDetails": "Hesap bilgileri",
+    "name": "Ad",
+    "email": "E-posta",
+    "workspace": "Çalışma alanı",
+    "role": "Rol",
+    "roles": {
+      "OWNER": "Sahip",
+      "ADMIN": "Yönetici",
+      "MEMBER": "Üye"
+    },
+    "session": "Oturum",
+    "signOut": "Çıkış yap",
+    "nameInvalidLength": "Ad 1 ile 80 karakter arasında olmalıdır",
+    "updateFailed": "Ad güncellenemedi",
+    "updated": "Ad güncellendi",
+    "nameLabel": "Adınız",
+    "save": "Kaydet"
+  },
+  "feedback": {
+    "privateBeta": "Özel beta",
+    "title": "CEVORYN'i geliştirmemize yardımcı olun",
+    "subtitle": "Geri bildirimler doğrudan incelenir ve bir sonraki ürün değişikliklerine öncelik vermek için kullanılır.",
+    "options": {
+      "reportProblem": {
+        "title": "Bir sorunu bildir",
+        "description": "Ne olduğunu, ne beklediğinizi ve hangi sayfayı kullandığınızı bize anlatın.",
+        "subject": "CEVORYN beta — sorun bildirimi"
+      },
+      "suggestImprovement": {
+        "title": "İyileştirme öner",
+        "description": "CEVORYN'i daha kullanışlı hale getirecek bir iş akışı, özellik veya değişiklik paylaşın.",
+        "subject": "CEVORYN beta — iyileştirme önerisi"
+      },
+      "generalFeedback": {
+        "title": "Genel geri bildirim paylaş",
+        "description": "Neyin değerli, kafa karıştırıcı, yavaş veya gereksiz hissettirdiğini bize anlatın.",
+        "subject": "CEVORYN beta — genel geri bildirim"
+      }
+    },
+    "bodyTemplate": "Sayfa veya iş akışı:\n\nNe oldu ya da ne değişmeli:\n\nBu neden önemli:\n",
+    "sendFeedback": "Geri bildirim gönder",
+    "sensitiveWarning": "Geri bildirim mesajlarına şifre, API anahtarı, özel müşteri verisi veya diğer hassas bilgileri eklemeyin."
+  },
+  "analytics": {
+    "title": "Ürün Analitiği",
+    "subtitle": "Son 30 gündeki gerçek kullanım ve uygulama sinyalleri.",
+    "activeUsers": "Aktif kullanıcılar",
+    "ofTeam": "ekibin %{percent}'i",
+    "userMessages": "Kullanıcı mesajları",
+    "inDays": "son 7 günde {count}",
+    "briefsGenerated": "Oluşturulan özetler",
+    "conversationsCount": "{count} konuşma",
+    "actionsApproved": "Onaylanan aksiyonlar",
+    "completionRate": "%{percent} tamamlanma",
+    "executionFunnel": "Uygulama hunisi",
+    "openInsights": "Açık içgörüler",
+    "openInsightsDescription": "İncelenmeyi bekleyen sinyaller",
+    "insightsActedOn": "Aksiyona dönüşen içgörüler",
+    "insightsActedOnDescription": "Aksiyona dönüştürüldü",
+    "decisionsProgressed": "İlerleyen kararlar",
+    "decisionsProgressedDescription": "Kabul edildi veya uygulandı",
+    "usageMomentum": "Kullanım ivmesi",
+    "conversations7d": "7 günlük konuşmalar",
+    "conversations7dDescription": "Bu haftaki yeni çalışma oturumları",
+    "conversations30d": "30 günlük konuşmalar",
+    "conversations30dDescription": "Bu ayki yeni çalışma oturumları",
+    "errorTitle": "Analitik yüklenemedi",
+    "errorDescription": "Ürün verileriniz güvende. Bu sayfadan ayrılmadan tekrar deneyin.",
+    "tryAgain": "Tekrar dene"
   }
 }
