@@ -48,7 +48,7 @@ export default function TermsPage() {
         </LegalSection>
 
         <LegalSection title="Contact">
-          Questions about these terms can be sent to kemalkiyak06@gmail.com.
+          Questions about these terms can be sent to kemalkiyak06@icloud.com.
         </LegalSection>
 
         <div className="border-t pt-6 text-sm text-muted-foreground">
