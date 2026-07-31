@@ -215,7 +215,7 @@ function ActionCard({
             className="h-8 text-xs text-muted-foreground"
           >
             <X className="h-3.5 w-3.5" />
-            Not now
+            Dismiss
           </Button>
         </div>
       </CardContent>
