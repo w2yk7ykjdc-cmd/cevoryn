@@ -4,7 +4,6 @@ import {
   Activity,
   BarChart3,
   BrainCircuit,
-  Building2,
   CreditCard,
   LayoutDashboard,
   MessageCircle,
@@ -32,16 +31,48 @@ interface SidebarProps {
 }
 
 const NAV_ITEMS = [
-  { labelKey: "home", href: "/dashboard", icon: LayoutDashboard, group: "overview" },
+  {
+    labelKey: "home",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+    group: "overview",
+  },
   { labelKey: "brief", href: "/brief", icon: Newspaper, group: "overview" },
-  { labelKey: "intelligence", href: "/intelligence", icon: BrainCircuit, group: "overview" },
+  {
+    labelKey: "intelligence",
+    href: "/intelligence",
+    icon: BrainCircuit,
+    group: "overview",
+  },
   { labelKey: "health", href: "/health", icon: Activity, group: "overview" },
   { labelKey: "chat", href: "/chat", icon: MessageSquare, group: "overview" },
-  { labelKey: "analytics", href: "/analytics", icon: BarChart3, adminOnly: true, group: "workspace" },
+  {
+    labelKey: "analytics",
+    href: "/analytics",
+    icon: BarChart3,
+    adminOnly: true,
+    group: "workspace",
+  },
   { labelKey: "team", href: "/team", icon: Users, group: "workspace" },
-  { labelKey: "settings", href: "/settings", icon: Settings, group: "workspace" },
-  { labelKey: "billing", href: "/settings/billing", icon: CreditCard, group: "workspace", indent: true },
-  { labelKey: "feedback", href: "/feedback", icon: MessageCircle, group: "workspace" },
+  {
+    labelKey: "settings",
+    href: "/settings",
+    icon: Settings,
+    group: "workspace",
+  },
+  {
+    labelKey: "billing",
+    href: "/settings/billing",
+    icon: CreditCard,
+    group: "workspace",
+    indent: true,
+  },
+  {
+    labelKey: "feedback",
+    href: "/feedback",
+    icon: MessageCircle,
+    group: "workspace",
+  },
 ] as const;
 
 const GROUP_LABELS = {
@@ -72,7 +103,16 @@ export function Sidebar({ membership, onNavigate }: SidebarProps) {
     <aside className="flex h-full w-64 flex-col border-r bg-card">
       <div className="flex items-center gap-3 px-4 py-5">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <Building2 className="h-5 w-5" />
+          <svg width="18" height="18" viewBox="0 0 100 100" aria-hidden="true">
+            <path
+              d="M22 72 L50 28 L78 72"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="14"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </div>
 
         <div className="flex min-w-0 flex-col">
@@ -126,7 +166,12 @@ export function Sidebar({ membership, onNavigate }: SidebarProps) {
                 )}
                 aria-current={isActive ? "page" : undefined}
               >
-                <item.icon className={cn("shrink-0", isIndented ? "h-3.5 w-3.5" : "h-4 w-4")} />
+                <item.icon
+                  className={cn(
+                    "shrink-0",
+                    isIndented ? "h-3.5 w-3.5" : "h-4 w-4"
+                  )}
+                />
                 {t(item.labelKey)}
               </Link>
             </div>
