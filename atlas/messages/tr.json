@@ -777,5 +777,54 @@
     "errorTitle": "Analitik yüklenemedi",
     "errorDescription": "Ürün verileriniz güvende. Bu sayfadan ayrılmadan tekrar deneyin.",
     "tryAgain": "Tekrar dene"
+  },
+  "errorBoundaries": {
+    "auth": {
+      "title": "Giriş sayfası yüklenemedi",
+      "description": "CEVORYN geçici bir kimlik doğrulama sorunuyla karşılaştı. Hesabınız değiştirilmedi.",
+      "reference": "Referans: {digest}",
+      "tryAgain": "Tekrar dene"
+    },
+    "dashboard": {
+      "title": "Kontrol paneli yüklenemedi",
+      "description": "CEVORYN bu çalışma alanını yüklerken geçici bir sorunla karşılaştı. Sayfadan ayrılmadan tekrar deneyin.",
+      "reference": "Referans: {digest}",
+      "tryAgain": "Tekrar dene"
+    },
+    "root": {
+      "title": "Bir şeyler ters gitti",
+      "description": "Beklenmedik bir hata oluştu. Lütfen tekrar deneyin.",
+      "tryAgain": "Tekrar dene"
+    },
+    "intelligence": {
+      "title": "Intelligence yüklenemedi",
+      "description": "CEVORYN en son içgörüleri ve kararları alamadı. Verileriniz değiştirilmedi.",
+      "tryAgain": "Tekrar dene"
+    }
+  },
+  "loadingBoundaries": {
+    "auth": {
+      "title": "CEVORYN yükleniyor",
+      "description": "Güvenli giriş deneyiminiz hazırlanıyor."
+    },
+    "dashboard": "Yükleniyor...",
+    "root": "CEVORYN yükleniyor..."
+  },
+  "invite": {
+    "notFoundTitle": "Davet bulunamadı",
+    "notFoundMessage": "Çalışma alanı yöneticinizden yeni bir davet göndermesini isteyin.",
+    "unavailableTitle": "Davet kullanılamıyor",
+    "backToSignIn": "Girişe dön",
+    "join": "{orgName} organizasyonuna katıl",
+    "invitedAs": "{role} olarak davet edildiniz. Bu çalışma alanını CEVORYN hesabınıza eklemek için aşağıdan onaylayın.",
+    "cancel": "İptal",
+    "acceptButton": "Daveti kabul et",
+    "acceptFailed": "Davet kabul edilemedi",
+    "joined": "{orgName} organizasyonuna katıldınız",
+    "errors": {
+      "notPending": "Bu davet artık beklemede değil",
+      "expired": "Bu davetin süresi doldu",
+      "wrongEmail": "Daveti alan e-posta adresiyle giriş yapın"
+    }
   }
 }

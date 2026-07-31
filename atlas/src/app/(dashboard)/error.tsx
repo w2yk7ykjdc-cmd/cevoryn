@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertTriangle } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,8 @@ export default function DashboardError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const t = useTranslations("errorBoundaries.dashboard");
+
   useEffect(() => {
     console.error("Dashboard error:", error);
   }, [error]);
@@ -19,15 +22,17 @@ export default function DashboardError({
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
       <AlertTriangle className="h-10 w-10 text-destructive" />
-      <h1 className="mt-4 text-xl font-semibold">Dashboard could not load</h1>
+      <h1 className="mt-4 text-xl font-semibold">{t("title")}</h1>
       <p className="mt-2 max-w-md text-sm text-muted-foreground">
-        CEVORYN encountered a temporary problem while loading this workspace. Try again without leaving the page.
+        {t("description")}
       </p>
       {error.digest ? (
-        <p className="mt-2 text-xs text-muted-foreground">Reference: {error.digest}</p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          {t("reference", { digest: error.digest })}
+        </p>
       ) : null}
       <Button onClick={reset} className="mt-6">
-        Try again
+        {t("tryAgain")}
       </Button>
     </div>
   );

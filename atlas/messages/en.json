@@ -771,5 +771,54 @@
     "errorTitle": "Analytics could not be loaded",
     "errorDescription": "Your product data is safe. Retry without leaving this page.",
     "tryAgain": "Try again"
+  },
+  "errorBoundaries": {
+    "auth": {
+      "title": "Sign-in page could not load",
+      "description": "CEVORYN encountered a temporary authentication problem. Your account has not been changed.",
+      "reference": "Reference: {digest}",
+      "tryAgain": "Try again"
+    },
+    "dashboard": {
+      "title": "Dashboard could not load",
+      "description": "CEVORYN encountered a temporary problem while loading this workspace. Try again without leaving the page.",
+      "reference": "Reference: {digest}",
+      "tryAgain": "Try again"
+    },
+    "root": {
+      "title": "Something went wrong",
+      "description": "An unexpected error occurred. Please try again.",
+      "tryAgain": "Try again"
+    },
+    "intelligence": {
+      "title": "Intelligence could not be loaded",
+      "description": "CEVORYN could not retrieve the latest insights and decisions. Your data was not changed.",
+      "tryAgain": "Try again"
+    }
+  },
+  "loadingBoundaries": {
+    "auth": {
+      "title": "Loading CEVORYN",
+      "description": "Preparing your secure sign-in experience."
+    },
+    "dashboard": "Loading...",
+    "root": "Loading CEVORYN..."
+  },
+  "invite": {
+    "notFoundTitle": "Invite not found",
+    "notFoundMessage": "Ask your workspace admin to send a new invite.",
+    "unavailableTitle": "Invite unavailable",
+    "backToSignIn": "Back to sign in",
+    "join": "Join {orgName}",
+    "invitedAs": "You were invited as {role}. Confirm below to add this workspace to your CEVORYN account.",
+    "cancel": "Cancel",
+    "acceptButton": "Accept invite",
+    "acceptFailed": "Invite could not be accepted",
+    "joined": "Joined {orgName}",
+    "errors": {
+      "notPending": "This invite is no longer pending",
+      "expired": "This invite has expired",
+      "wrongEmail": "Sign in with the email address that received this invite"
+    }
   }
 }

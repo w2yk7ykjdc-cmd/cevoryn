@@ -2,6 +2,7 @@
 
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -17,6 +18,7 @@ export function InviteAcceptClient({
   token,
   organizationName,
 }: InviteAcceptClientProps) {
+  const t = useTranslations("invite");
   const router = useRouter();
   const [isAccepting, setIsAccepting] = useState(false);
 
@@ -34,15 +36,19 @@ export function InviteAcceptClient({
 
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        toast.error(payload?.error?.message ?? "Invite could not be accepted");
+        toast.error(payload?.error?.message ?? t("acceptFailed"));
         return;
       }
 
-      toast.success(`Joined ${payload?.data?.organizationName ?? organizationName}`);
+      toast.success(
+        t("joined", {
+          orgName: payload?.data?.organizationName ?? organizationName,
+        })
+      );
       router.replace("/dashboard");
       router.refresh();
     } catch (_error) {
-      toast.error("Invite could not be accepted");
+      toast.error(t("acceptFailed"));
     } finally {
       setIsAccepting(false);
     }
@@ -51,7 +57,7 @@ export function InviteAcceptClient({
   return (
     <Button className="w-full" disabled={isAccepting} onClick={acceptInvite}>
       {isAccepting && <Loader2 className="h-4 w-4 animate-spin" />}
-      Accept invite
+      {t("acceptButton")}
     </Button>
   );
 }
