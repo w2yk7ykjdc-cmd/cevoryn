@@ -20,7 +20,7 @@ export function OrganizationNameForm({ initialName }: OrganizationNameFormProps)
   function save() {
     const normalized = name.trim();
     if (normalized.length < 2 || normalized.length > 80) {
-      toast.error("Organization name must be between 2 and 80 characters");
+      toast.error("Workspace name must be between 2 and 80 characters");
       return;
     }
 
@@ -36,15 +36,15 @@ export function OrganizationNameForm({ initialName }: OrganizationNameFormProps)
 
         const data = await response.json().catch(() => null);
         if (!response.ok) {
-          toast.error(data?.error?.message ?? "Failed to update organization");
+          toast.error(data?.error?.message ?? "Failed to update workspace");
           return;
         }
 
         setName(data.data.name);
         setSavedName(data.data.name);
-        toast.success("Organization updated");
+        toast.success("Workspace updated");
       } catch (_error) {
-        toast.error("Failed to update organization");
+        toast.error("Failed to update workspace");
       }
     });
   }
@@ -56,7 +56,7 @@ export function OrganizationNameForm({ initialName }: OrganizationNameFormProps)
         onChange={(event) => setName(event.target.value)}
         maxLength={80}
         disabled={isPending}
-        aria-label="Organization name"
+        aria-label="Workspace name"
       />
       <Button
         type="button"

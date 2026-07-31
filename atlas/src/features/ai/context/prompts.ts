@@ -10,7 +10,7 @@ import type { MembershipContext } from "@/types";
  * while this organization's own name/slug stayed "Atlas"). The slug is not
  * user-editable from the app, unlike the display name, so it won't drift.
  */
-const PRODUCT_OWNER_ORG_SLUG = "atlas";
+export const PRODUCT_OWNER_ORG_SLUG = "atlas";
 
 /**
  * Build the CEVORYN system prompt with organization and user context.

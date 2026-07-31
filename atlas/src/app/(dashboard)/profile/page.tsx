@@ -84,7 +84,7 @@ export default async function ProfilePage() {
           <div className="flex items-center gap-3 py-4">
             <Building2 className="h-5 w-5 shrink-0 text-muted-foreground" />
             <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Organization</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Workspace</p>
               <p className="truncate font-medium">{membership.organizationName}</p>
             </div>
           </div>

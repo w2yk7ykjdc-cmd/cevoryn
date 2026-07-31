@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { PRODUCT_OWNER_ORG_SLUG } from "@/features/ai/context/prompts";
 import { requireMembership, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/rbac";
@@ -65,7 +66,7 @@ export default async function SettingsPage() {
     await Promise.all([
       prisma.organization.findUnique({
         where: { id: membership.organizationId },
-        select: { name: true, slug: true, createdAt: true },
+        select: { name: true, createdAt: true },
       }),
       prisma.member.count({ where: { organizationId: membership.organizationId } }),
       prisma.memory.count({
@@ -96,7 +97,7 @@ export default async function SettingsPage() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Building2 className="h-4 w-4" />
-            Organization
+            Workspace
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -108,8 +109,6 @@ export default async function SettingsPage() {
           ) : (
             <Row label="Name" value={org.name} />
           )}
-          <Separator />
-          <Row label="Slug" value={org.slug} />
           <Separator />
           <Row
             label="Created"
@@ -195,12 +194,13 @@ export default async function SettingsPage() {
         </CardContent>
       </Card>
 
-      {membership.role === "OWNER" ? (
+      {membership.role === "OWNER" &&
+      membership.organizationSlug === PRODUCT_OWNER_ORG_SLUG ? (
         <Card className="border-destructive/30">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <ShieldAlert className="h-4 w-4" />
-              Beta maintenance
+              Internal maintenance
             </CardTitle>
           </CardHeader>
           <CardContent>

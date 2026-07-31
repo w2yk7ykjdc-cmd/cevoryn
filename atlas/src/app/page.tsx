@@ -36,7 +36,7 @@ const FEATURES = [
     icon: Sunrise,
     title: "Morning brief",
     description:
-      "A short daily summary of what changed and what needs attention, built from your organization's real activity.",
+      "A short daily summary of what changed and what needs attention, built from your workspace's real activity.",
   },
   {
     icon: Gauge,
@@ -48,7 +48,7 @@ const FEATURES = [
     icon: Users,
     title: "Team collaboration",
     description:
-      "Invite your team with role-based access. Everyone works from the same organization context.",
+      "Invite your team with role-based access. Everyone works from the same workspace context.",
   },
 ] as const;
 
