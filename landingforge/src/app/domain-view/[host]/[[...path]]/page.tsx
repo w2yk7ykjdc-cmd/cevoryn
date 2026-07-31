@@ -31,8 +31,8 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const slug = await resolveSlug(host);
   if (!slug) return {};
   const data = await getPublicPage(slug, path, locale);
-  const canonicalPath = path && path.length > 0 ? `/${path.join("/")}` : "/";
-  return buildPublicPageMetadata(data, `https://${host}${canonicalPath}`);
+  const canonicalPath = path && path.length > 0 ? `/${path.join("/")}` : "";
+  return buildPublicPageMetadata(data, canonicalPath);
 }
 
 export default async function CustomDomainPage({ params, searchParams }: Props) {
