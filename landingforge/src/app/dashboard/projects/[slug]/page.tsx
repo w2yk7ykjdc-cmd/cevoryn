@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
+import { CopyLinkButton } from "@/components/copy-link-button";
 import { createPage, deletePage, togglePagePublished, upsertTheme } from "./actions";
+import { addCustomDomain, refreshDomainStatus, removeCustomDomain } from "./domain-actions";
 import { toggleProjectPublished } from "../../actions";
 
 export default async function ProjectPage({
@@ -10,10 +12,10 @@ export default async function ProjectPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; launched?: string }>;
 }) {
   const { slug } = await params;
-  const { error } = await searchParams;
+  const { error, launched } = await searchParams;
   const user = await requireUser();
 
   const project = await prisma.project.findFirst({
@@ -55,6 +57,18 @@ export default async function ProjectPage({
             /{project.slug}
           </a>
         </p>
+      )}
+
+      {launched && (
+        <div className="rounded border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+          <p className="font-medium">Sayfan yayinda!</p>
+          <div className="mt-2 flex items-center gap-2">
+            <code className="rounded bg-white px-2 py-1 text-xs">
+              {process.env.NEXT_PUBLIC_APP_URL}/{project.slug}
+            </code>
+            <CopyLinkButton url={`${process.env.NEXT_PUBLIC_APP_URL}/${project.slug}`} />
+          </div>
+        </div>
       )}
 
       {error && (
@@ -144,6 +158,72 @@ export default async function ProjectPage({
             Temayi kaydet
           </button>
         </form>
+      </details>
+
+      <details className="rounded border p-4">
+        <summary className="cursor-pointer text-sm font-medium">Ozel domain</summary>
+        <div className="mt-3 flex flex-col gap-3 text-sm">
+          {project.customDomain ? (
+            <>
+              <p>
+                <span className="font-mono">{project.customDomain}</span>{" "}
+                <span
+                  className={
+                    project.customDomainStatus === "VERIFIED"
+                      ? "text-green-600"
+                      : project.customDomainStatus === "FAILED"
+                        ? "text-red-600"
+                        : "text-amber-600"
+                  }
+                >
+                  ({project.customDomainStatus})
+                </span>
+              </p>
+              {project.customDomainStatus !== "VERIFIED" && (
+                <p className="text-xs text-gray-500">
+                  DNS ayarlarinda domainin icin bir CNAME kaydi olustur, deger
+                  olarak <code className="rounded bg-gray-100 px-1">cname.vercel-dns.com</code>{" "}
+                  girip birkac dakika bekle, sonra &quot;Durumu yenile&quot;ye bas.
+                </p>
+              )}
+              <div className="flex gap-2">
+                <form>
+                  <input type="hidden" name="projectId" value={project.id} />
+                  <button
+                    formAction={refreshDomainStatus}
+                    className="rounded border px-3 py-2 text-xs hover:bg-gray-50"
+                  >
+                    Durumu yenile
+                  </button>
+                </form>
+                <form>
+                  <input type="hidden" name="projectId" value={project.id} />
+                  <button
+                    formAction={removeCustomDomain}
+                    className="rounded border px-3 py-2 text-xs text-red-600 hover:bg-gray-50"
+                  >
+                    Kaldir
+                  </button>
+                </form>
+              </div>
+            </>
+          ) : (
+            <form className="flex gap-2">
+              <input type="hidden" name="projectId" value={project.id} />
+              <input
+                name="domain"
+                placeholder="ornek.com"
+                className="flex-1 rounded border px-3 py-2 text-sm"
+              />
+              <button
+                formAction={addCustomDomain}
+                className="rounded border px-3 py-2 text-sm font-medium hover:bg-gray-50"
+              >
+                Domain ekle
+              </button>
+            </form>
+          )}
+        </div>
       </details>
 
       <form className="flex gap-2">
