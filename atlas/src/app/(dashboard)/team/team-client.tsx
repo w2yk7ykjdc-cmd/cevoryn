@@ -112,7 +112,11 @@ export function TeamClient({
         setInviteRole("MEMBER");
 
         if (data.data.emailSent === false) {
-          toast.warning("Invite created, but the email could not be sent. Copy the invite link instead.");
+          if (data.data.emailStatus === "NOT_CONFIGURED") {
+            toast.success("Invite created. Copy the link below and share it directly.");
+          } else {
+            toast.warning("Invite created, but the email could not be sent. Copy the invite link instead.");
+          }
         } else {
           toast.success(`Invite created for ${normalizedEmail}`);
         }
