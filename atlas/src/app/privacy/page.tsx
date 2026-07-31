@@ -40,7 +40,7 @@ export default function PrivacyPage() {
         </LegalSection>
 
         <LegalSection title="Contact">
-          Questions or deletion requests can be sent to kemalkiyak06@gmail.com.
+          Questions or deletion requests can be sent to kemalkiyak06@icloud.com.
         </LegalSection>
 
         <div className="border-t pt-6 text-sm text-muted-foreground">

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata: Metadata = { title: "Feedback — CEVORYN" };
 
-const FEEDBACK_EMAIL = "kemalkiyak06@gmail.com";
+const FEEDBACK_EMAIL = "kemalkiyak06@icloud.com";
 
 const feedbackOptions = [
   {
