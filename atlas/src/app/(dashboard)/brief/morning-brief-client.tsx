@@ -14,6 +14,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -79,6 +80,9 @@ export function MorningBriefClient({
   nextActions,
   hasBrief,
 }: MorningBriefClientProps) {
+  const t = useTranslations("brief");
+  const tTrend = useTranslations("dashboard.trend");
+  const tSeverity = useTranslations("executive.severity");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -92,13 +96,13 @@ export function MorningBriefClient({
           body: JSON.stringify({ type: "DAILY" }),
         });
         if (res.ok) {
-          toast.success("Brief generated");
+          toast.success(t("briefGenerated"));
           window.location.reload();
         } else {
-          toast.error("Could not generate brief");
+          toast.error(t("generateFailed"));
         }
       } catch (_error) {
-        toast.error("Something went wrong");
+        toast.error(t("genericError"));
       } finally {
         setIsGenerating(false);
       }
@@ -111,17 +115,22 @@ export function MorningBriefClient({
     <div className="mx-auto max-w-4xl space-y-6 pb-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm text-muted-foreground">Morning Brief</p>
+          <p className="text-sm text-muted-foreground">{t("title")}</p>
           <h1 className="text-2xl font-bold tracking-tight">
-            {briefTitle ?? `Good morning, ${displayName.split(" ")[0]}`}
+            {briefTitle ??
+              t("defaultGreeting", {
+                name: displayName.split(" ")[0] ?? displayName,
+              })}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {briefDate ? `${briefDate} — today's` : "Today's"} priorities in one place.
+            {briefDate
+              ? t("subtitleWithDate", { date: briefDate })
+              : t("subtitleNoDate")}
           </p>
         </div>
         <Button asChild variant="outline" size="sm">
           <Link href="/chat">
-            Ask CEVORYN <ArrowRight className="h-4 w-4" />
+            {t("askCevoryn")} <ArrowRight className="h-4 w-4" />
           </Link>
         </Button>
       </div>
@@ -134,7 +143,7 @@ export function MorningBriefClient({
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-medium">Company Pulse</span>
+                <span className="text-sm font-medium">{t("companyPulse")}</span>
                 <span
                   className={cn(
                     "inline-flex items-center gap-1 text-xs font-medium",
@@ -146,13 +155,15 @@ export function MorningBriefClient({
                   )}
                 >
                   <TrendIcon className="h-3 w-3" />
-                  {pulse.trend}
+                  {tTrend(pulse.trend)}
                 </span>
               </div>
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
                 {pulse.dimensions.map((dimension) => (
                   <div key={dimension.name} className="text-xs">
-                    <span className="text-muted-foreground">{dimension.name}</span>
+                    <span className="text-muted-foreground">
+                      {dimension.name}
+                    </span>
                     <span className="ml-1 font-medium">{dimension.score}</span>
                   </div>
                 ))}
@@ -166,7 +177,7 @@ export function MorningBriefClient({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Target className="h-4 w-4" /> Today&apos;s focus
+              <Target className="h-4 w-4" /> {t("todaysFocus")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -180,42 +191,67 @@ export function MorningBriefClient({
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-medium">{item.title}</p>
-                        <Badge variant={item.severity === "CRITICAL" ? "destructive" : "secondary"} className="text-[10px]">
-                          {item.severity}
+                        <Badge
+                          variant={
+                            item.severity === "CRITICAL"
+                              ? "destructive"
+                              : "secondary"
+                          }
+                          className="text-[10px]"
+                        >
+                          {tSeverity(
+                            item.severity as
+                              "CRITICAL" | "WARNING" | "SUGGESTION" | "INFO"
+                          )}
                         </Badge>
                       </div>
-                      <p className="mt-1 text-sm text-muted-foreground">{item.summary}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {item.summary}
+                      </p>
                       {item.recommendedAction && (
-                        <p className="mt-2 text-sm font-medium">Next: {item.recommendedAction}</p>
+                        <p className="mt-2 text-sm font-medium">
+                          {t("next", { action: item.recommendedAction })}
+                        </p>
                       )}
                     </div>
                   </div>
                 </div>
               ))
             ) : (
-              <p className="text-sm text-muted-foreground">No urgent focus items today.</p>
+              <p className="text-sm text-muted-foreground">
+                {t("noFocusItems")}
+              </p>
             )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Prepared next actions</CardTitle>
+            <CardTitle className="text-base">{t("preparedActions")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {nextActions.length > 0 ? (
               nextActions.map((action) => (
                 <div key={action.id} className="rounded-lg bg-muted/50 p-3">
                   <p className="text-sm font-medium">{action.title}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{action.description}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {action.description}
+                  </p>
                 </div>
               ))
             ) : (
-              <p className="text-sm text-muted-foreground">No prepared actions waiting.</p>
+              <p className="text-sm text-muted-foreground">
+                {t("noPreparedActions")}
+              </p>
             )}
-            <Button asChild variant="ghost" size="sm" className="w-full justify-between">
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="w-full justify-between"
+            >
               <Link href="/dashboard">
-                Open command center <ArrowRight className="h-4 w-4" />
+                {t("openCommandCenter")} <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
           </CardContent>
@@ -227,7 +263,7 @@ export function MorningBriefClient({
           <Card className="transition-colors hover:bg-accent/50">
             <CardContent className="p-3 text-center">
               <p className="text-2xl font-bold">{insightCount}</p>
-              <p className="text-xs text-muted-foreground">Insights</p>
+              <p className="text-xs text-muted-foreground">{t("insights")}</p>
             </CardContent>
           </Card>
         </Link>
@@ -235,7 +271,7 @@ export function MorningBriefClient({
           <Card className="transition-colors hover:bg-accent/50">
             <CardContent className="p-3 text-center">
               <p className="text-2xl font-bold">{actionCount}</p>
-              <p className="text-xs text-muted-foreground">Actions</p>
+              <p className="text-xs text-muted-foreground">{t("actions")}</p>
             </CardContent>
           </Card>
         </Link>
@@ -243,7 +279,7 @@ export function MorningBriefClient({
           <Card className="transition-colors hover:bg-accent/50">
             <CardContent className="p-3 text-center">
               <p className="text-2xl font-bold">{pulse.score}</p>
-              <p className="text-xs text-muted-foreground">Health</p>
+              <p className="text-xs text-muted-foreground">{t("health")}</p>
             </CardContent>
           </Card>
         </Link>
@@ -259,9 +295,18 @@ export function MorningBriefClient({
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <Icon className="h-4 w-4" />
-                      <CardTitle className="text-base">{section.heading}</CardTitle>
+                      <CardTitle className="text-base">
+                        {section.heading}
+                      </CardTitle>
                     </div>
-                    <Badge variant={section.priority === "high" ? "destructive" : "secondary"} className="text-[10px]">
+                    <Badge
+                      variant={
+                        section.priority === "high"
+                          ? "destructive"
+                          : "secondary"
+                      }
+                      className="text-[10px]"
+                    >
                       {section.priority}
                     </Badge>
                   </div>
@@ -282,14 +327,23 @@ export function MorningBriefClient({
               <FileText className="h-6 w-6 text-muted-foreground" />
             </div>
             <div>
-              <p className="font-medium">{hasBrief ? "Brief is empty" : "No brief yet"}</p>
+              <p className="font-medium">
+                {hasBrief ? t("briefEmpty") : t("noBriefYet")}
+              </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Generate your first morning brief from CEVORYN Brain.
+                {t("generateFirstBrief")}
               </p>
             </div>
-            <Button onClick={handleGenerate} disabled={isGenerating || isPending}>
-              {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
-              Generate Brief
+            <Button
+              onClick={handleGenerate}
+              disabled={isGenerating || isPending}
+            >
+              {isGenerating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Brain className="h-4 w-4" />
+              )}
+              {t("generateBrief")}
             </Button>
           </CardContent>
         </Card>
@@ -299,9 +353,14 @@ export function MorningBriefClient({
         <>
           <Separator />
           <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">Brief generated by CEVORYN Brain</p>
-            <Button variant="ghost" size="sm" onClick={handleGenerate} disabled={isGenerating}>
-              Refresh
+            <p className="text-xs text-muted-foreground">{t("generatedBy")}</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleGenerate}
+              disabled={isGenerating}
+            >
+              {t("refresh")}
             </Button>
           </div>
         </>

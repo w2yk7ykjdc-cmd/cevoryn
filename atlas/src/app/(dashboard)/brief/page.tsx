@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getLocale } from "next-intl/server";
 
 import { listPreparedActions } from "@/features/brain/actions/action.service";
 import { getLatestBrief } from "@/features/brain/brief/brief.service";
@@ -20,6 +21,7 @@ const PRIORITY_ORDER: Record<BriefSection["priority"], number> = {
 };
 
 export default async function BriefPage() {
+  const locale = await getLocale();
   const user = await requireUser();
   const membership = await requireMembership(user.id);
   const orgId = membership.organizationId;
@@ -62,13 +64,12 @@ export default async function BriefPage() {
     )
     .sort(
       (a, b) =>
-        (PRIORITY_ORDER[a.priority] ?? 3) -
-        (PRIORITY_ORDER[b.priority] ?? 3)
+        (PRIORITY_ORDER[a.priority] ?? 3) - (PRIORITY_ORDER[b.priority] ?? 3)
     )
     .slice(0, 5);
 
   const briefDate = brief
-    ? new Intl.DateTimeFormat("en-US", {
+    ? new Intl.DateTimeFormat(locale, {
         weekday: "long",
         month: "long",
         day: "numeric",

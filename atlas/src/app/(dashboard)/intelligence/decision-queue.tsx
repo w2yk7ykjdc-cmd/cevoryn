@@ -2,6 +2,7 @@
 
 import { Check, Loader2, RotateCcw, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -19,7 +20,12 @@ interface DecisionQueueItem {
   recommendedDecision: string;
 }
 
-export function DecisionQueue({ decisions }: { decisions: DecisionQueueItem[] }) {
+export function DecisionQueue({
+  decisions,
+}: {
+  decisions: DecisionQueueItem[];
+}) {
+  const t = useTranslations("intelligence.decisionQueue");
   const router = useRouter();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [outcomes, setOutcomes] = useState<Record<string, string>>({});
@@ -41,17 +47,17 @@ export function DecisionQueue({ decisions }: { decisions: DecisionQueueItem[] })
 
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        throw new Error(payload?.error?.message ?? "Decision update failed");
+        throw new Error(payload?.error?.message ?? t("updateFailed"));
       }
 
       toast.success(
         status === "COMPLETED"
-          ? "Decision outcome recorded"
+          ? t("outcomeRecorded")
           : status === "ACCEPTED"
-            ? "Decision accepted"
+            ? t("accepted")
             : status === "REJECTED"
-              ? "Decision rejected"
-              : "Decision ignored"
+              ? t("rejected")
+              : t("ignored")
       );
 
       if (status === "COMPLETED") {
@@ -64,7 +70,7 @@ export function DecisionQueue({ decisions }: { decisions: DecisionQueueItem[] })
 
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not update decision");
+      toast.error(error instanceof Error ? error.message : t("updateFailed"));
     } finally {
       setUpdatingId(null);
     }
@@ -74,7 +80,7 @@ export function DecisionQueue({ decisions }: { decisions: DecisionQueueItem[] })
     return (
       <Card>
         <CardContent className="py-8 text-center text-sm text-muted-foreground">
-          No decisions are waiting for review or outcome tracking.
+          {t("noDecisions")}
         </CardContent>
       </Card>
     );
@@ -85,7 +91,8 @@ export function DecisionQueue({ decisions }: { decisions: DecisionQueueItem[] })
       {decisions.map((decision) => {
         const isUpdating = updatingId === decision.id;
         const isProposed = decision.status === "PROPOSED";
-        const canComplete = decision.status === "ACCEPTED" || decision.status === "EXECUTED";
+        const canComplete =
+          decision.status === "ACCEPTED" || decision.status === "EXECUTED";
         const outcome = outcomes[decision.id] ?? "";
 
         return (
@@ -93,21 +100,29 @@ export function DecisionQueue({ decisions }: { decisions: DecisionQueueItem[] })
             <CardHeader className="pb-2">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <CardTitle className="text-base">{decision.problemStatement}</CardTitle>
+                  <CardTitle className="text-base">
+                    {decision.problemStatement}
+                  </CardTitle>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Priority {decision.priorityScore.toFixed(1)}/10
+                    {t("priority", {
+                      score: decision.priorityScore.toFixed(1),
+                    })}
                   </p>
                 </div>
-                <Badge variant="secondary">{decision.status.split("_").join(" ")}</Badge>
+                <Badge variant="secondary">
+                  {decision.status.split("_").join(" ")}
+                </Badge>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
               {decision.recommendedDecision ? (
                 <div className="rounded-lg border bg-muted/40 p-3">
                   <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    CEVORYN recommendation
+                    {t("recommendation")}
                   </p>
-                  <p className="mt-1 text-sm leading-relaxed">{decision.recommendedDecision}</p>
+                  <p className="mt-1 text-sm leading-relaxed">
+                    {decision.recommendedDecision}
+                  </p>
                 </div>
               ) : null}
 
@@ -118,8 +133,12 @@ export function DecisionQueue({ decisions }: { decisions: DecisionQueueItem[] })
                     disabled={updatingId !== null}
                     onClick={() => updateDecision(decision.id, "ACCEPTED")}
                   >
-                    {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                    Accept
+                    {isUpdating ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Check className="h-4 w-4" />
+                    )}
+                    {t("accept")}
                   </Button>
                   <Button
                     size="sm"
@@ -128,7 +147,7 @@ export function DecisionQueue({ decisions }: { decisions: DecisionQueueItem[] })
                     onClick={() => updateDecision(decision.id, "REJECTED")}
                   >
                     <X className="h-4 w-4" />
-                    Reject
+                    {t("reject")}
                   </Button>
                   <Button
                     size="sm"
@@ -136,7 +155,7 @@ export function DecisionQueue({ decisions }: { decisions: DecisionQueueItem[] })
                     disabled={updatingId !== null}
                     onClick={() => updateDecision(decision.id, "IGNORED")}
                   >
-                    Ignore
+                    {t("ignore")}
                   </Button>
                 </div>
               ) : null}
@@ -144,7 +163,7 @@ export function DecisionQueue({ decisions }: { decisions: DecisionQueueItem[] })
               {canComplete ? (
                 <div className="space-y-2 rounded-lg border p-3">
                   <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Record outcome
+                    {t("recordOutcome")}
                   </p>
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <Input
@@ -155,20 +174,22 @@ export function DecisionQueue({ decisions }: { decisions: DecisionQueueItem[] })
                           [decision.id]: event.target.value,
                         }))
                       }
-                      placeholder="What happened after this decision?"
+                      placeholder={t("outcomePlaceholder")}
                       maxLength={1000}
                     />
                     <Button
                       size="sm"
                       disabled={!outcome.trim() || updatingId !== null}
-                      onClick={() => updateDecision(decision.id, "COMPLETED", outcome.trim())}
+                      onClick={() =>
+                        updateDecision(decision.id, "COMPLETED", outcome.trim())
+                      }
                     >
                       {isUpdating ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <RotateCcw className="h-4 w-4" />
                       )}
-                      Complete
+                      {t("complete")}
                     </Button>
                   </div>
                 </div>
