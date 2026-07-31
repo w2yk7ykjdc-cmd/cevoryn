@@ -423,6 +423,60 @@
       "detailsLoadFailed": "Aksiyon detayları yüklenemedi"
     }
   },
+  "health": {
+    "eyebrow": "Katılım trendi",
+    "heading": "Şirket Durumu",
+    "openMorningBrief": "Sabah Özetini Aç",
+    "companyPulse": "Şirket nabzı",
+    "todaysFocus": "Bugünün yönetim odağı",
+    "getFocusedPlan": "Odaklı bir plan al",
+    "chatPrompt": "Chief of staff'ım gibi davran. {area} neden geride kaldığına bak ve bir sorumlu, ölçülebilir bir sonuç ve 24 saatlik bir sonraki adım öner.",
+    "ourWeakestArea": "en zayıf alanımız",
+    "strongestArea": "En güçlü alan",
+    "weakestArea": "En zayıf alan",
+    "openSignals": "Açık sinyal",
+    "insightsAwaitingReview": "İncelenmeyi bekleyen içgörüler",
+    "noData": "Veri yok",
+    "engagementBreakdown": "Katılım dağılımı",
+    "todaysEvidence": "Bugünün kanıtları",
+    "conversations": "Konuşmalar",
+    "messages": "Mesajlar",
+    "activeUsers": "Aktif kullanıcı",
+    "memories": "Hafızalar",
+    "openInsights": "Açık içgörü",
+    "dash": "—",
+    "trend": {
+      "improving": "İyileşiyor",
+      "stable": "Sabit",
+      "declining": "Geriliyor"
+    },
+    "dimensionAction": {
+      "engagementLow": "Öğlene kadar odaklı bir ekip görüşmesi yap ve engelleri kaydet.",
+      "engagementOk": "İletişim ritmini koru ve yanıtsız konuşmaları kapat.",
+      "velocityLow": "Engellenmiş bir sonucu seç, tek bir sorumlu ata ve aynı gün için bir kontrol noktası belirle.",
+      "velocityOk": "Devam eden işleri azalt ve en değerli açık aksiyonu tamamla.",
+      "otherLow": "En önemli kararın sorumluluğunu netleştir ve eksik bağlamı CEVORYN'e kaydet.",
+      "otherOk": "Kararların dayanaklı kalması için şirket bağlamını güncel tut."
+    },
+    "summary": {
+      "strong": "Ekip katılımı güçlü",
+      "mixed": "Ekip katılımı karışık",
+      "low": "Ekip katılımı şu ana kadar düşük",
+      "improving": "ve iyileşiyor",
+      "declining": "ve düşüş trendinde",
+      "stable": "ve genel olarak sabit",
+      "mainConstraint": "{area} ana kısıtlayıcı faktör.",
+      "insightsNeedReview": "{count} açık içgörü incelenmeyi bekliyor.",
+      "noOpenInsight": "Bekleyen açık içgörü yok."
+    },
+    "nextMove": {
+      "withInsights": "En yüksek öncelikli sinyali incele, sonra {area} alanını bugün iyileştirecek bir aksiyona karar ver.",
+      "belowTarget": "{area} hedefin altında. Engeli belirle, bir sorumlu ata ve 24 saat içinde ölçülebilir bir kontrol noktası koy.",
+      "protectMomentum": "Momentumu koru ve {area} alanında odaklı bir iyileştirme yap.",
+      "theWeakestArea": "En zayıf alan",
+      "theLowestScoringArea": "en düşük puanlı alan"
+    }
+  },
   "pricing": {
     "title": "Fiyatlandırma",
     "subtitle": "2-20 kişilik ekipler için basit, şeffaf planlar. İstediğiniz zaman iptal edin.",

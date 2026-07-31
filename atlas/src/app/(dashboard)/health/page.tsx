@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,7 +27,10 @@ import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Company Health — CEVORYN" };
 
+type HealthTranslator = Awaited<ReturnType<typeof getTranslations>>;
+
 export default async function HealthPage() {
+  const t = await getTranslations("health");
   const user = await requireUser();
   const membership = await requireMembership(user.id);
   const orgId = membership.organizationId;
@@ -34,29 +38,37 @@ export default async function HealthPage() {
   const dayStart = new Date(now);
   dayStart.setHours(0, 0, 0, 0);
 
-  const [metrics, memoryCount, insightCounts, previousSnapshot] = await Promise.all([
-    computePulse(orgId, dayStart, now),
-    getMemoryCount(orgId),
-    getInsightCounts(orgId),
-    prisma.pulseSnapshot.findFirst({
-      where: { organizationId: orgId, period: "DAILY" },
-      orderBy: { createdAt: "desc" },
-      select: { metrics: true },
-    }),
-  ]);
+  const [metrics, memoryCount, insightCounts, previousSnapshot] =
+    await Promise.all([
+      computePulse(orgId, dayStart, now),
+      getMemoryCount(orgId),
+      getInsightCounts(orgId),
+      prisma.pulseSnapshot.findFirst({
+        where: { organizationId: orgId, period: "DAILY" },
+        orderBy: { createdAt: "desc" },
+        select: { metrics: true },
+      }),
+    ]);
 
   const previousMetrics = previousSnapshot
     ? (previousSnapshot.metrics as unknown as PulseMetrics)
     : null;
   const pulse = computePulseScore(metrics, previousMetrics);
-  const rankedDimensions = [...pulse.dimensions].sort((a, b) => a.score - b.score);
+  const rankedDimensions = [...pulse.dimensions].sort(
+    (a, b) => a.score - b.score
+  );
   const weakestDimension = rankedDimensions[0];
   const strongestDimension = rankedDimensions.at(-1);
   const openInsights = insightCounts.NEW ?? 0;
   const diagnoses = rankedDimensions.map((dimension) => ({
     ...dimension,
-    status: dimension.score >= 70 ? "healthy" : dimension.score >= 40 ? "watch" : "critical",
-    action: buildDimensionAction(dimension.name, dimension.score),
+    status:
+      dimension.score >= 70
+        ? "healthy"
+        : dimension.score >= 40
+          ? "watch"
+          : "critical",
+    action: buildDimensionAction(dimension.name, dimension.score, t),
   }));
 
   const TrendIcon =
@@ -66,16 +78,24 @@ export default async function HealthPage() {
         ? TrendingDown
         : Minus;
 
+  const chatPrompt = t("chatPrompt", {
+    area: weakestDimension?.name ?? t("ourWeakestArea"),
+  });
+
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm text-muted-foreground">Engagement trend</p>
-          <h1 className="text-2xl font-bold tracking-tight">Company Health</h1>
-          <p className="text-sm text-muted-foreground">{membership.organizationName}</p>
+          <p className="text-sm text-muted-foreground">{t("eyebrow")}</p>
+          <h1 className="text-2xl font-bold tracking-tight">{t("heading")}</h1>
+          <p className="text-sm text-muted-foreground">
+            {membership.organizationName}
+          </p>
         </div>
         <Link href="/brief">
-          <Button variant="outline" size="sm">Open Morning Brief</Button>
+          <Button variant="outline" size="sm">
+            {t("openMorningBrief")}
+          </Button>
         </Link>
       </div>
 
@@ -87,13 +107,31 @@ export default async function HealthPage() {
                 <span className="text-3xl font-bold">{pulse.score}</span>
               </div>
               <div>
-                <p className="text-lg font-semibold">Company pulse</p>
-                <div className={cn("flex items-center gap-1.5 text-sm font-medium", pulse.trend === "improving" ? "text-emerald-600" : pulse.trend === "declining" ? "text-amber-600" : "text-muted-foreground")}>
+                <p className="text-lg font-semibold">{t("companyPulse")}</p>
+                <div
+                  className={cn(
+                    "flex items-center gap-1.5 text-sm font-medium",
+                    pulse.trend === "improving"
+                      ? "text-emerald-600"
+                      : pulse.trend === "declining"
+                        ? "text-amber-600"
+                        : "text-muted-foreground"
+                  )}
+                >
                   <TrendIcon className="h-4 w-4" />
-                  {formatStatus(pulse.trend)}
+                  {t(
+                    `trend.${pulse.trend}` as
+                      "trend.improving" | "trend.stable" | "trend.declining"
+                  )}
                 </div>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  {buildHealthSummary(pulse.score, pulse.trend, weakestDimension?.name, openInsights)}
+                  {buildHealthSummary(
+                    pulse.score,
+                    pulse.trend,
+                    weakestDimension?.name,
+                    openInsights,
+                    t
+                  )}
                 </p>
               </div>
             </div>
@@ -103,33 +141,63 @@ export default async function HealthPage() {
         <Card className="border-primary/20 bg-primary/5">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Target className="h-4 w-4" /> Today&apos;s management focus
+              <Target className="h-4 w-4" /> {t("todaysFocus")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm leading-relaxed">
-              {buildNextMove(weakestDimension?.name, weakestDimension?.score ?? 0, openInsights)}
+              {buildNextMove(
+                weakestDimension?.name,
+                weakestDimension?.score ?? 0,
+                openInsights,
+                t
+              )}
             </p>
-            <Link href={`/chat?prompt=${encodeURIComponent(`Act as my chief of staff. Look at why ${weakestDimension?.name ?? "our weakest area"} is lagging and suggest one owner, one measurable outcome, and a 24-hour next step.`)}`}>
-              <Button size="sm">Get a focused plan <ArrowRight className="h-4 w-4" /></Button>
+            <Link href={`/chat?prompt=${encodeURIComponent(chatPrompt)}`}>
+              <Button size="sm">
+                {t("getFocusedPlan")} <ArrowRight className="h-4 w-4" />
+              </Button>
             </Link>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <SummaryCard label="Strongest area" value={strongestDimension?.name ?? "—"} detail={strongestDimension ? `${strongestDimension.score}/100` : "No data"} />
-        <SummaryCard label="Weakest area" value={weakestDimension?.name ?? "—"} detail={weakestDimension ? `${weakestDimension.score}/100` : "No data"} />
-        <SummaryCard label="Open signals" value={String(openInsights)} detail="Insights awaiting review" />
+        <SummaryCard
+          label={t("strongestArea")}
+          value={strongestDimension?.name ?? t("dash")}
+          detail={
+            strongestDimension ? `${strongestDimension.score}/100` : t("noData")
+          }
+        />
+        <SummaryCard
+          label={t("weakestArea")}
+          value={weakestDimension?.name ?? t("dash")}
+          detail={
+            weakestDimension ? `${weakestDimension.score}/100` : t("noData")
+          }
+        />
+        <SummaryCard
+          label={t("openSignals")}
+          value={String(openInsights)}
+          detail={t("insightsAwaitingReview")}
+        />
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Engagement breakdown</CardTitle>
+          <CardTitle className="text-base">
+            {t("engagementBreakdown")}
+          </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 lg:grid-cols-3">
           {diagnoses.map((dimension) => {
-            const Icon = dimension.name === "Engagement" ? Activity : dimension.name === "Velocity" ? Zap : Users;
+            const Icon =
+              dimension.name === "Engagement"
+                ? Activity
+                : dimension.name === "Velocity"
+                  ? Zap
+                  : Users;
             return (
               <div key={dimension.name} className="rounded-xl border p-4">
                 <div className="flex items-start justify-between gap-3">
@@ -137,14 +205,38 @@ export default async function HealthPage() {
                     <Icon className="h-4 w-4 text-muted-foreground" />
                     <p className="font-medium">{dimension.name}</p>
                   </div>
-                  <Badge variant={dimension.status === "critical" ? "destructive" : "secondary"}>{dimension.score}</Badge>
+                  <Badge
+                    variant={
+                      dimension.status === "critical"
+                        ? "destructive"
+                        : "secondary"
+                    }
+                  >
+                    {dimension.score}
+                  </Badge>
                 </div>
                 <div className="mt-3 h-2 rounded-full bg-muted">
-                  <div className={cn("h-2 rounded-full", dimension.status === "healthy" ? "bg-emerald-500" : dimension.status === "watch" ? "bg-amber-500" : "bg-red-500")} style={{ width: `${Math.min(dimension.score, 100)}%` }} />
+                  <div
+                    className={cn(
+                      "h-2 rounded-full",
+                      dimension.status === "healthy"
+                        ? "bg-emerald-500"
+                        : dimension.status === "watch"
+                          ? "bg-amber-500"
+                          : "bg-red-500"
+                    )}
+                    style={{ width: `${Math.min(dimension.score, 100)}%` }}
+                  />
                 </div>
-                <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{dimension.description}</p>
+                <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                  {dimension.description}
+                </p>
                 <div className="mt-3 flex items-start gap-2 rounded-lg bg-muted/50 p-3">
-                  {dimension.status === "critical" ? <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" /> : <Target className="mt-0.5 h-4 w-4 shrink-0" />}
+                  {dimension.status === "critical" ? (
+                    <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                  ) : (
+                    <Target className="mt-0.5 h-4 w-4 shrink-0" />
+                  )}
                   <p className="text-xs leading-relaxed">{dimension.action}</p>
                 </div>
               </div>
@@ -154,14 +246,19 @@ export default async function HealthPage() {
       </Card>
 
       <Card>
-        <CardHeader className="pb-3"><CardTitle className="text-base">Today&apos;s evidence</CardTitle></CardHeader>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">{t("todaysEvidence")}</CardTitle>
+        </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
-            <Stat label="Conversations" value={metrics.conversationCount} />
-            <Stat label="Messages" value={metrics.messageCount} />
-            <Stat label="Active users" value={metrics.activeUserCount} />
-            <Stat label="Memories" value={memoryCount} />
-            <Stat label="Open insights" value={openInsights} />
+            <Stat
+              label={t("conversations")}
+              value={metrics.conversationCount}
+            />
+            <Stat label={t("messages")} value={metrics.messageCount} />
+            <Stat label={t("activeUsers")} value={metrics.activeUserCount} />
+            <Stat label={t("memories")} value={memoryCount} />
+            <Stat label={t("openInsights")} value={openInsights} />
           </div>
         </CardContent>
       </Card>
@@ -169,32 +266,97 @@ export default async function HealthPage() {
   );
 }
 
-function buildDimensionAction(name: string, score: number): string {
-  if (name === "Engagement") return score < 40 ? "Run one focused team check-in and capture blockers before noon." : "Protect communication cadence and close unanswered threads.";
-  if (name === "Velocity") return score < 40 ? "Select one blocked outcome, assign a single owner, and define a same-day checkpoint." : "Reduce work in progress and finish the highest-value open action.";
-  return score < 40 ? "Clarify ownership for the most important decision and record the missing context in CEVORYN." : "Keep company context current so decisions remain grounded.";
+function buildDimensionAction(
+  name: string,
+  score: number,
+  t: HealthTranslator
+): string {
+  if (name === "Engagement")
+    return score < 40
+      ? t("dimensionAction.engagementLow")
+      : t("dimensionAction.engagementOk");
+  if (name === "Velocity")
+    return score < 40
+      ? t("dimensionAction.velocityLow")
+      : t("dimensionAction.velocityOk");
+  return score < 40
+    ? t("dimensionAction.otherLow")
+    : t("dimensionAction.otherOk");
 }
 
-function buildHealthSummary(score: number, trend: "improving" | "stable" | "declining", weakestArea: string | undefined, openInsights: number): string {
-  const level = score >= 70 ? "Team engagement is strong" : score >= 40 ? "Team engagement is mixed" : "Team engagement is low so far";
-  const direction = trend === "improving" ? "and improving" : trend === "declining" ? "and trending down" : "and broadly stable";
-  return `${level} ${direction}. ${weakestArea ? `${weakestArea} is the main constraint.` : ""} ${openInsights > 0 ? `${openInsights} open insight${openInsights === 1 ? "" : "s"} need review.` : "No open insight is waiting."}`;
+function buildHealthSummary(
+  score: number,
+  trend: "improving" | "stable" | "declining",
+  weakestArea: string | undefined,
+  openInsights: number,
+  t: HealthTranslator
+): string {
+  const level =
+    score >= 70
+      ? t("summary.strong")
+      : score >= 40
+        ? t("summary.mixed")
+        : t("summary.low");
+  const direction =
+    trend === "improving"
+      ? t("summary.improving")
+      : trend === "declining"
+        ? t("summary.declining")
+        : t("summary.stable");
+  const constraint = weakestArea
+    ? t("summary.mainConstraint", { area: weakestArea })
+    : "";
+  const insightsNote =
+    openInsights > 0
+      ? t("summary.insightsNeedReview", { count: openInsights })
+      : t("summary.noOpenInsight");
+  return `${level} ${direction}. ${constraint} ${insightsNote}`;
 }
 
-function buildNextMove(weakestArea: string | undefined, weakestScore: number, openInsights: number): string {
-  if (openInsights > 0) return `Review the highest-priority signal, then commit to one action that improves ${weakestArea ?? "the weakest area"} today.`;
-  if (weakestScore < 40) return `${weakestArea ?? "The weakest area"} is below target. Name the blocker, assign one owner, and set a measurable checkpoint within 24 hours.`;
-  return `Protect momentum and make one focused improvement in ${weakestArea ?? "the lowest-scoring area"}.`;
+function buildNextMove(
+  weakestArea: string | undefined,
+  weakestScore: number,
+  openInsights: number,
+  t: HealthTranslator
+): string {
+  if (openInsights > 0)
+    return t("nextMove.withInsights", {
+      area: weakestArea ?? t("weakestArea"),
+    });
+  if (weakestScore < 40)
+    return t("nextMove.belowTarget", {
+      area: weakestArea ?? t("nextMove.theWeakestArea"),
+    });
+  return t("nextMove.protectMomentum", {
+    area: weakestArea ?? t("nextMove.theLowestScoringArea"),
+  });
 }
 
-function formatStatus(status: string): string {
-  return status.toLowerCase().replaceAll("_", " ").replace(/^./, (character) => character.toUpperCase());
-}
-
-function SummaryCard({ label, value, detail }: { label: string; value: string; detail: string }) {
-  return <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-lg font-semibold">{value}</p><p className="text-xs text-muted-foreground">{detail}</p></CardContent></Card>;
+function SummaryCard({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="mt-1 text-lg font-semibold">{value}</p>
+        <p className="text-xs text-muted-foreground">{detail}</p>
+      </CardContent>
+    </Card>
+  );
 }
 
 function Stat({ label, value }: { label: string; value: number }) {
-  return <div className="text-center"><p className="text-2xl font-bold">{value}</p><p className="text-xs text-muted-foreground">{label}</p></div>;
+  return (
+    <div className="text-center">
+      <p className="text-2xl font-bold">{value}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
+    </div>
+  );
 }

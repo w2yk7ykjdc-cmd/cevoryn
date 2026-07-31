@@ -417,6 +417,60 @@
       "detailsLoadFailed": "Action details could not be loaded"
     }
   },
+  "health": {
+    "eyebrow": "Engagement trend",
+    "heading": "Company Health",
+    "openMorningBrief": "Open Morning Brief",
+    "companyPulse": "Company pulse",
+    "todaysFocus": "Today's management focus",
+    "getFocusedPlan": "Get a focused plan",
+    "chatPrompt": "Act as my chief of staff. Look at why {area} is lagging and suggest one owner, one measurable outcome, and a 24-hour next step.",
+    "ourWeakestArea": "our weakest area",
+    "strongestArea": "Strongest area",
+    "weakestArea": "Weakest area",
+    "openSignals": "Open signals",
+    "insightsAwaitingReview": "Insights awaiting review",
+    "noData": "No data",
+    "engagementBreakdown": "Engagement breakdown",
+    "todaysEvidence": "Today's evidence",
+    "conversations": "Conversations",
+    "messages": "Messages",
+    "activeUsers": "Active users",
+    "memories": "Memories",
+    "openInsights": "Open insights",
+    "dash": "—",
+    "trend": {
+      "improving": "Improving",
+      "stable": "Stable",
+      "declining": "Declining"
+    },
+    "dimensionAction": {
+      "engagementLow": "Run one focused team check-in and capture blockers before noon.",
+      "engagementOk": "Protect communication cadence and close unanswered threads.",
+      "velocityLow": "Select one blocked outcome, assign a single owner, and define a same-day checkpoint.",
+      "velocityOk": "Reduce work in progress and finish the highest-value open action.",
+      "otherLow": "Clarify ownership for the most important decision and record the missing context in CEVORYN.",
+      "otherOk": "Keep company context current so decisions remain grounded."
+    },
+    "summary": {
+      "strong": "Team engagement is strong",
+      "mixed": "Team engagement is mixed",
+      "low": "Team engagement is low so far",
+      "improving": "and improving",
+      "declining": "and trending down",
+      "stable": "and broadly stable",
+      "mainConstraint": "{area} is the main constraint.",
+      "insightsNeedReview": "{count} open {count, plural, one {insight} other {insights}} need review.",
+      "noOpenInsight": "No open insight is waiting."
+    },
+    "nextMove": {
+      "withInsights": "Review the highest-priority signal, then commit to one action that improves {area} today.",
+      "belowTarget": "{area} is below target. Name the blocker, assign one owner, and set a measurable checkpoint within 24 hours.",
+      "protectMomentum": "Protect momentum and make one focused improvement in {area}.",
+      "theWeakestArea": "The weakest area",
+      "theLowestScoringArea": "the lowest-scoring area"
+    }
+  },
   "pricing": {
     "title": "Pricing",
     "subtitle": "Simple, transparent plans for teams of 2–20. Cancel anytime.",
