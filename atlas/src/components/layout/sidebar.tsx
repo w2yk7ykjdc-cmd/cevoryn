@@ -14,9 +14,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useEffect } from "react";
 
-import { useLanguage } from "@/components/language-provider";
 import { LanguageSelector } from "@/components/language-selector";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
@@ -76,14 +76,14 @@ const NAV_ITEMS = [
 ] as const;
 
 const GROUP_LABELS = {
-  overview: "navOverview",
-  workspace: "navWorkspace",
+  overview: "overview",
+  workspace: "workspace",
 } as const;
 
 export function Sidebar({ membership, onNavigate }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { t } = useLanguage();
+  const t = useTranslations("nav");
   const canViewAnalytics =
     membership.role === "OWNER" || membership.role === "ADMIN";
 
