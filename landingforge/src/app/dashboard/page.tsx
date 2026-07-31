@@ -28,11 +28,15 @@ export default async function DashboardPage({
     ) {
       throw e;
     }
+    console.error("Dashboard load failed", e);
     return (
-      <pre className="mx-auto max-w-2xl overflow-x-auto whitespace-pre-wrap break-words p-4 text-xs text-red-700">
-        DASHBOARD ERROR:{"\n"}
-        {e instanceof Error ? e.stack || e.message : String(e)}
-      </pre>
+      <div className="mx-auto flex min-h-screen max-w-sm flex-col items-center justify-center gap-2 px-4 text-center">
+        <h1 className="text-xl font-semibold">Bir seyler ters gitti</h1>
+        <p className="text-sm text-gray-500">
+          Projelerin yuklenirken bir hata olustu. Sayfayi yenile ya da birazdan
+          tekrar dene.
+        </p>
+      </div>
     );
   }
 

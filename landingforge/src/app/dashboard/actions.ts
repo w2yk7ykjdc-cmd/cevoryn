@@ -5,14 +5,7 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
-
-function slugify(name: string) {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
+import { slugify } from "@/lib/slugify";
 
 export async function createProject(formData: FormData) {
   const user = await requireUser();

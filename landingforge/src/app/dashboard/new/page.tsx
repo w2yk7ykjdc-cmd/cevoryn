@@ -3,6 +3,10 @@ import { requireUser } from "@/lib/get-current-user";
 import { THEME_PRESETS } from "@/lib/theme-presets";
 import { createProjectFromBrief } from "./actions";
 
+// The wizard fires several OpenAI calls per submission (see actions.ts) -
+// give it real headroom above the platform's default function timeout.
+export const maxDuration = 60;
+
 export default async function NewProjectWizardPage({
   searchParams,
 }: {

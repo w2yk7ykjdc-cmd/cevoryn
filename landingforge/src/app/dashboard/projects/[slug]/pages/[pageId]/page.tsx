@@ -12,10 +12,13 @@ import {
 
 export default async function PageDetail({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string; pageId: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const { slug, pageId } = await params;
+  const { error } = await searchParams;
   const user = await requireUser();
 
   const page = await prisma.page.findFirst({
@@ -45,6 +48,10 @@ export default async function PageDetail({
         </Link>
         <h1 className="font-mono text-2xl font-semibold">{page.slug}</h1>
       </div>
+
+      {error && (
+        <p className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>
+      )}
 
       <details className="rounded border p-4" open={!seo}>
         <summary className="cursor-pointer text-sm font-medium">
