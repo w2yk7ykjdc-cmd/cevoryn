@@ -3,7 +3,7 @@ import { prisma } from "@/server/db/client";
 import { publishEvent } from "@/server/events/event-bus";
 import { logger } from "@/server/logger/logger";
 
-export type ActorType = "user" | "system" | "api_key";
+export type ActorType = "user" | "system" | "api_key" | "ai";
 
 export type RecordAuditLogInput = {
   organizationId: string;
@@ -21,10 +21,23 @@ export type RecordAuditLogInput = {
  * Writes an immutable audit trail entry and fans it out on the event bus.
  * Audit logs are never updated or deleted through the application — they
  * are the tenant's compliance record. Call this from every mutation that
- * changes organization state, membership, roles, billing, or API keys.
+ * changes organization state, membership, roles, billing, API keys, or CRM
+ * domain data (companies/contacts/leads/tasks), including AI-initiated ones.
+ *
+ * Pass `tx` when the audit row must be part of a larger Prisma transaction
+ * (e.g. writing a Lead and its audit entry atomically). In that case the
+ * event-bus publish is intentionally skipped here — publishing before the
+ * surrounding transaction commits could notify subscribers about a write
+ * that later rolls back. The caller must call `publishAuditEvent(entry)`
+ * itself once the transaction has committed.
  */
-export async function recordAuditLog(input: RecordAuditLogInput) {
-  const entry = await prisma.auditLog.create({
+export async function recordAuditLog(
+  input: RecordAuditLogInput,
+  tx?: Prisma.TransactionClient,
+) {
+  const client = tx ?? prisma;
+
+  const entry = await client.auditLog.create({
     data: {
       organizationId: input.organizationId,
       actorId: input.actorId,
@@ -48,13 +61,24 @@ export async function recordAuditLog(input: RecordAuditLogInput) {
     "audit log recorded",
   );
 
-  await publishEvent(
-    "audit_log.recorded",
-    { auditLogId: entry.id, organizationId: input.organizationId, action: input.action },
-    { organizationId: input.organizationId },
-  );
+  if (!tx) {
+    await publishAuditEvent(entry);
+  }
 
   return entry;
+}
+
+/** Publishes the `audit_log.recorded` event. Call after a transaction that used `recordAuditLog(input, tx)` commits. */
+export async function publishAuditEvent(entry: {
+  id: string;
+  organizationId: string;
+  action: string;
+}): Promise<void> {
+  await publishEvent(
+    "audit_log.recorded",
+    { auditLogId: entry.id, organizationId: entry.organizationId, action: entry.action },
+    { organizationId: entry.organizationId },
+  );
 }
 
 export type ListAuditLogsInput = {

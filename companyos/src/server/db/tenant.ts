@@ -15,9 +15,31 @@ const TENANT_SCOPED_MODELS = new Set([
   "Message", // scoped indirectly via Conversation, listed for documentation
   "ToolInvocation", // scoped indirectly via Conversation, listed for documentation
   "MemoryRecord",
+  "Company",
+  "Contact",
+  "ContactTag", // scoped indirectly via Contact, listed for documentation
+  "ContactNote", // scoped indirectly via Contact, listed for documentation
+  "Tag",
+  "PipelineStage",
+  "Lead",
+  "LeadActivity",
+  "Task",
 ]);
 
-const DIRECTLY_SCOPED_MODELS = new Set(["AuditLog", "DomainEvent", "ApiKey", "Conversation", "MemoryRecord"]);
+const DIRECTLY_SCOPED_MODELS = new Set([
+  "AuditLog",
+  "DomainEvent",
+  "ApiKey",
+  "Conversation",
+  "MemoryRecord",
+  "Company",
+  "Contact",
+  "Tag",
+  "PipelineStage",
+  "Lead",
+  "LeadActivity",
+  "Task",
+]);
 
 export class CrossTenantAccessError extends Error {
   constructor(model: string) {

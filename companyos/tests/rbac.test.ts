@@ -70,6 +70,29 @@ describe("RBAC", () => {
     expect(await can(viewer.token, organization.id, { member: ["create"] })).toBe(false);
   });
 
+  it("owner, admin, and member all get full CRUD on CRM resources; viewer is read-only", async () => {
+    const owner = await signUpUser();
+    const organization = await createOrgForUser(owner);
+    const admin = await signUpUser();
+    await addMemberDirect(organization.id, admin, "admin");
+    const member = await signUpUser();
+    await addMemberDirect(organization.id, member, "member");
+    const viewer = await signUpUser();
+    await addMemberDirect(organization.id, viewer, "viewer");
+
+    for (const resource of ["company", "contact", "lead", "task"] as const) {
+      for (const actor of [owner, admin, member]) {
+        expect(await can(actor.token, organization.id, { [resource]: ["create", "read", "update", "delete"] })).toBe(
+          true,
+        );
+      }
+      expect(await can(viewer.token, organization.id, { [resource]: ["read"] })).toBe(true);
+      expect(await can(viewer.token, organization.id, { [resource]: ["create"] })).toBe(false);
+      expect(await can(viewer.token, organization.id, { [resource]: ["update"] })).toBe(false);
+      expect(await can(viewer.token, organization.id, { [resource]: ["delete"] })).toBe(false);
+    }
+  });
+
   it("a user outside the organization has no permissions on it", async () => {
     const owner = await signUpUser();
     const organization = await createOrgForUser(owner);

@@ -15,6 +15,10 @@ export const statement = {
   auditLog: ["read", "export"],
   aiConversation: ["create", "read", "delete"],
   aiTool: ["execute"],
+  company: ["create", "read", "update", "delete"],
+  contact: ["create", "read", "update", "delete"],
+  lead: ["create", "read", "update", "delete"],
+  task: ["create", "read", "update", "delete"],
 } as const;
 
 export const accessControl = createAccessControl(statement);
@@ -31,6 +35,10 @@ export const ownerRole = accessControl.newRole({
   auditLog: ["read", "export"],
   aiConversation: ["create", "read", "delete"],
   aiTool: ["execute"],
+  company: ["create", "read", "update", "delete"],
+  contact: ["create", "read", "update", "delete"],
+  lead: ["create", "read", "update", "delete"],
+  task: ["create", "read", "update", "delete"],
 });
 
 /** Runs day-to-day operations: manages people and settings, not billing. */
@@ -45,6 +53,10 @@ export const adminRole = accessControl.newRole({
   auditLog: ["read", "export"],
   aiConversation: ["create", "read", "delete"],
   aiTool: ["execute"],
+  company: ["create", "read", "update", "delete"],
+  contact: ["create", "read", "update", "delete"],
+  lead: ["create", "read", "update", "delete"],
+  task: ["create", "read", "update", "delete"],
 });
 
 /** Standard seat: full use of the product, no org administration. */
@@ -59,6 +71,10 @@ export const memberRole = accessControl.newRole({
   auditLog: [],
   aiConversation: ["create", "read", "delete"],
   aiTool: ["execute"],
+  company: ["create", "read", "update", "delete"],
+  contact: ["create", "read", "update", "delete"],
+  lead: ["create", "read", "update", "delete"],
+  task: ["create", "read", "update", "delete"],
 });
 
 /** Read-only seat: can look around, cannot create or mutate anything. */
@@ -73,6 +89,10 @@ export const viewerRole = accessControl.newRole({
   auditLog: ["read"],
   aiConversation: ["read"],
   aiTool: [],
+  company: ["read"],
+  contact: ["read"],
+  lead: ["read"],
+  task: ["read"],
 });
 
 export const roles = {

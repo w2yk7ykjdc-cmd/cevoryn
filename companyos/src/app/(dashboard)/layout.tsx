@@ -5,6 +5,9 @@ import { Badge } from "@/components/ui/badge";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Overview" },
+  { href: "/dashboard/companies", label: "Companies" },
+  { href: "/dashboard/contacts", label: "Contacts" },
+  { href: "/dashboard/leads", label: "Leads" },
   { href: "/dashboard/chat", label: "AI Assistant" },
   { href: "/dashboard/members", label: "Members" },
   { href: "/dashboard/audit-log", label: "Audit Log" },

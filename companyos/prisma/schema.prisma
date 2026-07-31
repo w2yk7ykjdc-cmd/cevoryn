@@ -9,24 +9,32 @@ datasource db {
 }
 
 model User {
-  id            String         @id
-  name          String
-  email         String
-  emailVerified Boolean        @default(false)
-  image         String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  role          String?
-  banned        Boolean?       @default(false)
-  banReason     String?
-  banExpires    DateTime?
-  sessions      Session[]
-  accounts      Account[]
-  members       Member[]
-  invitations   Invitation[]
-  apiKeys       ApiKey[]
-  conversations Conversation[]
-  memoryRecords MemoryRecord[]
+  id               String         @id
+  name             String
+  email            String
+  emailVerified    Boolean        @default(false)
+  image            String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  role             String?
+  banned           Boolean?       @default(false)
+  banReason        String?
+  banExpires       DateTime?
+  sessions         Session[]
+  accounts         Account[]
+  members          Member[]
+  invitations      Invitation[]
+  apiKeys          ApiKey[]
+  conversations    Conversation[]
+  memoryRecords    MemoryRecord[]
+  companiesCreated Company[]
+  contactsCreated  Contact[]
+  contactNotes     ContactNote[]
+  leadsOwned       Lead[]         @relation("LeadOwner")
+  leadsCreated     Lead[]         @relation("LeadCreatedBy")
+  leadActivities   LeadActivity[]
+  tasksAssigned    Task[]         @relation("TaskAssignee")
+  tasksCreated     Task[]         @relation("TaskCreatedBy")
 
   @@unique([email])
   @@map("user")
@@ -97,6 +105,13 @@ model Organization {
   apiKeys           ApiKey[]
   conversations     Conversation[]
   memoryRecords     MemoryRecord[]
+  companies         Company[]
+  contacts          Contact[]
+  tags              Tag[]
+  pipelineStages    PipelineStage[]
+  leads             Lead[]
+  leadActivities    LeadActivity[]
+  tasks             Task[]
 
   @@unique([slug])
   @@map("organization")
@@ -314,4 +329,223 @@ model MemoryRecord {
 
   @@index([organizationId, kind])
   @@map("memory_record")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Sprint 1: CRM domain — Companies, Contacts, Leads, Tasks
+// ─────────────────────────────────────────────────────────────────────────
+
+model Company {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  domain         String?
+  industry       String?
+  website        String?
+  description    String?
+  createdById    String
+  createdBy      User         @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+  contacts       Contact[]
+  leads          Lead[]
+  tasks          Task[]
+
+  @@index([organizationId, deletedAt])
+  @@index([organizationId, name])
+  @@map("company")
+}
+
+model Tag {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  color          String?
+  createdAt      DateTime     @default(now())
+  contacts       ContactTag[]
+
+  @@unique([organizationId, name])
+  @@map("tag")
+}
+
+model Contact {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  companyId      String?
+  company        Company?      @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  firstName      String
+  lastName       String
+  email          String?
+  phone          String?
+  title          String?
+  createdById    String
+  createdBy      User          @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
+  tags           ContactTag[]
+  notes          ContactNote[]
+  leads          Lead[]
+  tasks          Task[]
+
+  @@index([organizationId, deletedAt])
+  @@index([organizationId, companyId])
+  @@map("contact")
+}
+
+model ContactTag {
+  contactId String
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tagId     String
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([contactId, tagId])
+  @@map("contact_tag")
+}
+
+model ContactNote {
+  id        String   @id @default(cuid())
+  contactId String
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([contactId, createdAt])
+  @@map("contact_note")
+}
+
+/// Organization-scoped, ordered pipeline stage. Every org gets a sensible
+/// default set seeded on creation (see organizationHooks.afterCreateOrganization
+/// in src/server/auth/auth.ts); orgs can add their own via the Leads service.
+model PipelineStage {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  order          Int
+  isWon          Boolean      @default(false)
+  isLost         Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  leads          Lead[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, order])
+  @@map("pipeline_stage")
+}
+
+model Lead {
+  id             String         @id @default(cuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  companyId      String?
+  company        Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  contactId      String?
+  contact        Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  title          String
+  stageId        String
+  stage          PipelineStage  @relation(fields: [stageId], references: [id])
+  value          Decimal        @default(0) @db.Decimal(14, 2)
+  probability    Int            @default(0)
+  source         String?
+  ownerId        String?
+  owner          User?          @relation("LeadOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdById    String
+  createdBy      User           @relation("LeadCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  deletedAt      DateTime?
+  closedAt       DateTime?
+  activities     LeadActivity[]
+  tasks          Task[]
+
+  @@index([organizationId, deletedAt])
+  @@index([organizationId, stageId])
+  @@index([organizationId, companyId])
+  @@map("lead")
+}
+
+enum LeadActivityType {
+  note
+  stage_changed
+  task_created
+  ai_note
+  ai_analysis
+  email
+  call
+  meeting
+}
+
+/// Append-only timeline for a lead. Written by user actions (notes, manual
+/// stage changes) and by the AI Sales Employee's tools (ai_note, ai_analysis)
+/// — never updated or deleted.
+model LeadActivity {
+  id             String           @id @default(cuid())
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  leadId         String
+  lead           Lead             @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  type           LeadActivityType
+  body           String?
+  metadata       Json             @default("{}")
+  actorId        String?
+  actor          User?            @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt      DateTime         @default(now())
+
+  @@index([leadId, createdAt])
+  @@index([organizationId, type])
+  @@map("lead_activity")
+}
+
+enum TaskPriority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum TaskStatus {
+  todo
+  in_progress
+  done
+  cancelled
+}
+
+model Task {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  title          String
+  description    String?
+  status         TaskStatus   @default(todo)
+  priority       TaskPriority @default(medium)
+  dueDate        DateTime?
+  reminderAt     DateTime?
+  reminderSentAt DateTime?
+  leadId         String?
+  lead           Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  contactId      String?
+  contact        Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  companyId      String?
+  company        Company?     @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  assigneeId     String?
+  assignee       User?        @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdById    String
+  createdBy      User         @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  completedAt    DateTime?
+  deletedAt      DateTime?
+
+  @@index([organizationId, deletedAt])
+  @@index([organizationId, assigneeId, status])
+  @@index([organizationId, dueDate])
+  @@index([leadId])
+  @@map("task")
 }
