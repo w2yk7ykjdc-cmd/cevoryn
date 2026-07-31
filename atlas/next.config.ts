@@ -1,3 +1,4 @@
+import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 
 const isDevelopment = process.env.NODE_ENV === "development";
@@ -42,7 +43,7 @@ const nextConfig: NextConfig = {
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data: blob: https:",
             "font-src 'self' https://fonts.gstatic.com",
-            "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.openai.com https://*.paddle.com",
+            "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.openai.com https://*.paddle.com https://*.sentry.io https://*.ingest.de.sentry.io",
             "frame-src https://*.paddle.com",
             "frame-ancestors 'none'",
             "base-uri 'self'",
@@ -54,4 +55,11 @@ const nextConfig: NextConfig = {
   ],
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  org: "cevoryn",
+  project: "javascript-nextjs",
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  disableLogger: true,
+  automaticVercelMonitors: true,
+});
