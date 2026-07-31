@@ -11,6 +11,10 @@ import {
 } from "@/lib/api-utils";
 import { ACTIVE_ORGANIZATION_COOKIE, getUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  assertMemberCapacity,
+  PlanLimitError,
+} from "@/server/services/entitlement.service";
 
 const acceptInviteSchema = z.object({
   token: z.string().trim().min(1),
@@ -53,6 +57,21 @@ export async function POST(request: Request) {
       }
 
       return badRequestResponse(eligibility.message);
+    }
+
+    try {
+      // additionalMembers: 0 - this invite is already counted as a pending
+      // invite; accepting it converts it to a member without changing the
+      // total, so this only rejects when the org is already over its
+      // current plan's limit (e.g. after a downgrade since the invite was sent).
+      await assertMemberCapacity(invite.organizationId, 0);
+    } catch (error) {
+      if (error instanceof PlanLimitError) {
+        return badRequestResponse(
+          "This organization has reached its plan's member limit. Ask the workspace owner to upgrade before accepting this invite."
+        );
+      }
+      throw error;
     }
 
     const accepted = await prisma.$transaction(async (tx) => {
