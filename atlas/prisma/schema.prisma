@@ -37,6 +37,7 @@ model Organization {
   decisions           Decision[]
   outcomeEvaluations  OutcomeEvaluation[]
   learningPatterns    LearningPattern[]
+  analyticsEvents     AnalyticsEvent[]
 
   @@map("organizations")
 }
@@ -168,6 +169,21 @@ model UsageRecord {
   @@index([organizationId, createdAt])
   @@index([userId, createdAt])
   @@map("usage_records")
+}
+
+model AnalyticsEvent {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  userId         String   @map("user_id")
+  event          String
+  metadata       Json?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([event, createdAt])
+  @@map("analytics_events")
 }
 
 // =============================================================================
