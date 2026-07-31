@@ -160,6 +160,172 @@
       "createFailed": "Organizasyon oluşturulamadı. Lütfen tekrar dene."
     }
   },
+  "dashboard": {
+    "greeting": {
+      "morning": "Günaydın",
+      "afternoon": "İyi günler",
+      "evening": "İyi akşamlar",
+      "withName": "{timeOfDay}, {name}"
+    },
+    "pulse": {
+      "everythingUnderControl": "Her şey kontrol altında.",
+      "oneIssue": "Bugün dikkatini gerektiren bir konu var.",
+      "issuesNeedAttention": "{count} konu dikkatini gerektiriyor.",
+      "itemsToReview": "{count} öğe incelenmeyi bekliyor.",
+      "trendingUp": " Durum yükseliş trendinde.",
+      "trendingDown": " Aktivite düşüş trendinde."
+    },
+    "quietMessage": "Bugün dikkat gerektiren acil bir şey yok. Büyümeye odaklan.",
+    "insufficientData": {
+      "fewMessages": "Bu hafta sadece {count} sohbet mesajı var. CEVORYN'in örüntüleri tespit edebilmesi için daha fazla konuşmaya ihtiyacı var.",
+      "limitedKnowledge": "Şirket bilgisi sınırlı. İşin hakkında bağlam paylaşmak için sohbeti kullan.",
+      "calendarNotConnected": "Takvim entegrasyonu bağlı değil",
+      "tasksNotConnected": "Görev yönetim sistemi bağlı değil"
+    },
+    "stats": {
+      "attention": "Dikkat",
+      "attentionCaption": "incelenmesi gereken öğe",
+      "actions": "Aksiyonlar",
+      "actionsCaption": "uygulanmaya hazır",
+      "knowledge": "Bilgi",
+      "knowledgeCaption": "aktif şirket hafızası"
+    },
+    "commandCenter": {
+      "heading": "Yönetici komuta merkezi",
+      "subheading": "Uygulamada aramadan içgörüden aksiyona geç.",
+      "open": "Aç"
+    },
+    "commands": {
+      "chat": {
+        "title": "CEVORYN'e sor",
+        "description": "Bir iş problemini karara veya aksiyon planına dönüştür."
+      },
+      "brief": {
+        "title": "Sabah Özeti",
+        "description": "En son öncelikleri, riskleri ve fırsatları gözden geçir."
+      },
+      "health": {
+        "title": "Şirket Durumu",
+        "description": "Neyin iyileştiğini, gerilediğini veya eksik olduğunu gör."
+      }
+    },
+    "companyPulse": "Şirket Nabzı",
+    "trend": {
+      "improving": "İyileşiyor",
+      "stable": "Sabit",
+      "declining": "Geriliyor"
+    }
+  },
+  "executive": {
+    "topPriority": {
+      "needsAttention": "Bugün dikkatini gerektiriyor",
+      "whyMatters": "Neden önemli",
+      "todaysMove": "Bugünkü hamle",
+      "takeAction": "Aksiyon al",
+      "discuss": "CEVORYN ile tartış",
+      "chatPrompt": "Bu konuda ne yapmam gerektiğine karar vermeme yardım et: {title}. Önerilen aksiyon: {action}"
+    },
+    "severity": {
+      "CRITICAL": "KRİTİK",
+      "WARNING": "UYARI",
+      "SUGGESTION": "ÖNERİ",
+      "INFO": "BİLGİ"
+    },
+    "attentionQueue": {
+      "heading": "Sırada karar bekleyenler",
+      "subheading": "Bugünün önceliğinden sonra en yüksek etkili öğeleri gözden geçir.",
+      "pending": "{count} beklemede",
+      "suggestedMove": "Önerilen sonraki hamle",
+      "discuss": "Tartış",
+      "reviewContext": "Bağlamı incele",
+      "defaultRecommendedAction": "Durumu incele ve en iyi sonraki adımı öner.",
+      "chatPrompt": "Bu {type} hakkında ne yapmam gerektiğine karar vermeme yardım et: {title}. Önerilen aksiyon: {action}"
+    },
+    "trustDisclosure": {
+      "whyCevorynThinks": "CEVORYN bunu neden düşünüyor",
+      "confidence": "%{pct} güven",
+      "reasoning": "Gerekçe",
+      "evidence": "Kanıt ({count})",
+      "missingInformation": "Eksik bilgi"
+    },
+    "insufficientData": {
+      "heading": "CEVORYN'e liderlik edebilmesi için yeterli bağlam ver",
+      "subheading": "CEVORYN hazır, ama öncelikleri güvenilir şekilde sıralayabilmesi için şirketin hakkında daha net bir tabloya ihtiyacı var.",
+      "step1Title": "İşin nasıl çalıştığını CEVORYN'e anlat",
+      "step1Description": "Hedeflerini, mevcut önceliklerini, ekip yapını ve kısıtlarını paylaş.",
+      "step1Label": "Sohbette başla",
+      "step2Title": "İlk yönetici özetini oluştur",
+      "step2Description": "CEVORYN'in zaten sahip olduğu bağlamı odaklanmış bir günlük özete dönüştür.",
+      "step2Label": "Sabah Özetini Aç",
+      "stillMissing": "CEVORYN'in hâlâ eksik olduğu şeyler"
+    },
+    "quietState": {
+      "heading": "İşler kontrol altında",
+      "resolvedThisWeek": "bu hafta çözülen sorun",
+      "memoriesAvailable": "kullanılabilir şirket hafızası",
+      "useQuietWindow": "Sakin dönemi büyüme için kullan",
+      "growthPrompt": "CEVORYN'den en güçlü büyüme fırsatını, en büyük gizli riski veya iyileştirilmeye değer bir süreci belirlemesini iste.",
+      "findNextMove": "Sıradaki hamleyi bul",
+      "growthChatPrompt": "Şirket için şu anda en iyi büyüme hamlesi nedir?"
+    },
+    "onboardingGuide": {
+      "eyebrow": "Başlarken",
+      "heading": "CEVORYN'i kur",
+      "progress": "{total} adımdan {completed} tanesi tamamlandı. CEVORYN şirketin hakkında öğrendikçe daha faydalı hale gelir.",
+      "dismiss": "Kurulum rehberini kapat",
+      "footer": "Adımlar CEVORYN'i kullandıkça otomatik tamamlanır - elle işaretlemene gerek yok.",
+      "workspace": {
+        "title": "Çalışma alanı oluşturuldu",
+        "description": "CEVORYN çalışma alanın kuruldu ve hazır."
+      },
+      "googleConnected": {
+        "title": "Google'ı bağla",
+        "description": "CEVORYN'in yanıtlarını gerçek aktiviteye dayandırabilmesi için Takvim ve Gmail'i bağla."
+      },
+      "teamInvited": {
+        "title": "Ekibini davet et",
+        "description": "Şirket bağlamını ve kararları paylaşması gereken kişileri ekle."
+      },
+      "hasChatted": {
+        "title": "İlk sohbetini başlat",
+        "description": "Önceliklerini, risklerini ve mevcut hedeflerini CEVORYN'e anlat.",
+        "chatPrompt": "CEVORYN'i kurmama yardım et. Bana en önemli hedeflerimizi, risklerimizi ve mevcut önceliklerimizi sor."
+      }
+    },
+    "todayActions": {
+      "heading": "Uygulamaya hazır",
+      "subheading": "CEVORYN bu sonraki adımları hazırladı. Kontrol sende.",
+      "ready": "{count} hazır",
+      "confidence": "%{pct} güven",
+      "dismiss": "Reddet",
+      "actionApprovedError": "CEVORYN bu aksiyonu onaylayamadı. Lütfen tekrar dene.",
+      "actionDismissedError": "CEVORYN bu aksiyonu reddedemedi. Lütfen tekrar dene.",
+      "actionDismissed": "Aksiyon reddedildi",
+      "handoffWarning": "Onaylandı, ama sonraki uygulama açılamadı. Elle devam etmek için Intelligence'ı aç.",
+      "types": {
+        "EMAIL_DRAFT": {
+          "label": "E-posta hazır",
+          "approveLabel": "Taslağı onayla"
+        },
+        "TASK": {
+          "label": "Görev hazır",
+          "approveLabel": "Görev detaylarını kopyala"
+        },
+        "CALENDAR_PROPOSAL": {
+          "label": "Toplantı hazır",
+          "approveLabel": "Toplantıyı onayla"
+        },
+        "FOLLOW_UP": {
+          "label": "Takip hazır",
+          "approveLabel": "Takip detaylarını kopyala"
+        },
+        "default": {
+          "label": "Aksiyon hazır",
+          "approveLabel": "Detayları kopyala"
+        }
+      }
+    }
+  },
   "pricing": {
     "title": "Fiyatlandırma",
     "subtitle": "2-20 kişilik ekipler için basit, şeffaf planlar. İstediğiniz zaman iptal edin.",

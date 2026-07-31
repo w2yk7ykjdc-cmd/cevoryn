@@ -2,6 +2,7 @@
 
 import { AlertTriangle, ArrowRight, MessageSquare } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,9 @@ const SEVERITY_STYLES: Record<string, string> = {
 };
 
 export function TopPriority({ item, onApproveAction }: TopPriorityProps) {
+  const t = useTranslations("executive.topPriority");
+  const tSeverity = useTranslations("executive.severity");
+
   function handleOpen() {
     sendAnalyticsEvent("top_priority_opened", { id: item.id });
   }
@@ -39,7 +43,7 @@ export function TopPriority({ item, onApproveAction }: TopPriorityProps) {
       className={SEVERITY_STYLES[item.severity] ?? ""}
       onClick={handleOpen}
       role="article"
-      aria-label={`Top priority: ${item.title}`}
+      aria-label={`${t("needsAttention")}: ${item.title}`}
     >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
@@ -49,7 +53,7 @@ export function TopPriority({ item, onApproveAction }: TopPriorityProps) {
               aria-hidden="true"
             />
             <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Needs your attention today
+              {t("needsAttention")}
             </span>
           </div>
           <div className="flex gap-1.5">
@@ -62,7 +66,9 @@ export function TopPriority({ item, onApproveAction }: TopPriorityProps) {
               }
               className="text-xs"
             >
-              {item.severity}
+              {tSeverity(
+                item.severity as "CRITICAL" | "WARNING" | "SUGGESTION" | "INFO"
+              )}
             </Badge>
           </div>
         </div>
@@ -79,7 +85,7 @@ export function TopPriority({ item, onApproveAction }: TopPriorityProps) {
         {item.impact && (
           <div className="rounded-lg bg-muted/50 p-3">
             <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Why this matters
+              {t("whyMatters")}
             </p>
             <p className="text-sm">{item.impact}</p>
           </div>
@@ -88,7 +94,7 @@ export function TopPriority({ item, onApproveAction }: TopPriorityProps) {
         {item.recommendedAction && (
           <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
             <p className="mb-1 text-xs font-medium uppercase tracking-wide text-primary">
-              Today&apos;s move
+              {t("todaysMove")}
             </p>
             <p className="text-sm font-medium">{item.recommendedAction}</p>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -100,7 +106,7 @@ export function TopPriority({ item, onApproveAction }: TopPriorityProps) {
                     onApproveAction();
                   }}
                 >
-                  Take action
+                  {t("takeAction")}
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Button>
               )}
@@ -113,7 +119,7 @@ export function TopPriority({ item, onApproveAction }: TopPriorityProps) {
                   }}
                 >
                   <MessageSquare className="h-3.5 w-3.5" />
-                  Discuss with CEVORYN
+                  {t("discuss")}
                 </Link>
               </Button>
             </div>

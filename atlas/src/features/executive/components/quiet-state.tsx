@@ -1,5 +1,13 @@
-import { ArrowRight, CheckCircle2, MessageSquare, TrendingUp } from "lucide-react";
+"use client";
+
+import {
+  ArrowRight,
+  CheckCircle2,
+  MessageSquare,
+  TrendingUp,
+} from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,6 +23,9 @@ export function QuietState({
   resolvedRecently,
   memoryCount,
 }: QuietStateProps) {
+  const t = useTranslations("executive.quietState");
+  const growthPrompt = encodeURIComponent(t("growthChatPrompt"));
+
   return (
     <Card className="border-emerald-200 dark:border-emerald-900/50">
       <CardContent className="space-y-5 p-5 sm:p-6">
@@ -23,7 +34,7 @@ export function QuietState({
             <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
           </div>
           <div>
-            <p className="text-lg font-semibold">The business is under control</p>
+            <p className="text-lg font-semibold">{t("heading")}</p>
             <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
               {message}
             </p>
@@ -34,13 +45,13 @@ export function QuietState({
           <div className="rounded-xl bg-muted/50 p-3">
             <p className="text-2xl font-semibold">{resolvedRecently}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              issues resolved this week
+              {t("resolvedThisWeek")}
             </p>
           </div>
           <div className="rounded-xl bg-muted/50 p-3">
             <p className="text-2xl font-semibold">{memoryCount}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              company memories available
+              {t("memoriesAvailable")}
             </p>
           </div>
         </div>
@@ -49,14 +60,14 @@ export function QuietState({
           <div className="flex items-start gap-3">
             <TrendingUp className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium">Use the quiet window for growth</p>
+              <p className="text-sm font-medium">{t("useQuietWindow")}</p>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                Ask CEVORYN to identify the strongest growth opportunity, the biggest hidden risk, or one process worth improving next.
+                {t("growthPrompt")}
               </p>
               <Button asChild size="sm" className="mt-3 h-8 text-xs">
-                <Link href="/chat?prompt=What%20is%20the%20best%20growth%20move%20for%20the%20business%20right%20now%3F">
+                <Link href={`/chat?prompt=${growthPrompt}`}>
                   <MessageSquare className="h-3.5 w-3.5" />
-                  Find the next move
+                  {t("findNextMove")}
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               </Button>

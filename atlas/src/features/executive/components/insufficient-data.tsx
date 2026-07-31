@@ -1,5 +1,8 @@
+"use client";
+
 import { ArrowRight, BookOpen, Database, MessageSquare } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,24 +11,26 @@ interface InsufficientDataProps {
   reasons: string[];
 }
 
-const STARTER_STEPS = [
-  {
-    title: "Tell CEVORYN how the business works",
-    description: "Share your goals, current priorities, team structure, and constraints.",
-    href: "/chat",
-    label: "Start in Chat",
-    icon: MessageSquare,
-  },
-  {
-    title: "Generate your first executive brief",
-    description: "Turn the context CEVORYN already has into a focused daily summary.",
-    href: "/brief",
-    label: "Open Morning Brief",
-    icon: BookOpen,
-  },
-];
-
 export function InsufficientData({ reasons }: InsufficientDataProps) {
+  const t = useTranslations("executive.insufficientData");
+
+  const starterSteps = [
+    {
+      title: t("step1Title"),
+      description: t("step1Description"),
+      href: "/chat",
+      label: t("step1Label"),
+      icon: MessageSquare,
+    },
+    {
+      title: t("step2Title"),
+      description: t("step2Description"),
+      href: "/brief",
+      label: t("step2Label"),
+      icon: BookOpen,
+    },
+  ];
+
   return (
     <Card>
       <CardContent className="space-y-6 p-5 sm:p-6">
@@ -34,15 +39,15 @@ export function InsufficientData({ reasons }: InsufficientDataProps) {
             <Database className="h-5 w-5 text-muted-foreground" />
           </div>
           <div>
-            <p className="text-lg font-semibold">Give CEVORYN enough context to lead</p>
+            <p className="text-lg font-semibold">{t("heading")}</p>
             <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-              CEVORYN is ready, but it needs a clearer picture of your company before it can rank priorities reliably.
+              {t("subheading")}
             </p>
           </div>
         </div>
 
         <div className="grid gap-3">
-          {STARTER_STEPS.map((step, index) => {
+          {starterSteps.map((step, index) => {
             const Icon = step.icon;
             return (
               <div key={step.href} className="rounded-xl border p-4">
@@ -58,7 +63,12 @@ export function InsufficientData({ reasons }: InsufficientDataProps) {
                     <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                       {step.description}
                     </p>
-                    <Button asChild size="sm" variant="outline" className="mt-3 h-8 text-xs">
+                    <Button
+                      asChild
+                      size="sm"
+                      variant="outline"
+                      className="mt-3 h-8 text-xs"
+                    >
                       <Link href={step.href}>
                         {step.label}
                         <ArrowRight className="h-3.5 w-3.5" />
@@ -74,7 +84,7 @@ export function InsufficientData({ reasons }: InsufficientDataProps) {
         {reasons.length > 0 && (
           <div className="rounded-lg bg-muted/50 p-3">
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              What CEVORYN is still missing
+              {t("stillMissing")}
             </p>
             <ul className="space-y-1.5 text-xs text-muted-foreground">
               {reasons.map((reason, i) => (
