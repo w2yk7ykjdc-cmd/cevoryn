@@ -42,10 +42,10 @@ export const PLAN_CONFIG: Record<BillingPlan, PlanDefinition> = {
     recommended: false,
     limits: {
       maxOrganizations: 1,
-      maxMembers: 1,
+      maxMembers: 3,
       monthlyAiTokens: 250_000,
     },
-    features: new Set(sharedFeatures),
+    features: new Set<BillingFeature>([...sharedFeatures, "TEAM"]),
   },
   PROFESSIONAL: {
     name: "Professional",
