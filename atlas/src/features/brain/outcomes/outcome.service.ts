@@ -51,15 +51,17 @@ export async function transitionDecision(
     UNKNOWN: "OUTCOME_RECORDED",
   };
 
-  await prisma.$transaction(async (tx) => {
-    await tx.decision.updateMany({
-      where: { id: decisionId, organizationId },
+  const transitioned = await prisma.$transaction(async (tx) => {
+    const updated = await tx.decision.updateMany({
+      where: { id: decisionId, organizationId, status: currentStatus },
       data: {
         status: toDecisionStatus(newStatus) ?? "PROPOSED",
         ...(isTerminal && { resolvedAt: new Date() }),
         ...(outcome && { outcome }),
       },
     });
+
+    if (updated.count === 0) return false;
 
     await tx.decisionTimelineEvent.create({
       data: {
@@ -75,7 +77,16 @@ export async function transitionDecision(
         },
       },
     });
+
+    return true;
   });
+
+  if (!transitioned) {
+    return {
+      success: false,
+      error: "Decision status changed concurrently; please retry",
+    };
+  }
 
   return { success: true };
 }
