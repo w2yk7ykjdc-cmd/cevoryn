@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -13,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { ROUTES } from "@/lib/constants";
 
 import { resendConfirmationAction, signupAction } from "../actions/auth";
-import { signupSchema } from "../schemas/auth";
+import { createSignupSchema } from "../schemas/auth";
 import type { SignupInput } from "../schemas/auth";
 
 import { AuthCard } from "./auth-card";
@@ -23,6 +24,8 @@ interface SignupFormProps {
 }
 
 export function SignupForm({ redirectTo }: SignupFormProps) {
+  const t = useTranslations("auth.signup");
+  const tValidation = useTranslations("auth.validation");
   const [isPending, setIsPending] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [isConfirmation, setIsConfirmation] = useState(false);
@@ -37,7 +40,14 @@ export function SignupForm({ redirectTo }: SignupFormProps) {
     formState: { errors },
     setError,
   } = useForm<SignupInput>({
-    resolver: zodResolver(signupSchema),
+    resolver: zodResolver(
+      createSignupSchema({
+        invalidEmail: tValidation("invalidEmail"),
+        passwordMinLength: tValidation("passwordMinLength"),
+        passwordComplexity: tValidation("passwordComplexity"),
+        passwordsDoNotMatch: tValidation("passwordsDoNotMatch"),
+      })
+    ),
     defaultValues: { email: "", password: "", confirmPassword: "" },
   });
 
@@ -59,7 +69,7 @@ export function SignupForm({ redirectTo }: SignupFormProps) {
         }
       }
     } catch (_error) {
-      toast.error("Something went wrong. Please try again.");
+      toast.error(t("genericError"));
     } finally {
       setIsPending(false);
     }
@@ -76,12 +86,12 @@ export function SignupForm({ redirectTo }: SignupFormProps) {
       );
 
       if (result.success) {
-        toast.success("A new confirmation email was sent.");
+        toast.success(t("resendSuccess"));
       } else {
         toast.error(result.error);
       }
     } catch (_error) {
-      toast.error("Something went wrong. Please try again.");
+      toast.error(t("genericError"));
     } finally {
       setIsResending(false);
     }
@@ -90,15 +100,16 @@ export function SignupForm({ redirectTo }: SignupFormProps) {
   if (isConfirmation) {
     return (
       <AuthCard
-        title="Check your email"
-        description="We sent you a confirmation link"
+        title={t("checkEmailTitle")}
+        description={t("checkEmailDescription")}
       >
         <div className="flex flex-col items-center gap-4 py-4">
           <CheckCircle2 className="h-12 w-12 text-green-500" />
           <p className="text-center text-sm text-muted-foreground">
-            Click the link sent to <strong>{confirmationEmail}</strong> to
-            activate your account. The link can expire, so open the newest
-            email.
+            {t.rich("checkEmailBody", {
+              email: confirmationEmail,
+              strong: (chunks) => <strong>{chunks}</strong>,
+            })}
           </p>
           <Button
             type="button"
@@ -107,10 +118,10 @@ export function SignupForm({ redirectTo }: SignupFormProps) {
             disabled={isResending}
           >
             {isResending && <Loader2 className="animate-spin" />}
-            Resend confirmation email
+            {t("resend")}
           </Button>
           <Link href={loginHref}>
-            <Button variant="ghost">Back to sign in</Button>
+            <Button variant="ghost">{t("backToSignIn")}</Button>
           </Link>
         </div>
       </AuthCard>
@@ -119,23 +130,23 @@ export function SignupForm({ redirectTo }: SignupFormProps) {
 
   return (
     <AuthCard
-      title="Create an account"
-      description="Get started with CEVORYN for your team"
+      title={t("title")}
+      description={t("description")}
       footer={
         <>
-          Already have an account?{" "}
+          {t("haveAccount")}{" "}
           <Link
             href={loginHref}
             className="font-medium underline underline-offset-4 hover:text-primary"
           >
-            Sign in
+            {t("signInLink")}
           </Link>
         </>
       }
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">{t("email")}</Label>
           <Input
             id="email"
             type="email"
@@ -150,7 +161,7 @@ export function SignupForm({ redirectTo }: SignupFormProps) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password">{t("password")}</Label>
           <Input
             id="password"
             type="password"
@@ -166,7 +177,7 @@ export function SignupForm({ redirectTo }: SignupFormProps) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="confirmPassword">Confirm password</Label>
+          <Label htmlFor="confirmPassword">{t("confirmPassword")}</Label>
           <Input
             id="confirmPassword"
             type="password"
@@ -183,7 +194,7 @@ export function SignupForm({ redirectTo }: SignupFormProps) {
 
         <Button type="submit" className="w-full" disabled={isPending}>
           {isPending && <Loader2 className="animate-spin" />}
-          Create account
+          {t("submit")}
         </Button>
       </form>
     </AuthCard>

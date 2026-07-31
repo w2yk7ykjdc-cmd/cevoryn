@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -14,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { ROUTES } from "@/lib/constants";
 
 import { googleLoginAction, loginAction } from "../actions/auth";
-import { loginSchema } from "../schemas/auth";
+import { createLoginSchema } from "../schemas/auth";
 import type { LoginInput } from "../schemas/auth";
 
 import { AuthCard } from "./auth-card";
@@ -33,6 +34,8 @@ export function LoginForm({
   sessionExpired = false,
 }: LoginFormProps) {
   const router = useRouter();
+  const t = useTranslations("auth.login");
+  const tValidation = useTranslations("auth.validation");
   const [isPending, setIsPending] = useState(false);
   const signupHref = redirectTo
     ? `${ROUTES.SIGNUP}?next=${encodeURIComponent(redirectTo)}`
@@ -44,7 +47,14 @@ export function LoginForm({
     formState: { errors },
     setError,
   } = useForm<LoginInput>({
-    resolver: zodResolver(loginSchema),
+    resolver: zodResolver(
+      createLoginSchema({
+        invalidEmail: tValidation("invalidEmail"),
+        passwordMinLength: tValidation("passwordMinLength"),
+        passwordComplexity: tValidation("passwordComplexity"),
+        passwordsDoNotMatch: tValidation("passwordsDoNotMatch"),
+      })
+    ),
     defaultValues: { email: "", password: "" },
   });
 
@@ -70,7 +80,7 @@ export function LoginForm({
       router.replace(target);
     } catch (error) {
       console.error("Login failed:", error);
-      toast.error("Unable to sign in. Please try again.");
+      toast.error(t("genericError"));
     } finally {
       setIsPending(false);
     }
@@ -78,16 +88,16 @@ export function LoginForm({
 
   return (
     <AuthCard
-      title="Sign in"
-      description="Enter your credentials to access your workspace"
+      title={t("title")}
+      description={t("description")}
       footer={
         <>
-          Don&apos;t have an account?{" "}
+          {t("noAccount")}{" "}
           <Link
             href={signupHref}
             className="font-medium underline underline-offset-4 hover:text-primary"
           >
-            Sign up
+            {t("signUpLink")}
           </Link>
         </>
       }
@@ -98,7 +108,7 @@ export function LoginForm({
           className="mb-4 flex items-start gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm"
         >
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-          <p>Your password has been updated. Sign in with your new password.</p>
+          <p>{t("passwordResetSuccess")}</p>
         </div>
       )}
 
@@ -108,10 +118,7 @@ export function LoginForm({
           className="mb-4 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm"
         >
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <p>
-            Your session expired. Sign in again to return to your work. An unsent
-            chat message will be restored automatically.
-          </p>
+          <p>{t("sessionExpired")}</p>
         </div>
       )}
 
@@ -126,7 +133,7 @@ export function LoginForm({
           <input type="hidden" name="redirectTo" value={redirectTo} />
         )}
         <Button type="submit" variant="outline" className="w-full">
-          Continue with Google
+          {t("continueWithGoogle")}
         </Button>
       </form>
 
@@ -135,13 +142,15 @@ export function LoginForm({
           <span className="w-full border-t" />
         </div>
         <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-background px-2 text-muted-foreground">or</span>
+          <span className="bg-background px-2 text-muted-foreground">
+            {t("or")}
+          </span>
         </div>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">{t("email")}</Label>
           <Input
             id="email"
             type="email"
@@ -160,12 +169,12 @@ export function LoginForm({
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">{t("password")}</Label>
             <Link
               href={ROUTES.FORGOT_PASSWORD}
               className="text-sm text-muted-foreground underline-offset-4 hover:underline"
             >
-              Forgot password?
+              {t("forgotPassword")}
             </Link>
           </div>
           <Input
@@ -185,7 +194,7 @@ export function LoginForm({
 
         <Button type="submit" className="w-full" disabled={isPending}>
           {isPending && <Loader2 className="animate-spin" />}
-          Sign in
+          {t("submit")}
         </Button>
       </form>
     </AuthCard>

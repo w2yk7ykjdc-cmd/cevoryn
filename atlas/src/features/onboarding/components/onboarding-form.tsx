@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Building2, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -17,9 +18,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { signOutAction } from "@/features/auth/actions/auth";
+import { APP_CONFIG } from "@/lib/constants";
 
 import { completeOnboardingAction } from "../actions/onboarding";
-import { onboardingSchema } from "../schemas/onboarding";
+import { createOnboardingSchema } from "../schemas/onboarding";
 import type { OnboardingInput } from "../schemas/onboarding";
 
 interface OnboardingFormProps {
@@ -27,6 +29,8 @@ interface OnboardingFormProps {
 }
 
 export function OnboardingForm({ userEmail }: OnboardingFormProps) {
+  const t = useTranslations("onboarding");
+  const tValidation = useTranslations("onboarding.validation");
   const [isPending, setIsPending] = useState(false);
 
   const {
@@ -35,7 +39,18 @@ export function OnboardingForm({ userEmail }: OnboardingFormProps) {
     formState: { errors },
     setError,
   } = useForm<OnboardingInput>({
-    resolver: zodResolver(onboardingSchema),
+    resolver: zodResolver(
+      createOnboardingSchema({
+        orgNameMin: tValidation("orgNameMin"),
+        orgNameMax: tValidation("orgNameMax", {
+          max: APP_CONFIG.orgNameMaxLength,
+        }),
+        nameMin: tValidation("nameMin"),
+        nameMax: tValidation("nameMax", {
+          max: APP_CONFIG.displayNameMaxLength,
+        }),
+      })
+    ),
     defaultValues: {
       organizationName: "",
       displayName: userEmail.split("@")[0] ?? "",
@@ -69,15 +84,13 @@ export function OnboardingForm({ userEmail }: OnboardingFormProps) {
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
           <Building2 className="h-7 w-7 text-primary" />
         </div>
-        <CardTitle className="text-2xl">Set up your workspace</CardTitle>
-        <CardDescription>
-          Create your organization to get started with CEVORYN.
-        </CardDescription>
+        <CardTitle className="text-2xl">{t("heading")}</CardTitle>
+        <CardDescription>{t("subheading")}</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           <div className="space-y-2">
-            <Label htmlFor="displayName">Your name</Label>
+            <Label htmlFor="displayName">{t("yourName")}</Label>
             <Input
               id="displayName"
               placeholder="Jane Smith"
@@ -93,7 +106,7 @@ export function OnboardingForm({ userEmail }: OnboardingFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="organizationName">Workspace name</Label>
+            <Label htmlFor="organizationName">{t("workspaceName")}</Label>
             <Input
               id="organizationName"
               placeholder="Acme Inc."
@@ -106,21 +119,21 @@ export function OnboardingForm({ userEmail }: OnboardingFormProps) {
               </p>
             )}
             <p className="text-xs text-muted-foreground">
-              This is your workspace name — usually your company or team name.
+              {t("workspaceNameHelp")}
             </p>
           </div>
 
           <Button type="submit" className="w-full" disabled={isPending}>
             {isPending && <Loader2 className="animate-spin" />}
-            Create workspace
+            {t("submit")}
           </Button>
         </form>
 
         <p className="mt-4 text-center text-xs text-muted-foreground">
-          Signed in as {userEmail}.{" "}
+          {t("signedInAs", { email: userEmail })}{" "}
           <form action={signOutAction} className="inline">
             <button type="submit" className="underline hover:text-foreground">
-              Not you? Sign out
+              {t("notYou")}
             </button>
           </form>
         </p>

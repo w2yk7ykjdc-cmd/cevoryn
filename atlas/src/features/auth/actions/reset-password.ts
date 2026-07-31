@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import { ROUTES } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/server";
@@ -12,13 +13,17 @@ import type { ResetPasswordInput } from "../schemas/auth";
 export async function resetPasswordAction(
   input: ResetPasswordInput
 ): Promise<ActionResult> {
+  const t = await getTranslations("auth.errors");
   const parsed = resetPasswordSchema.safeParse(input);
 
   if (!parsed.success) {
     return {
       success: false,
-      error: "Invalid input",
-      fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
+      error: t("invalidInput"),
+      fieldErrors: parsed.error.flatten().fieldErrors as Record<
+        string,
+        string[]
+      >,
     };
   }
 
@@ -30,7 +35,7 @@ export async function resetPasswordAction(
   if (!user) {
     return {
       success: false,
-      error: "This reset link is invalid or has expired. Request a new link.",
+      error: t("resetLinkInvalid"),
     };
   }
 
@@ -42,7 +47,7 @@ export async function resetPasswordAction(
     console.error("Password reset error:", error.message);
     return {
       success: false,
-      error: "Your password could not be updated. Request a new reset link and try again.",
+      error: t("resetPasswordFailed"),
     };
   }
 
