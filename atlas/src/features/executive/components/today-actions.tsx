@@ -16,6 +16,10 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  fetchActionDetails,
+  launchApprovedAction,
+} from "@/features/brain/actions/action-handoff";
 import { sendAnalyticsEvent } from "@/lib/analytics";
 
 import type { ActionItem } from "../types";
@@ -29,13 +33,13 @@ const TYPE_CONFIG: Record<
   { icon: typeof Mail; label: string; approveLabel: string }
 > = {
   EMAIL_DRAFT: { icon: Mail, label: "Email ready", approveLabel: "Approve draft" },
-  TASK: { icon: ListTodo, label: "Task ready", approveLabel: "Add task" },
+  TASK: { icon: ListTodo, label: "Task ready", approveLabel: "Copy task details" },
   CALENDAR_PROPOSAL: {
     icon: Calendar,
     label: "Meeting ready",
     approveLabel: "Approve meeting",
   },
-  FOLLOW_UP: { icon: Bell, label: "Follow-up ready", approveLabel: "Approve follow-up" },
+  FOLLOW_UP: { icon: Bell, label: "Follow-up ready", approveLabel: "Copy follow-up details" },
 };
 
 export function TodayActions({ actions: initialActions }: TodayActionsProps) {
@@ -87,7 +91,7 @@ function ActionCard({
   const config = TYPE_CONFIG[action.type] ?? {
     icon: ListTodo,
     label: "Action ready",
-    approveLabel: "Approve action",
+    approveLabel: "Copy details",
   };
   const Icon = config.icon;
   const confidence = Math.round(action.confidence * 100);
@@ -95,6 +99,8 @@ function ActionCard({
   function handleApprove() {
     startTransition(async () => {
       try {
+        const content = await fetchActionDetails(action.id);
+
         const response = await fetch(`/api/brain/actions/${action.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -110,7 +116,18 @@ function ActionCard({
           id: action.id,
           type: action.type,
         });
-        toast.success("Action approved and moved forward");
+
+        try {
+          const message = await launchApprovedAction(action, content);
+          toast.success(message);
+        } catch (handoffError) {
+          console.error(
+            "Approved action handoff error:",
+            handoffError instanceof Error ? handoffError.message : "unknown"
+          );
+          toast.warning("Approved, but the next app could not be opened. Open Intelligence to continue manually.");
+        }
+
         onDismiss();
       } catch (_error) {
         toast.error("CEVORYN could not approve this action. Please try again.");
