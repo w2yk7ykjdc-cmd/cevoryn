@@ -18,6 +18,14 @@ export interface ExecutiveHomeData {
   insufficientDataReasons: string[];
   resolvedRecently: number;
   memoryCount: number;
+  onboardingProgress: OnboardingProgress;
+}
+
+/** Real, server-verified onboarding milestones - not "the user clicked a link". */
+export interface OnboardingProgress {
+  hasChatted: boolean;
+  googleConnected: boolean;
+  teamInvited: boolean;
 }
 
 export interface PulseStatus {

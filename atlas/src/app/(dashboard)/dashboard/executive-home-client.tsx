@@ -65,7 +65,7 @@ export function ExecutiveHomeClient({ data }: ExecutiveHomeClientProps) {
         pulse={data.pulse}
       />
 
-      <OnboardingGuide />
+      <OnboardingGuide progress={data.onboardingProgress} />
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Card>

@@ -43,6 +43,10 @@ export async function loadExecutiveHome(
     memoryCount,
     messageCount,
     resolvedCount,
+    conversationCount,
+    memberCount,
+    inviteCount,
+    googleConnectionRows,
   ] = await Promise.all([
     computePulse(orgId, dayStart, now),
     prisma.pulseSnapshot.findFirst({
@@ -79,7 +83,19 @@ export async function loadExecutiveHome(
         resolvedAt: { gte: weekStart },
       },
     }),
+    prisma.conversation.count({ where: { organizationId: orgId } }),
+    prisma.member.count({ where: { organizationId: orgId } }),
+    prisma.invite.count({ where: { organizationId: orgId } }),
+    prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*) AS count FROM "google_connections" WHERE "organization_id" = ${orgId}
+    `,
   ]);
+
+  const onboardingProgress = {
+    hasChatted: conversationCount > 0,
+    googleConnected: Number(googleConnectionRows[0]?.count ?? 0) > 0,
+    teamInvited: memberCount > 1 || inviteCount > 0,
+  };
 
   const state = determineState(messageCount, memoryCount, topInsights.length);
   const insufficientDataReasons =
@@ -169,6 +185,7 @@ export async function loadExecutiveHome(
     insufficientDataReasons,
     resolvedRecently: resolvedCount,
     memoryCount,
+    onboardingProgress,
   };
 }
 
