@@ -1,10 +1,14 @@
 import { AlertTriangle, CreditCard } from "lucide-react";
 import type { Metadata } from "next";
+import { getLocale, getTranslations } from "next-intl/server";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BillingActions } from "@/features/billing/components/billing-actions";
-import { getPlanDefinition, type BillingPlan } from "@/features/billing/config/plans";
+import {
+  getPlanDefinition,
+  type BillingPlan,
+} from "@/features/billing/config/plans";
 import { isSubscriptionActive } from "@/features/billing/types";
 import { requireMembership, requireUser } from "@/lib/auth";
 import { getOrganizationSubscription } from "@/server/services/billing.service";
@@ -12,21 +16,24 @@ import { getPlanPrices } from "@/server/services/paddle-catalog.service";
 
 export const metadata: Metadata = { title: "Billing — CEVORYN" };
 
-function formatDate(value: Date | null): string {
-  if (!value) return "Not available";
-
-  return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "long",
-  }).format(value);
-}
-
 export default async function BillingPage() {
   const user = await requireUser();
   const membership = await requireMembership(user.id);
+  const t = await getTranslations("billing");
+  const tPricing = await getTranslations("pricing");
+  const locale = await getLocale();
   const [subscription, planPrices] = await Promise.all([
     getOrganizationSubscription(membership.organizationId),
     getPlanPrices(),
   ]);
+
+  function formatDate(value: Date | null): string {
+    if (!value) return t("notAvailable");
+
+    return new Intl.DateTimeFormat(locale, {
+      dateStyle: "long",
+    }).format(value);
+  }
 
   const currentPlan: BillingPlan = subscription?.plan ?? "STARTER";
   const planDefinition = getPlanDefinition(currentPlan);
@@ -41,20 +48,17 @@ export default async function BillingPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Billing</h1>
-        <p className="text-sm text-muted-foreground">
-          Manage your CEVORYN subscription and organization limits.
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
+        <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
       </div>
 
       {paymentProblem ? (
         <div className="flex gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
           <div>
-            <p className="font-medium">Payment action required</p>
+            <p className="font-medium">{t("paymentRequired")}</p>
             <p className="text-muted-foreground">
-              Your latest payment was unsuccessful. Open Manage Billing to update
-              the payment method and keep premium features active.
+              {t("paymentRequiredDescription")}
             </p>
           </div>
         </div>
@@ -64,10 +68,11 @@ export default async function BillingPage() {
         <div className="flex gap-3 rounded-lg border p-4 text-sm">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
           <div>
-            <p className="font-medium">Subscription scheduled to end</p>
+            <p className="font-medium">{t("scheduledToEnd")}</p>
             <p className="text-muted-foreground">
-              Access remains available until {formatDate(subscription.currentPeriodEnd)}.
-              You can reactivate the subscription from Manage Billing.
+              {t("scheduledToEndDescription", {
+                date: formatDate(subscription.currentPeriodEnd),
+              })}
             </p>
           </div>
         </div>
@@ -77,30 +82,31 @@ export default async function BillingPage() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <CreditCard className="h-4 w-4" />
-            Current subscription
+            {t("currentSubscription")}
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <SummaryItem
-            label="Plan"
+            label={t("plan")}
             value={
               <span className="flex items-center gap-2">
-                {planDefinition.name}
-                {planDefinition.recommended ? <Badge>Recommended</Badge> : null}
+                {tPricing(`plans.${currentPlan}.name`)}
+                {planDefinition.recommended ? (
+                  <Badge>{tPricing("recommended")}</Badge>
+                ) : null}
               </span>
             }
           />
           <SummaryItem
-            label="Status"
-            value={subscription?.subscriptionStatus ?? "NO SUBSCRIPTION"}
+            label={t("status")}
+            value={subscription?.subscriptionStatus ?? t("noSubscription")}
           />
+          <SummaryItem label={t("billingCycle")} value={t("monthly")} />
           <SummaryItem
-            label="Billing cycle"
-            value="Monthly"
-          />
-          <SummaryItem
-            label={subscription?.trialEnd ? "Trial ends" : "Renews"}
-            value={formatDate(subscription?.trialEnd ?? subscription?.currentPeriodEnd ?? null)}
+            label={subscription?.trialEnd ? t("trialEnds") : t("renews")}
+            value={formatDate(
+              subscription?.trialEnd ?? subscription?.currentPeriodEnd ?? null
+            )}
           />
         </CardContent>
       </Card>

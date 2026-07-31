@@ -2,6 +2,7 @@
 
 import { Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -15,6 +16,7 @@ export function GoogleIntegrationCard({
   connectedEmail: string | null;
   configured: boolean;
 }) {
+  const t = useTranslations("settings.google");
   const router = useRouter();
   const searchParams = useSearchParams();
   const [disconnecting, setDisconnecting] = useState(false);
@@ -23,14 +25,13 @@ export function GoogleIntegrationCard({
 
   useEffect(() => {
     const status = searchParams.get("google");
-    if (status === "connected") toast.success("Google account connected");
-    if (status === "error")
-      toast.error("Google account could not be connected");
+    if (status === "connected") toast.success(t("connectedToast"));
+    if (status === "error") toast.error(t("connectErrorToast"));
 
     if (status) {
       router.replace("/settings", { scroll: false });
     }
-  }, [router, searchParams]);
+  }, [router, searchParams, t]);
 
   async function createTestDraft() {
     if (!connectedEmail) return;
@@ -57,17 +58,13 @@ export function GoogleIntegrationCard({
 
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        throw new Error(
-          payload?.error?.message ?? "The Gmail draft could not be created"
-        );
+        throw new Error(payload?.error?.message ?? t("draftCreateFailed"));
       }
 
-      toast.success("Gmail test draft created");
+      toast.success(t("draftCreated"));
     } catch (error) {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : "The Gmail draft could not be created"
+        error instanceof Error ? error.message : t("draftCreateFailed")
       );
     } finally {
       setCreatingDraft(false);
@@ -86,18 +83,14 @@ export function GoogleIntegrationCard({
 
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        throw new Error(
-          payload?.error?.message ?? "Google account could not be disconnected"
-        );
+        throw new Error(payload?.error?.message ?? t("disconnectFailed"));
       }
 
-      toast.success("Google account disconnected");
+      toast.success(t("disconnected"));
       router.refresh();
     } catch (error) {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : "Google account could not be disconnected"
+        error instanceof Error ? error.message : t("disconnectFailed")
       );
     } finally {
       setDisconnecting(false);
@@ -107,10 +100,8 @@ export function GoogleIntegrationCard({
   if (!configured) {
     return (
       <div className="space-y-3">
-        <p className="text-sm text-muted-foreground">
-          Google integration is not configured for this deployment yet.
-        </p>
-        <Button disabled>Connect Google</Button>
+        <p className="text-sm text-muted-foreground">{t("notConfigured")}</p>
+        <Button disabled>{t("connectButton")}</Button>
       </div>
     );
   }
@@ -119,11 +110,10 @@ export function GoogleIntegrationCard({
     return (
       <div className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          Connect Gmail and Google Calendar so CEVORYN can prepare email drafts
-          and calendar actions for your approval.
+          {t("notConnectedDescription")}
         </p>
         <Button asChild>
-          <a href="/api/integrations/google/connect">Connect Google</a>
+          <a href="/api/integrations/google/connect">{t("connectButton")}</a>
         </Button>
       </div>
     );
@@ -132,14 +122,13 @@ export function GoogleIntegrationCard({
   return (
     <div className="space-y-3">
       <div>
-        <p className="text-sm font-medium">Connected</p>
+        <p className="text-sm font-medium">{t("connected")}</p>
         <p className="text-sm text-muted-foreground">{connectedEmail}</p>
       </div>
       {confirmingDraft ? (
         <div className="space-y-2 rounded-md border p-3">
           <p className="text-sm text-muted-foreground">
-            Create a Gmail draft addressed to {connectedEmail}? Nothing will be
-            sent.
+            {t("confirmDraft", { email: connectedEmail })}
           </p>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -148,7 +137,7 @@ export function GoogleIntegrationCard({
               disabled={creatingDraft}
             >
               {creatingDraft && <Loader2 className="h-4 w-4 animate-spin" />}
-              {creatingDraft ? "Creating draft..." : "Create draft"}
+              {creatingDraft ? t("creatingDraft") : t("createDraft")}
             </Button>
             <Button
               size="sm"
@@ -156,7 +145,7 @@ export function GoogleIntegrationCard({
               onClick={() => setConfirmingDraft(false)}
               disabled={creatingDraft}
             >
-              Cancel
+              {t("cancel")}
             </Button>
           </div>
         </div>
@@ -166,7 +155,7 @@ export function GoogleIntegrationCard({
             onClick={() => setConfirmingDraft(true)}
             disabled={disconnecting}
           >
-            Create Gmail test draft
+            {t("createTestDraft")}
           </Button>
           <Button
             variant="outline"
@@ -174,7 +163,7 @@ export function GoogleIntegrationCard({
             disabled={disconnecting}
           >
             {disconnecting && <Loader2 className="h-4 w-4 animate-spin" />}
-            {disconnecting ? "Disconnecting..." : "Disconnect"}
+            {disconnecting ? t("disconnecting") : t("disconnect")}
           </Button>
         </div>
       )}

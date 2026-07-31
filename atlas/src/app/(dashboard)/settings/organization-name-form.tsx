@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2, Save } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -12,7 +13,10 @@ interface OrganizationNameFormProps {
   initialName: string;
 }
 
-export function OrganizationNameForm({ initialName }: OrganizationNameFormProps) {
+export function OrganizationNameForm({
+  initialName,
+}: OrganizationNameFormProps) {
+  const t = useTranslations("settings.organizationName");
   const [name, setName] = useState(initialName);
   const [savedName, setSavedName] = useState(initialName);
   const [isPending, startTransition] = useTransition();
@@ -20,7 +24,7 @@ export function OrganizationNameForm({ initialName }: OrganizationNameFormProps)
   function save() {
     const normalized = name.trim();
     if (normalized.length < 2 || normalized.length > 80) {
-      toast.error("Workspace name must be between 2 and 80 characters");
+      toast.error(t("invalidLength"));
       return;
     }
 
@@ -36,15 +40,15 @@ export function OrganizationNameForm({ initialName }: OrganizationNameFormProps)
 
         const data = await response.json().catch(() => null);
         if (!response.ok) {
-          toast.error(data?.error?.message ?? "Failed to update workspace");
+          toast.error(data?.error?.message ?? t("updateFailed"));
           return;
         }
 
         setName(data.data.name);
         setSavedName(data.data.name);
-        toast.success("Workspace updated");
+        toast.success(t("updated"));
       } catch (_error) {
-        toast.error("Failed to update workspace");
+        toast.error(t("updateFailed"));
       }
     });
   }
@@ -56,7 +60,7 @@ export function OrganizationNameForm({ initialName }: OrganizationNameFormProps)
         onChange={(event) => setName(event.target.value)}
         maxLength={80}
         disabled={isPending}
-        aria-label="Workspace name"
+        aria-label={t("nameLabel")}
       />
       <Button
         type="button"
@@ -69,7 +73,7 @@ export function OrganizationNameForm({ initialName }: OrganizationNameFormProps)
         ) : (
           <Save className="h-4 w-4" />
         )}
-        Save
+        {t("save")}
       </Button>
     </div>
   );
