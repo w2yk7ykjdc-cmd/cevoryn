@@ -1,5 +1,3 @@
-import "server-only";
-
 import type { PulseMetrics } from "../core/types";
 
 export interface PulseScore {
