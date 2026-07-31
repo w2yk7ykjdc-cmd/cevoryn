@@ -2,6 +2,22 @@ import { SectionType } from "@prisma/client";
 
 type Fields = Record<string, unknown> | null | undefined;
 
+// AI-generated href values are structurally validated (json_schema) but not
+// content-validated - a crafted brief could in principle push a model
+// toward a "javascript:" or "data:" URL, which React does not sanitize the
+// way it does text content. Only relative paths and http(s) links are safe
+// to render as-is.
+function safeHref(href: string): string {
+  if (href.startsWith("/") || href.startsWith("#")) return href;
+  try {
+    const url = new URL(href);
+    if (url.protocol === "http:" || url.protocol === "https:") return href;
+  } catch {
+    // not a valid absolute URL either - fall through to the safe default
+  }
+  return "#";
+}
+
 export function SectionRenderer({ type, fields }: { type: SectionType; fields: Fields }) {
   if (!fields) return null;
 
@@ -142,7 +158,7 @@ export function SectionRenderer({ type, fields }: { type: SectionType; fields: F
           <p>{text}</p>
           <div className="flex gap-4">
             {links.map((link, i) => (
-              <a key={i} href={link.href} className="hover:underline">
+              <a key={i} href={safeHref(link.href)} className="hover:underline">
                 {link.label}
               </a>
             ))}

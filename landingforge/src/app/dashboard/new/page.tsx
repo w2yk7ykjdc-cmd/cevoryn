@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/get-current-user";
 import { THEME_PRESETS } from "@/lib/theme-presets";
+import { SubmitButton } from "@/components/submit-button";
 import { createProjectFromBrief } from "./actions";
 
 // The wizard fires several OpenAI calls per submission (see actions.ts) -
@@ -78,12 +79,13 @@ export default async function NewProjectWizardPage({
           </div>
         </fieldset>
 
-        <button
+        <SubmitButton
           formAction={createProjectFromBrief}
-          className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          pendingText="Sayfan olusturuluyor... (10-20 saniye surebilir)"
+          className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Sayfami olustur ve yayinla
-        </button>
+        </SubmitButton>
       </form>
     </div>
   );

@@ -30,18 +30,20 @@ export function PublicProjectView({ data }: { data: PublicPageData }) {
   );
 }
 
-export function buildPublicPageMetadata(data: PublicPageData | null) {
+export function buildPublicPageMetadata(data: PublicPageData | null, canonicalUrl: string) {
   if (!data) return {};
   const seo = data.page.seoMeta[0];
-  if (!seo) return { title: data.project.name };
+  const base = seo
+    ? {
+        title: seo.title,
+        description: seo.description,
+        keywords: seo.keywords,
+        openGraph: {
+          title: seo.ogTitle ?? seo.title,
+          description: seo.ogDescription ?? seo.description,
+        },
+      }
+    : { title: data.project.name };
 
-  return {
-    title: seo.title,
-    description: seo.description,
-    keywords: seo.keywords,
-    openGraph: {
-      title: seo.ogTitle ?? seo.title,
-      description: seo.ogDescription ?? seo.description,
-    },
-  };
+  return { ...base, alternates: { canonical: canonicalUrl } };
 }
