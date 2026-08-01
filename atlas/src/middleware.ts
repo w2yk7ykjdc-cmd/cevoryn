@@ -2,9 +2,9 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+import { getAppUrl } from "@/lib/app-url";
 import { AUTH_ROUTES, PUBLIC_ROUTES, ROUTES } from "@/lib/constants";
 
-const CANONICAL_PRODUCTION_HOST = "cevoryn.vercel.app";
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 function isAllowedApiMutation(request: NextRequest) {
@@ -45,18 +45,20 @@ export async function middleware(request: NextRequest) {
   const host = rawHost.split(":")[0]?.toLowerCase() ?? "";
 
   // Every Vercel production deployment is also reachable at a unique,
-  // per-deployment hostname (e.g. cevoryn-<hash>-<team>.vercel.app) in
-  // addition to the stable production alias. Force those back to the
-  // canonical host so auth cookies, OAuth redirects, and shared links stay
-  // consistent regardless of which URL someone lands on.
+  // per-deployment hostname (e.g. cevoryn-<hash>-<team>.vercel.app), the
+  // stable *.vercel.app alias, and any other domain attached to the
+  // project (e.g. a bare www). Force those back to the canonical host
+  // (NEXT_PUBLIC_APP_URL) so auth cookies, OAuth redirects, and shared
+  // links stay consistent regardless of which URL someone lands on.
+  const canonicalHost = new URL(getAppUrl()).host;
   if (
     process.env.VERCEL_ENV === "production" &&
     host &&
-    host !== CANONICAL_PRODUCTION_HOST
+    host !== canonicalHost
   ) {
     const canonicalUrl = request.nextUrl.clone();
     canonicalUrl.protocol = "https:";
-    canonicalUrl.host = CANONICAL_PRODUCTION_HOST;
+    canonicalUrl.host = canonicalHost;
     return NextResponse.redirect(canonicalUrl, 308);
   }
 
