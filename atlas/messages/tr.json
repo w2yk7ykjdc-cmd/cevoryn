@@ -702,7 +702,12 @@
     "you": "(siz)",
     "joined": "{date} tarihinde katıldı",
     "roleAria": "{name} için rol",
-    "removeAria": "{name} kişisini kaldır"
+    "removeAria": "{name} kişisini kaldır",
+    "actions": {
+      "confirmRemove": "Kaldır",
+      "confirmCancelInvite": "Daveti iptal et",
+      "dismiss": "Vazgeç"
+    }
   },
   "profile": {
     "accountLabel": "Hesap",

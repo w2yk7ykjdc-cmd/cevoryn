@@ -696,7 +696,12 @@
     "you": "(you)",
     "joined": "Joined {date}",
     "roleAria": "Role for {name}",
-    "removeAria": "Remove {name}"
+    "removeAria": "Remove {name}",
+    "actions": {
+      "confirmRemove": "Remove",
+      "confirmCancelInvite": "Cancel invite",
+      "dismiss": "Never mind"
+    }
   },
   "profile": {
     "accountLabel": "Account",

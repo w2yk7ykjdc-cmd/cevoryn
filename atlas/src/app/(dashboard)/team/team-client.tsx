@@ -79,6 +79,12 @@ export function TeamClient({
   const [busyMemberId, setBusyMemberId] = useState<string | null>(null);
   const [busyInviteId, setBusyInviteId] = useState<string | null>(null);
   const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null);
+  const [confirmingRemoveId, setConfirmingRemoveId] = useState<string | null>(
+    null
+  );
+  const [confirmingCancelId, setConfirmingCancelId] = useState<string | null>(
+    null
+  );
 
   function removeStaleInvite(inviteId: string) {
     setInvites((prev) => prev.filter((item) => item.id !== inviteId));
@@ -165,13 +171,7 @@ export function TeamClient({
   }
 
   async function removeMember(member: Member) {
-    if (
-      !window.confirm(
-        t("toasts.removeConfirm", { name: member.displayName, orgName })
-      )
-    )
-      return;
-
+    setConfirmingRemoveId(null);
     setBusyMemberId(member.id);
     try {
       const res = await fetch(`/api/team/members/${member.id}`, {
@@ -269,9 +269,7 @@ export function TeamClient({
   }
 
   async function cancelInvite(invite: PendingInvite) {
-    if (!window.confirm(t("toasts.cancelConfirm", { email: invite.email })))
-      return;
-
+    setConfirmingCancelId(null);
     setBusyInviteId(invite.id);
     try {
       const res = await fetch(`/api/team/invite/${invite.id}`, {
@@ -363,68 +361,100 @@ export function TeamClient({
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            {invites.map((invite, index) => (
-              <div
-                key={invite.id}
-                className={`flex items-center justify-between gap-2 px-4 py-3 ${index < invites.length - 1 ? "border-b" : ""}`}
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm">{invite.email}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {t("expires", {
-                      date: new Intl.DateTimeFormat(locale, {
-                        month: "short",
-                        day: "numeric",
-                      }).format(new Date(invite.expiresAt)),
-                    })}
+            {invites.map((invite, index) =>
+              confirmingCancelId === invite.id ? (
+                <div
+                  key={invite.id}
+                  className={`flex flex-wrap items-center justify-between gap-2 px-4 py-3 ${index < invites.length - 1 ? "border-b" : ""}`}
+                >
+                  <p className="min-w-0 flex-1 text-sm text-muted-foreground">
+                    {t("toasts.cancelConfirm", { email: invite.email })}
                   </p>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={busyInviteId === invite.id}
+                      onClick={() => cancelInvite(invite)}
+                    >
+                      {busyInviteId === invite.id && (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      )}
+                      {t("actions.confirmCancelInvite")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busyInviteId === invite.id}
+                      onClick={() => setConfirmingCancelId(null)}
+                    >
+                      {t("actions.dismiss")}
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => copyInviteLink(invite)}
-                    disabled={busyInviteId === invite.id}
-                  >
-                    {copiedInviteId === invite.id ? (
-                      <Check className="h-3.5 w-3.5" />
-                    ) : (
-                      <Copy className="h-3.5 w-3.5" />
-                    )}
-                    <span className="hidden sm:inline">{t("copyLink")}</span>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={t("renewInviteAria", { email: invite.email })}
-                    disabled={busyInviteId === invite.id}
-                    onClick={() => renewInvite(invite)}
-                  >
-                    {busyInviteId === invite.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4" />
-                    )}
-                  </Button>
-                  <Badge variant="outline" className="text-[10px]">
-                    {invite.role}
-                  </Badge>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={t("cancelInviteAria", { email: invite.email })}
-                    disabled={busyInviteId === invite.id}
-                    onClick={() => cancelInvite(invite)}
-                  >
-                    {busyInviteId === invite.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
+              ) : (
+                <div
+                  key={invite.id}
+                  className={`flex items-center justify-between gap-2 px-4 py-3 ${index < invites.length - 1 ? "border-b" : ""}`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm">{invite.email}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {t("expires", {
+                        date: new Intl.DateTimeFormat(locale, {
+                          month: "short",
+                          day: "numeric",
+                        }).format(new Date(invite.expiresAt)),
+                      })}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copyInviteLink(invite)}
+                      disabled={busyInviteId === invite.id}
+                    >
+                      {copiedInviteId === invite.id ? (
+                        <Check className="h-3.5 w-3.5" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                      <span className="hidden sm:inline">{t("copyLink")}</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={t("renewInviteAria", {
+                        email: invite.email,
+                      })}
+                      disabled={busyInviteId === invite.id}
+                      onClick={() => renewInvite(invite)}
+                    >
+                      {busyInviteId === invite.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <Badge variant="outline" className="text-[10px]">
+                      {invite.role}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={t("cancelInviteAria", {
+                        email: invite.email,
+                      })}
+                      disabled={busyInviteId === invite.id}
+                      onClick={() => setConfirmingCancelId(invite.id)}
+                    >
                       <X className="h-4 w-4" />
-                    )}
-                  </Button>
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            )}
           </CardContent>
         </Card>
       )}
@@ -442,6 +472,43 @@ export function TeamClient({
               !isSelf &&
               member.role !== "OWNER" &&
               (currentUserRole === "OWNER" || member.role === "MEMBER");
+
+            if (confirmingRemoveId === member.id) {
+              return (
+                <div
+                  key={member.id}
+                  className={`flex flex-wrap items-center justify-between gap-2 px-4 py-3 ${index < members.length - 1 ? "border-b" : ""}`}
+                >
+                  <p className="min-w-0 flex-1 text-sm text-muted-foreground">
+                    {t("toasts.removeConfirm", {
+                      name: member.displayName,
+                      orgName,
+                    })}
+                  </p>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={busyMemberId === member.id}
+                      onClick={() => removeMember(member)}
+                    >
+                      {busyMemberId === member.id && (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      )}
+                      {t("actions.confirmRemove")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busyMemberId === member.id}
+                      onClick={() => setConfirmingRemoveId(null)}
+                    >
+                      {t("actions.dismiss")}
+                    </Button>
+                  </div>
+                </div>
+              );
+            }
 
             return (
               <div
@@ -506,13 +573,9 @@ export function TeamClient({
                     size="icon"
                     aria-label={t("removeAria", { name: member.displayName })}
                     disabled={busyMemberId === member.id}
-                    onClick={() => removeMember(member)}
+                    onClick={() => setConfirmingRemoveId(member.id)}
                   >
-                    {busyMemberId === member.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-4 w-4" />
-                    )}
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 )}
               </div>
