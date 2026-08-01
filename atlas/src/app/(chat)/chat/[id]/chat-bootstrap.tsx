@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -19,7 +20,10 @@ interface ConversationPayload {
 }
 
 export function ChatBootstrap({ conversationId }: ChatBootstrapProps) {
-  const [conversation, setConversation] = useState<ConversationPayload | null>(null);
+  const t = useTranslations("chat");
+  const [conversation, setConversation] = useState<ConversationPayload | null>(
+    null
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -31,7 +35,9 @@ export function ChatBootstrap({ conversationId }: ChatBootstrapProps) {
         if (handleUnauthorized(response)) return null;
         const payload = await response.json().catch(() => null);
         if (!response.ok) {
-          throw new Error(payload?.error?.message ?? "Conversation could not be loaded");
+          throw new Error(
+            payload?.error?.message ?? t("conversationLoadFailed")
+          );
         }
         return payload?.data as ConversationPayload;
       })
@@ -40,14 +46,16 @@ export function ChatBootstrap({ conversationId }: ChatBootstrapProps) {
       })
       .catch((error) => {
         if (!cancelled) {
-          toast.error(error instanceof Error ? error.message : "Conversation could not be loaded");
+          toast.error(
+            error instanceof Error ? error.message : t("conversationLoadFailed")
+          );
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [conversationId]);
+  }, [conversationId, t]);
 
   if (!conversation) {
     return (

@@ -423,6 +423,124 @@
       "detailsLoadFailed": "Aksiyon detayları yüklenemedi"
     }
   },
+  "health": {
+    "eyebrow": "Katılım trendi",
+    "heading": "Şirket Durumu",
+    "openMorningBrief": "Sabah Özetini Aç",
+    "companyPulse": "Şirket nabzı",
+    "todaysFocus": "Bugünün yönetim odağı",
+    "getFocusedPlan": "Odaklı bir plan al",
+    "chatPrompt": "Chief of staff'ım gibi davran. {area} neden geride kaldığına bak ve bir sorumlu, ölçülebilir bir sonuç ve 24 saatlik bir sonraki adım öner.",
+    "ourWeakestArea": "en zayıf alanımız",
+    "strongestArea": "En güçlü alan",
+    "weakestArea": "En zayıf alan",
+    "openSignals": "Açık sinyal",
+    "insightsAwaitingReview": "İncelenmeyi bekleyen içgörüler",
+    "noData": "Veri yok",
+    "engagementBreakdown": "Katılım dağılımı",
+    "todaysEvidence": "Bugünün kanıtları",
+    "conversations": "Konuşmalar",
+    "messages": "Mesajlar",
+    "activeUsers": "Aktif kullanıcı",
+    "memories": "Hafızalar",
+    "openInsights": "Açık içgörü",
+    "dash": "—",
+    "trend": {
+      "improving": "İyileşiyor",
+      "stable": "Sabit",
+      "declining": "Geriliyor"
+    },
+    "dimensionAction": {
+      "engagementLow": "Öğlene kadar odaklı bir ekip görüşmesi yap ve engelleri kaydet.",
+      "engagementOk": "İletişim ritmini koru ve yanıtsız konuşmaları kapat.",
+      "velocityLow": "Engellenmiş bir sonucu seç, tek bir sorumlu ata ve aynı gün için bir kontrol noktası belirle.",
+      "velocityOk": "Devam eden işleri azalt ve en değerli açık aksiyonu tamamla.",
+      "otherLow": "En önemli kararın sorumluluğunu netleştir ve eksik bağlamı CEVORYN'e kaydet.",
+      "otherOk": "Kararların dayanaklı kalması için şirket bağlamını güncel tut."
+    },
+    "summary": {
+      "strong": "Ekip katılımı güçlü",
+      "mixed": "Ekip katılımı karışık",
+      "low": "Ekip katılımı şu ana kadar düşük",
+      "improving": "ve iyileşiyor",
+      "declining": "ve düşüş trendinde",
+      "stable": "ve genel olarak sabit",
+      "mainConstraint": "{area} ana kısıtlayıcı faktör.",
+      "insightsNeedReview": "{count} açık içgörü incelenmeyi bekliyor.",
+      "noOpenInsight": "Bekleyen açık içgörü yok."
+    },
+    "nextMove": {
+      "withInsights": "En yüksek öncelikli sinyali incele, sonra {area} alanını bugün iyileştirecek bir aksiyona karar ver.",
+      "belowTarget": "{area} hedefin altında. Engeli belirle, bir sorumlu ata ve 24 saat içinde ölçülebilir bir kontrol noktası koy.",
+      "protectMomentum": "Momentumu koru ve {area} alanında odaklı bir iyileştirme yap.",
+      "theWeakestArea": "En zayıf alan",
+      "theLowestScoringArea": "en düşük puanlı alan"
+    }
+  },
+  "chat": {
+    "openingConversation": "Yeni bir sohbet açılıyor...",
+    "failedToCreate": "Konuşma oluşturulamadı",
+    "genericError": "Bir şeyler ters gitti",
+    "backToDashboard": "Panele dön",
+    "toggleConversations": "Konuşmaları aç/kapat",
+    "conversationTitleLabel": "Konuşma başlığı",
+    "saveTitle": "Başlığı kaydet",
+    "cancelEditing": "Düzenlemeyi iptal et",
+    "renameConversation": "Konuşmayı yeniden adlandır",
+    "archiveConversation": "Konuşmayı arşivle",
+    "conversations": "Konuşmalar",
+    "working": "Çalışıyor...",
+    "send": "Gönder",
+    "modes": {
+      "decide": "Karar ver",
+      "plan": "Planla",
+      "createAction": "Aksiyon oluştur"
+    },
+    "placeholders": {
+      "chat": "CEVORYN'e istediğini sor...",
+      "decide": "Vermen gereken kararı tarif et...",
+      "plan": "Planlamak istediğin sonucu tarif et...",
+      "action": "CEVORYN'in oluşturması gereken aksiyonu tarif et..."
+    },
+    "startConversation": "Bir sohbet başlat",
+    "startConversationHelp": "Strateji, operasyon veya ekibin hakkında CEVORYN'e istediğini sor.",
+    "messageInput": "Mesaj girişi",
+    "newConversation": "Yeni konuşma",
+    "creating": "Oluşturuluyor...",
+    "noConversations": "Henüz konuşma yok",
+    "rename": "Yeniden adlandır",
+    "delete": "Sil",
+    "conversationOptions": "Konuşma seçenekleri",
+    "renamePrompt": "Konuşmayı yeniden adlandır:",
+    "deleteConfirm": "Bu konuşma silinsin mi? Bu işlem geri alınamaz.",
+    "conversationNotRenamed": "Konuşma yeniden adlandırılamadı",
+    "conversationRenamed": "Konuşma yeniden adlandırıldı",
+    "conversationNotArchived": "Konuşma arşivlenemedi",
+    "conversationArchived": "Konuşma arşivlendi",
+    "savedSummaryFailed": "Başarıyla kaydedildi. CEVORYN opsiyonel sohbet özetini oluşturamadı.",
+    "openIntelligence": "Intelligence'ı aç",
+    "decisionCreateFailed": "Karar oluşturulamadı",
+    "decisionSaved": "Karar CEVORYN'e kaydedildi",
+    "actionCreateFailed": "Aksiyon oluşturulamadı",
+    "actionSaved": "Aksiyon CEVORYN'e kaydedildi",
+    "conversationCreateFailed": "Konuşma oluşturulamadı",
+    "conversationInvalidId": "Konuşma geçerli bir kimlik olmadan oluşturuldu",
+    "conversationCreateError": "Konuşma oluşturulurken bir şeyler ters gitti",
+    "conversationLoadFailed": "Konuşma yüklenemedi",
+    "planPrompt": "Bunu pratik bir uygulama planına dönüştür. Bana hedefi, sıralı adımları, sorumlu önerilerini, bağımlılıkları, riskleri ve sonraki aksiyonu ver:\n\n{input}",
+    "decisionSummaryPrompt": "Bu problem için bir karar kaydı oluşturuldu: {input}\n\nÖneriyi, en büyük riski ve sonraki adımı sade bir dille özetle.",
+    "actionSummaryPrompt": "Şunun için bir aksiyon kaydedildi: {input}\n\nBunu bir sorumlu önerisi, gerçekçi bir teslim tarihi ve ölçülebilir bir tamamlanma tanımıyla kısa bir uygulama notuna dönüştür.",
+    "actionCreatedReasoning": "Doğrudan CEVORYN sohbet aksiyon iş akışından oluşturuldu",
+    "errorTitle": "Konuşma yüklenemedi",
+    "errorDescription": "CEVORYN bu konuşmayı açarken geçici bir sorunla karşılaştı. Kaydedilen mesajların güvende.",
+    "errorReference": "Referans: {digest}",
+    "tryAgain": "Tekrar dene",
+    "notFoundTitle": "Konuşma bulunamadı",
+    "notFoundDescription": "Bu konuşma arşivlenmiş, silinmiş olabilir ya da çalışma alanına ait olmayabilir.",
+    "backToChat": "Sohbete dön",
+    "loadingTitle": "Konuşma açılıyor",
+    "loadingDescription": "CEVORYN mesajlarını ve çalışma alanı bağlamını yüklüyor."
+  },
   "pricing": {
     "title": "Fiyatlandırma",
     "subtitle": "2-20 kişilik ekipler için basit, şeffaf planlar. İstediğiniz zaman iptal edin.",
@@ -455,6 +573,263 @@
       "TEAM": "Ekip iş birliği",
       "ADVANCED_RBAC": "Gelişmiş rol yönetimi",
       "PRIORITY_SUPPORT": "Öncelikli destek"
+    }
+  },
+  "settings": {
+    "title": "Ayarlar",
+    "subtitle": "Çalışma alanınızı yönetin",
+    "workspace": "Çalışma alanı",
+    "billing": "Faturalandırma",
+    "integrations": "Entegrasyonlar",
+    "yourAccount": "Hesabınız",
+    "workspaceUsage": "Çalışma alanı kullanımı",
+    "internalMaintenance": "Dahili bakım",
+    "name": "Ad",
+    "created": "Oluşturulma",
+    "role": "Rol",
+    "manageBilling": "Faturalandırmayı yönet",
+    "members": "Üyeler",
+    "conversations": "Konuşmalar",
+    "memories": "Hafızalar",
+    "organizationName": {
+      "invalidLength": "Çalışma alanı adı 2 ile 80 karakter arasında olmalıdır",
+      "updateFailed": "Çalışma alanı güncellenemedi",
+      "updated": "Çalışma alanı güncellendi",
+      "nameLabel": "Çalışma alanı adı",
+      "save": "Kaydet"
+    },
+    "google": {
+      "connectedToast": "Google hesabı bağlandı",
+      "connectErrorToast": "Google hesabı bağlanamadı",
+      "draftCreateFailed": "Gmail taslağı oluşturulamadı",
+      "draftCreated": "Gmail test taslağı oluşturuldu",
+      "disconnectFailed": "Google hesabının bağlantısı kesilemedi",
+      "disconnected": "Google hesabının bağlantısı kesildi",
+      "notConfigured": "Google entegrasyonu bu dağıtım için henüz yapılandırılmadı.",
+      "connectButton": "Google'ı bağla",
+      "notConnectedDescription": "CEVORYN'in onayınız için e-posta taslakları ve takvim aksiyonları hazırlayabilmesi için Gmail ve Google Takvim'i bağlayın.",
+      "connected": "Bağlandı",
+      "confirmDraft": "{email} adresine bir Gmail taslağı oluşturulsun mu? Hiçbir şey gönderilmeyecek.",
+      "creatingDraft": "Taslak oluşturuluyor...",
+      "createDraft": "Taslak oluştur",
+      "cancel": "İptal",
+      "createTestDraft": "Gmail test taslağı oluştur",
+      "disconnecting": "Bağlantı kesiliyor...",
+      "disconnect": "Bağlantıyı kes"
+    },
+    "testData": {
+      "description": "Yalnızca başlığı <b>[TEST]</b>, <b>TEST:</b> veya <b>TEST </b> ile başlayan içgörüleri ve hazırlanan aksiyonları kaldırır. Şirket verilerine dokunulmaz.",
+      "removedToast": "{insights, plural, one {# test içgörüsü} other {# test içgörüsü}} ve {actions, plural, one {# test aksiyonu} other {# test aksiyonu}} kaldırıldı.",
+      "cleanupFailed": "Test verisi temizliği başarısız oldu",
+      "removeButton": "Etiketlenmiş test verisini kaldır"
+    }
+  },
+  "billing": {
+    "title": "Faturalandırma",
+    "subtitle": "CEVORYN aboneliğinizi ve organizasyon limitlerinizi yönetin.",
+    "paymentRequired": "Ödeme işlemi gerekli",
+    "paymentRequiredDescription": "Son ödemeniz başarısız oldu. Ödeme yöntemini güncellemek ve premium özellikleri aktif tutmak için Faturalandırmayı Yönet'i açın.",
+    "scheduledToEnd": "Abonelik sona ermek üzere",
+    "scheduledToEndDescription": "Erişiminiz {date} tarihine kadar kullanılabilir. Aboneliği Faturalandırmayı Yönet üzerinden yeniden etkinleştirebilirsiniz.",
+    "currentSubscription": "Mevcut abonelik",
+    "plan": "Plan",
+    "status": "Durum",
+    "billingCycle": "Faturalandırma döngüsü",
+    "monthly": "Aylık",
+    "trialEnds": "Deneme süresi bitiyor",
+    "renews": "Yenileniyor",
+    "notAvailable": "Mevcut değil",
+    "noSubscription": "Abonelik yok",
+    "manageBilling": "Faturalandırmayı yönet",
+    "currentPlan": "Mevcut plan",
+    "changePlan": "Planı değiştir",
+    "choosePlan": "{plan} seç",
+    "priceUnavailable": "Fiyat mevcut değil",
+    "adminOnly": "Bu planı yönetmek için bir organizasyon sahibinden veya yöneticisinden isteyin.",
+    "planChangeProcessing": "{plan} planına geçiş işleniyor.",
+    "planChangeFailed": "Plan değişikliği başarısız oldu.",
+    "billingRequestFailed": "Faturalandırma isteği başarısız oldu.",
+    "billingUnavailable": "Faturalandırma kullanılamıyor.",
+    "portalUnavailable": "Faturalandırma portalı kullanılamıyor.",
+    "paddleLinkNotConfigured": "Paddle varsayılan ödeme bağlantısı bu sandbox hesabı için yapılandırılmadı.",
+    "paddleInvalidToken": "Paddle istemci taraflı token geçersiz veya yanlış ortama ait.",
+    "paddleCheckoutNotOpened": "Paddle ödeme ekranı açılamadı.",
+    "paddleCheckoutError": "Paddle ödeme hatası: {code}",
+    "paddleNotConfigured": "Paddle ödeme sistemi yapılandırılmadı.",
+    "paddleSandboxTokenRequired": "Paddle sandbox için bir test_ istemci taraflı token gereklidir.",
+    "paddleProductionTokenRequired": "Paddle production için bir live_ istemci taraflı token gereklidir.",
+    "paddleScriptLoadFailed": "Paddle.js yüklenemedi.",
+    "paddleUnavailable": "Paddle.js kullanılamıyor.",
+    "tokenLimitMillions": "{count}M aylık AI token",
+    "tokenLimitThousands": "{count}K aylık AI token"
+  },
+  "team": {
+    "title": "Ekip",
+    "memberCount": "{orgName} içinde {count, plural, one {# üye} other {# üye}}",
+    "inviteCard": {
+      "title": "Bir ekip üyesi davet et",
+      "emailPlaceholder": "meslektas@sirket.com",
+      "roleLabel": "Davet rolü",
+      "inviteButton": "Davet et"
+    },
+    "toasts": {
+      "tooManyAttempts": "Çok fazla davet denemesi yapıldı. Yaklaşık {minutes, plural, one {# dakika} other {# dakika}} sonra tekrar deneyin.",
+      "inviteFailed": "Davet oluşturulamadı",
+      "inviteCreatedCopyLink": "Davet oluşturuldu. Aşağıdaki bağlantıyı kopyalayıp doğrudan paylaşın.",
+      "inviteCreatedEmailFailed": "Davet oluşturuldu ancak e-posta gönderilemedi. Bunun yerine davet bağlantısını kopyalayın.",
+      "inviteCreatedFor": "{email} için davet oluşturuldu",
+      "somethingWentWrong": "Bir şeyler ters gitti",
+      "roleUpdateFailed": "Rol güncellenemedi",
+      "roleUpdated": "Üye rolü güncellendi",
+      "removeConfirm": "{name}, {orgName} organizasyonundan kaldırılsın mı?",
+      "removeFailed": "Üye kaldırılamadı",
+      "removed": "Üye kaldırıldı",
+      "inviteLinkLoadFailed": "Davet bağlantısı yüklenemedi",
+      "inviteLinkCopied": "Davet bağlantısı kopyalandı",
+      "inviteLinkCopyFailed": "Davet bağlantısı kopyalanamadı",
+      "renewFailed": "Davet yenilenemedi",
+      "renewedEmailFailed": "Davet yenilendi ancak e-posta gönderilemedi. Bunun yerine yeni bağlantıyı kopyalayın.",
+      "renewedAndEmailed": "Davet yenilendi ve e-postayla gönderildi",
+      "cancelConfirm": "{email} için davet iptal edilsin mi?",
+      "cancelFailed": "Davet iptal edilemedi",
+      "cancelled": "Davet iptal edildi"
+    },
+    "pendingInvites": "Bekleyen Davetler",
+    "expires": "{date} tarihinde sona eriyor",
+    "copyLink": "Bağlantıyı kopyala",
+    "renewInviteAria": "{email} için daveti yenile",
+    "cancelInviteAria": "{email} için daveti iptal et",
+    "you": "(siz)",
+    "joined": "{date} tarihinde katıldı",
+    "roleAria": "{name} için rol",
+    "removeAria": "{name} kişisini kaldır",
+    "actions": {
+      "confirmRemove": "Kaldır",
+      "confirmCancelInvite": "Daveti iptal et",
+      "dismiss": "Vazgeç"
+    }
+  },
+  "profile": {
+    "accountLabel": "Hesap",
+    "title": "Profil",
+    "subtitle": "CEVORYN'deki kişisel ve organizasyon bilgileriniz.",
+    "accountDetails": "Hesap bilgileri",
+    "name": "Ad",
+    "email": "E-posta",
+    "workspace": "Çalışma alanı",
+    "role": "Rol",
+    "roles": {
+      "OWNER": "Sahip",
+      "ADMIN": "Yönetici",
+      "MEMBER": "Üye"
+    },
+    "session": "Oturum",
+    "signOut": "Çıkış yap",
+    "nameInvalidLength": "Ad 1 ile 80 karakter arasında olmalıdır",
+    "updateFailed": "Ad güncellenemedi",
+    "updated": "Ad güncellendi",
+    "nameLabel": "Adınız",
+    "save": "Kaydet"
+  },
+  "feedback": {
+    "privateBeta": "Özel beta",
+    "title": "CEVORYN'i geliştirmemize yardımcı olun",
+    "subtitle": "Geri bildirimler doğrudan incelenir ve bir sonraki ürün değişikliklerine öncelik vermek için kullanılır.",
+    "options": {
+      "reportProblem": {
+        "title": "Bir sorunu bildir",
+        "description": "Ne olduğunu, ne beklediğinizi ve hangi sayfayı kullandığınızı bize anlatın.",
+        "subject": "CEVORYN beta — sorun bildirimi"
+      },
+      "suggestImprovement": {
+        "title": "İyileştirme öner",
+        "description": "CEVORYN'i daha kullanışlı hale getirecek bir iş akışı, özellik veya değişiklik paylaşın.",
+        "subject": "CEVORYN beta — iyileştirme önerisi"
+      },
+      "generalFeedback": {
+        "title": "Genel geri bildirim paylaş",
+        "description": "Neyin değerli, kafa karıştırıcı, yavaş veya gereksiz hissettirdiğini bize anlatın.",
+        "subject": "CEVORYN beta — genel geri bildirim"
+      }
+    },
+    "bodyTemplate": "Sayfa veya iş akışı:\n\nNe oldu ya da ne değişmeli:\n\nBu neden önemli:\n",
+    "sendFeedback": "Geri bildirim gönder",
+    "sensitiveWarning": "Geri bildirim mesajlarına şifre, API anahtarı, özel müşteri verisi veya diğer hassas bilgileri eklemeyin."
+  },
+  "analytics": {
+    "title": "Ürün Analitiği",
+    "subtitle": "Son 30 gündeki gerçek kullanım ve uygulama sinyalleri.",
+    "activeUsers": "Aktif kullanıcılar",
+    "ofTeam": "ekibin %{percent}'i",
+    "userMessages": "Kullanıcı mesajları",
+    "inDays": "son 7 günde {count}",
+    "briefsGenerated": "Oluşturulan özetler",
+    "conversationsCount": "{count} konuşma",
+    "actionsApproved": "Onaylanan aksiyonlar",
+    "completionRate": "%{percent} tamamlanma",
+    "executionFunnel": "Uygulama hunisi",
+    "openInsights": "Açık içgörüler",
+    "openInsightsDescription": "İncelenmeyi bekleyen sinyaller",
+    "insightsActedOn": "Aksiyona dönüşen içgörüler",
+    "insightsActedOnDescription": "Aksiyona dönüştürüldü",
+    "decisionsProgressed": "İlerleyen kararlar",
+    "decisionsProgressedDescription": "Kabul edildi veya uygulandı",
+    "usageMomentum": "Kullanım ivmesi",
+    "conversations7d": "7 günlük konuşmalar",
+    "conversations7dDescription": "Bu haftaki yeni çalışma oturumları",
+    "conversations30d": "30 günlük konuşmalar",
+    "conversations30dDescription": "Bu ayki yeni çalışma oturumları",
+    "errorTitle": "Analitik yüklenemedi",
+    "errorDescription": "Ürün verileriniz güvende. Bu sayfadan ayrılmadan tekrar deneyin.",
+    "tryAgain": "Tekrar dene"
+  },
+  "errorBoundaries": {
+    "auth": {
+      "title": "Giriş sayfası yüklenemedi",
+      "description": "CEVORYN geçici bir kimlik doğrulama sorunuyla karşılaştı. Hesabınız değiştirilmedi.",
+      "reference": "Referans: {digest}",
+      "tryAgain": "Tekrar dene"
+    },
+    "dashboard": {
+      "title": "Kontrol paneli yüklenemedi",
+      "description": "CEVORYN bu çalışma alanını yüklerken geçici bir sorunla karşılaştı. Sayfadan ayrılmadan tekrar deneyin.",
+      "reference": "Referans: {digest}",
+      "tryAgain": "Tekrar dene"
+    },
+    "root": {
+      "title": "Bir şeyler ters gitti",
+      "description": "Beklenmedik bir hata oluştu. Lütfen tekrar deneyin.",
+      "tryAgain": "Tekrar dene"
+    },
+    "intelligence": {
+      "title": "Intelligence yüklenemedi",
+      "description": "CEVORYN en son içgörüleri ve kararları alamadı. Verileriniz değiştirilmedi.",
+      "tryAgain": "Tekrar dene"
+    }
+  },
+  "loadingBoundaries": {
+    "auth": {
+      "title": "CEVORYN yükleniyor",
+      "description": "Güvenli giriş deneyiminiz hazırlanıyor."
+    },
+    "dashboard": "Yükleniyor...",
+    "root": "CEVORYN yükleniyor..."
+  },
+  "invite": {
+    "notFoundTitle": "Davet bulunamadı",
+    "notFoundMessage": "Çalışma alanı yöneticinizden yeni bir davet göndermesini isteyin.",
+    "unavailableTitle": "Davet kullanılamıyor",
+    "backToSignIn": "Girişe dön",
+    "join": "{orgName} organizasyonuna katıl",
+    "invitedAs": "{role} olarak davet edildiniz. Bu çalışma alanını CEVORYN hesabınıza eklemek için aşağıdan onaylayın.",
+    "cancel": "İptal",
+    "acceptButton": "Daveti kabul et",
+    "acceptFailed": "Davet kabul edilemedi",
+    "joined": "{orgName} organizasyonuna katıldınız",
+    "errors": {
+      "notPending": "Bu davet artık beklemede değil",
+      "expired": "Bu davetin süresi doldu",
+      "wrongEmail": "Daveti alan e-posta adresiyle giriş yapın"
     }
   }
 }

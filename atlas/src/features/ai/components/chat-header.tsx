@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ export function ChatHeader({
   onArchive,
   isMutating,
 }: ChatHeaderProps) {
+  const t = useTranslations("chat");
   const [isEditing, setIsEditing] = useState(false);
   const [draftTitle, setDraftTitle] = useState(title);
 
@@ -59,7 +61,7 @@ export function ChatHeader({
       <Link href="/dashboard" className="lg:hidden">
         <Button variant="ghost" size="icon" className="h-8 w-8">
           <ArrowLeft className="h-4 w-4" />
-          <span className="sr-only">Back to dashboard</span>
+          <span className="sr-only">{t("backToDashboard")}</span>
         </Button>
       </Link>
 
@@ -70,7 +72,7 @@ export function ChatHeader({
         onClick={onToggleSidebar}
       >
         <PanelLeftOpen className="h-4 w-4" />
-        <span className="sr-only">Toggle conversations</span>
+        <span className="sr-only">{t("toggleConversations")}</span>
       </Button>
 
       {isEditing ? (
@@ -86,7 +88,7 @@ export function ChatHeader({
             maxLength={120}
             autoFocus
             disabled={isMutating}
-            aria-label="Conversation title"
+            aria-label={t("conversationTitleLabel")}
           />
           <Button
             variant="ghost"
@@ -100,7 +102,7 @@ export function ChatHeader({
             ) : (
               <Check className="h-4 w-4" />
             )}
-            <span className="sr-only">Save title</span>
+            <span className="sr-only">{t("saveTitle")}</span>
           </Button>
           <Button
             variant="ghost"
@@ -110,12 +112,14 @@ export function ChatHeader({
             disabled={isMutating}
           >
             <X className="h-4 w-4" />
-            <span className="sr-only">Cancel editing</span>
+            <span className="sr-only">{t("cancelEditing")}</span>
           </Button>
         </div>
       ) : (
         <>
-          <h1 className="min-w-0 flex-1 truncate text-sm font-medium">{title}</h1>
+          <h1 className="min-w-0 flex-1 truncate text-sm font-medium">
+            {title}
+          </h1>
           <Button
             variant="ghost"
             size="icon"
@@ -124,7 +128,7 @@ export function ChatHeader({
             disabled={isMutating}
           >
             <Pencil className="h-4 w-4" />
-            <span className="sr-only">Rename conversation</span>
+            <span className="sr-only">{t("renameConversation")}</span>
           </Button>
           <Button
             variant="ghost"
@@ -138,7 +142,7 @@ export function ChatHeader({
             ) : (
               <Archive className="h-4 w-4" />
             )}
-            <span className="sr-only">Archive conversation</span>
+            <span className="sr-only">{t("archiveConversation")}</span>
           </Button>
         </>
       )}
@@ -150,7 +154,7 @@ export function ChatHeader({
         onClick={onToggleSidebar}
       >
         <PanelLeftOpen className="h-4 w-4" />
-        <span className="sr-only">Conversations</span>
+        <span className="sr-only">{t("conversations")}</span>
       </Button>
     </div>
   );

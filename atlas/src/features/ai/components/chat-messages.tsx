@@ -1,6 +1,7 @@
 "use client";
 
 import { MessageSquare } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import type { MessageDetail } from "@/types";
 
@@ -13,6 +14,7 @@ interface ChatMessagesProps {
 }
 
 export function ChatMessages({ messages }: ChatMessagesProps) {
+  const t = useTranslations("chat");
   const { containerRef } = useScrollAnchor();
 
   if (messages.length === 0) {
@@ -22,9 +24,9 @@ export function ChatMessages({ messages }: ChatMessagesProps) {
           <MessageSquare className="h-7 w-7 text-muted-foreground" />
         </div>
         <div>
-          <p className="font-medium">Start a conversation</p>
+          <p className="font-medium">{t("startConversation")}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Ask CEVORYN anything about strategy, operations, or your team.
+            {t("startConversationHelp")}
           </p>
         </div>
       </div>

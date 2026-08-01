@@ -11,6 +11,7 @@ import {
   UserPlus,
   X,
 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -49,7 +50,10 @@ interface TeamClientProps {
   pendingInvites: PendingInvite[];
 }
 
-const ROLE_VARIANT: Record<Member["role"], "default" | "secondary" | "outline"> = {
+const ROLE_VARIANT: Record<
+  Member["role"],
+  "default" | "secondary" | "outline"
+> = {
   OWNER: "default",
   ADMIN: "secondary",
   MEMBER: "outline",
@@ -65,6 +69,8 @@ export function TeamClient({
   members: initialMembers,
   pendingInvites: initialInvites,
 }: TeamClientProps) {
+  const t = useTranslations("team");
+  const locale = useLocale();
   const [members, setMembers] = useState(initialMembers);
   const [invites, setInvites] = useState(initialInvites);
   const [email, setEmail] = useState("");
@@ -73,6 +79,12 @@ export function TeamClient({
   const [busyMemberId, setBusyMemberId] = useState<string | null>(null);
   const [busyInviteId, setBusyInviteId] = useState<string | null>(null);
   const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null);
+  const [confirmingRemoveId, setConfirmingRemoveId] = useState<string | null>(
+    null
+  );
+  const [confirmingCancelId, setConfirmingCancelId] = useState<string | null>(
+    null
+  );
 
   function removeStaleInvite(inviteId: string) {
     setInvites((prev) => prev.filter((item) => item.id !== inviteId));
@@ -99,11 +111,11 @@ export function TeamClient({
             const minutes = Number.isFinite(retryAfter)
               ? Math.max(1, Math.ceil(retryAfter / 60))
               : 60;
-            toast.error(`Too many invite attempts. Try again in about ${minutes} minute${minutes === 1 ? "" : "s"}.`);
+            toast.error(t("toasts.tooManyAttempts", { minutes }));
             return;
           }
 
-          toast.error(data?.error?.message ?? "Failed to create invite");
+          toast.error(data?.error?.message ?? t("toasts.inviteFailed"));
           return;
         }
 
@@ -113,15 +125,17 @@ export function TeamClient({
 
         if (data.data.emailSent === false) {
           if (data.data.emailStatus === "NOT_CONFIGURED") {
-            toast.success("Invite created. Copy the link below and share it directly.");
+            toast.success(t("toasts.inviteCreatedCopyLink"));
           } else {
-            toast.warning("Invite created, but the email could not be sent. Copy the invite link instead.");
+            toast.warning(t("toasts.inviteCreatedEmailFailed"));
           }
         } else {
-          toast.success(`Invite created for ${normalizedEmail}`);
+          toast.success(
+            t("toasts.inviteCreatedFor", { email: normalizedEmail })
+          );
         }
       } catch (_error) {
-        toast.error("Something went wrong");
+        toast.error(t("toasts.somethingWentWrong"));
       }
     });
   }
@@ -139,7 +153,7 @@ export function TeamClient({
 
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        toast.error(data?.error?.message ?? "Failed to update role");
+        toast.error(data?.error?.message ?? t("toasts.roleUpdateFailed"));
         return;
       }
 
@@ -148,17 +162,16 @@ export function TeamClient({
           item.id === member.id ? { ...item, role: data.data.role } : item
         )
       );
-      toast.success("Member role updated");
+      toast.success(t("toasts.roleUpdated"));
     } catch (_error) {
-      toast.error("Failed to update role");
+      toast.error(t("toasts.roleUpdateFailed"));
     } finally {
       setBusyMemberId(null);
     }
   }
 
   async function removeMember(member: Member) {
-    if (!window.confirm(`Remove ${member.displayName} from ${orgName}?`)) return;
-
+    setConfirmingRemoveId(null);
     setBusyMemberId(member.id);
     try {
       const res = await fetch(`/api/team/members/${member.id}`, {
@@ -169,14 +182,14 @@ export function TeamClient({
 
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        toast.error(data?.error?.message ?? "Failed to remove member");
+        toast.error(data?.error?.message ?? t("toasts.removeFailed"));
         return;
       }
 
       setMembers((prev) => prev.filter((item) => item.id !== member.id));
-      toast.success("Member removed");
+      toast.success(t("toasts.removed"));
     } catch (_error) {
-      toast.error("Failed to remove member");
+      toast.error(t("toasts.removeFailed"));
     } finally {
       setBusyMemberId(null);
     }
@@ -193,7 +206,7 @@ export function TeamClient({
 
         if (!res.ok || !data?.data?.acceptPath) {
           if (res.status === 404) removeStaleInvite(invite.id);
-          toast.error(data?.error?.message ?? "Invite link could not be loaded");
+          toast.error(data?.error?.message ?? t("toasts.inviteLinkLoadFailed"));
           return;
         }
 
@@ -205,11 +218,13 @@ export function TeamClient({
         );
       }
 
-      await navigator.clipboard.writeText(`${window.location.origin}${acceptPath}`);
+      await navigator.clipboard.writeText(
+        `${window.location.origin}${acceptPath}`
+      );
       setCopiedInviteId(invite.id);
-      toast.success("Invite link copied");
+      toast.success(t("toasts.inviteLinkCopied"));
     } catch (_error) {
-      toast.error("Invite link could not be copied");
+      toast.error(t("toasts.inviteLinkCopyFailed"));
     }
   }
 
@@ -225,7 +240,7 @@ export function TeamClient({
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         if (res.status === 404) removeStaleInvite(invite.id);
-        toast.error(data?.error?.message ?? "Failed to renew invite");
+        toast.error(data?.error?.message ?? t("toasts.renewFailed"));
         return;
       }
 
@@ -242,20 +257,19 @@ export function TeamClient({
       );
 
       if (data.data.emailSent === false) {
-        toast.warning("Invite renewed, but the email could not be sent. Copy the new link instead.");
+        toast.warning(t("toasts.renewedEmailFailed"));
       } else {
-        toast.success("Invite renewed and emailed");
+        toast.success(t("toasts.renewedAndEmailed"));
       }
     } catch (_error) {
-      toast.error("Failed to renew invite");
+      toast.error(t("toasts.renewFailed"));
     } finally {
       setBusyInviteId(null);
     }
   }
 
   async function cancelInvite(invite: PendingInvite) {
-    if (!window.confirm(`Cancel the invite for ${invite.email}?`)) return;
-
+    setConfirmingCancelId(null);
     setBusyInviteId(invite.id);
     try {
       const res = await fetch(`/api/team/invite/${invite.id}`, {
@@ -267,14 +281,14 @@ export function TeamClient({
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         if (res.status === 404) removeStaleInvite(invite.id);
-        toast.error(data?.error?.message ?? "Failed to cancel invite");
+        toast.error(data?.error?.message ?? t("toasts.cancelFailed"));
         return;
       }
 
       removeStaleInvite(invite.id);
-      toast.success("Invite cancelled");
+      toast.success(t("toasts.cancelled"));
     } catch (_error) {
-      toast.error("Failed to cancel invite");
+      toast.error(t("toasts.cancelFailed"));
     } finally {
       setBusyInviteId(null);
     }
@@ -283,9 +297,9 @@ export function TeamClient({
   return (
     <div className="mx-auto max-w-2xl space-y-6 pb-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Team</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
         <p className="text-sm text-muted-foreground">
-          {members.length} member{members.length === 1 ? "" : "s"} in {orgName}
+          {t("memberCount", { count: members.length, orgName })}
         </p>
       </div>
 
@@ -293,14 +307,14 @@ export function TeamClient({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
-              <UserPlus className="h-4 w-4" /> Invite a team member
+              <UserPlus className="h-4 w-4" /> {t("inviteCard.title")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Input
                 type="email"
-                placeholder="colleague@company.com"
+                placeholder={t("inviteCard.emailPlaceholder")}
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 onKeyDown={(event) => event.key === "Enter" && handleInvite()}
@@ -309,7 +323,7 @@ export function TeamClient({
               />
               {currentUserRole === "OWNER" && (
                 <select
-                  aria-label="Invite role"
+                  aria-label={t("inviteCard.roleLabel")}
                   className="h-9 rounded-md border bg-background px-3 text-sm sm:w-32"
                   value={inviteRole}
                   onChange={(event) =>
@@ -321,9 +335,17 @@ export function TeamClient({
                   <option value="ADMIN">ADMIN</option>
                 </select>
               )}
-              <Button onClick={handleInvite} disabled={isPending || !email.trim()} size="sm">
-                {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-                Invite
+              <Button
+                onClick={handleInvite}
+                disabled={isPending || !email.trim()}
+                size="sm"
+              >
+                {isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Mail className="h-4 w-4" />
+                )}
+                {t("inviteCard.inviteButton")}
               </Button>
             </div>
           </CardContent>
@@ -334,45 +356,105 @@ export function TeamClient({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Clock className="h-4 w-4 text-muted-foreground" /> Pending Invites
+              <Clock className="h-4 w-4 text-muted-foreground" />{" "}
+              {t("pendingInvites")}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            {invites.map((invite, index) => (
-              <div key={invite.id} className={`flex items-center justify-between gap-2 px-4 py-3 ${index < invites.length - 1 ? "border-b" : ""}`}>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm">{invite.email}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Expires {new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(invite.expiresAt))}
+            {invites.map((invite, index) =>
+              confirmingCancelId === invite.id ? (
+                <div
+                  key={invite.id}
+                  className={`flex flex-wrap items-center justify-between gap-2 px-4 py-3 ${index < invites.length - 1 ? "border-b" : ""}`}
+                >
+                  <p className="min-w-0 flex-1 text-sm text-muted-foreground">
+                    {t("toasts.cancelConfirm", { email: invite.email })}
                   </p>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={busyInviteId === invite.id}
+                      onClick={() => cancelInvite(invite)}
+                    >
+                      {busyInviteId === invite.id && (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      )}
+                      {t("actions.confirmCancelInvite")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busyInviteId === invite.id}
+                      onClick={() => setConfirmingCancelId(null)}
+                    >
+                      {t("actions.dismiss")}
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => copyInviteLink(invite)} disabled={busyInviteId === invite.id}>
-                    {copiedInviteId === invite.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                    <span className="hidden sm:inline">Copy link</span>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Renew invite for ${invite.email}`}
-                    disabled={busyInviteId === invite.id}
-                    onClick={() => renewInvite(invite)}
-                  >
-                    {busyInviteId === invite.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                  </Button>
-                  <Badge variant="outline" className="text-[10px]">{invite.role}</Badge>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Cancel invite for ${invite.email}`}
-                    disabled={busyInviteId === invite.id}
-                    onClick={() => cancelInvite(invite)}
-                  >
-                    {busyInviteId === invite.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
-                  </Button>
+              ) : (
+                <div
+                  key={invite.id}
+                  className={`flex items-center justify-between gap-2 px-4 py-3 ${index < invites.length - 1 ? "border-b" : ""}`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm">{invite.email}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {t("expires", {
+                        date: new Intl.DateTimeFormat(locale, {
+                          month: "short",
+                          day: "numeric",
+                        }).format(new Date(invite.expiresAt)),
+                      })}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copyInviteLink(invite)}
+                      disabled={busyInviteId === invite.id}
+                    >
+                      {copiedInviteId === invite.id ? (
+                        <Check className="h-3.5 w-3.5" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                      <span className="hidden sm:inline">{t("copyLink")}</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={t("renewInviteAria", {
+                        email: invite.email,
+                      })}
+                      disabled={busyInviteId === invite.id}
+                      onClick={() => renewInvite(invite)}
+                    >
+                      {busyInviteId === invite.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <Badge variant="outline" className="text-[10px]">
+                      {invite.role}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={t("cancelInviteAria", {
+                        email: invite.email,
+                      })}
+                      disabled={busyInviteId === invite.id}
+                      onClick={() => setConfirmingCancelId(invite.id)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            )}
           </CardContent>
         </Card>
       )}
@@ -383,52 +465,117 @@ export function TeamClient({
         <CardContent className="p-0">
           {members.map((member, index) => {
             const isSelf = member.userId === currentUserId;
-            const canEditRole = canUpdateRoles && !isSelf && member.role !== "OWNER";
+            const canEditRole =
+              canUpdateRoles && !isSelf && member.role !== "OWNER";
             const canRemove =
               canRemoveMembers &&
               !isSelf &&
               member.role !== "OWNER" &&
               (currentUserRole === "OWNER" || member.role === "MEMBER");
 
+            if (confirmingRemoveId === member.id) {
+              return (
+                <div
+                  key={member.id}
+                  className={`flex flex-wrap items-center justify-between gap-2 px-4 py-3 ${index < members.length - 1 ? "border-b" : ""}`}
+                >
+                  <p className="min-w-0 flex-1 text-sm text-muted-foreground">
+                    {t("toasts.removeConfirm", {
+                      name: member.displayName,
+                      orgName,
+                    })}
+                  </p>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={busyMemberId === member.id}
+                      onClick={() => removeMember(member)}
+                    >
+                      {busyMemberId === member.id && (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      )}
+                      {t("actions.confirmRemove")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busyMemberId === member.id}
+                      onClick={() => setConfirmingRemoveId(null)}
+                    >
+                      {t("actions.dismiss")}
+                    </Button>
+                  </div>
+                </div>
+              );
+            }
+
             return (
-              <div key={member.id} className={`flex items-center gap-3 px-4 py-3 ${index < members.length - 1 ? "border-b" : ""}`}>
+              <div
+                key={member.id}
+                className={`flex items-center gap-3 px-4 py-3 ${index < members.length - 1 ? "border-b" : ""}`}
+              >
                 <Avatar className="h-9 w-9">
                   <AvatarFallback className="text-xs">
-                    {member.displayName.split(" ").map((name) => name[0]).slice(0, 2).join("").toUpperCase()}
+                    {member.displayName
+                      .split(" ")
+                      .map((name) => name[0])
+                      .slice(0, 2)
+                      .join("")
+                      .toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">
                     {member.displayName}
-                    {isSelf && <span className="ml-1.5 text-xs text-muted-foreground">(you)</span>}
+                    {isSelf && (
+                      <span className="ml-1.5 text-xs text-muted-foreground">
+                        {t("you")}
+                      </span>
+                    )}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Joined {new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" }).format(new Date(member.joinedAt))}
+                    {t("joined", {
+                      date: new Intl.DateTimeFormat(locale, {
+                        month: "short",
+                        year: "numeric",
+                      }).format(new Date(member.joinedAt)),
+                    })}
                   </p>
                 </div>
                 {canEditRole ? (
                   <select
-                    aria-label={`Role for ${member.displayName}`}
+                    aria-label={t("roleAria", { name: member.displayName })}
                     className="h-8 rounded-md border bg-background px-2 text-xs"
                     value={member.role}
                     disabled={busyMemberId === member.id}
-                    onChange={(event) => updateMemberRole(member, event.target.value as "ADMIN" | "MEMBER")}
+                    onChange={(event) =>
+                      updateMemberRole(
+                        member,
+                        event.target.value as "ADMIN" | "MEMBER"
+                      )
+                    }
                   >
                     <option value="ADMIN">ADMIN</option>
                     <option value="MEMBER">MEMBER</option>
                   </select>
                 ) : (
-                  <Badge variant={ROLE_VARIANT[member.role]} className="text-[10px]">{member.role}</Badge>
+                  <Badge
+                    variant={ROLE_VARIANT[member.role]}
+                    className="text-[10px]"
+                  >
+                    {member.role}
+                  </Badge>
                 )}
                 {canRemove && (
                   <Button
                     variant="ghost"
                     size="icon"
-                    aria-label={`Remove ${member.displayName}`}
+                    aria-label={t("removeAria", { name: member.displayName })}
                     disabled={busyMemberId === member.id}
-                    onClick={() => removeMember(member)}
+                    onClick={() => setConfirmingRemoveId(member.id)}
                   >
-                    {busyMemberId === member.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 )}
               </div>

@@ -417,6 +417,124 @@
       "detailsLoadFailed": "Action details could not be loaded"
     }
   },
+  "health": {
+    "eyebrow": "Engagement trend",
+    "heading": "Company Health",
+    "openMorningBrief": "Open Morning Brief",
+    "companyPulse": "Company pulse",
+    "todaysFocus": "Today's management focus",
+    "getFocusedPlan": "Get a focused plan",
+    "chatPrompt": "Act as my chief of staff. Look at why {area} is lagging and suggest one owner, one measurable outcome, and a 24-hour next step.",
+    "ourWeakestArea": "our weakest area",
+    "strongestArea": "Strongest area",
+    "weakestArea": "Weakest area",
+    "openSignals": "Open signals",
+    "insightsAwaitingReview": "Insights awaiting review",
+    "noData": "No data",
+    "engagementBreakdown": "Engagement breakdown",
+    "todaysEvidence": "Today's evidence",
+    "conversations": "Conversations",
+    "messages": "Messages",
+    "activeUsers": "Active users",
+    "memories": "Memories",
+    "openInsights": "Open insights",
+    "dash": "—",
+    "trend": {
+      "improving": "Improving",
+      "stable": "Stable",
+      "declining": "Declining"
+    },
+    "dimensionAction": {
+      "engagementLow": "Run one focused team check-in and capture blockers before noon.",
+      "engagementOk": "Protect communication cadence and close unanswered threads.",
+      "velocityLow": "Select one blocked outcome, assign a single owner, and define a same-day checkpoint.",
+      "velocityOk": "Reduce work in progress and finish the highest-value open action.",
+      "otherLow": "Clarify ownership for the most important decision and record the missing context in CEVORYN.",
+      "otherOk": "Keep company context current so decisions remain grounded."
+    },
+    "summary": {
+      "strong": "Team engagement is strong",
+      "mixed": "Team engagement is mixed",
+      "low": "Team engagement is low so far",
+      "improving": "and improving",
+      "declining": "and trending down",
+      "stable": "and broadly stable",
+      "mainConstraint": "{area} is the main constraint.",
+      "insightsNeedReview": "{count} open {count, plural, one {insight} other {insights}} need review.",
+      "noOpenInsight": "No open insight is waiting."
+    },
+    "nextMove": {
+      "withInsights": "Review the highest-priority signal, then commit to one action that improves {area} today.",
+      "belowTarget": "{area} is below target. Name the blocker, assign one owner, and set a measurable checkpoint within 24 hours.",
+      "protectMomentum": "Protect momentum and make one focused improvement in {area}.",
+      "theWeakestArea": "The weakest area",
+      "theLowestScoringArea": "the lowest-scoring area"
+    }
+  },
+  "chat": {
+    "openingConversation": "Opening a new conversation...",
+    "failedToCreate": "Failed to create conversation",
+    "genericError": "Something went wrong",
+    "backToDashboard": "Back to dashboard",
+    "toggleConversations": "Toggle conversations",
+    "conversationTitleLabel": "Conversation title",
+    "saveTitle": "Save title",
+    "cancelEditing": "Cancel editing",
+    "renameConversation": "Rename conversation",
+    "archiveConversation": "Archive conversation",
+    "conversations": "Conversations",
+    "working": "Working...",
+    "send": "Send",
+    "modes": {
+      "decide": "Decide",
+      "plan": "Plan",
+      "createAction": "Create action"
+    },
+    "placeholders": {
+      "chat": "Ask CEVORYN anything...",
+      "decide": "Describe the decision you need to make...",
+      "plan": "Describe the outcome you want to plan...",
+      "action": "Describe the action CEVORYN should create..."
+    },
+    "startConversation": "Start a conversation",
+    "startConversationHelp": "Ask CEVORYN anything about strategy, operations, or your team.",
+    "messageInput": "Message input",
+    "newConversation": "New conversation",
+    "creating": "Creating...",
+    "noConversations": "No conversations yet",
+    "rename": "Rename",
+    "delete": "Delete",
+    "conversationOptions": "Conversation options",
+    "renamePrompt": "Rename conversation:",
+    "deleteConfirm": "Delete this conversation? This cannot be undone.",
+    "conversationNotRenamed": "Conversation could not be renamed",
+    "conversationRenamed": "Conversation renamed",
+    "conversationNotArchived": "Conversation could not be archived",
+    "conversationArchived": "Conversation archived",
+    "savedSummaryFailed": "Saved successfully. CEVORYN could not generate the optional chat summary.",
+    "openIntelligence": "Open Intelligence",
+    "decisionCreateFailed": "Decision could not be created",
+    "decisionSaved": "Decision saved to CEVORYN",
+    "actionCreateFailed": "Action could not be created",
+    "actionSaved": "Action saved to CEVORYN",
+    "conversationCreateFailed": "Failed to create conversation",
+    "conversationInvalidId": "Conversation was created without a valid ID",
+    "conversationCreateError": "Something went wrong while creating the conversation",
+    "conversationLoadFailed": "Conversation could not be loaded",
+    "planPrompt": "Turn this into a practical execution plan. Give me the objective, ordered steps, owner suggestions, dependencies, risks, and the next action:\n\n{input}",
+    "decisionSummaryPrompt": "A decision record was created for this problem: {input}\n\nSummarize the recommendation, the largest risk, and the next step in plain language.",
+    "actionSummaryPrompt": "An action was saved for: {input}\n\nRefine it into a concise execution note with an owner suggestion, a realistic deadline, and a measurable definition of done.",
+    "actionCreatedReasoning": "Created directly from the CEVORYN chat action workflow",
+    "errorTitle": "Conversation could not load",
+    "errorDescription": "CEVORYN encountered a temporary problem while opening this conversation. Your saved messages are safe.",
+    "errorReference": "Reference: {digest}",
+    "tryAgain": "Try again",
+    "notFoundTitle": "Conversation not found",
+    "notFoundDescription": "This conversation may have been archived, deleted, or may not belong to your workspace.",
+    "backToChat": "Back to chat",
+    "loadingTitle": "Opening conversation",
+    "loadingDescription": "CEVORYN is loading your messages and workspace context."
+  },
   "pricing": {
     "title": "Pricing",
     "subtitle": "Simple, transparent plans for teams of 2–20. Cancel anytime.",
@@ -449,6 +567,263 @@
       "TEAM": "Team collaboration",
       "ADVANCED_RBAC": "Advanced RBAC",
       "PRIORITY_SUPPORT": "Priority support"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Manage your workspace",
+    "workspace": "Workspace",
+    "billing": "Billing",
+    "integrations": "Integrations",
+    "yourAccount": "Your account",
+    "workspaceUsage": "Workspace usage",
+    "internalMaintenance": "Internal maintenance",
+    "name": "Name",
+    "created": "Created",
+    "role": "Role",
+    "manageBilling": "Manage billing",
+    "members": "Members",
+    "conversations": "Conversations",
+    "memories": "Memories",
+    "organizationName": {
+      "invalidLength": "Workspace name must be between 2 and 80 characters",
+      "updateFailed": "Failed to update workspace",
+      "updated": "Workspace updated",
+      "nameLabel": "Workspace name",
+      "save": "Save"
+    },
+    "google": {
+      "connectedToast": "Google account connected",
+      "connectErrorToast": "Google account could not be connected",
+      "draftCreateFailed": "The Gmail draft could not be created",
+      "draftCreated": "Gmail test draft created",
+      "disconnectFailed": "Google account could not be disconnected",
+      "disconnected": "Google account disconnected",
+      "notConfigured": "Google integration is not configured for this deployment yet.",
+      "connectButton": "Connect Google",
+      "notConnectedDescription": "Connect Gmail and Google Calendar so CEVORYN can prepare email drafts and calendar actions for your approval.",
+      "connected": "Connected",
+      "confirmDraft": "Create a Gmail draft addressed to {email}? Nothing will be sent.",
+      "creatingDraft": "Creating draft...",
+      "createDraft": "Create draft",
+      "cancel": "Cancel",
+      "createTestDraft": "Create Gmail test draft",
+      "disconnecting": "Disconnecting...",
+      "disconnect": "Disconnect"
+    },
+    "testData": {
+      "description": "Removes only insights and prepared actions whose title starts with <b>[TEST]</b>, <b>TEST:</b>, or <b>TEST </b>. Company data is not touched.",
+      "removedToast": "Removed {insights, plural, one {# test insight} other {# test insights}} and {actions, plural, one {# test action} other {# test actions}}.",
+      "cleanupFailed": "Test data cleanup failed",
+      "removeButton": "Remove labeled test data"
+    }
+  },
+  "billing": {
+    "title": "Billing",
+    "subtitle": "Manage your CEVORYN subscription and organization limits.",
+    "paymentRequired": "Payment action required",
+    "paymentRequiredDescription": "Your latest payment was unsuccessful. Open Manage Billing to update the payment method and keep premium features active.",
+    "scheduledToEnd": "Subscription scheduled to end",
+    "scheduledToEndDescription": "Access remains available until {date}. You can reactivate the subscription from Manage Billing.",
+    "currentSubscription": "Current subscription",
+    "plan": "Plan",
+    "status": "Status",
+    "billingCycle": "Billing cycle",
+    "monthly": "Monthly",
+    "trialEnds": "Trial ends",
+    "renews": "Renews",
+    "notAvailable": "Not available",
+    "noSubscription": "No subscription",
+    "manageBilling": "Manage billing",
+    "currentPlan": "Current plan",
+    "changePlan": "Change plan",
+    "choosePlan": "Choose {plan}",
+    "priceUnavailable": "Price unavailable",
+    "adminOnly": "Ask an organization owner or admin to manage this plan.",
+    "planChangeProcessing": "Plan change to {plan} is being processed.",
+    "planChangeFailed": "Plan change failed.",
+    "billingRequestFailed": "Billing request failed.",
+    "billingUnavailable": "Billing is unavailable.",
+    "portalUnavailable": "Billing portal is unavailable.",
+    "paddleLinkNotConfigured": "Paddle default payment link is not configured for this sandbox account.",
+    "paddleInvalidToken": "The Paddle client-side token is invalid or belongs to the wrong environment.",
+    "paddleCheckoutNotOpened": "Paddle checkout could not be opened.",
+    "paddleCheckoutError": "Paddle checkout error: {code}",
+    "paddleNotConfigured": "Paddle checkout is not configured.",
+    "paddleSandboxTokenRequired": "Paddle sandbox requires a test_ client-side token.",
+    "paddleProductionTokenRequired": "Paddle production requires a live_ client-side token.",
+    "paddleScriptLoadFailed": "Paddle.js failed to load.",
+    "paddleUnavailable": "Paddle.js is unavailable.",
+    "tokenLimitMillions": "{count}M monthly AI tokens",
+    "tokenLimitThousands": "{count}K monthly AI tokens"
+  },
+  "team": {
+    "title": "Team",
+    "memberCount": "{count, plural, one {# member} other {# members}} in {orgName}",
+    "inviteCard": {
+      "title": "Invite a team member",
+      "emailPlaceholder": "colleague@company.com",
+      "roleLabel": "Invite role",
+      "inviteButton": "Invite"
+    },
+    "toasts": {
+      "tooManyAttempts": "Too many invite attempts. Try again in about {minutes, plural, one {# minute} other {# minutes}}.",
+      "inviteFailed": "Failed to create invite",
+      "inviteCreatedCopyLink": "Invite created. Copy the link below and share it directly.",
+      "inviteCreatedEmailFailed": "Invite created, but the email could not be sent. Copy the invite link instead.",
+      "inviteCreatedFor": "Invite created for {email}",
+      "somethingWentWrong": "Something went wrong",
+      "roleUpdateFailed": "Failed to update role",
+      "roleUpdated": "Member role updated",
+      "removeConfirm": "Remove {name} from {orgName}?",
+      "removeFailed": "Failed to remove member",
+      "removed": "Member removed",
+      "inviteLinkLoadFailed": "Invite link could not be loaded",
+      "inviteLinkCopied": "Invite link copied",
+      "inviteLinkCopyFailed": "Invite link could not be copied",
+      "renewFailed": "Failed to renew invite",
+      "renewedEmailFailed": "Invite renewed, but the email could not be sent. Copy the new link instead.",
+      "renewedAndEmailed": "Invite renewed and emailed",
+      "cancelConfirm": "Cancel the invite for {email}?",
+      "cancelFailed": "Failed to cancel invite",
+      "cancelled": "Invite cancelled"
+    },
+    "pendingInvites": "Pending Invites",
+    "expires": "Expires {date}",
+    "copyLink": "Copy link",
+    "renewInviteAria": "Renew invite for {email}",
+    "cancelInviteAria": "Cancel invite for {email}",
+    "you": "(you)",
+    "joined": "Joined {date}",
+    "roleAria": "Role for {name}",
+    "removeAria": "Remove {name}",
+    "actions": {
+      "confirmRemove": "Remove",
+      "confirmCancelInvite": "Cancel invite",
+      "dismiss": "Never mind"
+    }
+  },
+  "profile": {
+    "accountLabel": "Account",
+    "title": "Profile",
+    "subtitle": "Your personal and organization details in CEVORYN.",
+    "accountDetails": "Account details",
+    "name": "Name",
+    "email": "Email",
+    "workspace": "Workspace",
+    "role": "Role",
+    "roles": {
+      "OWNER": "Owner",
+      "ADMIN": "Admin",
+      "MEMBER": "Member"
+    },
+    "session": "Session",
+    "signOut": "Sign out",
+    "nameInvalidLength": "Name must be between 1 and 80 characters",
+    "updateFailed": "Failed to update name",
+    "updated": "Name updated",
+    "nameLabel": "Your name",
+    "save": "Save"
+  },
+  "feedback": {
+    "privateBeta": "Private beta",
+    "title": "Help improve CEVORYN",
+    "subtitle": "Feedback is reviewed directly and used to prioritize the next product changes.",
+    "options": {
+      "reportProblem": {
+        "title": "Report a problem",
+        "description": "Tell us what happened, what you expected, and which page you were using.",
+        "subject": "CEVORYN beta — problem report"
+      },
+      "suggestImprovement": {
+        "title": "Suggest an improvement",
+        "description": "Share a workflow, feature, or change that would make CEVORYN more useful.",
+        "subject": "CEVORYN beta — improvement suggestion"
+      },
+      "generalFeedback": {
+        "title": "Share general feedback",
+        "description": "Tell us what feels valuable, confusing, slow, or unnecessary.",
+        "subject": "CEVORYN beta — general feedback"
+      }
+    },
+    "bodyTemplate": "Page or workflow:\n\nWhat happened or what should change:\n\nWhy this matters:\n",
+    "sendFeedback": "Send feedback",
+    "sensitiveWarning": "Do not include passwords, API keys, private customer data, or other sensitive information in feedback messages."
+  },
+  "analytics": {
+    "title": "Product Analytics",
+    "subtitle": "Real usage and execution signals for the last 30 days.",
+    "activeUsers": "Active users",
+    "ofTeam": "{percent}% of team",
+    "userMessages": "User messages",
+    "inDays": "{count} in 7 days",
+    "briefsGenerated": "Briefs generated",
+    "conversationsCount": "{count} conversations",
+    "actionsApproved": "Actions approved",
+    "completionRate": "{percent}% completion",
+    "executionFunnel": "Execution funnel",
+    "openInsights": "Open insights",
+    "openInsightsDescription": "Signals waiting for review",
+    "insightsActedOn": "Insights acted on",
+    "insightsActedOnDescription": "Converted into action",
+    "decisionsProgressed": "Decisions progressed",
+    "decisionsProgressedDescription": "Accepted or executed",
+    "usageMomentum": "Usage momentum",
+    "conversations7d": "7-day conversations",
+    "conversations7dDescription": "New work sessions this week",
+    "conversations30d": "30-day conversations",
+    "conversations30dDescription": "New work sessions this month",
+    "errorTitle": "Analytics could not be loaded",
+    "errorDescription": "Your product data is safe. Retry without leaving this page.",
+    "tryAgain": "Try again"
+  },
+  "errorBoundaries": {
+    "auth": {
+      "title": "Sign-in page could not load",
+      "description": "CEVORYN encountered a temporary authentication problem. Your account has not been changed.",
+      "reference": "Reference: {digest}",
+      "tryAgain": "Try again"
+    },
+    "dashboard": {
+      "title": "Dashboard could not load",
+      "description": "CEVORYN encountered a temporary problem while loading this workspace. Try again without leaving the page.",
+      "reference": "Reference: {digest}",
+      "tryAgain": "Try again"
+    },
+    "root": {
+      "title": "Something went wrong",
+      "description": "An unexpected error occurred. Please try again.",
+      "tryAgain": "Try again"
+    },
+    "intelligence": {
+      "title": "Intelligence could not be loaded",
+      "description": "CEVORYN could not retrieve the latest insights and decisions. Your data was not changed.",
+      "tryAgain": "Try again"
+    }
+  },
+  "loadingBoundaries": {
+    "auth": {
+      "title": "Loading CEVORYN",
+      "description": "Preparing your secure sign-in experience."
+    },
+    "dashboard": "Loading...",
+    "root": "Loading CEVORYN..."
+  },
+  "invite": {
+    "notFoundTitle": "Invite not found",
+    "notFoundMessage": "Ask your workspace admin to send a new invite.",
+    "unavailableTitle": "Invite unavailable",
+    "backToSignIn": "Back to sign in",
+    "join": "Join {orgName}",
+    "invitedAs": "You were invited as {role}. Confirm below to add this workspace to your CEVORYN account.",
+    "cancel": "Cancel",
+    "acceptButton": "Accept invite",
+    "acceptFailed": "Invite could not be accepted",
+    "joined": "Joined {orgName}",
+    "errors": {
+      "notPending": "This invite is no longer pending",
+      "expired": "This invite has expired",
+      "wrongEmail": "Sign in with the email address that received this invite"
     }
   }
 }

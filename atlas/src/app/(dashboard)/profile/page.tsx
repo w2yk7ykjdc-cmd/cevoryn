@@ -1,4 +1,5 @@
 import { Building2, Mail, ShieldCheck, UserRound } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,10 +7,6 @@ import { signOutAction } from "@/features/auth/actions/auth";
 import { getMembership, requireUser } from "@/lib/auth";
 
 import { DisplayNameForm } from "./display-name-form";
-
-function formatRole(role: string): string {
-  return role.charAt(0) + role.slice(1).toLowerCase();
-}
 
 function formatDisplayName(name: string): string {
   const normalized = name.trim().replace(/\s+/g, " ");
@@ -26,6 +23,7 @@ function formatDisplayName(name: string): string {
 export default async function ProfilePage() {
   const user = await requireUser();
   const membership = await getMembership(user.id);
+  const t = await getTranslations("profile");
 
   if (!membership) {
     return null;
@@ -43,11 +41,11 @@ export default async function ProfilePage() {
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 pb-40">
       <div>
-        <p className="text-sm font-medium text-muted-foreground">Account</p>
-        <h1 className="text-3xl font-bold tracking-tight">Profile</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Your personal and organization details in CEVORYN.
+        <p className="text-sm font-medium text-muted-foreground">
+          {t("accountLabel")}
         </p>
+        <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{t("subtitle")}</p>
       </div>
 
       <Card>
@@ -57,20 +55,24 @@ export default async function ProfilePage() {
           </div>
           <div className="min-w-0">
             <p className="truncate text-xl font-semibold">{displayName}</p>
-            <p className="truncate text-sm text-muted-foreground">{user.email}</p>
+            <p className="truncate text-sm text-muted-foreground">
+              {user.email}
+            </p>
           </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Account details</CardTitle>
+          <CardTitle>{t("accountDetails")}</CardTitle>
         </CardHeader>
         <CardContent className="divide-y">
           <div className="flex items-start gap-3 py-4 first:pt-0">
             <UserRound className="mt-2 h-5 w-5 shrink-0 text-muted-foreground" />
             <div className="min-w-0 flex-1 space-y-2">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Name</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {t("name")}
+              </p>
               <DisplayNameForm initialName={displayName} />
             </div>
           </div>
@@ -78,7 +80,9 @@ export default async function ProfilePage() {
           <div className="flex items-center gap-3 py-4">
             <Mail className="h-5 w-5 shrink-0 text-muted-foreground" />
             <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {t("email")}
+              </p>
               <p className="truncate font-medium">{user.email}</p>
             </div>
           </div>
@@ -86,16 +90,22 @@ export default async function ProfilePage() {
           <div className="flex items-center gap-3 py-4">
             <Building2 className="h-5 w-5 shrink-0 text-muted-foreground" />
             <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Workspace</p>
-              <p className="truncate font-medium">{membership.organizationName}</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {t("workspace")}
+              </p>
+              <p className="truncate font-medium">
+                {membership.organizationName}
+              </p>
             </div>
           </div>
 
           <div className="flex items-center gap-3 py-4 last:pb-0">
             <ShieldCheck className="h-5 w-5 shrink-0 text-muted-foreground" />
             <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Role</p>
-              <p className="font-medium">{formatRole(membership.role)}</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {t("role")}
+              </p>
+              <p className="font-medium">{t(`roles.${membership.role}`)}</p>
             </div>
           </div>
         </CardContent>
@@ -103,12 +113,16 @@ export default async function ProfilePage() {
 
       <Card className="mb-10">
         <CardHeader>
-          <CardTitle>Session</CardTitle>
+          <CardTitle>{t("session")}</CardTitle>
         </CardHeader>
         <CardContent>
           <form action={signOutAction}>
-            <Button type="submit" variant="destructive" className="w-full sm:w-auto">
-              Sign out
+            <Button
+              type="submit"
+              variant="destructive"
+              className="w-full sm:w-auto"
+            >
+              {t("signOut")}
             </Button>
           </form>
         </CardContent>

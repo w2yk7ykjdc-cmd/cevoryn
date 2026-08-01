@@ -2,6 +2,7 @@
 
 import { Loader2, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -12,6 +13,7 @@ import { handleUnauthorized } from "@/lib/client-auth";
 const CONFIRMATION = "DELETE TEST DATA";
 
 export function TestDataCleanup() {
+  const t = useTranslations("settings.testData");
   const router = useRouter();
   const [confirmation, setConfirmation] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -28,16 +30,16 @@ export function TestDataCleanup() {
 
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        throw new Error(payload?.error?.message ?? "Test data cleanup failed");
+        throw new Error(payload?.error?.message ?? t("cleanupFailed"));
       }
 
       const actions = Number(payload?.data?.actions ?? 0);
       const insights = Number(payload?.data?.insights ?? 0);
-      toast.success(`Removed ${insights} test insight${insights === 1 ? "" : "s"} and ${actions} test action${actions === 1 ? "" : "s"}.`);
+      toast.success(t("removedToast", { actions, insights }));
       setConfirmation("");
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Test data cleanup failed");
+      toast.error(error instanceof Error ? error.message : t("cleanupFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -46,7 +48,7 @@ export function TestDataCleanup() {
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        Removes only insights and prepared actions whose title starts with <strong>[TEST]</strong>, <strong>TEST:</strong>, or <strong>TEST </strong>. Company data is not touched.
+        {t.rich("description", { b: (chunks) => <strong>{chunks}</strong> })}
       </p>
       <Input
         value={confirmation}
@@ -60,8 +62,12 @@ export function TestDataCleanup() {
         disabled={submitting || confirmation !== CONFIRMATION}
         onClick={cleanup}
       >
-        {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-        Remove labeled test data
+        {submitting ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Trash2 className="h-4 w-4" />
+        )}
+        {t("removeButton")}
       </Button>
     </div>
   );

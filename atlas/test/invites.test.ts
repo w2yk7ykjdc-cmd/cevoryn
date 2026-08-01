@@ -60,15 +60,16 @@ describe("team invite helpers", () => {
       expiresAt: new Date("2026-07-21T00:00:00.000Z"),
       now: new Date("2026-07-20T00:00:00.000Z"),
     };
-    assert.deepEqual(canAcceptInvite(base), { ok: true });
-    assert.equal(canAcceptInvite({ ...base, status: "ACCEPTED" }).ok, false);
+    const t = (key: string) => key;
+    assert.deepEqual(canAcceptInvite(base, t), { ok: true });
+    assert.equal(canAcceptInvite({ ...base, status: "ACCEPTED" }, t).ok, false);
     assert.equal(
-      canAcceptInvite({ ...base, now: new Date("2026-07-22T00:00:00.000Z") })
+      canAcceptInvite({ ...base, now: new Date("2026-07-22T00:00:00.000Z") }, t)
         .ok,
       false
     );
     assert.equal(
-      canAcceptInvite({ ...base, userEmail: "other@example.com" }).ok,
+      canAcceptInvite({ ...base, userEmail: "other@example.com" }, t).ok,
       false
     );
   });

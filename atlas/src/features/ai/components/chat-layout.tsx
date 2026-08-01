@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -33,6 +34,7 @@ export function ChatLayout({
   conversationTitle,
   initialMessages,
 }: ChatLayoutProps) {
+  const t = useTranslations("chat");
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [title, setTitle] = useState(conversationTitle);
@@ -65,23 +67,23 @@ export function ChatLayout({
         if (handleUnauthorized(response)) return false;
         const payload = await response.json().catch(() => null);
         if (!response.ok) {
-          toast.error(payload?.error?.message ?? "Conversation could not be renamed");
+          toast.error(payload?.error?.message ?? t("conversationNotRenamed"));
           return false;
         }
 
         setTitle(payload?.data?.title ?? nextTitle);
         invalidate();
         router.refresh();
-        toast.success("Conversation renamed");
+        toast.success(t("conversationRenamed"));
         return true;
       } catch (_error) {
-        toast.error("Conversation could not be renamed");
+        toast.error(t("conversationNotRenamed"));
         return false;
       } finally {
         setIsMutating(false);
       }
     },
-    [conversationId, invalidate, router]
+    [conversationId, invalidate, router, t]
   );
 
   const handleArchive = useCallback(async () => {
@@ -96,42 +98,43 @@ export function ChatLayout({
       if (handleUnauthorized(response)) return;
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        toast.error(payload?.error?.message ?? "Conversation could not be archived");
+        toast.error(payload?.error?.message ?? t("conversationNotArchived"));
         return;
       }
 
       invalidate();
-      toast.success("Conversation archived");
+      toast.success(t("conversationArchived"));
       router.replace("/chat");
       router.refresh();
     } catch (_error) {
-      toast.error("Conversation could not be archived");
+      toast.error(t("conversationNotArchived"));
     } finally {
       setIsMutating(false);
     }
-  }, [conversationId, invalidate, router]);
+  }, [conversationId, invalidate, router, t]);
 
   const sendOptionalWorkflowSummary = useCallback(
     async (content: string) => {
       try {
         await handleSend(content);
       } catch (_error) {
-        toast.info(
-          "Saved successfully. CEVORYN could not generate the optional chat summary."
-        );
+        toast.info(t("savedSummaryFailed"));
       }
     },
-    [handleSend]
+    [handleSend, t]
   );
 
-  const showSavedToast = useCallback((message: string) => {
-    toast.success(message, {
-      action: {
-        label: "Open Intelligence",
-        onClick: () => window.location.assign("/intelligence"),
-      },
-    });
-  }, []);
+  const showSavedToast = useCallback(
+    (message: string) => {
+      toast.success(message, {
+        action: {
+          label: t("openIntelligence"),
+          onClick: () => window.location.assign("/intelligence"),
+        },
+      });
+    },
+    [t]
+  );
 
   const handleWorkflowSubmit = useCallback(
     async (mode: Exclude<ExecutiveMode, "CHAT" | "PLAN">, input: string) => {
@@ -145,15 +148,14 @@ export function ChatLayout({
         if (handleUnauthorized(response)) return;
         const payload = await response.json().catch(() => null);
         if (!response.ok) {
-          const message =
-            payload?.error?.message ?? "Decision could not be created";
+          const message = payload?.error?.message ?? t("decisionCreateFailed");
           toast.error(message);
           throw new Error(message);
         }
 
-        showSavedToast("Decision saved to CEVORYN");
+        showSavedToast(t("decisionSaved"));
         await sendOptionalWorkflowSummary(
-          `A decision record was created for this problem: ${input}\n\nSummarize the recommendation, the largest risk, and the next step in plain language.`
+          t("decisionSummaryPrompt", { input })
         );
         return;
       }
@@ -168,7 +170,7 @@ export function ChatLayout({
           description: input,
           priority: "MEDIUM",
           acceptanceCriteria: [],
-          reasoning: "Created directly from the CEVORYN chat action workflow",
+          reasoning: t("actionCreatedReasoning"),
           confidence: 0.8,
         }),
       });
@@ -176,17 +178,15 @@ export function ChatLayout({
       if (handleUnauthorized(response)) return;
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        const message = payload?.error?.message ?? "Action could not be created";
+        const message = payload?.error?.message ?? t("actionCreateFailed");
         toast.error(message);
         throw new Error(message);
       }
 
-      showSavedToast("Action saved to CEVORYN");
-      await sendOptionalWorkflowSummary(
-        `An action was saved for: ${input}\n\nRefine it into a concise execution note with an owner suggestion, a realistic deadline, and a measurable definition of done.`
-      );
+      showSavedToast(t("actionSaved"));
+      await sendOptionalWorkflowSummary(t("actionSummaryPrompt", { input }));
     },
-    [sendOptionalWorkflowSummary, showSavedToast]
+    [sendOptionalWorkflowSummary, showSavedToast, t]
   );
 
   useEffect(() => {
@@ -202,7 +202,7 @@ export function ChatLayout({
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
         <SheetContent side="left" className="w-72 p-0">
           <SheetHeader className="sr-only">
-            <SheetTitle>Conversations</SheetTitle>
+            <SheetTitle>{t("conversations")}</SheetTitle>
           </SheetHeader>
           <ChatSidebar
             activeId={conversationId}

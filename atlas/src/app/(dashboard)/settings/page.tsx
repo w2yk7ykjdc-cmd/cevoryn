@@ -1,6 +1,13 @@
-import { Building2, CreditCard, Link2, Shield, ShieldAlert } from "lucide-react";
+import {
+  Building2,
+  CreditCard,
+  Link2,
+  Shield,
+  ShieldAlert,
+} from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getLocale, getTranslations } from "next-intl/server";
 
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -24,10 +31,10 @@ type GoogleConnectionSummary = {
 function isGoogleIntegrationConfigured(): boolean {
   return Boolean(
     process.env.GOOGLE_CLIENT_ID?.trim() &&
-      process.env.GOOGLE_CLIENT_SECRET?.trim() &&
-      process.env.GOOGLE_TOKEN_ENCRYPTION_KEY?.trim() &&
-      (process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-        process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim())
+    process.env.GOOGLE_CLIENT_SECRET?.trim() &&
+    process.env.GOOGLE_TOKEN_ENCRYPTION_KEY?.trim() &&
+    (process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+      process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim())
   );
 }
 
@@ -61,26 +68,35 @@ export default async function SettingsPage() {
   const user = await requireUser();
   const membership = await requireMembership(user.id);
   const googleConfigured = isGoogleIntegrationConfigured();
+  const t = await getTranslations("settings");
+  const locale = await getLocale();
 
-  const [org, memberCount, memoryCount, conversationCount, connectedGoogleEmail] =
-    await Promise.all([
-      prisma.organization.findUnique({
-        where: { id: membership.organizationId },
-        select: { name: true, createdAt: true },
-      }),
-      prisma.member.count({ where: { organizationId: membership.organizationId } }),
-      prisma.memory.count({
-        where: { organizationId: membership.organizationId, isActive: true },
-      }),
-      prisma.conversation.count({
-        where: { organizationId: membership.organizationId },
-      }),
-      getConnectedGoogleEmail(
-        membership.organizationId,
-        user.id,
-        googleConfigured
-      ),
-    ]);
+  const [
+    org,
+    memberCount,
+    memoryCount,
+    conversationCount,
+    connectedGoogleEmail,
+  ] = await Promise.all([
+    prisma.organization.findUnique({
+      where: { id: membership.organizationId },
+      select: { name: true, createdAt: true },
+    }),
+    prisma.member.count({
+      where: { organizationId: membership.organizationId },
+    }),
+    prisma.memory.count({
+      where: { organizationId: membership.organizationId, isActive: true },
+    }),
+    prisma.conversation.count({
+      where: { organizationId: membership.organizationId },
+    }),
+    getConnectedGoogleEmail(
+      membership.organizationId,
+      user.id,
+      googleConfigured
+    ),
+  ]);
 
   if (!org) return null;
 
@@ -89,30 +105,30 @@ export default async function SettingsPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6 pb-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground">Manage your workspace</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
+        <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
       </div>
 
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Building2 className="h-4 w-4" />
-            Workspace
+            {t("workspace")}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {canUpdateOrganization ? (
             <div className="space-y-2">
-              <span className="text-sm text-muted-foreground">Name</span>
+              <span className="text-sm text-muted-foreground">{t("name")}</span>
               <OrganizationNameForm initialName={org.name} />
             </div>
           ) : (
-            <Row label="Name" value={org.name} />
+            <Row label={t("name")} value={org.name} />
           )}
           <Separator />
           <Row
-            label="Created"
-            value={new Intl.DateTimeFormat("en-US", {
+            label={t("created")}
+            value={new Intl.DateTimeFormat(locale, {
               dateStyle: "long",
             }).format(org.createdAt)}
           />
@@ -123,7 +139,7 @@ export default async function SettingsPage() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <CreditCard className="h-4 w-4" />
-            Billing
+            {t("billing")}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -131,7 +147,7 @@ export default async function SettingsPage() {
             href="/settings/billing"
             className={buttonVariants({ variant: "outline", size: "sm" })}
           >
-            Manage billing
+            {t("manageBilling")}
           </Link>
         </CardContent>
       </Card>
@@ -140,7 +156,7 @@ export default async function SettingsPage() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Link2 className="h-4 w-4" />
-            Integrations
+            {t("integrations")}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -155,14 +171,14 @@ export default async function SettingsPage() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Shield className="h-4 w-4" />
-            Your account
+            {t("yourAccount")}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Row label="Name" value={membership.displayName} />
+          <Row label={t("name")} value={membership.displayName} />
           <Separator />
           <Row
-            label="Role"
+            label={t("role")}
             value={
               <Badge variant="secondary" className="text-xs">
                 {membership.role}
@@ -174,21 +190,23 @@ export default async function SettingsPage() {
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Workspace usage</CardTitle>
+          <CardTitle className="text-base">{t("workspaceUsage")}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
               <p className="text-2xl font-bold">{memberCount}</p>
-              <p className="text-xs text-muted-foreground">Members</p>
+              <p className="text-xs text-muted-foreground">{t("members")}</p>
             </div>
             <div>
               <p className="text-2xl font-bold">{conversationCount}</p>
-              <p className="text-xs text-muted-foreground">Conversations</p>
+              <p className="text-xs text-muted-foreground">
+                {t("conversations")}
+              </p>
             </div>
             <div>
               <p className="text-2xl font-bold">{memoryCount}</p>
-              <p className="text-xs text-muted-foreground">Memories</p>
+              <p className="text-xs text-muted-foreground">{t("memories")}</p>
             </div>
           </div>
         </CardContent>
@@ -200,7 +218,7 @@ export default async function SettingsPage() {
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <ShieldAlert className="h-4 w-4" />
-              Internal maintenance
+              {t("internalMaintenance")}
             </CardTitle>
           </CardHeader>
           <CardContent>

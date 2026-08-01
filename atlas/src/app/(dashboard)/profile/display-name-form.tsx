@@ -2,6 +2,7 @@
 
 import { Loader2, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -14,6 +15,7 @@ interface DisplayNameFormProps {
 }
 
 export function DisplayNameForm({ initialName }: DisplayNameFormProps) {
+  const t = useTranslations("profile");
   const router = useRouter();
   const [name, setName] = useState(initialName);
   const [savedName, setSavedName] = useState(initialName);
@@ -22,7 +24,7 @@ export function DisplayNameForm({ initialName }: DisplayNameFormProps) {
   function save() {
     const normalized = name.trim();
     if (normalized.length < 1 || normalized.length > 80) {
-      toast.error("Name must be between 1 and 80 characters");
+      toast.error(t("nameInvalidLength"));
       return;
     }
 
@@ -38,16 +40,16 @@ export function DisplayNameForm({ initialName }: DisplayNameFormProps) {
 
         const data = await response.json().catch(() => null);
         if (!response.ok) {
-          toast.error(data?.error?.message ?? "Failed to update name");
+          toast.error(data?.error?.message ?? t("updateFailed"));
           return;
         }
 
         setName(data.data.displayName);
         setSavedName(data.data.displayName);
-        toast.success("Name updated");
+        toast.success(t("updated"));
         router.refresh();
       } catch (_error) {
-        toast.error("Failed to update name");
+        toast.error(t("updateFailed"));
       }
     });
   }
@@ -59,7 +61,7 @@ export function DisplayNameForm({ initialName }: DisplayNameFormProps) {
         onChange={(event) => setName(event.target.value)}
         maxLength={80}
         disabled={isPending}
-        aria-label="Your name"
+        aria-label={t("nameLabel")}
       />
       <Button
         type="button"
@@ -72,7 +74,7 @@ export function DisplayNameForm({ initialName }: DisplayNameFormProps) {
         ) : (
           <Save className="h-4 w-4" />
         )}
-        Save
+        {t("save")}
       </Button>
     </div>
   );

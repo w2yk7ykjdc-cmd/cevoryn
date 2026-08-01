@@ -1,6 +1,8 @@
 import { APP_CONFIG } from "@/lib/constants";
 import type { MemberRole } from "@/types";
 
+type InviteErrors = (key: "notPending" | "expired" | "wrongEmail") => string;
+
 export const INVITE_TOKEN_LENGTH = 24;
 
 export type InviteEligibilityInput = {
@@ -10,8 +12,7 @@ export type InviteEligibilityInput = {
 };
 
 export type InviteEligibilityResult =
-  | { ok: true }
-  | { ok: false; message: string };
+  { ok: true } | { ok: false; message: string };
 
 export function normalizeInviteEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -53,31 +54,34 @@ export function getInviteAcceptPath(token: string): string {
   return `/invite/${encodeURIComponent(token)}`;
 }
 
-export function canAcceptInvite({
-  inviteEmail,
-  userEmail,
-  status,
-  expiresAt,
-  now = new Date(),
-}: {
-  inviteEmail: string;
-  userEmail: string;
-  status: string;
-  expiresAt: Date;
-  now?: Date;
-}): InviteEligibilityResult {
+export function canAcceptInvite(
+  {
+    inviteEmail,
+    userEmail,
+    status,
+    expiresAt,
+    now = new Date(),
+  }: {
+    inviteEmail: string;
+    userEmail: string;
+    status: string;
+    expiresAt: Date;
+    now?: Date;
+  },
+  t: InviteErrors
+): InviteEligibilityResult {
   if (status !== "PENDING") {
-    return { ok: false, message: "This invite is no longer pending" };
+    return { ok: false, message: t("notPending") };
   }
 
   if (expiresAt.getTime() <= now.getTime()) {
-    return { ok: false, message: "This invite has expired" };
+    return { ok: false, message: t("expired") };
   }
 
   if (normalizeInviteEmail(inviteEmail) !== normalizeInviteEmail(userEmail)) {
     return {
       ok: false,
-      message: "Sign in with the email address that received this invite",
+      message: t("wrongEmail"),
     };
   }
 

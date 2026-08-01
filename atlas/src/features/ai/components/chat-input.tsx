@@ -1,6 +1,13 @@
 "use client";
 
-import { ArrowUp, CheckSquare2, GitBranch, ListTodo, Loader2 } from "lucide-react";
+import {
+  ArrowUp,
+  CheckSquare2,
+  GitBranch,
+  ListTodo,
+  Loader2,
+} from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent } from "react";
 
@@ -21,17 +28,10 @@ interface ChatInputProps {
 }
 
 const EXECUTIVE_MODES = [
-  { label: "Decide", icon: GitBranch, mode: "DECIDE" },
-  { label: "Plan", icon: ListTodo, mode: "PLAN" },
-  { label: "Create action", icon: CheckSquare2, mode: "ACTION" },
+  { key: "decide", icon: GitBranch, mode: "DECIDE" },
+  { key: "plan", icon: ListTodo, mode: "PLAN" },
+  { key: "createAction", icon: CheckSquare2, mode: "ACTION" },
 ] as const;
-
-const MODE_PLACEHOLDER: Record<ExecutiveMode, string> = {
-  CHAT: "Ask CEVORYN anything...",
-  DECIDE: "Describe the decision you need to make...",
-  PLAN: "Describe the outcome you want to plan...",
-  ACTION: "Describe the action CEVORYN should create...",
-};
 
 export function ChatInput({
   conversationId,
@@ -39,10 +39,18 @@ export function ChatInput({
   onWorkflowSubmit,
   isStreaming,
 }: ChatInputProps) {
+  const t = useTranslations("chat");
   const [value, setValue] = useState("");
   const [mode, setMode] = useState<ExecutiveMode>("CHAT");
   const [isSubmittingWorkflow, setIsSubmittingWorkflow] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const modePlaceholder: Record<ExecutiveMode, string> = {
+    CHAT: t("placeholders.chat"),
+    DECIDE: t("placeholders.decide"),
+    PLAN: t("placeholders.plan"),
+    ACTION: t("placeholders.action"),
+  };
 
   useEffect(() => {
     const pendingMessage = consumePendingChatMessage(conversationId);
@@ -84,12 +92,11 @@ export function ChatInput({
       }
 
       const message =
-        mode === "PLAN"
-          ? `Turn this into a practical execution plan. Give me the objective, ordered steps, owner suggestions, dependencies, risks, and the next action:\n\n${trimmed}`
-          : trimmed;
+        mode === "PLAN" ? t("planPrompt", { input: trimmed }) : trimmed;
       onSend(message);
       resetComposer();
-    }, [
+    },
+    [
       value,
       mode,
       isStreaming,
@@ -97,6 +104,7 @@ export function ChatInput({
       onSend,
       onWorkflowSubmit,
       resetComposer,
+      t,
     ]
   );
 
@@ -128,11 +136,11 @@ export function ChatInput({
   return (
     <div className="border-t bg-background p-3 sm:p-4">
       <div className="mx-auto mb-2 flex max-w-3xl gap-2 overflow-x-auto pb-1">
-        {EXECUTIVE_MODES.map(({ label, icon: Icon, mode: itemMode }) => {
+        {EXECUTIVE_MODES.map(({ key, icon: Icon, mode: itemMode }) => {
           const active = mode === itemMode;
           return (
             <Button
-              key={label}
+              key={key}
               type="button"
               variant={active ? "default" : "outline"}
               size="sm"
@@ -142,7 +150,7 @@ export function ChatInput({
               onClick={() => selectMode(itemMode)}
             >
               <Icon className="h-3.5 w-3.5" />
-              {label}
+              {t(`modes.${key}`)}
             </Button>
           );
         })}
@@ -158,7 +166,7 @@ export function ChatInput({
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
           onInput={handleInput}
-          placeholder={MODE_PLACEHOLDER[mode]}
+          placeholder={modePlaceholder[mode]}
           rows={1}
           disabled={busy}
           className={cn(
@@ -166,14 +174,14 @@ export function ChatInput({
             "placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring",
             "disabled:opacity-50"
           )}
-          aria-label="Message input"
+          aria-label={t("messageInput")}
         />
         <Button
           type="submit"
           size="icon"
           disabled={!canSend}
           className="h-10 w-10 shrink-0 rounded-xl"
-          aria-label={busy ? "Working..." : "Send"}
+          aria-label={busy ? t("working") : t("send")}
         >
           {busy ? (
             <Loader2 className="h-4 w-4 animate-spin" />

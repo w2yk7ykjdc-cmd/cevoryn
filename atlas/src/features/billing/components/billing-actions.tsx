@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, CreditCard, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -11,10 +12,11 @@ import {
   BILLING_FEATURES,
   BILLING_PLANS,
   getPlanDefinition,
-  type BillingFeature,
   type BillingPlan,
 } from "@/features/billing/config/plans";
 import type { PlanPrice } from "@/server/services/paddle-catalog.service";
+
+type BillingTranslator = ReturnType<typeof useTranslations<"billing">>;
 
 type PaddleEnvironment = "sandbox" | "production";
 
@@ -78,65 +80,72 @@ function formatPlanPrice(price: PlanPrice): string {
   return `${amount}/${price.interval}`;
 }
 
-const FEATURE_LABELS: Record<BillingFeature, string> = {
-  CHAT: "AI chat",
-  DASHBOARD: "Dashboard",
-  DECISION_SUPPORT: "Decision support",
-  BRAIN: "CEVORYN Brain",
-  ADVANCED_REPORTS: "Advanced reports and briefs",
-  TEAM: "Team collaboration",
-  ADVANCED_RBAC: "Advanced RBAC",
-  PRIORITY_SUPPORT: "Priority support",
-};
-
-function formatMemberLimit(maxMembers: number): string {
-  return maxMembers === 1 ? "1 team member" : `Up to ${maxMembers} team members`;
+function formatMemberLimit(maxMembers: number, t: BillingTranslator): string {
+  return maxMembers === 1
+    ? t("memberLimitOne")
+    : t("memberLimit", { count: maxMembers });
 }
 
-function formatTokenLimit(monthlyAiTokens: number): string {
+function formatTokenLimit(
+  monthlyAiTokens: number,
+  t: BillingTranslator
+): string {
   const millions = monthlyAiTokens / 1_000_000;
   if (millions >= 1) {
-    return `${Number.isInteger(millions) ? millions : millions.toFixed(1)}M monthly AI tokens`;
+    return t("tokenLimitMillions", {
+      count: Number.isInteger(millions) ? millions : millions.toFixed(1),
+    });
   }
 
   const thousands = monthlyAiTokens / 1_000;
-  return `${Number.isInteger(thousands) ? thousands : thousands.toFixed(1)}K monthly AI tokens`;
+  return t("tokenLimitThousands", {
+    count: Number.isInteger(thousands) ? thousands : thousands.toFixed(1),
+  });
 }
 
-function getPaddleErrorMessage(event: PaddleEvent): string | null {
+function getPaddleErrorMessage(
+  event: PaddleEvent,
+  t: BillingTranslator
+): string | null {
   const code = event.code ?? event.error?.code;
   const detail = event.detail ?? event.error?.detail;
 
   if (code === "transaction_default_checkout_url_not_set") {
-    return "Paddle default payment link is not configured for this sandbox account.";
+    return t("paddleLinkNotConfigured");
   }
 
   if (code === "invalid_client_token") {
-    return "The Paddle client-side token is invalid or belongs to the wrong environment.";
+    return t("paddleInvalidToken");
   }
 
-  return detail ?? (code ? `Paddle checkout error: ${code}` : null);
+  return detail ?? (code ? t("paddleCheckoutError", { code }) : null);
 }
 
-function handlePaddleEvent(event: PaddleEvent): void {
-  if (event.name !== "checkout.error" && event.name !== "checkout.payment.error") {
+function handlePaddleEvent(event: PaddleEvent, t: BillingTranslator): void {
+  if (
+    event.name !== "checkout.error" &&
+    event.name !== "checkout.payment.error"
+  ) {
     return;
   }
 
   console.error("[cevoryn:paddle] Checkout error", event);
-  toast.error(getPaddleErrorMessage(event) ?? "Paddle checkout could not be opened.");
+  toast.error(getPaddleErrorMessage(event, t) ?? t("paddleCheckoutNotOpened"));
 }
 
-async function loadPaddle(environment: PaddleEnvironment): Promise<PaddleInstance> {
+async function loadPaddle(
+  environment: PaddleEnvironment,
+  t: BillingTranslator
+): Promise<PaddleInstance> {
   const token = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN?.trim();
-  if (!token) throw new Error("Paddle checkout is not configured.");
+  if (!token) throw new Error(t("paddleNotConfigured"));
 
   if (environment === "sandbox" && !token.startsWith("test_")) {
-    throw new Error("Paddle sandbox requires a test_ client-side token.");
+    throw new Error(t("paddleSandboxTokenRequired"));
   }
 
   if (environment === "production" && !token.startsWith("live_")) {
-    throw new Error("Paddle production requires a live_ client-side token.");
+    throw new Error(t("paddleProductionTokenRequired"));
   }
 
   if (!window.Paddle) {
@@ -146,9 +155,11 @@ async function loadPaddle(environment: PaddleEnvironment): Promise<PaddleInstanc
       );
       if (existing) {
         existing.addEventListener("load", () => resolve(), { once: true });
-        existing.addEventListener("error", () => reject(new Error("Paddle.js failed to load.")), {
-          once: true,
-        });
+        existing.addEventListener(
+          "error",
+          () => reject(new Error(t("paddleScriptLoadFailed"))),
+          { once: true }
+        );
         return;
       }
 
@@ -157,16 +168,19 @@ async function loadPaddle(environment: PaddleEnvironment): Promise<PaddleInstanc
       script.async = true;
       script.dataset.cevorynPaddle = "true";
       script.onload = () => resolve();
-      script.onerror = () => reject(new Error("Paddle.js failed to load."));
+      script.onerror = () => reject(new Error(t("paddleScriptLoadFailed")));
       document.head.appendChild(script);
     });
   }
 
-  if (!window.Paddle) throw new Error("Paddle.js is unavailable.");
+  if (!window.Paddle) throw new Error(t("paddleUnavailable"));
 
   if (!window.__cevorynPaddleInitialized) {
     if (environment === "sandbox") window.Paddle.Environment.set("sandbox");
-    window.Paddle.Initialize({ token, eventCallback: handlePaddleEvent });
+    window.Paddle.Initialize({
+      token,
+      eventCallback: (event) => handlePaddleEvent(event, t),
+    });
     window.__cevorynPaddleInitialized = true;
   }
 
@@ -180,6 +194,8 @@ export function BillingActions({
   canManage,
   planPrices,
 }: BillingActionsProps) {
+  const t = useTranslations("billing");
+  const tPricing = useTranslations("pricing");
   const [pendingAction, setPendingAction] = useState<string | null>(null);
 
   async function openCheckout(plan: BillingPlan) {
@@ -193,21 +209,28 @@ export function BillingActions({
       });
       const result = (await response.json()) as PaddleCheckoutResponse;
 
-      if (!response.ok || !result.priceId || !result.environment || !result.customData) {
-        throw new Error(result.error ?? "Billing request failed.");
+      if (
+        !response.ok ||
+        !result.priceId ||
+        !result.environment ||
+        !result.customData
+      ) {
+        throw new Error(result.error ?? t("billingRequestFailed"));
       }
 
-      const paddle = await loadPaddle(result.environment);
+      const paddle = await loadPaddle(result.environment, t);
       paddle.Checkout.open({
         items: [{ priceId: result.priceId, quantity: 1 }],
-        customer: result.customerEmail ? { email: result.customerEmail } : undefined,
+        customer: result.customerEmail
+          ? { email: result.customerEmail }
+          : undefined,
         customData: result.customData,
         settings: { displayMode: "overlay", theme: "light" },
       });
       setPendingAction(null);
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Billing is unavailable."
+        error instanceof Error ? error.message : t("billingUnavailable")
       );
       setPendingAction(null);
     }
@@ -222,16 +245,23 @@ export function BillingActions({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ plan }),
       });
-      const result = (await response.json()) as { success?: boolean; error?: string };
+      const result = (await response.json()) as {
+        success?: boolean;
+        error?: string;
+      };
 
       if (!response.ok || !result.success) {
-        throw new Error(result.error ?? "Plan change failed.");
+        throw new Error(result.error ?? t("planChangeFailed"));
       }
 
-      toast.success(`Plan change to ${getPlanDefinition(plan).name} is being processed.`);
+      toast.success(
+        t("planChangeProcessing", { plan: tPricing(`plans.${plan}.name`) })
+      );
       window.location.reload();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Billing is unavailable.");
+      toast.error(
+        error instanceof Error ? error.message : t("billingUnavailable")
+      );
       setPendingAction(null);
     }
   }
@@ -240,13 +270,18 @@ export function BillingActions({
     try {
       setPendingAction("portal");
       const response = await fetch("/api/billing/portal", { method: "POST" });
-      const result = (await response.json()) as { url?: string; error?: string };
+      const result = (await response.json()) as {
+        url?: string;
+        error?: string;
+      };
       if (!response.ok || !result.url) {
-        throw new Error(result.error ?? "Billing portal is unavailable.");
+        throw new Error(result.error ?? t("portalUnavailable"));
       }
       window.location.assign(result.url);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Billing is unavailable.");
+      toast.error(
+        error instanceof Error ? error.message : t("billingUnavailable")
+      );
       setPendingAction(null);
     }
   }
@@ -266,7 +301,7 @@ export function BillingActions({
             ) : (
               <CreditCard />
             )}
-            Manage billing
+            {t("manageBilling")}
           </Button>
         </div>
       ) : null}
@@ -280,24 +315,28 @@ export function BillingActions({
           return (
             <Card
               key={plan}
-              className={definition.recommended ? "border-primary shadow-sm" : ""}
+              className={
+                definition.recommended ? "border-primary shadow-sm" : ""
+              }
             >
               <CardHeader className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
-                  <CardTitle className="text-lg">{definition.name}</CardTitle>
+                  <CardTitle className="text-lg">
+                    {tPricing(`plans.${plan}.name`)}
+                  </CardTitle>
                   {definition.recommended ? (
-                    <Badge>Recommended</Badge>
+                    <Badge>{tPricing("recommended")}</Badge>
                   ) : isCurrent ? (
-                    <Badge variant="secondary">Current plan</Badge>
+                    <Badge variant="secondary">{t("currentPlan")}</Badge>
                   ) : null}
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  {definition.description}
+                  {tPricing(`plans.${plan}.description`)}
                 </p>
                 <p className="text-lg font-semibold">
                   {planPrices[plan]
                     ? formatPlanPrice(planPrices[plan])
-                    : "Price unavailable"}
+                    : t("priceUnavailable")}
                 </p>
               </CardHeader>
 
@@ -305,18 +344,22 @@ export function BillingActions({
                 <ul className="space-y-2">
                   <li className="flex gap-2 text-sm font-medium">
                     <Check className="mt-0.5 h-4 w-4 shrink-0" />
-                    <span>{formatMemberLimit(definition.limits.maxMembers)}</span>
+                    <span>
+                      {formatMemberLimit(definition.limits.maxMembers, t)}
+                    </span>
                   </li>
                   <li className="flex gap-2 text-sm font-medium">
                     <Check className="mt-0.5 h-4 w-4 shrink-0" />
-                    <span>{formatTokenLimit(definition.limits.monthlyAiTokens)}</span>
+                    <span>
+                      {formatTokenLimit(definition.limits.monthlyAiTokens, t)}
+                    </span>
                   </li>
                   {BILLING_FEATURES.filter((feature) =>
                     definition.features.has(feature)
                   ).map((feature) => (
                     <li key={feature} className="flex gap-2 text-sm">
                       <Check className="mt-0.5 h-4 w-4 shrink-0" />
-                      <span>{FEATURE_LABELS[feature]}</span>
+                      <span>{tPricing(`features.${feature}`)}</span>
                     </li>
                   ))}
                 </ul>
@@ -326,7 +369,10 @@ export function BillingActions({
                     type="button"
                     className="w-full"
                     variant={definition.recommended ? "default" : "outline"}
-                    disabled={pendingAction !== null || (isCurrent && hasActiveSubscription)}
+                    disabled={
+                      pendingAction !== null ||
+                      (isCurrent && hasActiveSubscription)
+                    }
                     onClick={() => {
                       if (hasActiveSubscription) {
                         void changePlan(plan);
@@ -335,16 +381,20 @@ export function BillingActions({
                       }
                     }}
                   >
-                    {checkoutPending ? <Loader2 className="animate-spin" /> : null}
+                    {checkoutPending ? (
+                      <Loader2 className="animate-spin" />
+                    ) : null}
                     {isCurrent && hasActiveSubscription
-                      ? "Current plan"
+                      ? t("currentPlan")
                       : hasActiveSubscription
-                        ? "Change plan"
-                        : `Choose ${definition.name}`}
+                        ? t("changePlan")
+                        : t("choosePlan", {
+                            plan: tPricing(`plans.${plan}.name`),
+                          })}
                   </Button>
                 ) : (
                   <p className="text-xs text-muted-foreground">
-                    Ask an organization owner or admin to manage this plan.
+                    {t("adminOnly")}
                   </p>
                 )}
               </CardContent>

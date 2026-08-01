@@ -8,6 +8,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -34,6 +35,7 @@ interface ChatSidebarProps {
 }
 
 export function ChatSidebar({ activeId, onNavigate }: ChatSidebarProps) {
+  const t = useTranslations("chat");
   const router = useRouter();
   const { conversations, invalidate } = useConversations();
   const [isCreating, setIsCreating] = useState(false);
@@ -52,7 +54,7 @@ export function ChatSidebar({ activeId, onNavigate }: ChatSidebarProps) {
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
         const message =
-          payload?.error?.message ?? "Failed to create conversation";
+          payload?.error?.message ?? t("conversationCreateFailed");
         toast.error(message);
         return;
       }
@@ -61,7 +63,7 @@ export function ChatSidebar({ activeId, onNavigate }: ChatSidebarProps) {
       const conversationId = payload?.data?.id;
 
       if (typeof conversationId !== "string" || !conversationId) {
-        toast.error("Conversation was created without a valid ID");
+        toast.error(t("conversationInvalidId"));
         return;
       }
 
@@ -71,7 +73,7 @@ export function ChatSidebar({ activeId, onNavigate }: ChatSidebarProps) {
       router.refresh();
     } catch (error) {
       console.error("Create conversation error:", error);
-      toast.error("Something went wrong while creating the conversation");
+      toast.error(t("conversationCreateError"));
     } finally {
       setIsCreating(false);
     }
@@ -83,7 +85,7 @@ export function ChatSidebar({ activeId, onNavigate }: ChatSidebarProps) {
   }
 
   function handleRename(conversation: ConversationSummary) {
-    const newTitle = prompt("Rename conversation:", conversation.title);
+    const newTitle = prompt(t("renamePrompt"), conversation.title);
     if (!newTitle?.trim()) return;
 
     startTransition(async () => {
@@ -100,7 +102,7 @@ export function ChatSidebar({ activeId, onNavigate }: ChatSidebarProps) {
   }
 
   function handleDelete(id: string) {
-    if (!confirm("Delete this conversation? This cannot be undone.")) return;
+    if (!confirm(t("deleteConfirm"))) return;
 
     startTransition(async () => {
       const result = await deleteConversationAction({ id });
@@ -130,16 +132,19 @@ export function ChatSidebar({ activeId, onNavigate }: ChatSidebarProps) {
           ) : (
             <MessageSquarePlus className="h-4 w-4" />
           )}
-          {isCreating ? "Creating..." : "New conversation"}
+          {isCreating ? t("creating") : t("newConversation")}
         </Button>
       </div>
 
       <Separator />
 
-      <nav className="flex-1 overflow-y-auto p-2" aria-label="Conversations">
+      <nav
+        className="flex-1 overflow-y-auto p-2"
+        aria-label={t("conversations")}
+      >
         {conversations.length === 0 ? (
           <p className="px-3 py-6 text-center text-sm text-muted-foreground">
-            No conversations yet
+            {t("noConversations")}
           </p>
         ) : (
           <ul className="space-y-0.5">
@@ -173,6 +178,7 @@ function ConversationItem({
   onRename: () => void;
   onDelete: () => void;
 }) {
+  const t = useTranslations("chat");
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -197,7 +203,7 @@ function ConversationItem({
               "group-hover:opacity-100",
               menuOpen && "opacity-100"
             )}
-            aria-label="Conversation options"
+            aria-label={t("conversationOptions")}
           >
             <MoreHorizontal className="h-4 w-4" />
           </button>
@@ -205,14 +211,14 @@ function ConversationItem({
         <DropdownMenuContent align="end" className="w-40">
           <DropdownMenuItem onClick={onRename}>
             <Pencil className="mr-2 h-3.5 w-3.5" />
-            Rename
+            {t("rename")}
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={onDelete}
             className="text-destructive focus:text-destructive"
           >
             <Trash2 className="mr-2 h-3.5 w-3.5" />
-            Delete
+            {t("delete")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

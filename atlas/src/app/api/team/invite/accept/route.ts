@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 
 import { canAcceptInvite } from "@/features/team/invites";
@@ -38,12 +39,16 @@ export async function POST(request: Request) {
 
     if (!invite) return notFoundResponse("Invite not found");
 
-    const eligibility = canAcceptInvite({
-      inviteEmail: invite.email,
-      userEmail: user.email,
-      status: invite.status,
-      expiresAt: invite.expiresAt,
-    });
+    const t = await getTranslations("invite.errors");
+    const eligibility = canAcceptInvite(
+      {
+        inviteEmail: invite.email,
+        userEmail: user.email,
+        status: invite.status,
+        expiresAt: invite.expiresAt,
+      },
+      t
+    );
 
     if (!eligibility.ok) {
       if (

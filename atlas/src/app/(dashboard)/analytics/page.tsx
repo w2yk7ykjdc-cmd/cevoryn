@@ -14,6 +14,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireMembership, requireUser } from "@/lib/auth";
@@ -26,6 +27,7 @@ export const dynamic = "force-dynamic";
 export default async function AnalyticsPage() {
   const user = await requireUser();
   const membership = await requireMembership(user.id);
+  const t = await getTranslations("analytics");
 
   if (!hasPermission(membership.role, "analytics:read")) {
     redirect("/dashboard");
@@ -126,36 +128,34 @@ export default async function AnalyticsPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6 pb-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Product Analytics</h1>
-        <p className="text-sm text-muted-foreground">
-          Real usage and execution signals for the last 30 days.
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
+        <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           icon={Users}
-          label="Active users"
+          label={t("activeUsers")}
           value={`${activeMembers.length}/${members}`}
-          detail={`${activeUserRate}% of team`}
+          detail={t("ofTeam", { percent: activeUserRate })}
         />
         <MetricCard
           icon={MessageSquare}
-          label="User messages"
+          label={t("userMessages")}
           value={messages30d}
-          detail={`${messages7d} in 7 days`}
+          detail={t("inDays", { count: messages7d })}
         />
         <MetricCard
           icon={Sparkles}
-          label="Briefs generated"
+          label={t("briefsGenerated")}
           value={briefs30d}
-          detail={`${conversations30d} conversations`}
+          detail={t("conversationsCount", { count: conversations30d })}
         />
         <MetricCard
           icon={CheckCircle2}
-          label="Actions approved"
+          label={t("actionsApproved")}
           value={approvedActions30d}
-          detail={`${actionCompletionRate}% completion`}
+          detail={t("completionRate", { percent: actionCompletionRate })}
         />
       </div>
 
@@ -163,42 +163,42 @@ export default async function AnalyticsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <BarChart3 className="h-4 w-4" />
-            Execution funnel
+            {t("executionFunnel")}
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-3">
           <FunnelStep
-            label="Open insights"
+            label={t("openInsights")}
             value={openInsights}
-            description="Signals waiting for review"
+            description={t("openInsightsDescription")}
           />
           <FunnelStep
-            label="Insights acted on"
+            label={t("insightsActedOn")}
             value={completedInsights30d}
-            description="Converted into action"
+            description={t("insightsActedOnDescription")}
           />
           <FunnelStep
-            label="Decisions progressed"
+            label={t("decisionsProgressed")}
             value={progressedDecisions30d}
-            description="Accepted or executed"
+            description={t("decisionsProgressedDescription")}
           />
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Usage momentum</CardTitle>
+          <CardTitle className="text-base">{t("usageMomentum")}</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <FunnelStep
-            label="7-day conversations"
+            label={t("conversations7d")}
             value={conversations7d}
-            description="New work sessions this week"
+            description={t("conversations7dDescription")}
           />
           <FunnelStep
-            label="30-day conversations"
+            label={t("conversations30d")}
             value={conversations30d}
-            description="New work sessions this month"
+            description={t("conversations30dDescription")}
           />
         </CardContent>
       </Card>
