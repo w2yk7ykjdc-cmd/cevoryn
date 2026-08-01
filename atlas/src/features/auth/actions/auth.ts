@@ -51,7 +51,7 @@ async function getAppUrl(): Promise<string> {
   const requestHeaders = await headers();
   const host = requestHeaders.get("host");
   if (host?.includes("localhost")) return `http://${host}`.replace(/\/$/, "");
-  return "https://cevoryn.vercel.app";
+  return "https://cevoryn.com";
 }
 
 function getConfirmationRedirectPath(redirectTo?: string): string {

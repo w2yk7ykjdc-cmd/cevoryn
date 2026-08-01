@@ -17,6 +17,6 @@ export function getAppUrl(): string {
     normalizeHttpUrl(process.env.NEXT_PUBLIC_APP_URL) ??
     normalizeHttpUrl(process.env.VERCEL_PROJECT_PRODUCTION_URL) ??
     normalizeHttpUrl(process.env.VERCEL_URL) ??
-    "https://cevoryn.vercel.app"
+    "https://cevoryn.com"
   );
 }
