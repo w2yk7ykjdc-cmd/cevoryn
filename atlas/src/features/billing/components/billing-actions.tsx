@@ -17,6 +17,7 @@ import {
 import type { PlanPrice } from "@/server/services/paddle-catalog.service";
 
 type BillingTranslator = ReturnType<typeof useTranslations<"billing">>;
+type PricingTranslator = ReturnType<typeof useTranslations<"pricing">>;
 
 type PaddleEnvironment = "sandbox" | "production";
 
@@ -80,7 +81,7 @@ function formatPlanPrice(price: PlanPrice): string {
   return `${amount}/${price.interval}`;
 }
 
-function formatMemberLimit(maxMembers: number, t: BillingTranslator): string {
+function formatMemberLimit(maxMembers: number, t: PricingTranslator): string {
   return maxMembers === 1
     ? t("memberLimitOne")
     : t("memberLimit", { count: maxMembers });
@@ -345,7 +346,10 @@ export function BillingActions({
                   <li className="flex gap-2 text-sm font-medium">
                     <Check className="mt-0.5 h-4 w-4 shrink-0" />
                     <span>
-                      {formatMemberLimit(definition.limits.maxMembers, t)}
+                      {formatMemberLimit(
+                        definition.limits.maxMembers,
+                        tPricing
+                      )}
                     </span>
                   </li>
                   <li className="flex gap-2 text-sm font-medium">
