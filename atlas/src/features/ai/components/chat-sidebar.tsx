@@ -31,6 +31,7 @@ import {
   renameConversationAction,
 } from "../actions/conversations";
 import { useConversations } from "../hooks/use-conversations";
+import { resolveTitleSubmission } from "../lib/editable-title";
 
 interface ChatSidebarProps {
   activeId?: string;
@@ -201,15 +202,15 @@ function ConversationItem({
   }
 
   async function saveRename() {
-    const nextTitle = draftTitle.trim();
-    if (!nextTitle || nextTitle === conversation.title) {
+    const submission = resolveTitleSubmission(draftTitle, conversation.title);
+    if (!submission.shouldSubmit) {
       setDraftTitle(conversation.title);
       setIsRenaming(false);
       return;
     }
 
     setIsSaving(true);
-    const saved = await onRename(nextTitle);
+    const saved = await onRename(submission.nextTitle);
     setIsSaving(false);
     if (saved) setIsRenaming(false);
   }
