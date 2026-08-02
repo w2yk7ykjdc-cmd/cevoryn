@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getMembership, getUser } from "@/lib/auth";
 import { captureServerError } from "@/lib/error-reporting";
-import { paddleApi, PaddleConfigurationError } from "@/lib/paddle/server";
+import { paddleApi, PaddleConfigurationError } from "@/lib/paddle/config";
 import { getOrganizationSubscription } from "@/server/services/billing.service";
 
 export const runtime = "nodejs";

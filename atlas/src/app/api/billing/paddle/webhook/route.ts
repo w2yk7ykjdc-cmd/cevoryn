@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 
 import { captureServerError } from "@/lib/error-reporting";
-import { getBillingPlanFromPaddlePriceId } from "@/lib/paddle/server";
+import { getBillingPlanFromPaddlePriceId } from "@/lib/paddle/config";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
