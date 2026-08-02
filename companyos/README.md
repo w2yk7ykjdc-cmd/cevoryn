@@ -30,6 +30,7 @@ src/
     accept-invitation/      invite acceptance flow
     api/auth/[...all]       Better Auth handler
     api/ai/chat             AI Runtime HTTP entrypoint
+    api/billing/webhook     Stripe inbound webhook receiver
     api/health              liveness/readiness probe
   proxy.ts                  Next 16 "proxy" (formerly middleware): optimistic auth gate
   env.ts                    zod-validated environment access (the only file that reads process.env)
@@ -50,6 +51,12 @@ src/
       planner/               LLM-backed multi-step plan generation
       approval/              risk policy + human-approval service for gated tool calls
       agent/                 multi-step run executor: plans, executes, halts, pauses, resumes
+    billing/
+      provider/              PaymentProvider interface + Stripe adapter + registry
+      plans.ts               plan catalog (free/pro/enterprise), seeded idempotently
+      subscription.ts        provisioning, checkout/portal sessions, webhook event application
+      usage.ts               usage ledger, current-period aggregation, limit enforcement
+      rollover.ts            advances free-tier billing periods once they've ended
 ```
 
 ### Multi-tenancy
@@ -198,6 +205,44 @@ comes from `resolveDefaultTarget()`/`resolveProviderForModel()`, the same
 Sprint 0 provider registry the chat runtime resolves against — no new
 provider plumbing.
 
+### Billing & usage metering (Sprint 3)
+
+Every organization has exactly one `Subscription`, provisioned onto the
+free plan the moment it's created (`provisionDefaultSubscription`, hooked
+into the same `afterCreateOrganization` callback Sprint 1 used for
+pipeline seeding). The plan catalog (`src/server/billing/plans.ts`) is
+free/pro/enterprise, defined in code and seeded idempotently at read time
+— no separate seed script needed in CI.
+
+**Payments.** `src/server/billing/provider` mirrors the `AIProvider`
+pattern from Sprint 0: a `PaymentProvider` interface with a Stripe adapter
+behind it, resolved through a registry that throws a clear error if
+`STRIPE_SECRET_KEY` isn't set rather than crashing at boot — billing is
+opt-in per environment, same as an AI provider key. Checkout and billing
+portal sessions, and inbound webhook processing
+(`POST /api/billing/webhook`), all go through this interface, so tests
+exercise the billing business logic against an injected fake provider
+instead of real Stripe. Webhook events are idempotent: the event's own
+Stripe id is the primary key of `BillingWebhookEvent`, so a redelivery is
+caught as a unique-constraint violation and safely ignored.
+
+**Usage metering.** `src/server/billing/usage.ts` records AI token
+consumption (from both the chat runtime and the agent planner) and agent
+run counts to an append-only `UsageRecord` ledger; current-period usage is
+computed on read by summing rows within the subscription's
+`[currentPeriodStart, currentPeriodEnd)` window rather than maintaining a
+running counter that could drift. `checkUsageLimit` runs *before* the
+expensive work starts — at the top of `runConversationTurn` and
+`startAgentRun`, before any model is even resolved — so a maxed-out
+organization is stopped without spending a token, the same
+halt-before-doing-more-damage principle Sprint 2 uses for tool failures.
+Exceeding a limit surfaces as `UsageLimitExceededError` (429 from
+`/api/ai/chat`, a friendly message from the agent's Server Action). A free
+plan's billing period has no Stripe-driven renewal, so a scheduled job
+(`roll-billing-periods`, hourly) advances it once it ends; paid
+subscriptions are left alone since Stripe's own `customer.subscription.updated`
+webhook keeps their period current.
+
 ## Getting started
 
 ```bash
@@ -253,6 +298,9 @@ via `docker compose up -d postgres redis`, or any reachable instance your
 - `tests/planner.test.ts` — `createPlan` against a scripted `AIProvider` test double: valid plans, the direct-answer fallback, and every validation-error path (malformed args, unknown tool, over the step cap)
 - `tests/approval-policy.test.ts` — the risk classification table, including the secure-by-default fallback for unrecognized tools
 - `tests/agent-executor.test.ts` — the full agent run loop against the real Tool Engine: multi-step completion, halt-on-error (a genuine RBAC denial mid-run), pause/approve/resume, pause/reject/continue, and RBAC preserved on the approval decision itself
+- `tests/billing-subscription.test.ts` — default provisioning, checkout/portal session creation against a fake `PaymentProvider`, and webhook lifecycle application (`checkout.session.completed`, `customer.subscription.{updated,deleted}`) including idempotency on a redelivered event id
+- `tests/billing-usage.test.ts` — the usage ledger, `checkUsageLimit`'s pass/throw boundary, `getUsageSummary`, and billing-period rollover (advances free-tier subscriptions, leaves Stripe-managed ones alone)
+- `tests/billing-limit-enforcement.test.ts` — `runConversationTurn` and `startAgentRun` both refuse to start once a plan's limit is exhausted, verified without needing a real AI provider key since the check runs before either ever resolves a provider
 
 Each test creates its own users/organizations with random emails and slugs,
 so the suite is safe to run repeatedly against the same database.

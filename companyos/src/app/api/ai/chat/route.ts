@@ -5,6 +5,7 @@ import { prisma } from "@/server/db/client";
 import { assertWithinRateLimit, RateLimitExceededError } from "@/server/rate-limit/limiter";
 import { runConversationTurn } from "@/server/ai/runtime/runtime";
 import { createConversation } from "@/server/ai/runtime/conversations";
+import { UsageLimitExceededError } from "@/server/billing/usage";
 import { env } from "@/env";
 import { logger } from "@/server/logger/logger";
 
@@ -90,6 +91,9 @@ export async function POST(request: Request) {
       usage: result.usage,
     });
   } catch (err) {
+    if (err instanceof UsageLimitExceededError) {
+      return NextResponse.json({ error: err.message }, { status: 429 });
+    }
     logger.error({ err, conversationId, organizationId }, "AI runtime turn failed");
     return NextResponse.json({ error: "AI request failed" }, { status: 502 });
   }

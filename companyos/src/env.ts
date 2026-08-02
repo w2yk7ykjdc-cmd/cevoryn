@@ -37,6 +37,11 @@ export const env = createEnv({
     ANTHROPIC_API_KEY: z.string().optional(),
     GOOGLE_GENERATIVE_AI_API_KEY: z.string().optional(),
 
+    STRIPE_SECRET_KEY: z.string().optional(),
+    STRIPE_WEBHOOK_SECRET: z.string().optional(),
+    STRIPE_PRICE_ID_PRO: z.string().optional(),
+    STRIPE_PRICE_ID_ENTERPRISE: z.string().optional(),
+
     AI_DEFAULT_PROVIDER: z
       .enum(["openai", "anthropic", "google"])
       .default("anthropic"),

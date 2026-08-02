@@ -66,7 +66,7 @@ export async function createPlan(input: CreatePlanInput): Promise<Plan> {
   const proposal = result.toolCalls.find((call) => call.name === PROPOSE_PLAN_TOOL_NAME);
 
   if (!proposal) {
-    return { goal: input.goal, steps: [], directAnswer: result.content || null };
+    return { goal: input.goal, steps: [], directAnswer: result.content || null, usage: result.usage };
   }
 
   const parsed = proposePlanSchema.safeParse(proposal.arguments);
@@ -88,5 +88,6 @@ export async function createPlan(input: CreatePlanInput): Promise<Plan> {
       rationale: step.rationale,
     })),
     directAnswer: null,
+    usage: result.usage,
   };
 }

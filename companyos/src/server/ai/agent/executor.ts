@@ -7,6 +7,7 @@ import { classifyToolRisk } from "@/server/ai/approval/policy";
 import { requestApproval } from "@/server/ai/approval/service";
 import { executeToolCall } from "@/server/ai/tools/executor";
 import { recordAuditLog, publishAuditEvent, type ActorType } from "@/server/audit/audit-log";
+import { checkUsageLimit, recordUsage } from "@/server/billing/usage";
 import { logger } from "@/server/logger/logger";
 import {
   AgentRunNotFoundError,
@@ -37,6 +38,9 @@ export type StartAgentRunInput = {
  * the blocking approval has been decided.
  */
 export async function startAgentRun(input: StartAgentRunInput): Promise<AgentRunWithSteps> {
+  await checkUsageLimit(input.organizationId, "agent_run");
+  await checkUsageLimit(input.organizationId, "ai_tokens");
+
   const plan = await createPlan({
     goal: input.goal,
     history: input.history,
@@ -44,6 +48,8 @@ export async function startAgentRun(input: StartAgentRunInput): Promise<AgentRun
     providerId: input.providerId,
     model: input.model,
   });
+  await recordUsage(input.organizationId, "ai_tokens", plan.usage.inputTokens + plan.usage.outputTokens);
+  await recordUsage(input.organizationId, "agent_run", 1);
 
   let auditEntry: { id: string; organizationId: string; action: string } | undefined;
   const created = await prisma.$transaction(async (tx) => {

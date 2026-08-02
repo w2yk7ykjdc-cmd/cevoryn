@@ -63,6 +63,17 @@ export type EventMap = {
     assigneeId: string | null;
     title: string;
   };
+  "billing.subscription_updated": {
+    organizationId: string;
+    subscriptionId: string;
+    status: string;
+  };
+  "billing.usage_limit_exceeded": {
+    organizationId: string;
+    metric: string;
+    limit: number;
+    current: number;
+  };
 };
 
 export type EventName = keyof EventMap;

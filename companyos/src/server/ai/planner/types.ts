@@ -14,6 +14,8 @@ export type Plan = {
   goal: string;
   steps: PlanStep[];
   directAnswer: string | null;
+  /** Token cost of the single planning call, for usage metering (src/server/billing/usage). */
+  usage: { inputTokens: number; outputTokens: number };
 };
 
 /** The planner's own output failed to validate — a malformed plan or a step referencing an unregistered tool. */
