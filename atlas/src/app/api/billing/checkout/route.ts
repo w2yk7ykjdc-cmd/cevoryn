@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { checkoutRequestSchema } from "@/features/billing/schemas/checkout";
 import { isSubscriptionActive } from "@/features/billing/types";
 import { getMembership, getUser } from "@/lib/auth";
+import { captureServerError } from "@/lib/error-reporting";
 import {
   getPaddleEnvironment,
   getPaddlePriceId,
@@ -49,7 +50,10 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const parsedBody = checkoutRequestSchema.safeParse(requestBody);
   if (!parsedBody.success) {
-    return NextResponse.json({ error: "Invalid billing plan." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid billing plan." },
+      { status: 400 }
+    );
   }
 
   try {
@@ -77,9 +81,8 @@ export async function POST(request: Request): Promise<NextResponse> {
       },
     });
   } catch (error) {
-    console.error("[cevoryn:billing] Paddle checkout preparation failed", {
+    captureServerError("paddle-checkout", error, {
       organizationId: membership.organizationId,
-      message: error instanceof Error ? error.message : "Unknown error",
     });
 
     const message =
