@@ -8,7 +8,7 @@ import {
   getPaddlePriceId,
   paddleApi,
   PaddleConfigurationError,
-} from "@/lib/paddle/server";
+} from "@/lib/paddle/config";
 import { getOrganizationSubscription } from "@/server/services/billing.service";
 
 export const runtime = "nodejs";
