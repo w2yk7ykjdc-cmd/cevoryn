@@ -3,7 +3,11 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import { getMembership, getUser } from "@/lib/auth";
-import { createGoogleAuthorizationUrl, createOAuthState } from "@/lib/google-oauth";
+import { captureServerError } from "@/lib/error-reporting";
+import {
+  createGoogleAuthorizationUrl,
+  createOAuthState,
+} from "@/lib/google-oauth";
 
 function settingsErrorUrl(request: NextRequest): URL {
   return new URL("/settings?google=error", request.url);
@@ -29,10 +33,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.redirect(createGoogleAuthorizationUrl(state));
   } catch (error) {
-    console.error(
-      "[cevoryn:google] connect failed",
-      error instanceof Error ? error.message : "unknown"
-    );
+    captureServerError("google-connect", error);
     return NextResponse.redirect(settingsErrorUrl(request));
   }
 }

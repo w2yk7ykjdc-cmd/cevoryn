@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import { requireMembership, requireUser } from "@/lib/auth";
+import { captureServerError } from "@/lib/error-reporting";
 import {
   encryptGoogleToken,
   exchangeGoogleCode,
@@ -17,12 +18,18 @@ type StoredRefreshToken = {
   refresh_token_encrypted: string | null;
 };
 
-function hasValidState(state: string | null, expectedState: string | undefined) {
+function hasValidState(
+  state: string | null,
+  expectedState: string | undefined
+) {
   if (!state || !expectedState) return false;
 
   const actual = Buffer.from(state);
   const expected = Buffer.from(expectedState);
-  return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
+  return (
+    actual.length === expected.length &&
+    crypto.timingSafeEqual(actual, expected)
+  );
 }
 
 function settingsErrorUrl(request: NextRequest): URL {
@@ -98,10 +105,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.redirect(getGoogleSettingsUrl("connected"));
   } catch (error) {
-    console.error(
-      "[cevoryn:google] callback failed",
-      error instanceof Error ? error.message : "unknown"
-    );
+    captureServerError("google-callback", error);
     return NextResponse.redirect(settingsErrorUrl(request));
   }
 }
