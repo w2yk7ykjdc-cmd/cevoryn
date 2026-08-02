@@ -16,6 +16,8 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+import { resolveTitleSubmission } from "../lib/editable-title";
+
 interface ChatHeaderProps {
   title: string;
   onToggleSidebar: () => void;
@@ -40,14 +42,14 @@ export function ChatHeader({
   }, [title]);
 
   async function saveTitle() {
-    const nextTitle = draftTitle.trim();
-    if (!nextTitle || nextTitle === title) {
+    const submission = resolveTitleSubmission(draftTitle, title);
+    if (!submission.shouldSubmit) {
       setDraftTitle(title);
       setIsEditing(false);
       return;
     }
 
-    const saved = await onRename(nextTitle);
+    const saved = await onRename(submission.nextTitle);
     if (saved) setIsEditing(false);
   }
 
