@@ -22,6 +22,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { BRAND } from "@/lib/brand";
+import { hasPermission } from "@/lib/rbac";
 import { cn } from "@/lib/utils";
 import type { MembershipContext } from "@/types";
 
@@ -84,8 +85,7 @@ export function Sidebar({ membership, onNavigate }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const t = useTranslations("nav");
-  const canViewAnalytics =
-    membership.role === "OWNER" || membership.role === "ADMIN";
+  const canViewAnalytics = hasPermission(membership.role, "analytics:read");
 
   const visibleItems = NAV_ITEMS.filter(
     (item) => !("adminOnly" in item && item.adminOnly) || canViewAnalytics

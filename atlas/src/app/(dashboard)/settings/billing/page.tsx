@@ -11,6 +11,7 @@ import {
 } from "@/features/billing/config/plans";
 import { isSubscriptionActive } from "@/features/billing/types";
 import { requireMembership, requireUser } from "@/lib/auth";
+import { isRoleAtLeast } from "@/lib/rbac";
 import { getOrganizationSubscription } from "@/server/services/billing.service";
 import { getPlanPrices } from "@/server/services/paddle-catalog.service";
 
@@ -40,7 +41,7 @@ export default async function BillingPage() {
   const active = subscription
     ? isSubscriptionActive(subscription.subscriptionStatus)
     : false;
-  const canManage = membership.role === "OWNER" || membership.role === "ADMIN";
+  const canManage = isRoleAtLeast(membership.role, "ADMIN");
   const paymentProblem =
     subscription?.subscriptionStatus === "PAST_DUE" ||
     subscription?.subscriptionStatus === "UNPAID";

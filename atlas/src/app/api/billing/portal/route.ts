@@ -3,13 +3,10 @@ import { NextResponse } from "next/server";
 import { getMembership, getUser } from "@/lib/auth";
 import { captureServerError } from "@/lib/error-reporting";
 import { paddleApi, PaddleConfigurationError } from "@/lib/paddle/config";
+import { isRoleAtLeast } from "@/lib/rbac";
 import { getOrganizationSubscription } from "@/server/services/billing.service";
 
 export const runtime = "nodejs";
-
-function canManageBilling(role: string): boolean {
-  return role === "OWNER" || role === "ADMIN";
-}
 
 type PortalResponse = {
   data: {
@@ -29,7 +26,7 @@ export async function POST(): Promise<NextResponse> {
       { status: 403 }
     );
   }
-  if (!canManageBilling(membership.role)) {
+  if (!isRoleAtLeast(membership.role, "ADMIN")) {
     return NextResponse.json(
       { error: "Only organization owners and admins can manage billing." },
       { status: 403 }
