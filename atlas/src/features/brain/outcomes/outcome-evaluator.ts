@@ -9,6 +9,11 @@ import type { DecisionCanvas } from "../decisions/types";
 import { conversationEvidence } from "../trust/trust-engine";
 import type { Evidence } from "../trust/types";
 
+import {
+  clampScore,
+  computeEvalConfidence,
+  validateResult,
+} from "./outcome-evaluation-math";
 import type { OutcomeEvaluationResult } from "./types";
 
 const EVALUATION_PROMPT = `You are evaluating whether a business recommendation led to a good outcome.
@@ -139,32 +144,4 @@ export async function evaluateOutcome(
     console.error(`Outcome evaluation failed: ${msg}`);
     return null;
   }
-}
-
-function validateResult(
-  value: unknown
-): "SUCCESS" | "FAILURE" | "PARTIAL_SUCCESS" | "NO_OUTCOME_YET" {
-  const valid = new Set(["SUCCESS", "FAILURE", "PARTIAL_SUCCESS"]);
-  if (typeof value === "string" && valid.has(value)) {
-    return value as "SUCCESS" | "FAILURE" | "PARTIAL_SUCCESS";
-  }
-  return "NO_OUTCOME_YET";
-}
-
-function clampScore(value: unknown): number {
-  if (typeof value !== "number") return 0.5;
-  return Math.max(0, Math.min(1, value));
-}
-
-function computeEvalConfidence(
-  evidenceCount: number,
-  outcomeLength: number
-): number {
-  let c = 0.3;
-  if (evidenceCount >= 3) c += 0.2;
-  else if (evidenceCount >= 1) c += 0.1;
-  if (outcomeLength > 50) c += 0.2;
-  else if (outcomeLength > 20) c += 0.1;
-  c += 0.1; // AI evaluation adds some confidence
-  return Math.min(c, 0.9);
 }
