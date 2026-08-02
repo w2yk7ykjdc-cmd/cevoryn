@@ -4,7 +4,10 @@ import { prisma } from "@/lib/prisma";
 
 import type { DecisionCanvas } from "../decisions/types";
 
+import { computeAdjustmentFactor } from "./confidence-calibration-math";
 import type { CalibrationData } from "./types";
+
+export { applyCalibration } from "./confidence-calibration-math";
 
 /**
  * Confidence Calibration Engine
@@ -85,34 +88,9 @@ export async function computeCalibration(organizationId: string): Promise<{
   const avgDelta =
     dataPoints.reduce((sum, d) => sum + d.delta, 0) / dataPoints.length;
 
-  // Adjustment factor:
-  // - If overconfident by 0.2 → multiply future confidence by 0.8
-  // - If underconfident by 0.1 → multiply by 1.05 (conservative increase)
-  // - Never increase more than 5% (to prevent confidence inflation)
-  let adjustmentFactor = 1.0;
-  if (avgDelta > 0.05) {
-    // Overconfident — reduce
-    adjustmentFactor = Math.max(0.7, 1.0 - avgDelta);
-  } else if (avgDelta < -0.05) {
-    // Underconfident — slight increase, capped
-    adjustmentFactor = Math.min(1.05, 1.0 - avgDelta * 0.5);
-  }
-
   return {
-    adjustmentFactor,
+    adjustmentFactor: computeAdjustmentFactor(avgDelta),
     dataPoints,
     isCalibrated: dataPoints.length >= 5,
   };
-}
-
-/**
- * Apply calibration to a raw confidence score.
- * The result is clamped to [0.05, 0.95] — CEVORYN never claims certainty.
- */
-export function applyCalibration(
-  rawConfidence: number,
-  adjustmentFactor: number
-): number {
-  const calibrated = rawConfidence * adjustmentFactor;
-  return Math.max(0.05, Math.min(0.95, calibrated));
 }
