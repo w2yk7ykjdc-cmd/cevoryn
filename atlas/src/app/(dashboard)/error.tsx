@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
+import { reportClientError } from "@/lib/client-error-reporter";
 
 export default function DashboardError({
   error,
@@ -16,7 +17,7 @@ export default function DashboardError({
   const t = useTranslations("errorBoundaries.dashboard");
 
   useEffect(() => {
-    console.error("Dashboard error:", error);
+    reportClientError(error, "route");
   }, [error]);
 
   return (

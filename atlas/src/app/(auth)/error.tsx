@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
+import { reportClientError } from "@/lib/client-error-reporter";
 
 export default function AuthError({
   error,
@@ -16,7 +17,7 @@ export default function AuthError({
   const t = useTranslations("errorBoundaries.auth");
 
   useEffect(() => {
-    console.error("Authentication page error:", error);
+    reportClientError(error, "route");
   }, [error]);
 
   return (

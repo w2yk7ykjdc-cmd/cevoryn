@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -25,7 +26,9 @@ function isSameOriginBrowserRequest(request: Request): boolean {
 
 function invalidReportResponse(status = 400) {
   return NextResponse.json(
-    { error: { code: "INVALID_ERROR_REPORT", message: "Invalid error report" } },
+    {
+      error: { code: "INVALID_ERROR_REPORT", message: "Invalid error report" },
+    },
     { status }
   );
 }
@@ -61,6 +64,15 @@ export async function POST(request: Request) {
     console.error("[cevoryn] client_error", {
       ...result.data,
       receivedAt: new Date().toISOString(),
+    });
+
+    const reportedError = new Error(
+      result.data.message ?? "Unreported client error"
+    );
+    reportedError.name = result.data.name ?? "ClientError";
+    Sentry.captureException(reportedError, {
+      tags: { scope: "client-error-boundary", boundary: result.data.boundary },
+      extra: { digest: result.data.digest, path: result.data.path },
     });
 
     return new NextResponse(null, { status: 204 });

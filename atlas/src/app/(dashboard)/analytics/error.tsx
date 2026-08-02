@@ -6,6 +6,7 @@ import { useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { reportClientError } from "@/lib/client-error-reporter";
 
 export default function AnalyticsError({
   error,
@@ -17,7 +18,7 @@ export default function AnalyticsError({
   const t = useTranslations("analytics");
 
   useEffect(() => {
-    console.error("Analytics route failed", error);
+    reportClientError(error, "route");
   }, [error]);
 
   return (

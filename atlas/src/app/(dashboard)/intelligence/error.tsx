@@ -6,6 +6,7 @@ import { useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { reportClientError } from "@/lib/client-error-reporter";
 
 export default function IntelligenceError({
   error,
@@ -17,7 +18,7 @@ export default function IntelligenceError({
   const t = useTranslations("errorBoundaries.intelligence");
 
   useEffect(() => {
-    console.error("Intelligence route failed", error);
+    reportClientError(error, "route");
   }, [error]);
 
   return (
