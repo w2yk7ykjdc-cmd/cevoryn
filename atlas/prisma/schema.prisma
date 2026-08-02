@@ -25,19 +25,20 @@ model Organization {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  members        Member[]
-  invites        Invite[]
-  conversations  Conversation[]
-  usageRecords   UsageRecord[]
-  memories       Memory[]
-  insights       Insight[]
-  pulseSnapshots PulseSnapshot[]
-  briefs          Brief[]
-  preparedActions PreparedAction[]
-  decisions           Decision[]
-  outcomeEvaluations  OutcomeEvaluation[]
-  learningPatterns    LearningPattern[]
-  analyticsEvents     AnalyticsEvent[]
+  members            Member[]
+  invites            Invite[]
+  conversations      Conversation[]
+  usageRecords       UsageRecord[]
+  memories           Memory[]
+  insights           Insight[]
+  pulseSnapshots     PulseSnapshot[]
+  briefs             Brief[]
+  preparedActions    PreparedAction[]
+  decisions          Decision[]
+  outcomeEvaluations OutcomeEvaluation[]
+  learningPatterns   LearningPattern[]
+  analyticsEvents    AnalyticsEvent[]
+  subscription       Subscription?
 
   @@map("organizations")
 }
@@ -478,4 +479,69 @@ model LearningPattern {
   @@index([organizationId, patternType])
   @@index([organizationId, category])
   @@map("learning_patterns")
+}
+
+// =============================================================================
+// Billing: Subscriptions
+//
+// These tables are managed by hand-written migrations (prisma/migrations/
+// 20260725233000_add_billing_subscriptions, 20260726161000_add_paddle_billing_provider)
+// rather than `prisma migrate dev` against these models. The models below are a
+// read/type-safety layer over that existing schema — do not run `prisma migrate dev`
+// against this section, it will try to "correct" the partial unique indexes on
+// paddle_customer_id/paddle_subscription_id (WHERE ... IS NOT NULL) that Prisma's
+// `@unique` cannot express, which is why those two columns are intentionally left
+// without a `@unique` annotation here.
+// =============================================================================
+
+enum BillingPlan {
+  STARTER
+  PROFESSIONAL
+  BUSINESS
+}
+
+enum SubscriptionStatus {
+  INCOMPLETE
+  INCOMPLETE_EXPIRED
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  UNPAID
+  PAUSED
+}
+
+model Subscription {
+  id                   String             @id @default(uuid())
+  organizationId       String             @unique @map("organization_id")
+  stripeCustomerId     String             @unique @map("stripe_customer_id")
+  stripeSubscriptionId String?            @unique @map("stripe_subscription_id")
+  stripePriceId        String?            @map("stripe_price_id")
+  paddleCustomerId     String?            @map("paddle_customer_id")
+  paddleSubscriptionId String?            @map("paddle_subscription_id")
+  paddlePriceId        String?            @map("paddle_price_id")
+  plan                 BillingPlan        @default(STARTER)
+  subscriptionStatus   SubscriptionStatus @default(INCOMPLETE) @map("subscription_status")
+  currentPeriodStart   DateTime?          @map("current_period_start")
+  currentPeriodEnd     DateTime?          @map("current_period_end")
+  cancelAtPeriodEnd    Boolean            @default(false) @map("cancel_at_period_end")
+  trialEnd             DateTime?          @map("trial_end")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionStatus])
+  @@index([plan])
+  @@map("subscriptions")
+}
+
+model BillingWebhookEvent {
+  provider  String
+  eventId   String   @map("event_id")
+  eventType String   @map("event_type")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@id([provider, eventId])
+  @@map("billing_webhook_events")
 }
