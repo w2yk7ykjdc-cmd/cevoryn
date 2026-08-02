@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 
+import { captureServerError } from "@/lib/error-reporting";
 import { getBillingPlanFromPaddlePriceId } from "@/lib/paddle/server";
 import { prisma } from "@/lib/prisma";
 
@@ -23,14 +24,23 @@ type PaddleEvent = {
   };
 };
 
-function verifySignature(rawBody: string, signatureHeader: string, secret: string): boolean {
+function verifySignature(
+  rawBody: string,
+  signatureHeader: string,
+  secret: string
+): boolean {
   const parts = signatureHeader.split(";").map((part) => part.trim());
   const timestamp = parts.find((part) => part.startsWith("ts="))?.slice(3);
-  const signatures = parts.filter((part) => part.startsWith("h1=")).map((part) => part.slice(3));
+  const signatures = parts
+    .filter((part) => part.startsWith("h1="))
+    .map((part) => part.slice(3));
   if (!timestamp || signatures.length === 0) return false;
 
   const timestampNumber = Number(timestamp);
-  if (!Number.isFinite(timestampNumber) || Math.abs(Date.now() / 1000 - timestampNumber) > 300) {
+  if (
+    !Number.isFinite(timestampNumber) ||
+    Math.abs(Date.now() / 1000 - timestampNumber) > 300
+  ) {
     return false;
   }
 
@@ -40,7 +50,10 @@ function verifySignature(rawBody: string, signatureHeader: string, secret: strin
 
   return signatures.some((candidate) => {
     if (candidate.length !== expected.length) return false;
-    return timingSafeEqual(Buffer.from(candidate, "hex"), Buffer.from(expected, "hex"));
+    return timingSafeEqual(
+      Buffer.from(candidate, "hex"),
+      Buffer.from(expected, "hex")
+    );
   });
 }
 
@@ -73,14 +86,20 @@ export async function POST(request: Request): Promise<NextResponse> {
   const secret = process.env.PADDLE_WEBHOOK_SECRET?.trim();
 
   if (!signature || !secret || !verifySignature(rawBody, signature, secret)) {
-    return NextResponse.json({ error: "Invalid webhook signature." }, { status: 401 });
+    return NextResponse.json(
+      { error: "Invalid webhook signature." },
+      { status: 401 }
+    );
   }
 
   let event: PaddleEvent;
   try {
     event = JSON.parse(rawBody) as PaddleEvent;
   } catch {
-    return NextResponse.json({ error: "Invalid webhook payload." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid webhook payload." },
+      { status: 400 }
+    );
   }
 
   const supported = new Set([
@@ -107,8 +126,16 @@ export async function POST(request: Request): Promise<NextResponse> {
       const organizationId = event.data.custom_data?.organizationId;
       const priceId = event.data.items?.[0]?.price?.id;
       const plan = priceId ? getBillingPlanFromPaddlePriceId(priceId) : null;
-      if (typeof organizationId !== "string" || !event.data.id || !event.data.customer_id || !priceId || !plan) {
-        throw new Error("Paddle subscription event is missing CEVORYN metadata.");
+      if (
+        typeof organizationId !== "string" ||
+        !event.data.id ||
+        !event.data.customer_id ||
+        !priceId ||
+        !plan
+      ) {
+        throw new Error(
+          "Paddle subscription event is missing CEVORYN metadata."
+        );
       }
 
       await transaction.$executeRaw(Prisma.sql`
@@ -140,11 +167,13 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     return NextResponse.json({ received: true, processed });
   } catch (error) {
-    console.error("[cevoryn:paddle] Webhook processing failed", {
+    captureServerError("paddle-webhook", error, {
       eventId: event.event_id,
       eventType: event.event_type,
-      message: error instanceof Error ? error.message : "Unknown error",
     });
-    return NextResponse.json({ error: "Webhook processing failed." }, { status: 500 });
+    return NextResponse.json(
+      { error: "Webhook processing failed." },
+      { status: 500 }
+    );
   }
 }

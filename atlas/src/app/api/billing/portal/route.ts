@@ -1,20 +1,15 @@
-import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 
 import { getMembership, getUser } from "@/lib/auth";
+import { captureServerError } from "@/lib/error-reporting";
 import { paddleApi, PaddleConfigurationError } from "@/lib/paddle/server";
-import { prisma } from "@/lib/prisma";
+import { getOrganizationSubscription } from "@/server/services/billing.service";
 
 export const runtime = "nodejs";
 
 function canManageBilling(role: string): boolean {
   return role === "OWNER" || role === "ADMIN";
 }
-
-type PaddleSubscriptionRow = {
-  paddle_customer_id: string | null;
-  paddle_subscription_id: string | null;
-};
 
 type PortalResponse = {
   data: {
@@ -24,11 +19,15 @@ type PortalResponse = {
 
 export async function POST(): Promise<NextResponse> {
   const user = await getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  if (!user)
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
 
   const membership = await getMembership(user.id);
   if (!membership) {
-    return NextResponse.json({ error: "Organization membership is required." }, { status: 403 });
+    return NextResponse.json(
+      { error: "Organization membership is required." },
+      { status: 403 }
+    );
   }
   if (!canManageBilling(membership.role)) {
     return NextResponse.json(
@@ -38,14 +37,10 @@ export async function POST(): Promise<NextResponse> {
   }
 
   try {
-    const rows = await prisma.$queryRaw<PaddleSubscriptionRow[]>(Prisma.sql`
-      SELECT "paddle_customer_id", "paddle_subscription_id"
-      FROM "subscriptions"
-      WHERE "organization_id" = ${membership.organizationId}
-      LIMIT 1
-    `);
-    const subscription = rows[0];
-    if (!subscription?.paddle_customer_id) {
+    const subscription = await getOrganizationSubscription(
+      membership.organizationId
+    );
+    if (!subscription?.paddleCustomerId) {
       return NextResponse.json(
         { error: "No Paddle billing account exists for this organization." },
         { status: 404 }
@@ -53,12 +48,12 @@ export async function POST(): Promise<NextResponse> {
     }
 
     const payload = await paddleApi<PortalResponse>(
-      `/customers/${subscription.paddle_customer_id}/portal-sessions`,
+      `/customers/${subscription.paddleCustomerId}/portal-sessions`,
       {
         method: "POST",
         body: JSON.stringify(
-          subscription.paddle_subscription_id
-            ? { subscription_ids: [subscription.paddle_subscription_id] }
+          subscription.paddleSubscriptionId
+            ? { subscription_ids: [subscription.paddleSubscriptionId] }
             : {}
         ),
       }
@@ -66,9 +61,8 @@ export async function POST(): Promise<NextResponse> {
 
     return NextResponse.json({ url: payload.data.urls.general.overview });
   } catch (error) {
-    console.error("[cevoryn:paddle] Portal creation failed", {
+    captureServerError("paddle-portal", error, {
       organizationId: membership.organizationId,
-      message: error instanceof Error ? error.message : "Unknown error",
     });
     return NextResponse.json(
       {

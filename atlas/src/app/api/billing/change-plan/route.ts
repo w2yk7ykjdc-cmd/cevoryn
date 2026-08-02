@@ -3,7 +3,12 @@ import { NextResponse } from "next/server";
 import { checkoutRequestSchema } from "@/features/billing/schemas/checkout";
 import { isSubscriptionActive } from "@/features/billing/types";
 import { getMembership, getUser } from "@/lib/auth";
-import { getPaddlePriceId, paddleApi, PaddleConfigurationError } from "@/lib/paddle/server";
+import { captureServerError } from "@/lib/error-reporting";
+import {
+  getPaddlePriceId,
+  paddleApi,
+  PaddleConfigurationError,
+} from "@/lib/paddle/server";
 import { getOrganizationSubscription } from "@/server/services/billing.service";
 
 export const runtime = "nodejs";
@@ -45,7 +50,10 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const parsedBody = checkoutRequestSchema.safeParse(requestBody);
   if (!parsedBody.success) {
-    return NextResponse.json({ error: "Invalid billing plan." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid billing plan." },
+      { status: 400 }
+    );
   }
 
   try {
@@ -59,7 +67,10 @@ export async function POST(request: Request): Promise<NextResponse> {
       !isSubscriptionActive(currentSubscription.subscriptionStatus)
     ) {
       return NextResponse.json(
-        { error: "No active subscription to change. Start a new checkout instead." },
+        {
+          error:
+            "No active subscription to change. Start a new checkout instead.",
+        },
         { status: 409 }
       );
     }
@@ -71,19 +82,23 @@ export async function POST(request: Request): Promise<NextResponse> {
       );
     }
 
-    await paddleApi(`/subscriptions/${currentSubscription.paddleSubscriptionId}`, {
-      method: "PATCH",
-      body: JSON.stringify({
-        items: [{ price_id: getPaddlePriceId(parsedBody.data.plan), quantity: 1 }],
-        proration_billing_mode: "prorated_immediately",
-      }),
-    });
+    await paddleApi(
+      `/subscriptions/${currentSubscription.paddleSubscriptionId}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          items: [
+            { price_id: getPaddlePriceId(parsedBody.data.plan), quantity: 1 },
+          ],
+          proration_billing_mode: "prorated_immediately",
+        }),
+      }
+    );
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("[cevoryn:billing] Paddle plan change failed", {
+    captureServerError("paddle-change-plan", error, {
       organizationId: membership.organizationId,
-      message: error instanceof Error ? error.message : "Unknown error",
     });
 
     const message =
