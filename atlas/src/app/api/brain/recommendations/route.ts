@@ -5,7 +5,11 @@ import {
   listDecisions,
 } from "@/features/brain/decisions/decision.service";
 import type { DecisionCanvas } from "@/features/brain/decisions/types";
-import { unauthorizedResponse, forbiddenResponse } from "@/lib/api-utils";
+import {
+  unauthorizedResponse,
+  forbiddenResponse,
+  internalErrorResponse,
+} from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
 
 export async function GET() {
@@ -47,16 +51,10 @@ export async function GET() {
 
     return NextResponse.json({ data: { recommendations, stats } });
   } catch (error) {
-    const msg = error instanceof Error ? error.message : "Internal error";
-    console.error("Recommendations error:", msg);
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to load recommendations",
-        },
-      },
-      { status: 500 }
+    return internalErrorResponse(
+      "Recommendations",
+      error,
+      "Failed to load recommendations"
     );
   }
 }

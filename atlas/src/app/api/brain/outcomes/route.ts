@@ -12,6 +12,7 @@ import {
   forbiddenResponse,
   badRequestResponse,
   notFoundResponse,
+  internalErrorResponse,
 } from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
 
@@ -34,13 +35,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: lifecycle });
   } catch (error) {
-    console.error(
-      "Outcomes GET error:",
-      error instanceof Error ? error.message : "unknown"
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to load outcome" } },
-      { status: 500 }
+    return internalErrorResponse(
+      "Outcomes GET",
+      error,
+      "Failed to load outcome"
     );
   }
 }
@@ -88,15 +86,10 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error(
-      "Outcomes POST error:",
-      error instanceof Error ? error.message : "unknown"
-    );
-    return NextResponse.json(
-      {
-        error: { code: "INTERNAL_ERROR", message: "Failed to record outcome" },
-      },
-      { status: 500 }
+    return internalErrorResponse(
+      "Outcomes POST",
+      error,
+      "Failed to record outcome"
     );
   }
 }
