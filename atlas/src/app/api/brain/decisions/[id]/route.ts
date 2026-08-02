@@ -11,6 +11,7 @@ import {
   forbiddenResponse,
   notFoundResponse,
   badRequestResponse,
+  internalErrorResponse,
 } from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
@@ -32,13 +33,10 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({ data: decision });
   } catch (error) {
-    console.error(
-      "Decision GET error:",
-      error instanceof Error ? error.message : "unknown"
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to load decision" } },
-      { status: 500 }
+    return internalErrorResponse(
+      "Decision GET",
+      error,
+      "Failed to load decision"
     );
   }
 }
@@ -75,15 +73,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({ data: { id, status: parsed.data.status } });
   } catch (error) {
-    console.error(
-      "Decision PATCH error:",
-      error instanceof Error ? error.message : "unknown"
-    );
-    return NextResponse.json(
-      {
-        error: { code: "INTERNAL_ERROR", message: "Failed to update decision" },
-      },
-      { status: 500 }
+    return internalErrorResponse(
+      "Decision PATCH",
+      error,
+      "Failed to update decision"
     );
   }
 }

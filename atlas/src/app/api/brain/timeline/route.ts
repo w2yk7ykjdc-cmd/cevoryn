@@ -7,6 +7,7 @@ import {
   forbiddenResponse,
   badRequestResponse,
   notFoundResponse,
+  internalErrorResponse,
 } from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
 
@@ -30,11 +31,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: timeline });
   } catch (error) {
-    const msg = error instanceof Error ? error.message : "Internal error";
-    console.error("Timeline error:", msg);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to load timeline" } },
-      { status: 500 }
-    );
+    return internalErrorResponse("Timeline", error, "Failed to load timeline");
   }
 }

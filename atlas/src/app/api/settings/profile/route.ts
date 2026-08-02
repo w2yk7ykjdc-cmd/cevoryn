@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   badRequestResponse,
   forbiddenResponse,
+  internalErrorResponse,
   notFoundResponse,
   unauthorizedResponse,
 } from "@/lib/api-utils";
@@ -41,15 +42,14 @@ export async function PATCH(request: Request) {
 
     if (updated.count === 0) return notFoundResponse("Profile not found");
 
-    return NextResponse.json({ data: { displayName: parsed.data.displayName } });
+    return NextResponse.json({
+      data: { displayName: parsed.data.displayName },
+    });
   } catch (error) {
-    console.error(
-      "Profile update error:",
-      error instanceof Error ? error.message : "unknown"
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update profile" } },
-      { status: 500 }
+    return internalErrorResponse(
+      "Profile update",
+      error,
+      "Failed to update profile"
     );
   }
 }

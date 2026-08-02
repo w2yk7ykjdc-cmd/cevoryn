@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   badRequestResponse,
   forbiddenResponse,
+  internalErrorResponse,
   notFoundResponse,
   unauthorizedResponse,
 } from "@/lib/api-utils";
@@ -24,7 +25,9 @@ export async function PATCH(request: Request) {
     if (!membership) return forbiddenResponse();
 
     if (!hasPermission(membership.role, "org:update")) {
-      return forbiddenResponse("You do not have permission to update the organization");
+      return forbiddenResponse(
+        "You do not have permission to update the organization"
+      );
     }
 
     let body: unknown;
@@ -36,7 +39,9 @@ export async function PATCH(request: Request) {
 
     const parsed = updateOrganizationSchema.safeParse(body);
     if (!parsed.success) {
-      return badRequestResponse("Organization name must be between 2 and 80 characters");
+      return badRequestResponse(
+        "Organization name must be between 2 and 80 characters"
+      );
     }
 
     const updated = await prisma.organization.updateMany({
@@ -48,13 +53,10 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ data: { name: parsed.data.name } });
   } catch (error) {
-    console.error(
-      "Organization update error:",
-      error instanceof Error ? error.message : "unknown"
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update organization" } },
-      { status: 500 }
+    return internalErrorResponse(
+      "Organization update",
+      error,
+      "Failed to update organization"
     );
   }
 }

@@ -5,7 +5,11 @@ import {
   extractLearningPatterns,
   getLearningPatterns,
 } from "@/features/brain/learning/learning-engine";
-import { unauthorizedResponse, forbiddenResponse } from "@/lib/api-utils";
+import {
+  unauthorizedResponse,
+  forbiddenResponse,
+  internalErrorResponse,
+} from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
 
 export async function GET() {
@@ -32,16 +36,10 @@ export async function GET() {
       },
     });
   } catch (error) {
-    const msg = error instanceof Error ? error.message : "Internal error";
-    console.error("Learning GET error:", msg);
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to load learning data",
-        },
-      },
-      { status: 500 }
+    return internalErrorResponse(
+      "Learning GET",
+      error,
+      "Failed to load learning data"
     );
   }
 }
@@ -59,16 +57,10 @@ export async function POST() {
     );
     return NextResponse.json({ data: { patternsExtracted: patternsCreated } });
   } catch (error) {
-    const msg = error instanceof Error ? error.message : "Internal error";
-    console.error("Learning POST error:", msg);
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to extract patterns",
-        },
-      },
-      { status: 500 }
+    return internalErrorResponse(
+      "Learning POST",
+      error,
+      "Failed to extract patterns"
     );
   }
 }

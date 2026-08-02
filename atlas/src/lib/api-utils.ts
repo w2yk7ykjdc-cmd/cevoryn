@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 
 /**
@@ -65,13 +66,16 @@ export function internalErrorResponse(
 ) {
   const detail = error instanceof Error ? error.message : "Unknown error";
   console.error(`${operation} error:`, detail);
+  Sentry.captureException(error, { tags: { scope: operation } });
 
   return NextResponse.json(
     {
       error: {
         code: "INTERNAL_ERROR",
         message:
-          process.env.NODE_ENV === "development" ? `${message}: ${detail}` : message,
+          process.env.NODE_ENV === "development"
+            ? `${message}: ${detail}`
+            : message,
       },
     },
     { status: 500 }

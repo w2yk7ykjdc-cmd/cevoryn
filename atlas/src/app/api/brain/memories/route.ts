@@ -11,6 +11,7 @@ import {
   unauthorizedResponse,
   forbiddenResponse,
   badRequestResponse,
+  internalErrorResponse,
 } from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
 
@@ -28,13 +29,10 @@ export async function GET(request: NextRequest) {
     });
     return NextResponse.json({ data: memories });
   } catch (error) {
-    console.error(
-      "Memories GET error:",
-      error instanceof Error ? error.message : "unknown"
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to load memories" } },
-      { status: 500 }
+    return internalErrorResponse(
+      "Memories GET",
+      error,
+      "Failed to load memories"
     );
   }
 }
@@ -63,13 +61,10 @@ export async function POST(request: NextRequest) {
     );
     return NextResponse.json({ data: memory }, { status: 201 });
   } catch (error) {
-    console.error(
-      "Memories POST error:",
-      error instanceof Error ? error.message : "unknown"
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to create memory" } },
-      { status: 500 }
+    return internalErrorResponse(
+      "Memories POST",
+      error,
+      "Failed to create memory"
     );
   }
 }
@@ -88,13 +83,10 @@ export async function DELETE(request: NextRequest) {
     await deleteMemory(membership.organizationId, id);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
-    console.error(
-      "Memories DELETE error:",
-      error instanceof Error ? error.message : "unknown"
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to delete memory" } },
-      { status: 500 }
+    return internalErrorResponse(
+      "Memories DELETE",
+      error,
+      "Failed to delete memory"
     );
   }
 }

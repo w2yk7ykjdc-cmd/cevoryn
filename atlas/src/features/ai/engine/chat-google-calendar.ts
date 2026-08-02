@@ -84,7 +84,7 @@ export async function tryCreateGoogleCalendarEventFromChat(params: {
     missing.add("end after start");
   }
 
-  if (missing.size > 0) {
+  if (missing.size > 0 || !start || !end) {
     return {
       content: buildMissingFieldsMessage([...missing]),
       usage: completion.usage,
@@ -93,8 +93,8 @@ export async function tryCreateGoogleCalendarEventFromChat(params: {
 
   const result = await createGoogleCalendarEvent(organizationId, userId, {
     title,
-    start: start!.toISOString(),
-    end: end!.toISOString(),
+    start: start.toISOString(),
+    end: end.toISOString(),
     timeZone,
     description: description || undefined,
     location: location || undefined,
@@ -129,12 +129,12 @@ function parseExtraction(content: string): CalendarExtraction | null {
       location: typeof value.location === "string" ? value.location : "",
       attendees: Array.isArray(value.attendees)
         ? value.attendees.filter(
-            (item): item is string => typeof item === "string",
+            (item): item is string => typeof item === "string"
           )
         : [],
       missing: Array.isArray(value.missing)
         ? value.missing.filter(
-            (item): item is string => typeof item === "string",
+            (item): item is string => typeof item === "string"
           )
         : [],
     };
