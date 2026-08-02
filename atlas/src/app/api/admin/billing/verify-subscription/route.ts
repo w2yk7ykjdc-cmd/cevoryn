@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
 
+import { internalErrorResponse } from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
+import { isRoleAtLeast } from "@/lib/rbac";
 import { getSubscriptionIntegrityReport } from "@/server/services/billing.service";
 
 export const dynamic = "force-dynamic";
-
-function canManageBilling(role: string): boolean {
-  return role === "OWNER" || role === "ADMIN";
-}
 
 /**
  * Read-only diagnostic for the organization's subscription row. Lets an
@@ -30,7 +28,7 @@ export async function GET(): Promise<NextResponse> {
     );
   }
 
-  if (!canManageBilling(membership.role)) {
+  if (!isRoleAtLeast(membership.role, "ADMIN")) {
     return NextResponse.json(
       { error: "Only organization owners and admins can view this." },
       { status: 403 }
@@ -43,18 +41,10 @@ export async function GET(): Promise<NextResponse> {
     );
     return NextResponse.json({ data: report });
   } catch (error) {
-    console.error("[cevoryn:billing] Subscription integrity check failed", {
-      organizationId: membership.organizationId,
-      message: error instanceof Error ? error.message : "Unknown error",
-    });
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Subscription verification failed",
-        },
-      },
-      { status: 500 }
+    return internalErrorResponse(
+      "Subscription integrity check",
+      error,
+      "Subscription verification failed"
     );
   }
 }
