@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { initializePaddle, type Paddle } from "@paddle/paddle-js";
+import {
+  CheckoutEventNames,
+  initializePaddle,
+  type Paddle,
+} from "@paddle/paddle-js";
 
 let paddlePromise: Promise<Paddle | undefined> | null = null;
 
@@ -13,6 +17,16 @@ function getPaddle() {
         process.env.NEXT_PUBLIC_PADDLE_ENV === "production"
           ? "production"
           : "sandbox",
+      // The webhook is what actually upgrades the user's plan, and it
+      // can lag a checkout by a couple of seconds - this only confirms
+      // the payment went through and sends the user somewhere that'll
+      // reflect the new plan once it lands, instead of leaving them on
+      // /pricing with no acknowledgement that anything happened.
+      eventCallback(event) {
+        if (event.name === CheckoutEventNames.CHECKOUT_COMPLETED) {
+          window.location.href = "/dashboard?paddle=success";
+        }
+      },
     });
   }
   return paddlePromise;

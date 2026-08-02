@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
-import { slugify } from "@/lib/slugify";
+import { RESERVED_SLUGS, slugify } from "@/lib/slugify";
 
 export async function createProject(formData: FormData) {
   const user = await requireUser();
@@ -19,7 +19,10 @@ export async function createProject(formData: FormData) {
   let slug = baseSlug;
   let suffix = 1;
 
-  while (await prisma.project.findUnique({ where: { slug } })) {
+  while (
+    RESERVED_SLUGS.has(slug) ||
+    (await prisma.project.findUnique({ where: { slug } }))
+  ) {
     slug = `${baseSlug}-${++suffix}`;
   }
 
@@ -40,9 +43,30 @@ export async function toggleProjectPublished(formData: FormData) {
   });
   if (!project) return;
 
+  const willPublish = !project.published;
+
+  if (willPublish) {
+    // "Yayinda" only means anything if a visitor actually reaches a live
+    // page - a project can be marked published with every page still
+    // DRAFT (the default for manually created pages), which showed a
+    // "Yayinda" badge and a public link that 404s. Require at least one
+    // PUBLISHED page before flipping the project-level flag.
+    const hasPublishedPage = await prisma.page.findFirst({
+      where: { projectId: project.id, status: "PUBLISHED" },
+      select: { id: true },
+    });
+    if (!hasPublishedPage) {
+      redirect(
+        `/dashboard/projects/${project.slug}?error=${encodeURIComponent(
+          "Yayinlamadan once en az bir sayfayi yayinlamalisin.",
+        )}`,
+      );
+    }
+  }
+
   await prisma.project.update({
     where: { id: project.id },
-    data: { published: !project.published },
+    data: { published: willPublish },
   });
 
   revalidatePath("/dashboard");

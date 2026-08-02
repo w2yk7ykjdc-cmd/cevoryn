@@ -40,6 +40,22 @@ export async function createPage(formData: FormData) {
   revalidatePath(`/dashboard/projects/${project.slug}`);
 }
 
+// A project marked "published" with no PUBLISHED page left is a public
+// link that 404s - keep the project-level flag honest whenever a page
+// stops being the last live one.
+async function syncProjectPublishedFlag(projectId: string) {
+  const hasPublishedPage = await prisma.page.findFirst({
+    where: { projectId, status: PageStatus.PUBLISHED },
+    select: { id: true },
+  });
+  if (!hasPublishedPage) {
+    await prisma.project.updateMany({
+      where: { id: projectId, published: true },
+      data: { published: false },
+    });
+  }
+}
+
 export async function togglePagePublished(formData: FormData) {
   const user = await requireUser();
   const pageId = formData.get("pageId") as string;
@@ -50,15 +66,16 @@ export async function togglePagePublished(formData: FormData) {
   });
   if (!page) return;
 
+  const wasPublished = page.status === PageStatus.PUBLISHED;
+
   await prisma.page.update({
     where: { id: page.id },
-    data: {
-      status:
-        page.status === PageStatus.PUBLISHED
-          ? PageStatus.DRAFT
-          : PageStatus.PUBLISHED,
-    },
+    data: { status: wasPublished ? PageStatus.DRAFT : PageStatus.PUBLISHED },
   });
+
+  if (wasPublished) {
+    await syncProjectPublishedFlag(page.projectId);
+  }
 
   revalidatePath(`/dashboard/projects/${projectSlug}`);
 }
@@ -120,5 +137,10 @@ export async function deletePage(formData: FormData) {
   if (!page) return;
 
   await prisma.page.delete({ where: { id: pageId } });
+
+  if (page.status === PageStatus.PUBLISHED) {
+    await syncProjectPublishedFlag(page.projectId);
+  }
+
   revalidatePath(`/dashboard/projects/${projectSlug}`);
 }
