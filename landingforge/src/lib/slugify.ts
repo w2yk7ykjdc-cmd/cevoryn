@@ -1,3 +1,17 @@
+// Project slugs are served at /{slug} on the app's own domain, which the
+// static app routes below already own - a project slug matching one of
+// these would never be reachable (Next.js resolves the static route
+// first), so it can never be assigned to a project.
+export const RESERVED_SLUGS = new Set([
+  "login",
+  "dashboard",
+  "pricing",
+  "api",
+  "auth",
+  "error",
+  "domain-view",
+]);
+
 const TURKISH_CHAR_MAP: Record<string, string> = {
   ç: "c",
   Ç: "c",

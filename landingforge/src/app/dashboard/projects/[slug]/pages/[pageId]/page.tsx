@@ -3,10 +3,12 @@ import { notFound } from "next/navigation";
 import { SectionType } from "@prisma/client";
 import { requireUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
+import { SectionEditorFields } from "@/components/section-editor-fields";
 import {
   createSection,
   deleteSection,
   generateSectionContent,
+  updateSectionContent,
   upsertSeoMeta,
 } from "./actions";
 
@@ -157,11 +159,25 @@ export default async function PageDetail({
                 </button>
               </form>
 
-              {content && (
-                <pre className="overflow-x-auto rounded bg-gray-50 p-3 text-xs">
-                  {JSON.stringify(content.fields, null, 2)}
-                </pre>
-              )}
+              <form className="flex flex-col gap-2 rounded border p-3">
+                <input type="hidden" name="sectionId" value={section.id} />
+                <input type="hidden" name="pageId" value={page.id} />
+                <input
+                  type="hidden"
+                  name="locale"
+                  value={page.project.primaryLocale}
+                />
+                <SectionEditorFields
+                  type={section.type}
+                  fields={content?.fields as Record<string, unknown> | undefined}
+                />
+                <button
+                  formAction={updateSectionContent}
+                  className="self-start rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                >
+                  Kaydet
+                </button>
+              </form>
             </li>
           );
         })}

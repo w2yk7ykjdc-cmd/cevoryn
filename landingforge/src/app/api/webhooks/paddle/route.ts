@@ -50,6 +50,18 @@ export async function POST(request: Request) {
       if (user) {
         const priceId = subscription.items[0]?.price?.id;
         const isCanceled = subscription.status === "canceled";
+        const resolvedPlan = isCanceled ? Plan.FREE : planFromPriceId(priceId);
+
+        if (resolvedPlan === null) {
+          // Unrecognized price ID on an active subscription (catalog
+          // drift, missing env var, etc.) - leave the user's existing
+          // plan untouched rather than silently downgrading someone who
+          // is actively paying. Still record the subscription/billing
+          // fields so the mismatch is visible on the user record.
+          console.error(
+            `[paddle webhook] unresolved price ID "${priceId}" for user ${user.id}, subscription ${subscription.id} - plan left unchanged`,
+          );
+        }
 
         await prisma.user.update({
           where: { id: user.id },
@@ -60,7 +72,7 @@ export async function POST(request: Request) {
             currentPeriodEnd: subscription.currentBillingPeriod?.endsAt
               ? new Date(subscription.currentBillingPeriod.endsAt)
               : null,
-            plan: isCanceled ? Plan.FREE : planFromPriceId(priceId),
+            ...(resolvedPlan !== null ? { plan: resolvedPlan } : {}),
           },
         });
       }

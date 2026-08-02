@@ -2,10 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { SectionType } from "@prisma/client";
+import { Prisma, SectionType } from "@prisma/client";
 import { requireUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 import { generateAndSaveSectionContent } from "@/lib/generate-section-content";
+import { parseSectionFields } from "@/lib/parse-section-fields";
 import { UsageLimitExceededError } from "@/lib/usage-limits";
 
 async function ownedPage(pageId: string, userId: string) {
@@ -78,6 +79,36 @@ export async function generateSectionContent(formData: FormData) {
       `/dashboard/projects/${page.project.slug}/pages/${pageId}?error=${encodeURIComponent(message)}`,
     );
   }
+
+  revalidatePath(`/dashboard/projects/${page.project.slug}/pages/${pageId}`);
+}
+
+export async function updateSectionContent(formData: FormData) {
+  const user = await requireUser();
+  const sectionId = formData.get("sectionId") as string;
+  const pageId = formData.get("pageId") as string;
+  const locale = (formData.get("locale") as string) || "en";
+
+  const page = await ownedPage(pageId, user.id);
+  if (!page) redirect("/dashboard");
+
+  const section = await prisma.section.findFirst({
+    where: { id: sectionId, pageId },
+  });
+  if (!section) redirect(`/dashboard/projects/${page.project.slug}/pages/${pageId}`);
+
+  const fields = parseSectionFields(section.type, formData);
+
+  await prisma.sectionContent.upsert({
+    where: { sectionId_locale: { sectionId, locale } },
+    update: { fields: fields as Prisma.InputJsonValue, humanEdited: true },
+    create: {
+      sectionId,
+      locale,
+      fields: fields as Prisma.InputJsonValue,
+      humanEdited: true,
+    },
+  });
 
   revalidatePath(`/dashboard/projects/${page.project.slug}/pages/${pageId}`);
 }

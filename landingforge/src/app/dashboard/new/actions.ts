@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 import { getThemePreset } from "@/lib/theme-presets";
 import { generateAndSaveSectionContent } from "@/lib/generate-section-content";
-import { slugify, truncateAtWordBoundary } from "@/lib/slugify";
+import { RESERVED_SLUGS, slugify, truncateAtWordBoundary } from "@/lib/slugify";
 import { UsageLimitExceededError } from "@/lib/usage-limits";
 
 const DEFAULT_SECTIONS: SectionType[] = [
@@ -41,7 +41,10 @@ export async function createProjectFromBrief(formData: FormData) {
   const baseSlug = slugify(truncateAtWordBoundary(businessDescription, 40)) || "proje";
   let slug = baseSlug;
   let suffix = 1;
-  while (await prisma.project.findUnique({ where: { slug } })) {
+  while (
+    RESERVED_SLUGS.has(slug) ||
+    (await prisma.project.findUnique({ where: { slug } }))
+  ) {
     slug = `${baseSlug}-${++suffix}`;
   }
 

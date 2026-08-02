@@ -6,9 +6,9 @@ import { createProject, deleteProject, signOut } from "./actions";
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; paddle?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, paddle } = await searchParams;
 
   let user;
   let projects;
@@ -56,6 +56,12 @@ export default async function DashboardPage({
           </button>
         </form>
       </div>
+
+      {paddle === "success" && (
+        <p className="rounded bg-green-50 p-3 text-sm text-green-800">
+          Odemen alindi! Planin birkac saniye icinde guncellenecek.
+        </p>
+      )}
 
       {error && (
         <p className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>
