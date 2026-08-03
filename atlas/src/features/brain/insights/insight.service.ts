@@ -16,6 +16,13 @@ import { findConnectedGoogleUserId } from "@/lib/google-connection";
 import { getGoogleWorkspaceContext } from "@/lib/google-data";
 import { prisma } from "@/lib/prisma";
 
+import {
+  clampInsightPriority,
+  computeInsightConfidence,
+  isValidRawInsight,
+} from "./insight-preparation-math";
+import type { RawInsight } from "./insight-preparation-math";
+
 /**
  * Insight Engine v2
  *
@@ -50,18 +57,6 @@ Rules:
 Respond with ONLY a JSON array. No markdown fences, no explanation.
 Format: [{"category":"TEAM","severity":"SUGGESTION","title":"...","summary":"...","description":"...","impact":"...","reasoning":"...","recommendedAction":"...","priority":7}]
 If no meaningful insights: []`;
-
-interface RawInsight {
-  category: string;
-  severity: string;
-  title: string;
-  summary: string;
-  description: string;
-  impact: string;
-  reasoning: string;
-  recommendedAction: string;
-  priority: number;
-}
 
 async function buildWorkspaceSignalContext(
   organizationId: string
@@ -167,25 +162,9 @@ export async function generateInsights(
 
     if (!Array.isArray(insights)) return 0;
 
-    const validCategories = new Set([
-      "STRATEGIC",
-      "OPERATIONAL",
-      "TEAM",
-      "FINANCIAL",
-      "RISK",
-    ]);
-    const validSeverities = new Set([
-      "INFO",
-      "SUGGESTION",
-      "WARNING",
-      "CRITICAL",
-    ]);
-
     let created = 0;
     for (const insight of insights) {
-      if (!insight.title || !insight.description) continue;
-      if (!validCategories.has(insight.category)) continue;
-      if (!validSeverities.has(insight.severity)) continue;
+      if (!isValidRawInsight(insight)) continue;
 
       const existing = await prisma.insight.findFirst({
         where: {
@@ -223,7 +202,7 @@ export async function generateInsights(
           evidence: JSON.parse(JSON.stringify(evidence)),
           reasoning: insight.reasoning || "",
           recommendedAction: insight.recommendedAction || "",
-          priority: Math.max(1, Math.min(10, insight.priority || 5)),
+          priority: clampInsightPriority(insight.priority),
         },
       });
 
@@ -236,19 +215,6 @@ export async function generateInsights(
     console.error(`Insight generation failed: ${msg}`);
     return 0;
   }
-}
-
-function computeInsightConfidence(
-  insight: RawInsight,
-  evidenceCount: number
-): number {
-  let score = 0.3;
-  if (insight.reasoning && insight.reasoning.length > 20) score += 0.2;
-  if (insight.impact && insight.impact.length > 10) score += 0.1;
-  if (evidenceCount >= 3) score += 0.2;
-  else if (evidenceCount >= 1) score += 0.1;
-  if (insight.priority >= 8) score += 0.1;
-  return Math.min(score, 0.95);
 }
 
 export async function listInsights(
