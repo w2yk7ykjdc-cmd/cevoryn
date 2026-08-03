@@ -95,6 +95,7 @@ export function useChat({
         const decoder = new TextDecoder();
         let buffer = "";
         let streamError: string | null = null;
+        let receivedTerminalChunk = false;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -127,6 +128,7 @@ export function useChat({
             }
 
             if (chunk.type === "done" && chunk.messageId) {
+              receivedTerminalChunk = true;
               setMessages((prev) =>
                 prev.map((message) =>
                   message.id === assistantId
@@ -137,6 +139,7 @@ export function useChat({
             }
 
             if (chunk.type === "error") {
+              receivedTerminalChunk = true;
               streamError = chunk.content ?? "An error occurred";
               break;
             }
@@ -146,6 +149,16 @@ export function useChat({
             await reader.cancel();
             throw new Error(streamError);
           }
+        }
+
+        // The connection closed (e.g. the serverless function hit its time
+        // limit) without ever sending a "done" or "error" chunk. Treat this
+        // as a failure rather than silently leaving an unsaved, truncated
+        // response on screen.
+        if (!receivedTerminalChunk) {
+          throw new Error(
+            "The response was interrupted before it finished. Please try again."
+          );
         }
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
