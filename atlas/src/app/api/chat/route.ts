@@ -10,6 +10,7 @@ import {
   unauthorizedResponse,
 } from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
+import { captureServerError } from "@/lib/error-reporting";
 import { hasPermission } from "@/lib/rbac";
 import { sendMessage } from "@/server/services/ai.service";
 import { getConversation } from "@/server/services/conversation.service";
@@ -101,10 +102,10 @@ export async function POST(request: NextRequest) {
             );
           }
         } catch (error) {
-          console.error(
-            "Chat stream error:",
-            error instanceof Error ? error.message : "unknown"
-          );
+          captureServerError("chat-route", error, {
+            organizationId: membership.organizationId,
+            conversationId: parsed.data.conversationId,
+          });
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({
