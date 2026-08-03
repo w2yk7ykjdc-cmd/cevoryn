@@ -2,9 +2,9 @@ import "server-only";
 
 import { getAIProvider } from "@/features/ai/providers";
 import { AI_CONFIG } from "@/lib/constants";
-import { toActionType } from "@/lib/enum-validators";
 import { prisma } from "@/lib/prisma";
 
+import { selectActionCandidates } from "./action-preparation-math";
 import { createPreparedAction } from "./action.service";
 
 const ACTION_GENERATION_PROMPT = `You are CEVORYN, a Management Intelligence Platform. Based on the insight provided, prepare concrete actions the user can take.
@@ -24,13 +24,6 @@ Rules:
 Respond with ONLY a JSON array. No markdown.
 Format: [{"type":"EMAIL_DRAFT","title":"...","description":"...","content":{"to":"...","subject":"...","body":"..."}}]`;
 
-interface RawAction {
-  type: string;
-  title: string;
-  description: string;
-  content: Record<string, unknown>;
-}
-
 /**
  * Generate prepared actions from an insight.
  * Actions are created with PENDING status — never auto-executed.
@@ -43,13 +36,6 @@ export async function prepareActionsFromInsight(params: {
   insightRecommendedAction: string;
   confidence: number;
 }): Promise<number> {
-  const validTypes = new Set([
-    "EMAIL_DRAFT",
-    "TASK",
-    "CALENDAR_PROPOSAL",
-    "FOLLOW_UP",
-  ]);
-
   try {
     const provider = getAIProvider();
     const { content } = await provider.complete({
@@ -65,33 +51,24 @@ export async function prepareActionsFromInsight(params: {
       maxTokens: 1000,
     });
 
-    let actions: RawAction[];
+    let parsed: unknown;
     try {
-      actions = JSON.parse(content.trim());
+      parsed = JSON.parse(content.trim());
     } catch (_parseError) {
       return 0;
     }
 
-    if (!Array.isArray(actions)) return 0;
+    const candidates = selectActionCandidates(parsed);
 
     let created = 0;
-    const generatedKeys = new Set<string>();
 
-    for (const action of actions.slice(0, 3)) {
-      const title = action.title?.trim();
-      const type = toActionType(action.type);
-      if (!title || !type || !validTypes.has(action.type)) continue;
-
-      const dedupeKey = `${type}:${title.toLocaleLowerCase("en-US")}`;
-      if (generatedKeys.has(dedupeKey)) continue;
-      generatedKeys.add(dedupeKey);
-
+    for (const candidate of candidates) {
       const existing = await prisma.preparedAction.findFirst({
         where: {
           organizationId: params.organizationId,
           sourceInsightId: params.insightId,
-          type,
-          title,
+          type: candidate.type,
+          title: candidate.title,
           status: "PENDING",
         },
         select: { id: true },
@@ -101,10 +78,10 @@ export async function prepareActionsFromInsight(params: {
 
       await createPreparedAction({
         organizationId: params.organizationId,
-        type,
-        title,
-        description: action.description || "",
-        content: action.content || {},
+        type: candidate.type,
+        title: candidate.title,
+        description: candidate.description,
+        content: candidate.content,
         sourceInsightId: params.insightId,
         confidence: params.confidence,
         reasoning: `Generated from insight: "${params.insightTitle}"`,
