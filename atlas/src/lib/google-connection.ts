@@ -1,5 +1,6 @@
 import "server-only";
 
+import { captureServerError } from "@/lib/error-reporting";
 import {
   decryptGoogleToken,
   encryptGoogleToken,
@@ -97,10 +98,10 @@ export async function getValidGoogleAccessToken(
 
     return refreshed.access_token;
   } catch (error) {
-    console.error(
-      "[cevoryn:google] token refresh failed",
-      error instanceof Error ? error.message : "unknown"
-    );
+    captureServerError("google-token-refresh", error, {
+      organizationId,
+      userId,
+    });
     throw new GoogleConnectionError(
       "Google authorization has expired; reconnect the account",
       "REFRESH_FAILED"

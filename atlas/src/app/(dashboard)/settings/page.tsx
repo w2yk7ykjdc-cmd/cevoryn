@@ -15,6 +15,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { PRODUCT_OWNER_ORG_SLUG } from "@/features/ai/context/prompts";
 import { requireMembership, requireUser } from "@/lib/auth";
+import {
+  GoogleConnectionError,
+  getValidGoogleAccessToken,
+} from "@/lib/google-connection";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/rbac";
 
@@ -54,8 +58,17 @@ async function getConnectedGoogleEmail(
       LIMIT 1
     `;
 
-    return rows[0]?.google_email ?? null;
+    const googleEmail = rows[0]?.google_email ?? null;
+    if (!googleEmail) return null;
+
+    // A row existing doesn't mean Google access is still valid — the user
+    // can revoke it independently at any time. Validate (refreshing the
+    // token if needed) so a dead connection doesn't keep showing
+    // "Connected" indefinitely with no way for the user to notice.
+    await getValidGoogleAccessToken(organizationId, userId);
+    return googleEmail;
   } catch (error) {
+    if (error instanceof GoogleConnectionError) return null;
     console.error(
       "[cevoryn:google] connection status unavailable",
       error instanceof Error ? error.message : "unknown"
