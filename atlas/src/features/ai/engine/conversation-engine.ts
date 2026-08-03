@@ -6,6 +6,7 @@ import {
   processExchange,
 } from "@/features/brain/core/atlas-engine";
 import { AI_CONFIG } from "@/lib/constants";
+import { captureServerError } from "@/lib/error-reporting";
 import { buildGoogleWorkspacePromptContext } from "@/lib/google-context";
 import { prisma } from "@/lib/prisma";
 import type { MembershipContext, StreamChunk } from "@/types";
@@ -222,7 +223,10 @@ export async function* streamResponse(params: {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "AI response failed";
-    console.error("AI stream error:", message);
+    captureServerError("chat-stream", error, {
+      organizationId: membership.organizationId,
+      conversationId,
+    });
     yield { type: "error", content: message };
   }
 }
