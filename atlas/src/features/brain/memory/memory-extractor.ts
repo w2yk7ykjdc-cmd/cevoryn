@@ -6,8 +6,8 @@ import { prisma } from "@/lib/prisma";
 
 import type { BrainExchangeParams } from "../core/types";
 
+import { selectValidMemories } from "./memory-extraction-math";
 import { createMemory } from "./memory.service";
-import type { CreateMemoryInput } from "./schemas";
 
 const EXTRACTION_PROMPT = `You are analyzing a conversation exchange between a user and CEVORYN AI.
 Extract any important facts, decisions, preferences, goals, team dynamics, project updates, or processes mentioned.
@@ -54,39 +54,21 @@ export async function extractMemories(
     const cleaned = content.trim();
     if (!cleaned || cleaned === "[]") return;
 
-    let extracted: Array<{ category: string; content: string }>;
+    let extracted: unknown;
     try {
       extracted = JSON.parse(cleaned);
     } catch (_parseError) {
       return;
     }
 
-    if (!Array.isArray(extracted) || extracted.length === 0) return;
+    const candidates = selectValidMemories(extracted);
 
-    const validCategories = new Set([
-      "DECISION",
-      "PREFERENCE",
-      "TEAM_DYNAMIC",
-      "PROJECT_STATUS",
-      "PROCESS",
-      "GOAL",
-      "FACT",
-    ]);
-
-    for (const item of extracted) {
-      if (
-        typeof item.content !== "string" ||
-        item.content.length < 5 ||
-        !validCategories.has(item.category)
-      ) {
-        continue;
-      }
-
+    for (const candidate of candidates) {
       // Check for duplicate content
       const existing = await prisma.memory.findFirst({
         where: {
           organizationId,
-          content: { equals: item.content, mode: "insensitive" },
+          content: { equals: candidate.content, mode: "insensitive" },
           isActive: true,
         },
         select: { id: true },
@@ -96,10 +78,7 @@ export async function extractMemories(
 
       await createMemory(
         organizationId,
-        {
-          category: item.category as CreateMemoryInput["category"],
-          content: item.content,
-        },
+        candidate,
         "CONVERSATION",
         conversationId
       );
