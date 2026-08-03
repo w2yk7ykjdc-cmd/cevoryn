@@ -8,6 +8,8 @@ import type {
   RecommendationMetrics,
 } from "../outcomes/types";
 
+import { computeMetricsFromDecisions } from "./recommendation-metrics-math";
+
 /**
  * Compute recommendation performance metrics.
  * All metrics derived from real decision data — no estimates.
@@ -26,86 +28,7 @@ export async function computeRecommendationMetrics(
     },
   });
 
-  const total = decisions.length;
-  if (total === 0) {
-    return {
-      totalRecommendations: 0,
-      acceptanceRate: 0,
-      successRate: 0,
-      failureRate: 0,
-      avgTimeToCompletionHours: 0,
-      avgPriorityScore: 0,
-      byCategory: {},
-    };
-  }
-
-  const accepted = decisions.filter(
-    (d: { status: string }) =>
-      !["PROPOSED", "REJECTED", "IGNORED"].includes(d.status)
-  );
-  const resolved = decisions.filter((d: { status: string }) =>
-    ["SUCCESSFUL", "FAILED", "COMPLETED"].includes(d.status)
-  );
-  const successful = decisions.filter(
-    (d: { status: string }) =>
-      d.status === "SUCCESSFUL" || d.status === "COMPLETED"
-  );
-  const failed = decisions.filter(
-    (d: { status: string }) => d.status === "FAILED"
-  );
-
-  // Average time to completion
-  const completedWithTime = decisions.filter(
-    (d: { resolvedAt: Date | null }) => d.resolvedAt !== null
-  );
-  const avgTimeMs =
-    completedWithTime.length > 0
-      ? completedWithTime.reduce(
-          (sum: number, d: { createdAt: Date; resolvedAt: Date | null }) =>
-            sum + ((d.resolvedAt?.getTime() ?? 0) - d.createdAt.getTime()),
-          0
-        ) / completedWithTime.length
-      : 0;
-
-  const avgPriority =
-    decisions.reduce(
-      (sum: number, d: { priorityScore: number }) => sum + d.priorityScore,
-      0
-    ) / total;
-
-  // By category (extracted from canvas problem statement first word as proxy)
-  const categoryMap = new Map<
-    string,
-    { count: number; successCount: number }
-  >();
-  for (const d of decisions) {
-    const canvas = d.canvas as unknown as DecisionCanvas;
-    const cat = canvas.scoringBreakdown?.[0]?.name ?? "General";
-    const entry = categoryMap.get(cat) ?? { count: 0, successCount: 0 };
-    entry.count++;
-    if (d.status === "SUCCESSFUL" || d.status === "COMPLETED") {
-      entry.successCount++;
-    }
-    categoryMap.set(cat, entry);
-  }
-
-  const byCategory: Record<string, { count: number; successRate: number }> = {};
-  for (const [cat, data] of categoryMap) {
-    byCategory[cat] = {
-      count: data.count,
-      successRate: data.count > 0 ? data.successCount / data.count : 0,
-    };
-  }
-
-  return {
-    totalRecommendations: total,
-    acceptanceRate: total > 0 ? accepted.length / total : 0,
-    successRate: resolved.length > 0 ? successful.length / resolved.length : 0,
-    failureRate: resolved.length > 0 ? failed.length / resolved.length : 0,
-    avgTimeToCompletionHours: Math.round(avgTimeMs / (1000 * 60 * 60)),
-    avgPriorityScore: Math.round(avgPriority * 10) / 10,
-    byCategory,
-  };
+  return computeMetricsFromDecisions(decisions);
 }
 
 /**
