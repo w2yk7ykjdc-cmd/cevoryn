@@ -6,7 +6,15 @@ import {
   handleUnauthorized,
   preservePendingChatMessage,
 } from "@/lib/client-auth";
-import type { MessageDetail, StreamChunk } from "@/types";
+import type { MessageDetail } from "@/types";
+
+import {
+  applyStreamChunk,
+  createChatStreamAccumulator,
+  parseSseDataLine,
+  splitBufferedLines,
+  unterminatedStreamMessage,
+} from "./sse-chat-stream";
 
 interface UseChatOptions {
   conversationId: string;
@@ -94,28 +102,21 @@ export function useChat({
 
         const decoder = new TextDecoder();
         let buffer = "";
-        let streamError: string | null = null;
-        let receivedTerminalChunk = false;
+        let acc = createChatStreamAccumulator();
 
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
           buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() ?? "";
+          const { lines, remainder } = splitBufferedLines(buffer);
+          buffer = remainder;
 
           for (const line of lines) {
-            if (!line.startsWith("data: ")) continue;
-            const data = line.slice(6).trim();
-            if (!data) continue;
+            const chunk = parseSseDataLine(line);
+            if (!chunk) continue;
 
-            let chunk: StreamChunk;
-            try {
-              chunk = JSON.parse(data) as StreamChunk;
-            } catch (_parseError) {
-              continue;
-            }
+            acc = applyStreamChunk(acc, chunk);
 
             if (chunk.type === "text" && chunk.content) {
               setMessages((prev) =>
@@ -128,7 +129,6 @@ export function useChat({
             }
 
             if (chunk.type === "done" && chunk.messageId) {
-              receivedTerminalChunk = true;
               setMessages((prev) =>
                 prev.map((message) =>
                   message.id === assistantId
@@ -138,16 +138,12 @@ export function useChat({
               );
             }
 
-            if (chunk.type === "error") {
-              receivedTerminalChunk = true;
-              streamError = chunk.content ?? "An error occurred";
-              break;
-            }
+            if (acc.error) break;
           }
 
-          if (streamError) {
+          if (acc.error) {
             await reader.cancel();
-            throw new Error(streamError);
+            throw new Error(acc.error);
           }
         }
 
@@ -155,10 +151,8 @@ export function useChat({
         // limit) without ever sending a "done" or "error" chunk. Treat this
         // as a failure rather than silently leaving an unsaved, truncated
         // response on screen.
-        if (!receivedTerminalChunk) {
-          throw new Error(
-            "The response was interrupted before it finished. Please try again."
-          );
+        if (!acc.receivedTerminalChunk) {
+          throw new Error(unterminatedStreamMessage());
         }
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
