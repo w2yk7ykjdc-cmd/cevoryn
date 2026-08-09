@@ -48,11 +48,15 @@ export default function PrivacyPage() {
           obligations.
         </LegalSection>
 
-        <LegalSection title="Retention and deletion">
+        <LegalSection title="Retention, deletion, and data export">
           Information is retained while an account is active and as reasonably
           needed for security, legal, backup, and operational purposes. Beta
-          users may request account or organization data deletion by contacting
-          the CEVORYN team.
+          users may request a copy of their organization&apos;s data, or its
+          deletion, by contacting the CEVORYN team at the email below. Export
+          requests are fulfilled as a structured data file covering account,
+          conversation, and product-usage records tied to the requesting
+          organization. Deletion requests remove that organization and its
+          associated data; we aim to complete verified requests within 30 days.
         </LegalSection>
 
         <LegalSection title="Security">
@@ -62,7 +66,8 @@ export default function PrivacyPage() {
         </LegalSection>
 
         <LegalSection title="Contact">
-          Questions or deletion requests can be sent to kemalkiyak06@icloud.com.
+          Questions, data export requests, or deletion requests can be sent to
+          kemalkiyak06@icloud.com.
         </LegalSection>
 
         <div className="border-t pt-6 text-sm text-muted-foreground">
