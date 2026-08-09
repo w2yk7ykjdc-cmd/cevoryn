@@ -71,7 +71,7 @@ interface BillingActionsProps {
   planPrices: Partial<Record<BillingPlan, PlanPrice>>;
 }
 
-function formatPlanPrice(price: PlanPrice): string {
+export function formatPlanPrice(price: PlanPrice): string {
   const amount = new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: price.currencyCode,
@@ -81,13 +81,16 @@ function formatPlanPrice(price: PlanPrice): string {
   return `${amount}/${price.interval}`;
 }
 
-function formatMemberLimit(maxMembers: number, t: PricingTranslator): string {
+export function formatMemberLimit(
+  maxMembers: number,
+  t: PricingTranslator
+): string {
   return maxMembers === 1
     ? t("memberLimitOne")
     : t("memberLimit", { count: maxMembers });
 }
 
-function formatTokenLimit(
+export function formatTokenLimit(
   monthlyAiTokens: number,
   t: BillingTranslator
 ): string {
@@ -104,7 +107,7 @@ function formatTokenLimit(
   });
 }
 
-function getPaddleErrorMessage(
+export function getPaddleErrorMessage(
   event: PaddleEvent,
   t: BillingTranslator
 ): string | null {
