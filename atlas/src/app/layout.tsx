@@ -22,10 +22,10 @@ export const metadata: Metadata = {
     description: BRAND.description,
     type: "website",
   },
-  robots: {
-    index: false,
-    follow: false,
-  },
+  robots:
+    process.env.VERCEL_ENV === "production"
+      ? { index: true, follow: true }
+      : { index: false, follow: false },
 };
 
 export const viewport: Viewport = {
