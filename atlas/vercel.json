@@ -7,7 +7,7 @@
   "crons": [
     {
       "path": "/api/cron/cleanup-usage-reservations",
-      "schedule": "0 * * * *"
+      "schedule": "0 3 * * *"
     }
   ]
 }
