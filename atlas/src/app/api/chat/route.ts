@@ -66,7 +66,9 @@ export async function POST(request: NextRequest) {
     const rateLimit = await checkRateLimit(membership.organizationId);
     if (!rateLimit.allowed) {
       return NextResponse.json(
-        { error: { code: "RATE_LIMITED", message: "Daily token limit reached" } },
+        {
+          error: { code: "RATE_LIMITED", message: "Daily token limit reached" },
+        },
         { status: 429 }
       );
     }
@@ -110,7 +112,8 @@ export async function POST(request: NextRequest) {
             encoder.encode(
               `data: ${JSON.stringify({
                 type: "error",
-                content: "The response could not be completed. Please try again.",
+                content:
+                  "The response could not be completed. Please try again.",
               })}\n\n`
             )
           );

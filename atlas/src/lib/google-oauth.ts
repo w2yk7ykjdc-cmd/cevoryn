@@ -19,7 +19,8 @@ function getGoogleConfig() {
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
   const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
   const productionUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
-  const appUrl = configuredAppUrl || (productionUrl ? `https://${productionUrl}` : null);
+  const appUrl =
+    configuredAppUrl || (productionUrl ? `https://${productionUrl}` : null);
 
   if (!clientId || !clientSecret || !appUrl) {
     throw new Error("Google integration environment variables are missing");
@@ -36,14 +37,16 @@ function getGoogleConfig() {
 export function isGoogleIntegrationConfigured() {
   return Boolean(
     process.env.GOOGLE_CLIENT_ID?.trim() &&
-      process.env.GOOGLE_CLIENT_SECRET?.trim() &&
-      process.env.GOOGLE_TOKEN_ENCRYPTION_KEY?.trim() &&
-      (process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-        process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim())
+    process.env.GOOGLE_CLIENT_SECRET?.trim() &&
+    process.env.GOOGLE_TOKEN_ENCRYPTION_KEY?.trim() &&
+    (process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+      process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim())
   );
 }
 
-export function getGoogleSettingsUrl(status?: "connected" | "disconnected" | "error") {
+export function getGoogleSettingsUrl(
+  status?: "connected" | "disconnected" | "error"
+) {
   const { appUrl } = getGoogleConfig();
   const url = new URL("/settings", appUrl);
   if (status) url.searchParams.set("google", status);
@@ -136,7 +139,9 @@ export async function fetchGoogleEmail(accessToken: string) {
 function encryptionKey() {
   const secret = process.env.GOOGLE_TOKEN_ENCRYPTION_KEY?.trim();
   if (!secret || secret.length < 32) {
-    throw new Error("GOOGLE_TOKEN_ENCRYPTION_KEY must contain at least 32 characters");
+    throw new Error(
+      "GOOGLE_TOKEN_ENCRYPTION_KEY must contain at least 32 characters"
+    );
   }
 
   return crypto.createHash("sha256").update(secret).digest();
@@ -145,9 +150,14 @@ function encryptionKey() {
 export function encryptGoogleToken(value: string) {
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv("aes-256-gcm", encryptionKey(), iv);
-  const encrypted = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
+  const encrypted = Buffer.concat([
+    cipher.update(value, "utf8"),
+    cipher.final(),
+  ]);
   const tag = cipher.getAuthTag();
-  return [iv, tag, encrypted].map((part) => part.toString("base64url")).join(".");
+  return [iv, tag, encrypted]
+    .map((part) => part.toString("base64url"))
+    .join(".");
 }
 
 export function decryptGoogleToken(value: string) {

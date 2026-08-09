@@ -35,7 +35,11 @@ export default function GlobalError({
           <button
             type="button"
             onClick={reset}
-            style={{ cursor: "pointer", marginTop: "16px", padding: "10px 16px" }}
+            style={{
+              cursor: "pointer",
+              marginTop: "16px",
+              padding: "10px 16px",
+            }}
           >
             Try again
           </button>

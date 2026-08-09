@@ -33,7 +33,9 @@ export async function getOrganizationEntitlements(
   const subscriptionActive = subscription
     ? isSubscriptionActive(subscription.subscriptionStatus)
     : false;
-  const plan = subscriptionActive ? subscription?.plan ?? "STARTER" : "STARTER";
+  const plan = subscriptionActive
+    ? (subscription?.plan ?? "STARTER")
+    : "STARTER";
 
   return {
     plan,
@@ -73,7 +75,10 @@ export async function assertMemberCapacity(
     }),
   ]);
 
-  if (memberCount + pendingInviteCount + additionalMembers > limits.maxMembers) {
+  if (
+    memberCount + pendingInviteCount + additionalMembers >
+    limits.maxMembers
+  ) {
     throw new PlanLimitError(
       `Your current plan supports up to ${limits.maxMembers} team member${limits.maxMembers === 1 ? "" : "s"}.`
     );
@@ -84,7 +89,9 @@ export async function getCurrentMonthlyAiTokens(
   organizationId: string,
   now = new Date()
 ): Promise<number> {
-  const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const periodStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)
+  );
   const usage = await prisma.usageRecord.aggregate({
     where: {
       organizationId,

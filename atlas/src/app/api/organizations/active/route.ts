@@ -37,8 +37,7 @@ export async function POST(request: Request) {
 
     const memberships = await getOrganizationMemberships(user.id);
     const allowed = memberships.some(
-      (membership) =>
-        membership.organizationId === parsed.data.organizationId
+      (membership) => membership.organizationId === parsed.data.organizationId
     );
 
     if (!allowed) {

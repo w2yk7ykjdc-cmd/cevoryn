@@ -19,7 +19,10 @@ test("filters insights by status and severity", () => {
   assert.equal(matchesInsightFilter(insight, "all"), true);
   assert.equal(matchesInsightFilter(insight, "open"), true);
   assert.equal(matchesInsightFilter(insight, "critical"), true);
-  assert.equal(matchesInsightFilter({ status: "DISMISSED", severity: "INFO" }, "open"), false);
+  assert.equal(
+    matchesInsightFilter({ status: "DISMISSED", severity: "INFO" }, "open"),
+    false
+  );
 });
 
 test("returns safe history visibility", () => {

@@ -19,11 +19,7 @@ interface MobileNavProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function MobileNav({
-  membership,
-  open,
-  onOpenChange,
-}: MobileNavProps) {
+export function MobileNav({ membership, open, onOpenChange }: MobileNavProps) {
   const pathname = usePathname();
 
   useEffect(() => {

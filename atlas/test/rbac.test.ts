@@ -1,11 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  canModifyMember,
-  hasPermission,
-  isRoleAtLeast,
-} from "../src/lib/rbac";
+import { canModifyMember, hasPermission, isRoleAtLeast } from "../src/lib/rbac";
 
 test("members cannot perform organization or team mutations", () => {
   assert.equal(hasPermission("MEMBER", "org:update"), false);

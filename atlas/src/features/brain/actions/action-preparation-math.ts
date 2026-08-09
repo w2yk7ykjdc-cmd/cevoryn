@@ -12,7 +12,8 @@ export interface RawAction {
   content: Record<string, unknown>;
 }
 
-export type ActionType = "EMAIL_DRAFT" | "TASK" | "CALENDAR_PROPOSAL" | "FOLLOW_UP";
+export type ActionType =
+  "EMAIL_DRAFT" | "TASK" | "CALENDAR_PROPOSAL" | "FOLLOW_UP";
 
 export interface ActionCandidate {
   type: ActionType;

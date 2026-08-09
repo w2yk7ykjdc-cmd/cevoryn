@@ -32,8 +32,6 @@ export interface OrganizationSubscription {
   updatedAt: Date;
 }
 
-export function isSubscriptionActive(
-  status: SubscriptionStatus
-): boolean {
+export function isSubscriptionActive(status: SubscriptionStatus): boolean {
   return status === "ACTIVE" || status === "TRIALING";
 }

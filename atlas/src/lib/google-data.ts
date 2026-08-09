@@ -56,9 +56,9 @@ async function googleFetch<T>(url: string, accessToken: string): Promise<T> {
   });
 
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as
-      | { error?: { status?: string } }
-      | null;
+    const payload = (await response.json().catch(() => null)) as {
+      error?: { status?: string };
+    } | null;
     const providerCode = payload?.error?.status;
     throw new Error(
       providerCode
@@ -85,10 +85,16 @@ export async function getRecentGmailContext(
 ): Promise<GmailContextItem[]> {
   const accessToken = await getValidGoogleAccessToken(organizationId, userId);
   const listUrl = new URL(`${GMAIL_API}/users/me/messages`);
-  listUrl.searchParams.set("maxResults", String(Math.min(Math.max(limit, 1), 10)));
+  listUrl.searchParams.set(
+    "maxResults",
+    String(Math.min(Math.max(limit, 1), 10))
+  );
   listUrl.searchParams.set("q", "newer_than:7d -in:spam -in:trash");
 
-  const list = await googleFetch<GmailListResponse>(listUrl.toString(), accessToken);
+  const list = await googleFetch<GmailListResponse>(
+    listUrl.toString(),
+    accessToken
+  );
   const messages = list.messages ?? [];
 
   return Promise.all(
@@ -132,7 +138,10 @@ export async function getUpcomingCalendarContext(
   url.searchParams.set("orderBy", "startTime");
   url.searchParams.set("maxResults", String(Math.min(Math.max(limit, 1), 20)));
 
-  const data = await googleFetch<CalendarListResponse>(url.toString(), accessToken);
+  const data = await googleFetch<CalendarListResponse>(
+    url.toString(),
+    accessToken
+  );
 
   return (data.items ?? []).map((event) => ({
     id: event.id,

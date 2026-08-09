@@ -22,7 +22,9 @@ export async function buildGoogleBriefSections(
         .slice(0, 4)
         .map((event) => {
           const time = formatTime(event.start);
-          const location = event.location ? ` at ${clean(event.location, 80)}` : "";
+          const location = event.location
+            ? ` at ${clean(event.location, 80)}`
+            : "";
           return `${time} ${clean(event.title, 100)}${location}`;
         })
         .join("; ");
@@ -37,7 +39,9 @@ export async function buildGoogleBriefSections(
     if (context.emails.length > 0) {
       const signals = context.emails
         .slice(0, 4)
-        .map((email) => `${clean(email.from, 80)} — ${clean(email.subject, 110)}`)
+        .map(
+          (email) => `${clean(email.from, 80)} — ${clean(email.subject, 110)}`
+        )
         .join("; ");
 
       sections.push({
@@ -54,7 +58,11 @@ export async function buildGoogleBriefSections(
 }
 
 function clean(value: string, maxLength: number): string {
-  return value.replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim().slice(0, maxLength);
+  return value
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLength);
 }
 
 function formatTime(value: string): string {

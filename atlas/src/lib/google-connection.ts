@@ -19,9 +19,7 @@ export class GoogleConnectionError extends Error {
   constructor(
     message: string,
     public readonly code:
-      | "NOT_CONNECTED"
-      | "REFRESH_TOKEN_MISSING"
-      | "REFRESH_FAILED"
+      "NOT_CONNECTED" | "REFRESH_TOKEN_MISSING" | "REFRESH_FAILED"
   ) {
     super(message);
     this.name = "GoogleConnectionError";

@@ -37,7 +37,8 @@ export async function GET(request: NextRequest) {
     const mode = url.searchParams.get("mode");
 
     if (mode === "latest") {
-      const type = url.searchParams.get("type") === "WEEKLY" ? "WEEKLY" : "DAILY";
+      const type =
+        url.searchParams.get("type") === "WEEKLY" ? "WEEKLY" : "DAILY";
       const brief = await getLatestBrief(membership.organizationId, type);
 
       if (!brief) return notFoundResponse("No brief found");
@@ -76,7 +77,9 @@ export async function POST(request: NextRequest) {
     const rateLimit = await checkRateLimit(membership.organizationId);
     if (!rateLimit.allowed) {
       return NextResponse.json(
-        { error: { code: "RATE_LIMITED", message: "Daily token limit reached" } },
+        {
+          error: { code: "RATE_LIMITED", message: "Daily token limit reached" },
+        },
         { status: 429 }
       );
     }
@@ -124,7 +127,8 @@ export async function POST(request: NextRequest) {
         {
           error: {
             code: error.code,
-            message: "CEO Brief is available on Professional and Business plans.",
+            message:
+              "CEO Brief is available on Professional and Business plans.",
           },
         },
         { status: 403 }

@@ -39,7 +39,11 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: insights });
   } catch (error) {
-    return internalErrorResponse("Insights GET", error, "Failed to load insights");
+    return internalErrorResponse(
+      "Insights GET",
+      error,
+      "Failed to load insights"
+    );
   }
 }
 
@@ -66,7 +70,8 @@ export async function POST() {
           {
             error: {
               code: error.code,
-              message: "Brain insight generation requires the Professional or Business plan.",
+              message:
+                "Brain insight generation requires the Professional or Business plan.",
             },
           },
           { status: 403 }
@@ -84,7 +89,9 @@ export async function POST() {
     const rateLimit = await checkRateLimit(membership.organizationId);
     if (!rateLimit.allowed) {
       return NextResponse.json(
-        { error: { code: "RATE_LIMITED", message: "Daily token limit reached" } },
+        {
+          error: { code: "RATE_LIMITED", message: "Daily token limit reached" },
+        },
         { status: 429 }
       );
     }

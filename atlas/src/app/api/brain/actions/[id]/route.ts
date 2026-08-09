@@ -34,11 +34,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({ data: action });
   } catch (error) {
-    return internalErrorResponse(
-      "Action GET",
-      error,
-      "Failed to load action"
-    );
+    return internalErrorResponse("Action GET", error, "Failed to load action");
   }
 }
 

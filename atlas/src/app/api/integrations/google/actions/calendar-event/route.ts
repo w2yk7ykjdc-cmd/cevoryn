@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     const result = await createGoogleCalendarEvent(
       membership.organizationId,
       user.id,
-      parsed.data,
+      parsed.data
     );
 
     return NextResponse.json(
@@ -45,27 +45,25 @@ export async function POST(request: NextRequest) {
           status: result.status ?? null,
         },
       },
-      { status: 201 },
+      { status: 201 }
     );
   } catch (error) {
     if (error instanceof GoogleConnectionError) {
       return NextResponse.json(
         { error: { code: error.code, message: error.message } },
-        { status: 409 },
+        { status: 409 }
       );
     }
 
     return internalErrorResponse(
       "Google calendar event",
       error,
-      "The calendar event could not be created",
+      "The calendar event could not be created"
     );
   }
 }
 
-function parseCalendarEvent(
-  value: unknown,
-):
+function parseCalendarEvent(value: unknown):
   | {
       ok: true;
       data: {

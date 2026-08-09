@@ -122,7 +122,7 @@ export function MobileBottomNav() {
                 aria-label="Open CEVORYN"
                 className={cn(
                   "-mt-6 flex flex-col items-center gap-1 text-xs font-medium",
-                  item.slotClass,
+                  item.slotClass
                 )}
               >
                 <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg ring-4 ring-background">
@@ -144,7 +144,7 @@ export function MobileBottomNav() {
               className={cn(
                 "flex min-h-11 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[10px] font-medium transition-colors",
                 item.slotClass,
-                isActive ? "text-primary" : "text-muted-foreground",
+                isActive ? "text-primary" : "text-muted-foreground"
               )}
             >
               <Icon className="h-5 w-5" />

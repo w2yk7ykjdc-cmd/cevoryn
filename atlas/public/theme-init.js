@@ -3,7 +3,8 @@
     var storageKey = "cevoryn-theme";
     var legacyStorageKey = "atlas-theme";
     var saved =
-      localStorage.getItem(storageKey) ?? localStorage.getItem(legacyStorageKey);
+      localStorage.getItem(storageKey) ??
+      localStorage.getItem(legacyStorageKey);
     var theme =
       saved === "light" || saved === "dark"
         ? saved

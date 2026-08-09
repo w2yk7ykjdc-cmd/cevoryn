@@ -7,10 +7,7 @@ import { useEffect } from "react";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
-import type {
-  MembershipContext,
-  OrganizationMembershipOption,
-} from "@/types";
+import type { MembershipContext, OrganizationMembershipOption } from "@/types";
 
 import { OrganizationSwitcher } from "./organization-switcher";
 
@@ -43,7 +40,7 @@ export function Header({
   }, [router]);
 
   return (
-    <header className="relative z-[100] isolate flex h-14 shrink-0 items-center justify-between overflow-visible border-b bg-card px-4 lg:px-6">
+    <header className="relative isolate z-[100] flex h-14 shrink-0 items-center justify-between overflow-visible border-b bg-card px-4 lg:px-6">
       <Button
         variant="ghost"
         size="icon"

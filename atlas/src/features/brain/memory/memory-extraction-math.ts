@@ -25,7 +25,10 @@ export function selectValidMemories(
   if (!Array.isArray(extracted)) return [];
 
   const candidates: ExtractedMemoryCandidate[] = [];
-  for (const item of extracted as Array<{ category?: unknown; content?: unknown }>) {
+  for (const item of extracted as Array<{
+    category?: unknown;
+    content?: unknown;
+  }>) {
     if (
       typeof item?.content !== "string" ||
       item.content.length < MIN_CONTENT_LENGTH ||

@@ -9,8 +9,7 @@ interface SendTeamInviteEmailInput {
 }
 
 export type InviteEmailResult =
-  | { sent: true }
-  | { sent: false; reason: "NOT_CONFIGURED" | "PROVIDER_ERROR" };
+  { sent: true } | { sent: false; reason: "NOT_CONFIGURED" | "PROVIDER_ERROR" };
 
 function escapeHtml(value: string): string {
   return value

@@ -98,9 +98,10 @@ export async function generateBrief(
 
     const parsed = JSON.parse(content.trim());
     const normalized = normalizeSections(parsed);
-    sections = normalized.length > 0
-      ? normalized
-      : buildFallbackSections(report, intelligence);
+    sections =
+      normalized.length > 0
+        ? normalized
+        : buildFallbackSections(report, intelligence);
   } catch (_error) {
     sections = buildFallbackSections(report, intelligence);
   }
@@ -147,13 +148,17 @@ function normalizeSections(value: unknown): BriefSection[] {
     if (!section || typeof section !== "object") continue;
 
     const candidate = section as Record<string, unknown>;
-    const heading = typeof candidate.heading === "string" ? candidate.heading.trim() : "";
-    const content = typeof candidate.content === "string" ? candidate.content.trim() : "";
-    const priority = typeof candidate.priority === "string"
-      ? candidate.priority.toLowerCase()
-      : "";
+    const heading =
+      typeof candidate.heading === "string" ? candidate.heading.trim() : "";
+    const content =
+      typeof candidate.content === "string" ? candidate.content.trim() : "";
+    const priority =
+      typeof candidate.priority === "string"
+        ? candidate.priority.toLowerCase()
+        : "";
 
-    if (!heading || content.length < 30 || !VALID_PRIORITIES.has(priority)) continue;
+    if (!heading || content.length < 30 || !VALID_PRIORITIES.has(priority))
+      continue;
 
     const fingerprint = `${heading} ${content}`
       .toLowerCase()
@@ -197,7 +202,9 @@ function buildFallbackSections(
   });
 
   if (report.priorities.length > 0) {
-    const top = report.priorities.slice(0, 3).map((p: { title: string }) => p.title);
+    const top = report.priorities
+      .slice(0, 3)
+      .map((p: { title: string }) => p.title);
     sections.push({
       heading: "Decisions Needed",
       content: `The current priority queue is: ${top.join("; ")}. Choose one item to resolve today, assign an owner, and define the next observable outcome before adding more work.`,

@@ -45,7 +45,8 @@ export function computeMetricsFromDecisions(
   const avgTimeMs =
     completedWithTime.length > 0
       ? completedWithTime.reduce(
-          (sum, d) => sum + ((d.resolvedAt?.getTime() ?? 0) - d.createdAt.getTime()),
+          (sum, d) =>
+            sum + ((d.resolvedAt?.getTime() ?? 0) - d.createdAt.getTime()),
           0
         ) / completedWithTime.length
       : 0;

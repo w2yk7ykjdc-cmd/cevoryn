@@ -52,9 +52,7 @@ function buildOrgContext(
 - Team size: ${memberCount} member${memberCount === 1 ? "" : "s"}`;
 }
 
-function buildWorkspaceBootstrapContext(
-  membership: MembershipContext
-): string {
+function buildWorkspaceBootstrapContext(membership: MembershipContext): string {
   if (membership.organizationSlug !== PRODUCT_OWNER_ORG_SLUG) {
     return "";
   }

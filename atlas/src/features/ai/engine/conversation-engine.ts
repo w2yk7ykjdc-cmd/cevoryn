@@ -126,7 +126,7 @@ export async function* streamResponse(params: {
     }),
     buildGoogleWorkspacePromptContext(
       membership.organizationId,
-      membership.userId,
+      membership.userId
     ),
   ]);
 
@@ -208,7 +208,7 @@ export async function* streamResponse(params: {
               prisma.conversation.update({
                 where: { id: conversationId },
                 data: { title },
-              }),
+              })
             )
             .catch(() => {});
         }

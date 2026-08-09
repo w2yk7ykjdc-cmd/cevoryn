@@ -8,13 +8,16 @@ import {
 } from "../src/features/brain/decisions/schemas";
 
 test("decision creation rejects vague problem descriptions", () => {
-  const result = createDecisionSchema.safeParse({ problemDescription: "Too short" });
+  const result = createDecisionSchema.safeParse({
+    problemDescription: "Too short",
+  });
   assert.equal(result.success, false);
 });
 
 test("decision creation trims and accepts a concrete problem", () => {
   const result = createDecisionSchema.safeParse({
-    problemDescription: "  Decide whether to delay the product launch by one week.  ",
+    problemDescription:
+      "  Decide whether to delay the product launch by one week.  ",
   });
 
   assert.equal(result.success, true);

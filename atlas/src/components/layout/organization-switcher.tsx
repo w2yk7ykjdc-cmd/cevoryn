@@ -33,9 +33,9 @@ export function OrganizationSwitcher({
       });
 
       if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as
-          | { error?: { message?: string } }
-          | null;
+        const payload = (await response.json().catch(() => null)) as {
+          error?: { message?: string };
+        } | null;
         throw new Error(
           payload?.error?.message ?? "Organization could not be switched"
         );
