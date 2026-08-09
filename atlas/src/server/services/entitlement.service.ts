@@ -212,3 +212,27 @@ export async function releaseAiTokenReservation(
       AND "output_tokens" = 0
   `;
 }
+
+/**
+ * Sweep up reservations that were never reconciled or released — the one
+ * disclosed gap in the reserve/reconcile/release flow above: if the
+ * serverless function is killed (e.g. its maxDuration timeout) between
+ * reserving and reconciling, no cleanup code runs and the placeholder is
+ * left behind, permanently reducing the org's remaining budget by the
+ * estimate. Run on a schedule (see /api/cron/cleanup-usage-reservations)
+ * so that reduction is temporary, not permanent. Only ever touches rows
+ * still holding placeholder (zero) token values, so a reservation that
+ * completed normally moments before this runs is never at risk.
+ */
+export async function cleanupStaleAiTokenReservations(
+  olderThanMinutes = 60
+): Promise<number> {
+  const cutoff = new Date(Date.now() - olderThanMinutes * 60 * 1000);
+  return prisma.$executeRaw`
+    DELETE FROM "usage_records"
+    WHERE "input_tokens" = 0
+      AND "output_tokens" = 0
+      AND "total_tokens" > 0
+      AND "created_at" < ${cutoff}
+  `;
+}

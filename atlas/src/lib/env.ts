@@ -19,6 +19,7 @@ const serverSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().min(1).optional(),
   GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
   GOOGLE_TOKEN_ENCRYPTION_KEY: z.string().min(32).optional(),
+  CRON_SECRET: z.string().min(16).optional(),
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
