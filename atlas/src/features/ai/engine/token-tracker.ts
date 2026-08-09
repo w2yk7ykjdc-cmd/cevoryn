@@ -4,29 +4,6 @@ import { prisma } from "@/lib/prisma";
 import type { TokenUsage } from "@/types";
 
 /**
- * Record token usage for billing and rate-limiting.
- */
-export async function recordUsage(params: {
-  organizationId: string;
-  userId: string;
-  conversationId: string;
-  model: string;
-  usage: TokenUsage;
-}): Promise<void> {
-  await prisma.usageRecord.create({
-    data: {
-      organizationId: params.organizationId,
-      userId: params.userId,
-      conversationId: params.conversationId,
-      model: params.model,
-      inputTokens: params.usage.inputTokens,
-      outputTokens: params.usage.outputTokens,
-      totalTokens: params.usage.totalTokens,
-    },
-  });
-}
-
-/**
  * Record token usage for non-conversation AI operations such as Insights,
  * Briefs, and Decision Canvas generation.
  */

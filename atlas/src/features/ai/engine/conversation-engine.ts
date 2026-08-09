@@ -9,6 +9,10 @@ import { AI_CONFIG } from "@/lib/constants";
 import { captureServerError } from "@/lib/error-reporting";
 import { buildGoogleWorkspacePromptContext } from "@/lib/google-context";
 import { prisma } from "@/lib/prisma";
+import {
+  reconcileAiTokenReservation,
+  releaseAiTokenReservation,
+} from "@/server/services/entitlement.service";
 import type { MembershipContext, StreamChunk } from "@/types";
 
 import { buildContext } from "../context/context-builder";
@@ -16,7 +20,6 @@ import { TITLE_GENERATION_PROMPT } from "../context/prompts";
 import { getAIProvider } from "../providers";
 
 import { tryCreateGoogleDraftFromChat } from "./chat-google-draft";
-import { recordUsage } from "./token-tracker";
 
 // Ensure brain modules are registered
 initializeBrain();
@@ -38,8 +41,10 @@ export async function* streamResponse(params: {
   conversationId: string;
   userMessageContent: string;
   membership: MembershipContext;
+  reservationId: string;
 }): AsyncGenerator<StreamChunk> {
-  const { conversationId, userMessageContent, membership } = params;
+  const { conversationId, userMessageContent, membership, reservationId } =
+    params;
   const model = AI_CONFIG.defaultModel;
   const provider = getAIProvider();
 
@@ -75,13 +80,7 @@ export async function* streamResponse(params: {
         },
       });
 
-      await recordUsage({
-        organizationId: membership.organizationId,
-        userId: membership.userId,
-        conversationId,
-        model,
-        usage: draftAction.usage,
-      });
+      await reconcileAiTokenReservation(reservationId, draftAction.usage);
 
       await prisma.conversation.update({
         where: { id: conversationId },
@@ -97,6 +96,7 @@ export async function* streamResponse(params: {
       return;
     }
   } catch (error) {
+    await releaseAiTokenReservation(reservationId);
     const message =
       error instanceof Error
         ? error.message
@@ -173,13 +173,7 @@ export async function* streamResponse(params: {
           },
         });
 
-        await recordUsage({
-          organizationId: membership.organizationId,
-          userId: membership.userId,
-          conversationId,
-          model,
-          usage: chunk.usage,
-        });
+        await reconcileAiTokenReservation(reservationId, chunk.usage);
 
         await prisma.conversation.update({
           where: { id: conversationId },
@@ -221,6 +215,7 @@ export async function* streamResponse(params: {
       }
     }
   } catch (error) {
+    await releaseAiTokenReservation(reservationId);
     const message =
       error instanceof Error ? error.message : "AI response failed";
     captureServerError("chat-stream", error, {

@@ -10,13 +10,15 @@ import {
   unauthorizedResponse,
 } from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
+import { AI_CONFIG } from "@/lib/constants";
 import { captureServerError } from "@/lib/error-reporting";
 import { hasPermission } from "@/lib/rbac";
 import { sendMessage } from "@/server/services/ai.service";
 import { getConversation } from "@/server/services/conversation.service";
 import {
-  assertAiTokenCapacity,
   PlanLimitError,
+  releaseAiTokenReservation,
+  reserveAiTokenCapacity,
 } from "@/server/services/entitlement.service";
 import { checkRateLimit } from "@/server/services/rate-limit.service";
 
@@ -73,8 +75,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let reservationId: string;
     try {
-      await assertAiTokenCapacity(membership.organizationId);
+      // Reserves a conservative worst-case token estimate atomically, closing
+      // the check-then-act race a plain "check usage, act later" read would
+      // have against concurrent requests for the same organization. Reconciled
+      // to the real usage (or released) once the stream finishes below.
+      reservationId = await reserveAiTokenCapacity({
+        organizationId: membership.organizationId,
+        userId: membership.userId,
+        conversationId: parsed.data.conversationId,
+        model: AI_CONFIG.defaultModel,
+        estimatedTokens: AI_CONFIG.maxOutputTokens,
+      });
     } catch (error) {
       if (error instanceof PlanLimitError) {
         return NextResponse.json(
@@ -93,12 +106,17 @@ export async function POST(request: NextRequest) {
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
+        let reconciled = false;
         try {
           for await (const chunk of sendMessage({
             conversationId: parsed.data.conversationId,
             content: parsed.data.content,
             membership,
+            reservationId,
           })) {
+            if (chunk.type === "done" || chunk.type === "error") {
+              reconciled = true;
+            }
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`)
             );
@@ -118,6 +136,14 @@ export async function POST(request: NextRequest) {
             )
           );
         } finally {
+          if (!reconciled) {
+            await releaseAiTokenReservation(reservationId).catch((error) => {
+              captureServerError("chat-route-reservation-release", error, {
+                organizationId: membership.organizationId,
+                reservationId,
+              });
+            });
+          }
           controller.close();
         }
       },
