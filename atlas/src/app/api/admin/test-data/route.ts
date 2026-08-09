@@ -58,7 +58,9 @@ export async function DELETE(request: Request) {
             ...TEST_PREFIXES.map((prefix) => ({
               title: { startsWith: prefix, mode: "insensitive" as const },
             })),
-            ...(insightIds.length > 0 ? [{ sourceInsightId: { in: insightIds } }] : []),
+            ...(insightIds.length > 0
+              ? [{ sourceInsightId: { in: insightIds } }]
+              : []),
           ],
         },
       });
@@ -68,9 +70,14 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({ data: result });
   } catch (error) {
-    console.error("Test data cleanup error:", error instanceof Error ? error.message : "unknown");
+    console.error(
+      "Test data cleanup error:",
+      error instanceof Error ? error.message : "unknown"
+    );
     return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Test data cleanup failed" } },
+      {
+        error: { code: "INTERNAL_ERROR", message: "Test data cleanup failed" },
+      },
       { status: 500 }
     );
   }

@@ -17,25 +17,35 @@ export async function buildGoogleWorkspacePromptContext(
     if (context.emails.length > 0) {
       lines.push(
         "### Recent Gmail signals",
-        ...context.emails.slice(0, 10).map(
-          (email) =>
-            `- [${cleanContextValue(email.date, 80)}] From: ${cleanContextValue(email.from, 160)} | Subject: ${cleanContextValue(email.subject, 180)} | Snippet: ${cleanContextValue(email.snippet, 280)}`
-        )
+        ...context.emails
+          .slice(0, 10)
+          .map(
+            (email) =>
+              `- [${cleanContextValue(email.date, 80)}] From: ${cleanContextValue(email.from, 160)} | Subject: ${cleanContextValue(email.subject, 180)} | Snippet: ${cleanContextValue(email.snippet, 280)}`
+          )
       );
     } else {
-      lines.push("### Recent Gmail signals", "No recent email signals were returned.");
+      lines.push(
+        "### Recent Gmail signals",
+        "No recent email signals were returned."
+      );
     }
 
     if (context.events.length > 0) {
       lines.push(
         "### Upcoming Calendar signals",
-        ...context.events.slice(0, 15).map(
-          (event) =>
-            `- ${cleanContextValue(event.start, 80)} to ${cleanContextValue(event.end ?? "unknown", 80)} | ${cleanContextValue(event.title, 180)} | Location: ${cleanContextValue(event.location ?? "not specified", 160)} | Attendees: ${event.attendees.length}`
-        )
+        ...context.events
+          .slice(0, 15)
+          .map(
+            (event) =>
+              `- ${cleanContextValue(event.start, 80)} to ${cleanContextValue(event.end ?? "unknown", 80)} | ${cleanContextValue(event.title, 180)} | Location: ${cleanContextValue(event.location ?? "not specified", 160)} | Attendees: ${event.attendees.length}`
+          )
       );
     } else {
-      lines.push("### Upcoming Calendar signals", "No upcoming events were returned.");
+      lines.push(
+        "### Upcoming Calendar signals",
+        "No upcoming events were returned."
+      );
     }
 
     return lines.join("\n");

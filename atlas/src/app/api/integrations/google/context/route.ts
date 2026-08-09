@@ -6,9 +6,7 @@ import {
   unauthorizedResponse,
 } from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
-import {
-  GoogleConnectionError,
-} from "@/lib/google-connection";
+import { GoogleConnectionError } from "@/lib/google-connection";
 import { getGoogleWorkspaceContext } from "@/lib/google-data";
 
 export async function GET() {

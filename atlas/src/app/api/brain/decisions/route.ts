@@ -33,7 +33,9 @@ export async function GET(request: NextRequest) {
 
     const url = new URL(request.url);
     const status = url.searchParams.get("status") ?? undefined;
-    const decisions = await listDecisions(membership.organizationId, { status });
+    const decisions = await listDecisions(membership.organizationId, {
+      status,
+    });
 
     return NextResponse.json({ data: decisions });
   } catch (error) {

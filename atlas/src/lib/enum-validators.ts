@@ -72,9 +72,7 @@ const TIMELINE_EVENT_TYPES = [
 type TimelineEventType = (typeof TIMELINE_EVENT_TYPES)[number];
 
 export function toTimelineEventType(value: string): TimelineEventType {
-  return isEnumValue(TIMELINE_EVENT_TYPES, value)
-    ? value
-    : "OUTCOME_RECORDED";
+  return isEnumValue(TIMELINE_EVENT_TYPES, value) ? value : "OUTCOME_RECORDED";
 }
 
 // =============================================================================

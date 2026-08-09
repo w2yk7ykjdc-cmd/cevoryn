@@ -25,7 +25,10 @@ test("zero activity is not treated as improving or declining", () => {
 });
 
 test("higher engagement, velocity, and coverage raise the score", () => {
-  const low = computePulseScore(metrics({ conversationCount: 1, messageCount: 2 }), null);
+  const low = computePulseScore(
+    metrics({ conversationCount: 1, messageCount: 2 }),
+    null
+  );
   const high = computePulseScore(
     metrics({
       conversationCount: 5,
@@ -39,9 +42,21 @@ test("higher engagement, velocity, and coverage raise the score", () => {
 });
 
 test("trend compares against the previous period, not an absolute threshold", () => {
-  const previous = metrics({ conversationCount: 1, messageCount: 2, activeUserCount: 1 });
-  const improved = metrics({ conversationCount: 3, messageCount: 10, activeUserCount: 2 });
-  const declined = metrics({ conversationCount: 0, messageCount: 0, activeUserCount: 0 });
+  const previous = metrics({
+    conversationCount: 1,
+    messageCount: 2,
+    activeUserCount: 1,
+  });
+  const improved = metrics({
+    conversationCount: 3,
+    messageCount: 10,
+    activeUserCount: 2,
+  });
+  const declined = metrics({
+    conversationCount: 0,
+    messageCount: 0,
+    activeUserCount: 0,
+  });
 
   assert.equal(computePulseScore(improved, previous).trend, "improving");
   assert.equal(computePulseScore(declined, previous).trend, "declining");
@@ -50,7 +65,12 @@ test("trend compares against the previous period, not an absolute threshold", ()
 
 test("dimensions always sum to the reported score via their weights", () => {
   const result = computePulseScore(
-    metrics({ conversationCount: 2, messageCount: 8, activeUserCount: 2, avgResponseTimeMs: 3000 }),
+    metrics({
+      conversationCount: 2,
+      messageCount: 8,
+      activeUserCount: 2,
+      avgResponseTimeMs: 3000,
+    }),
     null
   );
   const weighted = Math.round(

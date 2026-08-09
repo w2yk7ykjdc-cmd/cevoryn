@@ -49,7 +49,8 @@ export const PLAN_CONFIG: Record<BillingPlan, PlanDefinition> = {
   },
   PROFESSIONAL: {
     name: "Professional",
-    description: "Brain, reports, and advanced decision support for growing teams.",
+    description:
+      "Brain, reports, and advanced decision support for growing teams.",
     recommended: true,
     limits: {
       maxOrganizations: 1,
@@ -95,7 +96,10 @@ export function getPlanLimits(plan: BillingPlan): PlanLimits {
   return PLAN_CONFIG[plan].limits;
 }
 
-export function hasFeature(plan: BillingPlan, feature: BillingFeature): boolean {
+export function hasFeature(
+  plan: BillingPlan,
+  feature: BillingFeature
+): boolean {
   return PLAN_CONFIG[plan].features.has(feature);
 }
 

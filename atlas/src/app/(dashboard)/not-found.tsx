@@ -12,7 +12,8 @@ export default function DashboardNotFound() {
 
       <h1 className="mt-5 text-xl font-semibold">Page not found</h1>
       <p className="mt-2 max-w-md text-sm text-muted-foreground">
-        This page may have moved, been removed, or may not be available in your workspace.
+        This page may have moved, been removed, or may not be available in your
+        workspace.
       </p>
 
       <Button asChild className="mt-6">

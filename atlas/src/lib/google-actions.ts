@@ -2,7 +2,8 @@ import "server-only";
 
 import { getValidGoogleAccessToken } from "@/lib/google-connection";
 
-const GMAIL_DRAFTS_URL = "https://gmail.googleapis.com/gmail/v1/users/me/drafts";
+const GMAIL_DRAFTS_URL =
+  "https://gmail.googleapis.com/gmail/v1/users/me/drafts";
 const CALENDAR_EVENTS_URL =
   "https://www.googleapis.com/calendar/v3/calendars/primary/events";
 const GOOGLE_TIMEOUT_MS = 12_000;
@@ -82,9 +83,9 @@ async function googleWrite(
   });
 
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as
-      | { error?: { status?: string } }
-      | null;
+    const payload = (await response.json().catch(() => null)) as {
+      error?: { status?: string };
+    } | null;
     const providerCode = payload?.error?.status;
     throw new Error(
       providerCode
@@ -107,9 +108,10 @@ function buildMimeMessage(input: EmailDraftInput): string {
     "Content-Transfer-Encoding: 8bit",
   ].filter((value): value is string => Boolean(value));
 
-  return Buffer.from(`${headers.join("\r\n")}\r\n\r\n${input.body}`, "utf8").toString(
-    "base64url"
-  );
+  return Buffer.from(
+    `${headers.join("\r\n")}\r\n\r\n${input.body}`,
+    "utf8"
+  ).toString("base64url");
 }
 
 function encodeMimeHeader(value: string): string {

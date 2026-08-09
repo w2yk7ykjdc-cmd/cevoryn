@@ -25,11 +25,13 @@ type DraftActionResult = {
 function isExplicitDraftRequest(message: string): boolean {
   const normalized = message.toLocaleLowerCase("tr-TR");
   const hasEmailContext = /\b(?:gmail|e[- ]?posta|eposta|email|mail)\b/i.test(
-    normalized,
+    normalized
   );
   const hasDraftContext = /(?:taslak|taslağ|draft)/i.test(normalized);
   const hasCreateAction =
-    /(?:oluştur|hazırla|yaz|kaydet|create|prepare|write|save)/i.test(normalized);
+    /(?:oluştur|hazırla|yaz|kaydet|create|prepare|write|save)/i.test(
+      normalized
+    );
 
   return hasEmailContext && hasDraftContext && hasCreateAction;
 }

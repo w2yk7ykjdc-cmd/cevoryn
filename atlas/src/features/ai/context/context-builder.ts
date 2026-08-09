@@ -25,7 +25,12 @@ export async function buildContext(params: {
   membership: MembershipContext;
   moduleContexts?: string[];
 }): Promise<ChatMessage[]> {
-  const { conversationId, newMessage, membership, moduleContexts = [] } = params;
+  const {
+    conversationId,
+    newMessage,
+    membership,
+    moduleContexts = [],
+  } = params;
   const orgId = membership.organizationId;
   const now = new Date();
   const statusWindowStart = new Date(
@@ -165,7 +170,8 @@ function buildTelemetryContext(params: {
   }>;
   averageResponseMs: number | null;
 }): string {
-  const activeUsers = new Set(params.recentUsage.map((record) => record.userId)).size;
+  const activeUsers = new Set(params.recentUsage.map((record) => record.userId))
+    .size;
   const tokens = params.recentUsage.reduce(
     (totals, record) => ({
       input: totals.input + record.inputTokens,
@@ -257,7 +263,11 @@ function buildCompanyContext(
     );
   }
 
-  if (memories.length === 0 && insights.length === 0 && decisions.length === 0) {
+  if (
+    memories.length === 0 &&
+    insights.length === 0 &&
+    decisions.length === 0
+  ) {
     sections.push(
       "No stored company memories, open insights, or active decisions are available yet. Ask for the missing business context before giving company-specific advice."
     );

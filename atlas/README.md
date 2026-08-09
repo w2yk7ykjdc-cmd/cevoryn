@@ -46,12 +46,12 @@ src/
 
 ## Brain API Endpoints
 
-| Endpoint | Method | Description |
-|---|---|---|
-| `/api/brain/memories` | GET/POST/DELETE | Company memory CRUD |
-| `/api/brain/insights` | GET/POST/PATCH | Insight generation & management |
-| `/api/brain/pulse` | GET | Real-time company metrics |
-| `/api/brain/brief` | GET/POST | CEO brief generation & history |
+| Endpoint              | Method          | Description                     |
+| --------------------- | --------------- | ------------------------------- |
+| `/api/brain/memories` | GET/POST/DELETE | Company memory CRUD             |
+| `/api/brain/insights` | GET/POST/PATCH  | Insight generation & management |
+| `/api/brain/pulse`    | GET             | Real-time company metrics       |
+| `/api/brain/brief`    | GET/POST        | CEO brief generation & history  |
 
 ## Sprint History
 

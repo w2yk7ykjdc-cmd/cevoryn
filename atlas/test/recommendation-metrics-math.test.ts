@@ -4,7 +4,9 @@ import test from "node:test";
 import { computeMetricsFromDecisions } from "../src/features/brain/learning/recommendation-metrics-math";
 import type { DecisionMetricsInput } from "../src/features/brain/learning/recommendation-metrics-math";
 
-function decision(overrides: Partial<DecisionMetricsInput>): DecisionMetricsInput {
+function decision(
+  overrides: Partial<DecisionMetricsInput>
+): DecisionMetricsInput {
   return {
     status: "PROPOSED",
     canvas: {},

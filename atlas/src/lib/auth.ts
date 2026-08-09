@@ -88,9 +88,9 @@ export async function getMembership(
     )?.value;
 
     const member = requestedOrganizationId
-      ? members.find(
+      ? (members.find(
           (candidate) => candidate.organizationId === requestedOrganizationId
-        ) ?? defaultMember
+        ) ?? defaultMember)
       : defaultMember;
 
     return {
@@ -104,7 +104,10 @@ export async function getMembership(
       avatarUrl: member.avatarUrl,
     };
   } catch (error) {
-    const prismaError = error as { code?: string; meta?: { modelName?: string } };
+    const prismaError = error as {
+      code?: string;
+      meta?: { modelName?: string };
+    };
     console.error("[cevoryn:auth] getMembership failed", {
       prismaCode: prismaError.code ?? "UNKNOWN",
       model: prismaError.meta?.modelName ?? "member",

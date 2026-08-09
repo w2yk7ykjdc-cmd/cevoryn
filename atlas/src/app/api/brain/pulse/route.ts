@@ -26,10 +26,7 @@ export async function GET(request: NextRequest) {
     if (mode === "history") {
       const period =
         url.searchParams.get("period") === "WEEKLY" ? "WEEKLY" : "DAILY";
-      const history = await getPulseHistory(
-        membership.organizationId,
-        period
-      );
+      const history = await getPulseHistory(membership.organizationId, period);
       return NextResponse.json({ data: history });
     }
 

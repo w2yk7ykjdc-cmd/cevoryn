@@ -8,10 +8,7 @@ import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { Sidebar } from "@/components/layout/sidebar";
 import { cn } from "@/lib/utils";
-import type {
-  MembershipContext,
-  OrganizationMembershipOption,
-} from "@/types";
+import type { MembershipContext, OrganizationMembershipOption } from "@/types";
 
 interface DashboardShellProps {
   membership: MembershipContext;
