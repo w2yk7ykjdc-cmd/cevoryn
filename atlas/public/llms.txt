@@ -1,0 +1,15 @@
+# CEVORYN
+
+> CEVORYN is an AI Chief of Staff for small teams (companies with 2–20 employees). It summarizes company activity, prepares morning briefs, and helps founders and operators make faster decisions without hiring a human chief of staff.
+
+CEVORYN connects to a team's existing tools, tracks priorities and decisions, and surfaces what needs attention each day through an AI-powered chat and briefing interface.
+
+## Product
+
+- [Pricing](https://cevoryn.com/pricing): Plans and feature comparison for the STARTER, PROFESSIONAL, and BUSINESS tiers.
+
+## Company
+
+- [Terms of Service](https://cevoryn.com/terms): Terms governing use of CEVORYN.
+- [Privacy Policy](https://cevoryn.com/privacy): How CEVORYN collects, uses, and retains data, including export and deletion requests.
+- [Refund Policy](https://cevoryn.com/refunds): CEVORYN's refund policy for paid subscriptions.
