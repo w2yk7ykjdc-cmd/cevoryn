@@ -9,38 +9,41 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/utils";
 
 const ITEMS = [
   {
-    label: "Home",
+    labelKey: "home",
     href: "/dashboard",
     icon: LayoutDashboard,
     slotClass: "col-start-1",
   },
   {
-    label: "Brief",
+    labelKey: "brief",
     href: "/brief",
     icon: Newspaper,
     slotClass: "col-start-2",
   },
   {
-    label: "CEVORYN",
+    // labelKey is unused for the primary item — its label is the
+    // untranslated brand name, hardcoded directly in the JSX below.
+    labelKey: "chat",
     href: "/chat",
     icon: Sparkles,
     primary: true,
     slotClass: "col-start-3",
   },
   {
-    label: "Settings",
+    labelKey: "settings",
     href: "/settings",
     icon: Settings,
     slotClass: "col-start-4",
   },
   {
-    label: "Health",
+    labelKey: "health",
     href: "/health",
     icon: Activity,
     slotClass: "col-start-5",
@@ -52,6 +55,7 @@ const PREPARED_CHAT_KEY = "atlas-prepared-chat-href";
 export function MobileBottomNav() {
   const pathname = usePathname();
   const router = useRouter();
+  const t = useTranslations("nav");
   const [preparedChatHref, setPreparedChatHref] = useState("/chat");
 
   useEffect(() => {
@@ -148,7 +152,7 @@ export function MobileBottomNav() {
               )}
             >
               <Icon className="h-5 w-5" />
-              <span>{item.label}</span>
+              <span>{t(item.labelKey)}</span>
             </Link>
           );
         })}
