@@ -17,6 +17,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect } from "react";
 
+import { LogoMark } from "@/components/brand/logo-mark";
 import { LanguageSelector } from "@/components/language-selector";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
@@ -103,16 +104,7 @@ export function Sidebar({ membership, onNavigate }: SidebarProps) {
     <aside className="flex h-full w-64 flex-col border-r bg-card">
       <div className="flex items-center gap-3 px-4 py-5">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <svg width="18" height="18" viewBox="0 0 100 100" aria-hidden="true">
-            <path
-              d="M22 72 L50 28 L78 72"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="14"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <LogoMark size={18} />
         </div>
 
         <div className="flex min-w-0 flex-col">

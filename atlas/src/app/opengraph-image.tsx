@@ -1,5 +1,11 @@
 import { ImageResponse } from "next/og";
 
+import {
+  BRAND_MARK_NODE,
+  BRAND_MARK_RING_PATH,
+  BRAND_MARK_RING_STROKE_WIDTH,
+} from "@/lib/brand-mark";
+
 export const alt = "CEVORYN — AI Chief of Staff for small teams";
 export const size = {
   width: 1200,
@@ -37,12 +43,17 @@ export default function OpenGraphImage() {
           style={{ marginBottom: 38 }}
         >
           <path
-            d="M22 72 L50 28 L78 72"
+            d={BRAND_MARK_RING_PATH}
             fill="none"
             stroke="#60a5fa"
-            strokeWidth="11"
+            strokeWidth={BRAND_MARK_RING_STROKE_WIDTH}
             strokeLinecap="round"
-            strokeLinejoin="round"
+          />
+          <circle
+            cx={BRAND_MARK_NODE.cx}
+            cy={BRAND_MARK_NODE.cy}
+            r={BRAND_MARK_NODE.r}
+            fill="#60a5fa"
           />
         </svg>
         <div style={{ fontSize: 76, fontWeight: 800, letterSpacing: "-3px" }}>

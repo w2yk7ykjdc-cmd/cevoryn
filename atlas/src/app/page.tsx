@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
+import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { BRAND } from "@/lib/brand";
 import { ROUTES } from "@/lib/constants";
@@ -30,7 +31,7 @@ export default async function HomePage() {
   return (
     <>
       <header className="mx-auto flex w-full max-w-4xl items-center justify-between px-4 py-6">
-        <span className="font-semibold tracking-tight">{BRAND.name}</span>
+        <Logo />
         <Link
           className="text-sm text-muted-foreground hover:text-foreground"
           href={ROUTES.PRICING}
