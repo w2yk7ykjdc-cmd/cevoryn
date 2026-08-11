@@ -12,7 +12,7 @@ import type {
   OrganizationMembershipOption,
 } from "@/types";
 
-export const ACTIVE_ORGANIZATION_COOKIE = "atlas-active-organization";
+export const ACTIVE_ORGANIZATION_COOKIE = "cevoryn-active-organization";
 
 // =============================================================================
 // User Authentication

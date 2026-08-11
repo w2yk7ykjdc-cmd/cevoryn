@@ -50,7 +50,7 @@ const ITEMS = [
   },
 ] as const;
 
-const PREPARED_CHAT_KEY = "atlas-prepared-chat-href";
+const PREPARED_CHAT_KEY = "cevoryn-prepared-chat-href";
 
 export function MobileBottomNav() {
   const pathname = usePathname();

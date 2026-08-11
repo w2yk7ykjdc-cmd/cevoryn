@@ -4,7 +4,7 @@ import { initializeBrain } from "@/features/brain/bootstrap";
 import {
   gatherBrainContext,
   processExchange,
-} from "@/features/brain/core/atlas-engine";
+} from "@/features/brain/core/brain-engine";
 import { AI_CONFIG } from "@/lib/constants";
 import { captureServerError } from "@/lib/error-reporting";
 import { buildGoogleWorkspacePromptContext } from "@/lib/google-context";
