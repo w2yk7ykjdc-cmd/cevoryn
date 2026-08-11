@@ -1,5 +1,11 @@
 import { ImageResponse } from "next/og";
 
+import {
+  BRAND_MARK_NODE,
+  BRAND_MARK_RING_PATH,
+  BRAND_MARK_RING_STROKE_WIDTH,
+} from "@/lib/brand-mark";
+
 export const size = {
   width: 180,
   height: 180,
@@ -22,12 +28,17 @@ export default function AppleIcon() {
     >
       <svg width="120" height="120" viewBox="0 0 100 100">
         <path
-          d="M22 72 L50 28 L78 72"
+          d={BRAND_MARK_RING_PATH}
           fill="none"
           stroke="#60a5fa"
-          strokeWidth="11"
+          strokeWidth={BRAND_MARK_RING_STROKE_WIDTH}
           strokeLinecap="round"
-          strokeLinejoin="round"
+        />
+        <circle
+          cx={BRAND_MARK_NODE.cx}
+          cy={BRAND_MARK_NODE.cy}
+          r={BRAND_MARK_NODE.r}
+          fill="#60a5fa"
         />
       </svg>
     </div>,
