@@ -19,7 +19,6 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
-    "db:seed": "tsx prisma/seed.ts",
     "gdpr:export": "tsx scripts/gdpr-export-organization.ts",
     "gdpr:delete": "tsx scripts/gdpr-delete-organization.ts",
     "check": "npm run type-check && npm run lint && npm run format:check",
@@ -75,8 +74,5 @@
     "tailwindcss": "^3.4.17",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"
-  },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
   }
 }
