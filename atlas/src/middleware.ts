@@ -107,20 +107,7 @@ export async function middleware(request: NextRequest) {
   // requireUser(), which validates the user with Supabase before returning data.
   const {
     data: { session },
-    error: sessionError,
   } = await supabase.auth.getSession();
-
-  // TEMPORARY DEBUG — remove once the /api/admin/* login-redirect issue is
-  // diagnosed. Logs cookie names and session presence only, never values.
-  if (pathname.startsWith("/api/admin/")) {
-    console.warn("[cevoryn:debug-auth]", {
-      pathname,
-      host: request.headers.get("host"),
-      cookieNames: request.cookies.getAll().map((cookie) => cookie.name),
-      hasSession: Boolean(session),
-      sessionError: sessionError?.message ?? null,
-    });
-  }
 
   if (session && isAuthRoute) {
     return NextResponse.redirect(new URL(ROUTES.DASHBOARD, request.url));
