@@ -1,5 +1,6 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import { Check, CreditCard, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
@@ -134,6 +135,14 @@ function handlePaddleEvent(event: PaddleEvent, t: BillingTranslator): void {
   }
 
   console.error("[cevoryn:paddle] Checkout error", event);
+  Sentry.captureMessage("Paddle checkout error", {
+    level: "error",
+    tags: {
+      scope: "paddle-checkout",
+      paddleEventName: event.name ?? "unknown",
+    },
+    extra: { event },
+  });
   toast.error(getPaddleErrorMessage(event, t) ?? t("paddleCheckoutNotOpened"));
 }
 
@@ -233,6 +242,9 @@ export function BillingActions({
       });
       setPendingAction(null);
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { scope: "paddle-checkout-request", plan },
+      });
       toast.error(
         error instanceof Error ? error.message : t("billingUnavailable")
       );
