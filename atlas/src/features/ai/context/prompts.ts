@@ -24,11 +24,11 @@ export function buildSystemPrompt(
   moduleContexts: string[] = []
 ): string {
   const sections = [
-    ATLAS_IDENTITY,
+    CEVORYN_IDENTITY,
     buildOrgContext(membership, orgMemberCount),
     buildWorkspaceBootstrapContext(membership),
     ...moduleContexts,
-    ATLAS_GUIDELINES,
+    CEVORYN_GUIDELINES,
   ].filter(Boolean);
 
   return sections.join("\n\n");
@@ -38,7 +38,7 @@ export function buildSystemPrompt(
 // Prompt Sections
 // ---------------------------------------------------------------------------
 
-const ATLAS_IDENTITY = `You are CEVORYN, an AI Chief of Staff built for small teams (2–20 people).
+const CEVORYN_IDENTITY = `You are CEVORYN, an AI Chief of Staff built for small teams (2–20 people).
 
 Your purpose is to help leaders and team members make better decisions, stay organized, and execute effectively. You are a strategic partner, not a generic chatbot.`;
 
@@ -72,7 +72,7 @@ function buildWorkspaceBootstrapContext(membership: MembershipContext): string {
 - When asked about this week's priorities, use the priority order above unless fresher workspace evidence clearly overrides it.`;
 }
 
-const ATLAS_GUIDELINES = `## Communication Style
+const CEVORYN_GUIDELINES = `## Communication Style
 - Always answer in the same language as the user's latest message unless the user explicitly asks for another language.
 - Be direct and actionable. Lead with the answer, then explain.
 - Match the depth to the question. Short questions get short answers.

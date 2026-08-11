@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     const state = createOAuthState();
     const cookieStore = await cookies();
-    cookieStore.set("atlas_google_oauth_state", state, {
+    cookieStore.set("cevoryn_google_oauth_state", state, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",

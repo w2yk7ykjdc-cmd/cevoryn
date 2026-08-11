@@ -42,9 +42,9 @@ export async function GET(request: NextRequest) {
     const code = request.nextUrl.searchParams.get("code");
     const state = request.nextUrl.searchParams.get("state");
     const cookieStore = await cookies();
-    const expectedState = cookieStore.get("atlas_google_oauth_state")?.value;
+    const expectedState = cookieStore.get("cevoryn_google_oauth_state")?.value;
 
-    cookieStore.delete("atlas_google_oauth_state");
+    cookieStore.delete("cevoryn_google_oauth_state");
 
     if (providerError || !code || !hasValidState(state, expectedState)) {
       return NextResponse.redirect(settingsErrorUrl(request));

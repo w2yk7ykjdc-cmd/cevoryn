@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { OnboardingProgress } from "@/features/executive/types";
 import { cn } from "@/lib/utils";
 
-const DISMISSED_KEY = "atlas:onboarding-guide-dismissed:v3";
+const DISMISSED_KEY = "cevoryn:onboarding-guide-dismissed:v4";
 
 interface OnboardingGuideProps {
   progress: OnboardingProgress;
