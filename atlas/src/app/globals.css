@@ -82,18 +82,6 @@
     @apply border-border;
   }
 
-  html,
-  body {
-    /*
-     * Guard against accidental sideways scroll on mobile: if any element
-     * (e.g. a horizontally-scrollable pill row) briefly computes wider
-     * than the viewport, the whole document should not become
-     * horizontally scrollable along with it. Elements that intentionally
-     * scroll horizontally (overflow-x-auto) are unaffected.
-     */
-    overflow-x: hidden;
-  }
-
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings:
