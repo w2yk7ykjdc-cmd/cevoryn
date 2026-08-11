@@ -545,3 +545,19 @@ model BillingWebhookEvent {
   @@id([provider, eventId])
   @@map("billing_webhook_events")
 }
+
+/**
+ * One row per pre-authentication attempt (login, signup, forgot-password),
+ * keyed by an action+identity string (e.g. "login_email"/"user@x.com" or
+ * "login_ip"/"1.2.3.4"). Not tied to an organization — these actions run
+ * before a user has one. Rows are only ever inserted/counted, never updated.
+ */
+model AuthRateLimitAttempt {
+  id        String   @id @default(cuid())
+  action    String
+  key       String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([action, key, createdAt])
+  @@map("auth_rate_limit_attempts")
+}
