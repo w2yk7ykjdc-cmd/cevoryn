@@ -9,6 +9,11 @@ import { ROUTES } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getSafeRedirectPath } from "@/lib/safe-redirect";
 import { createClient } from "@/lib/supabase/server";
+import {
+  getClientIp,
+  isAuthRateLimited,
+  recordAuthAttempt,
+} from "@/server/services/auth-rate-limit.service";
 import type { ActionResult } from "@/types";
 
 import {
@@ -177,13 +182,26 @@ export async function loginAction(
       >,
     };
   }
+  const email = parsed.data.email;
+  const clientIp = await getClientIp();
+
+  if (await isAuthRateLimited("login_email", email)) {
+    return { success: false, error: t("rateLimited") };
+  }
+  if (clientIp && (await isAuthRateLimited("login_ip", clientIp))) {
+    return { success: false, error: t("rateLimited") };
+  }
+
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({
-    email: parsed.data.email,
+    email,
     password: parsed.data.password,
   });
-  if (error)
+  if (error) {
+    await recordAuthAttempt("login_email", email);
+    if (clientIp) await recordAuthAttempt("login_ip", clientIp);
     return { success: false, error: sanitizeAuthError(error.message, t) };
+  }
   return {
     success: true,
     data: getSafeRedirectPath(redirectTo, ROUTES.DASHBOARD),
@@ -205,6 +223,12 @@ export async function signupAction(
         string[]
       >,
     };
+  const clientIp = await getClientIp();
+  if (clientIp && (await isAuthRateLimited("signup_ip", clientIp))) {
+    return { success: false, error: t("rateLimited") };
+  }
+  if (clientIp) await recordAuthAttempt("signup_ip", clientIp);
+
   const nextPath = getConfirmationRedirectPath(redirectTo);
   const inviteResult = await activateInvitedUser(parsed.data, nextPath, t);
   if (inviteResult) return inviteResult;
@@ -267,11 +291,20 @@ export async function forgotPasswordAction(
         string[]
       >,
     };
-  const appUrl = await getAppUrl();
-  const supabase = await createClient();
-  await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-    redirectTo: `${appUrl}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(ROUTES.RESET_PASSWORD)}`,
-  });
+  const email = parsed.data.email;
+
+  // Rate-limited requests still return { success: true } below, same as
+  // every other outcome here — this must never reveal whether the email
+  // is registered or whether it's being throttled.
+  if (!(await isAuthRateLimited("forgot_password_email", email))) {
+    await recordAuthAttempt("forgot_password_email", email);
+    const appUrl = await getAppUrl();
+    const supabase = await createClient();
+    await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${appUrl}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(ROUTES.RESET_PASSWORD)}`,
+    });
+  }
+
   return { success: true, data: undefined };
 }
 
