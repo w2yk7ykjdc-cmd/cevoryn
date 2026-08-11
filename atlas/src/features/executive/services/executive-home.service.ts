@@ -104,7 +104,12 @@ export async function loadExecutiveHome(
   const state = determineState(messageCount, memoryCount, topInsights.length);
   const insufficientDataReasons =
     state === "insufficient_data"
-      ? buildInsufficientReasons(messageCount, memoryCount, t)
+      ? buildInsufficientReasons(
+          messageCount,
+          memoryCount,
+          onboardingProgress.googleConnected,
+          t
+        )
       : [];
 
   const previousMetrics = previousSnapshot
@@ -217,6 +222,7 @@ type DashboardTranslator = Awaited<ReturnType<typeof getTranslations>>;
 function buildInsufficientReasons(
   messageCount: number,
   memoryCount: number,
+  googleConnected: boolean,
   t: DashboardTranslator
 ): string[] {
   const reasons: string[] = [];
@@ -226,8 +232,9 @@ function buildInsufficientReasons(
   if (memoryCount < MIN_DATA_THRESHOLD) {
     reasons.push(t("insufficientData.limitedKnowledge"));
   }
-  reasons.push(t("insufficientData.calendarNotConnected"));
-  reasons.push(t("insufficientData.tasksNotConnected"));
+  if (!googleConnected) {
+    reasons.push(t("insufficientData.calendarNotConnected"));
+  }
   return reasons;
 }
 

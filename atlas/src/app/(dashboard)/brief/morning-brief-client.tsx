@@ -258,7 +258,7 @@ export function MorningBriefClient({
         </Card>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Link href="/dashboard">
           <Card className="transition-colors hover:bg-accent/50">
             <CardContent className="p-3 text-center">

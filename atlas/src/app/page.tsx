@@ -68,6 +68,9 @@ export default async function HomePage() {
 
       <footer className="mt-16 flex flex-col items-center gap-3 text-sm text-muted-foreground">
         <div className="flex gap-4">
+          <Link className="hover:text-foreground" href={ROUTES.PRICING}>
+            {tNav("pricing")}
+          </Link>
           <Link className="hover:text-foreground" href={ROUTES.TERMS}>
             {tNav("terms")}
           </Link>

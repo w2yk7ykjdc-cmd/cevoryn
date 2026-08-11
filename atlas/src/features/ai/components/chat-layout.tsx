@@ -219,7 +219,7 @@ export function ChatLayout({
           onArchive={handleArchive}
           isMutating={isMutating}
         />
-        <ChatMessages messages={messages} />
+        <ChatMessages messages={messages} onSelectPrompt={handleSend} />
         <ChatInput
           conversationId={conversationId}
           onSend={handleSend}
