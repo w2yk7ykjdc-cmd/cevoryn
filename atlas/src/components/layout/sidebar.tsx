@@ -129,7 +129,7 @@ export function Sidebar({ membership, onNavigate }: SidebarProps) {
       <Separator />
 
       <nav
-        className="space-y-1 overflow-y-auto px-3 py-4"
+        className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-4"
         aria-label={t("mainNavigation")}
       >
         {visibleItems.map((item, index) => {
