@@ -15,6 +15,7 @@
     "privacy": "Privacy",
     "terms": "Terms",
     "refunds": "Refunds",
+    "pricing": "Pricing",
     "mainNavigation": "Main navigation"
   },
   "theme": {
@@ -179,8 +180,7 @@
     "insufficientData": {
       "fewMessages": "Only {count} conversation {count, plural, one {message} other {messages}} this week. CEVORYN needs more conversations to identify patterns.",
       "limitedKnowledge": "Limited company knowledge stored. Use chat to share context about your business.",
-      "calendarNotConnected": "Calendar integration not connected",
-      "tasksNotConnected": "Task management system not connected"
+      "calendarNotConnected": "Calendar integration not connected"
     },
     "stats": {
       "attention": "Attention",
@@ -498,6 +498,12 @@
     },
     "startConversation": "Start a conversation",
     "startConversationHelp": "Ask CEVORYN anything about strategy, operations, or your team.",
+    "examplePrompts": {
+      "today": "What should I focus on today?",
+      "risks": "What are the biggest risks in my business?",
+      "decisions": "What decisions need my attention?",
+      "priorities": "Give me my top priorities."
+    },
     "messageInput": "Message input",
     "newConversation": "New conversation",
     "creating": "Creating...",

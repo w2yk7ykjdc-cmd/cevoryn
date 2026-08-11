@@ -3,6 +3,7 @@
 import { MessageSquare } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { Button } from "@/components/ui/button";
 import type { MessageDetail } from "@/types";
 
 import { useScrollAnchor } from "../hooks/use-scroll-anchor";
@@ -11,9 +12,17 @@ import { MessageBubble } from "./message-bubble";
 
 interface ChatMessagesProps {
   messages: MessageDetail[];
+  onSelectPrompt?: (prompt: string) => void;
 }
 
-export function ChatMessages({ messages }: ChatMessagesProps) {
+const EXAMPLE_PROMPT_KEYS = [
+  "today",
+  "risks",
+  "decisions",
+  "priorities",
+] as const;
+
+export function ChatMessages({ messages, onSelectPrompt }: ChatMessagesProps) {
   const t = useTranslations("chat");
   const { containerRef } = useScrollAnchor();
 
@@ -29,6 +38,24 @@ export function ChatMessages({ messages }: ChatMessagesProps) {
             {t("startConversationHelp")}
           </p>
         </div>
+        {onSelectPrompt ? (
+          <div className="mt-2 flex flex-wrap justify-center gap-2">
+            {EXAMPLE_PROMPT_KEYS.map((key) => {
+              const prompt = t(`examplePrompts.${key}`);
+              return (
+                <Button
+                  key={key}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onSelectPrompt(prompt)}
+                >
+                  {prompt}
+                </Button>
+              );
+            })}
+          </div>
+        ) : null}
       </div>
     );
   }

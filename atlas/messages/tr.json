@@ -15,6 +15,7 @@
     "privacy": "Gizlilik",
     "terms": "Koşullar",
     "refunds": "İade Politikası",
+    "pricing": "Fiyatlandırma",
     "mainNavigation": "Ana menü"
   },
   "theme": {
@@ -179,8 +180,7 @@
     "insufficientData": {
       "fewMessages": "Bu hafta sadece {count} sohbet mesajı var. CEVORYN'in örüntüleri tespit edebilmesi için daha fazla konuşmaya ihtiyacı var.",
       "limitedKnowledge": "Şirket bilgisi sınırlı. İşin hakkında bağlam paylaşmak için sohbeti kullan.",
-      "calendarNotConnected": "Takvim entegrasyonu bağlı değil",
-      "tasksNotConnected": "Görev yönetim sistemi bağlı değil"
+      "calendarNotConnected": "Takvim entegrasyonu bağlı değil"
     },
     "stats": {
       "attention": "Dikkat",
@@ -504,6 +504,12 @@
     },
     "startConversation": "Bir sohbet başlat",
     "startConversationHelp": "Strateji, operasyon veya ekibin hakkında CEVORYN'e istediğini sor.",
+    "examplePrompts": {
+      "today": "Bugün neye odaklanmalıyım?",
+      "risks": "İşimdeki en büyük riskler neler?",
+      "decisions": "Hangi kararlar ilgimi bekliyor?",
+      "priorities": "Bana en öncelikli konularımı ver."
+    },
     "messageInput": "Mesaj girişi",
     "newConversation": "Yeni konuşma",
     "creating": "Oluşturuluyor...",
