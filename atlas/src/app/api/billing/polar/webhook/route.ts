@@ -12,22 +12,23 @@ import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
-// Event shapes verified against @polar-sh/sdk 0.49.0 (src/webhooks.ts,
-// src/models/components/subscription.ts) - not guessed. Polar only ever
-// sends the fields listed below on subscription.* events; other event
-// types (checkout.*, order.*, product.*, customer.*, ...) exist but are
-// not subscribed to here.
+// Event shapes verified against a real production webhook delivery payload
+// (Polar Dashboard > Webhooks > Deliveries), not the @polar-sh/sdk's
+// camelCase TypeScript types - the SDK converts the wire format to
+// camelCase internally, but this route parses the raw JSON body directly
+// (to verify the Standard Webhooks signature first), so the field names
+// below must match the actual snake_case wire format Polar sends.
 type PolarSubscriptionEvent = {
   type: string;
   timestamp?: string;
   data: {
     id?: string;
     status?: string;
-    customerId?: string;
-    productId?: string;
-    currentPeriodStart?: string;
-    currentPeriodEnd?: string;
-    cancelAtPeriodEnd?: boolean;
+    customer_id?: string;
+    product_id?: string;
+    current_period_start?: string;
+    current_period_end?: string;
+    cancel_at_period_end?: boolean;
     metadata?: Record<string, unknown>;
   };
 };
@@ -106,7 +107,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       if (claimed === 0) return false;
 
       const organizationId = event.data.metadata?.organizationId;
-      const productId = event.data.productId;
+      const productId = event.data.product_id;
       const plan = productId
         ? getBillingPlanFromPolarProductId(productId)
         : null;
@@ -114,7 +115,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       if (
         typeof organizationId !== "string" ||
         !event.data.id ||
-        !event.data.customerId ||
+        !event.data.customer_id ||
         !productId ||
         !plan
       ) {
@@ -129,12 +130,12 @@ export async function POST(request: Request): Promise<NextResponse> {
           "polar_customer_id", "polar_subscription_id", "polar_product_id",
           "current_period_start", "current_period_end", "cancel_at_period_end", "updated_at"
         ) VALUES (
-          ${crypto.randomUUID()}, ${organizationId}, ${`polar:${event.data.customerId}`},
+          ${crypto.randomUUID()}, ${organizationId}, ${`polar:${event.data.customer_id}`},
           ${plan}::"BillingPlan", ${mapPolarSubscriptionStatus(event.data.status)}::"SubscriptionStatus",
-          ${event.data.customerId}, ${event.data.id}, ${productId},
-          ${parseDate(event.data.currentPeriodStart)},
-          ${parseDate(event.data.currentPeriodEnd)},
-          ${event.data.cancelAtPeriodEnd === true}, CURRENT_TIMESTAMP
+          ${event.data.customer_id}, ${event.data.id}, ${productId},
+          ${parseDate(event.data.current_period_start)},
+          ${parseDate(event.data.current_period_end)},
+          ${event.data.cancel_at_period_end === true}, CURRENT_TIMESTAMP
         )
         ON CONFLICT ("organization_id") DO UPDATE SET
           "plan" = EXCLUDED."plan",
