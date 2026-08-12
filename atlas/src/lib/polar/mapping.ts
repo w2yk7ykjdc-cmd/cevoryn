@@ -16,9 +16,9 @@ export function getBillingPlanFromPolarProductId(
   productId: string
 ): BillingPlan | null {
   const pairs: Array<[BillingPlan, string | undefined]> = [
-    ["STARTER", process.env.POLAR_PRODUCT_STARTER],
-    ["PROFESSIONAL", process.env.POLAR_PRODUCT_PROFESSIONAL],
-    ["BUSINESS", process.env.POLAR_PRODUCT_BUSINESS],
+    ["STARTER", process.env.POLAR_PRODUCT_STARTER?.trim()],
+    ["PROFESSIONAL", process.env.POLAR_PRODUCT_PROFESSIONAL?.trim()],
+    ["BUSINESS", process.env.POLAR_PRODUCT_BUSINESS?.trim()],
   ];
   return pairs.find(([, configured]) => configured === productId)?.[0] ?? null;
 }
