@@ -98,7 +98,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     const message =
       error instanceof PolarConfigurationError
         ? error.message
-        : "Unable to change plan.";
+        : error instanceof Error
+          ? error.message
+          : "Unable to change plan.";
 
     return NextResponse.json({ error: message }, { status: 500 });
   }
