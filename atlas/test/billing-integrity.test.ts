@@ -16,6 +16,9 @@ function buildSubscription(
     paddleCustomerId: "ctm_123",
     paddleSubscriptionId: "sub_paddle_123",
     paddlePriceId: "pri_123",
+    polarCustomerId: null,
+    polarSubscriptionId: null,
+    polarProductId: null,
     plan: "PROFESSIONAL",
     subscriptionStatus: "ACTIVE",
     currentPeriodStart: new Date("2026-01-01"),
@@ -34,15 +37,52 @@ test("a subscription written by the Paddle webhook has no anomalies", () => {
   assert.deepEqual(result.anomalies, []);
 });
 
-test("flags a stripe_customer_id that doesn't follow the paddle: convention", () => {
+test("flags a stripe_customer_id that doesn't follow the paddle: or polar: convention", () => {
   const result = evaluateSubscriptionIntegrity(
     buildSubscription({ stripeCustomerId: "cus_legacy_stripe_id" })
   );
   assert.equal(result.originatedFromPaddleWebhook, false);
+  assert.equal(result.originatedFromPolarWebhook, false);
   assert.equal(result.anomalies.length, 1);
   assert.match(
     result.anomalies.at(0) ?? "",
-    /does not match the "paddle:<id>" convention/
+    /does not match the "paddle:<id>" or "polar:<id>" convention/
+  );
+});
+
+test("a subscription written by the Polar webhook has no anomalies", () => {
+  const result = evaluateSubscriptionIntegrity(
+    buildSubscription({
+      stripeCustomerId: "polar:ctm_polar_123",
+      paddleCustomerId: null,
+      paddleSubscriptionId: null,
+      paddlePriceId: null,
+      polarCustomerId: "ctm_polar_123",
+      polarSubscriptionId: "sub_polar_123",
+      polarProductId: "prod_polar_123",
+    })
+  );
+  assert.equal(result.originatedFromPolarWebhook, true);
+  assert.deepEqual(result.anomalies, []);
+});
+
+test("flags an active Polar subscription missing polar_subscription_id", () => {
+  const result = evaluateSubscriptionIntegrity(
+    buildSubscription({
+      stripeCustomerId: "polar:ctm_polar_123",
+      paddleCustomerId: null,
+      paddleSubscriptionId: null,
+      paddlePriceId: null,
+      polarCustomerId: "ctm_polar_123",
+      polarSubscriptionId: null,
+      polarProductId: "prod_polar_123",
+    })
+  );
+  assert.equal(
+    result.anomalies.some((message) =>
+      message.includes("polar_subscription_id is null")
+    ),
+    true
   );
 });
 

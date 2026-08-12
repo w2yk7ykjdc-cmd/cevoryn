@@ -16,6 +16,12 @@ const serverSchema = z.object({
   PADDLE_PRICE_STARTER: z.string().min(1).optional(),
   PADDLE_PRICE_PROFESSIONAL: z.string().min(1).optional(),
   PADDLE_PRICE_BUSINESS: z.string().min(1).optional(),
+  POLAR_ACCESS_TOKEN: z.string().min(1).optional(),
+  POLAR_WEBHOOK_SECRET: z.string().min(1).optional(),
+  POLAR_ENV: z.enum(["sandbox", "production"]).optional(),
+  POLAR_PRODUCT_STARTER: z.string().min(1).optional(),
+  POLAR_PRODUCT_PROFESSIONAL: z.string().min(1).optional(),
+  POLAR_PRODUCT_BUSINESS: z.string().min(1).optional(),
   GOOGLE_CLIENT_ID: z.string().min(1).optional(),
   GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
   GOOGLE_TOKEN_ENCRYPTION_KEY: z.string().min(32).optional(),
@@ -91,6 +97,23 @@ export function validateServerEnv(): ServerEnv {
         `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN must start with "${expectedPrefix}" when PADDLE_ENV is ${parsed.data.PADDLE_ENV ?? "production"}`
       );
     }
+  }
+
+  const polarVars = {
+    POLAR_ACCESS_TOKEN: parsed.data.POLAR_ACCESS_TOKEN,
+    POLAR_WEBHOOK_SECRET: parsed.data.POLAR_WEBHOOK_SECRET,
+    POLAR_PRODUCT_STARTER: parsed.data.POLAR_PRODUCT_STARTER,
+    POLAR_PRODUCT_PROFESSIONAL: parsed.data.POLAR_PRODUCT_PROFESSIONAL,
+    POLAR_PRODUCT_BUSINESS: parsed.data.POLAR_PRODUCT_BUSINESS,
+  };
+  const polarConfigured = Object.values(polarVars).some(Boolean);
+  const polarMissing = Object.entries(polarVars)
+    .filter(([, value]) => !value)
+    .map(([key]) => key);
+  if (polarConfigured && polarMissing.length > 0) {
+    throw new Error(
+      `Polar billing is partially configured; missing: ${polarMissing.join(", ")}`
+    );
   }
 
   const googleVars = {
