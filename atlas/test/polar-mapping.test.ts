@@ -56,6 +56,24 @@ test("unknown product: an unconfigured product id maps to null, never guessed", 
   });
 });
 
+test("regression: a trailing newline/space on the configured env var still matches", () => {
+  process.env.POLAR_PRODUCT_STARTER = "prod_starter_test\n";
+  process.env.POLAR_PRODUCT_PROFESSIONAL = " prod_professional_test ";
+  process.env.POLAR_PRODUCT_BUSINESS = "prod_business_test";
+  try {
+    assert.equal(
+      getBillingPlanFromPolarProductId("prod_starter_test"),
+      "STARTER"
+    );
+    assert.equal(
+      getBillingPlanFromPolarProductId("prod_professional_test"),
+      "PROFESSIONAL"
+    );
+  } finally {
+    process.env = { ...ORIGINAL_ENV };
+  }
+});
+
 test("plan change: active status maps to ACTIVE", () => {
   assert.equal(mapPolarSubscriptionStatus("active"), "ACTIVE");
 });
