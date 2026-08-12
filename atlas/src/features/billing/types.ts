@@ -22,6 +22,9 @@ export interface OrganizationSubscription {
   paddleCustomerId: string | null;
   paddleSubscriptionId: string | null;
   paddlePriceId: string | null;
+  polarCustomerId: string | null;
+  polarSubscriptionId: string | null;
+  polarProductId: string | null;
   plan: BillingPlan;
   subscriptionStatus: SubscriptionStatus;
   currentPeriodStart: Date | null;
