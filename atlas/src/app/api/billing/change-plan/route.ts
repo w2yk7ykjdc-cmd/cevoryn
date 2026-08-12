@@ -5,10 +5,10 @@ import { isSubscriptionActive } from "@/features/billing/types";
 import { getMembership, getUser } from "@/lib/auth";
 import { captureServerError } from "@/lib/error-reporting";
 import {
-  getPaddlePriceId,
-  paddleApi,
-  PaddleConfigurationError,
-} from "@/lib/paddle/config";
+  getPolarProductId,
+  polarApi,
+  PolarConfigurationError,
+} from "@/lib/polar/config";
 import { isRoleAtLeast } from "@/lib/rbac";
 import { getOrganizationSubscription } from "@/server/services/billing.service";
 
@@ -60,7 +60,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     if (
       !currentSubscription ||
-      !currentSubscription.paddleSubscriptionId ||
+      !currentSubscription.polarSubscriptionId ||
       !isSubscriptionActive(currentSubscription.subscriptionStatus)
     ) {
       return NextResponse.json(
@@ -79,27 +79,24 @@ export async function POST(request: Request): Promise<NextResponse> {
       );
     }
 
-    await paddleApi(
-      `/subscriptions/${currentSubscription.paddleSubscriptionId}`,
+    await polarApi(
+      `/v1/subscriptions/${currentSubscription.polarSubscriptionId}`,
       {
         method: "PATCH",
         body: JSON.stringify({
-          items: [
-            { price_id: getPaddlePriceId(parsedBody.data.plan), quantity: 1 },
-          ],
-          proration_billing_mode: "prorated_immediately",
+          product_id: getPolarProductId(parsedBody.data.plan),
         }),
       }
     );
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    captureServerError("paddle-change-plan", error, {
+    captureServerError("polar-change-plan", error, {
       organizationId: membership.organizationId,
     });
 
     const message =
-      error instanceof PaddleConfigurationError
+      error instanceof PolarConfigurationError
         ? error.message
         : "Unable to change plan.";
 

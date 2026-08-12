@@ -9,7 +9,6 @@ const isDevelopment = process.env.NODE_ENV === "development";
 const scriptSrc = [
   "'self'",
   "'unsafe-inline'",
-  "https://cdn.paddle.com",
   ...(isDevelopment ? ["'unsafe-eval'"] : []),
 ].join(" ");
 
@@ -46,11 +45,10 @@ const nextConfig: NextConfig = {
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data: blob: https:",
             "font-src 'self' https://fonts.gstatic.com",
-            "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.openai.com https://*.paddle.com https://*.sentry.io https://*.ingest.de.sentry.io",
-            "frame-src https://*.paddle.com",
+            "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.openai.com https://*.sentry.io https://*.ingest.de.sentry.io",
             "frame-ancestors 'none'",
             "base-uri 'self'",
-            "form-action 'self' https://*.paddle.com",
+            "form-action 'self'",
           ].join("; "),
         },
       ],

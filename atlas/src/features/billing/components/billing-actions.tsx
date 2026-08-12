@@ -1,6 +1,5 @@
 "use client";
 
-import * as Sentry from "@sentry/nextjs";
 import { Check, CreditCard, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
@@ -15,54 +14,15 @@ import {
   getPlanDefinition,
   type BillingPlan,
 } from "@/features/billing/config/plans";
-import type { PlanPrice } from "@/server/services/paddle-catalog.service";
+import type { PlanPrice } from "@/server/services/polar-catalog.service";
 
 type BillingTranslator = ReturnType<typeof useTranslations<"billing">>;
 type PricingTranslator = ReturnType<typeof useTranslations<"pricing">>;
 
-type PaddleEnvironment = "sandbox" | "production";
-
-type PaddleCheckoutResponse = {
-  priceId?: string;
-  environment?: PaddleEnvironment;
-  customerEmail?: string;
-  customData?: { organizationId: string; plan: BillingPlan };
+type PolarCheckoutResponse = {
+  url?: string;
   error?: string;
 };
-
-type PaddleEvent = {
-  name?: string;
-  type?: string;
-  code?: string;
-  detail?: string;
-  error?: {
-    code?: string;
-    detail?: string;
-  };
-};
-
-type PaddleInstance = {
-  Environment: { set(environment: "sandbox"): void };
-  Initialize(options: {
-    token: string;
-    eventCallback?: (event: PaddleEvent) => void;
-  }): void;
-  Checkout: {
-    open(options: {
-      items: Array<{ priceId: string; quantity: number }>;
-      customer?: { email: string };
-      customData: Record<string, string>;
-      settings?: { displayMode: "overlay"; theme: "light" };
-    }): void;
-  };
-};
-
-declare global {
-  interface Window {
-    Paddle?: PaddleInstance;
-    __cevorynPaddleInitialized?: boolean;
-  }
-}
 
 interface BillingActionsProps {
   currentPlan: BillingPlan;
@@ -108,98 +68,6 @@ export function formatTokenLimit(
   });
 }
 
-export function getPaddleErrorMessage(
-  event: PaddleEvent,
-  t: BillingTranslator
-): string | null {
-  const code = event.code ?? event.error?.code;
-  const detail = event.detail ?? event.error?.detail;
-
-  if (code === "transaction_default_checkout_url_not_set") {
-    return t("paddleLinkNotConfigured");
-  }
-
-  if (code === "invalid_client_token") {
-    return t("paddleInvalidToken");
-  }
-
-  return detail ?? (code ? t("paddleCheckoutError", { code }) : null);
-}
-
-function handlePaddleEvent(event: PaddleEvent, t: BillingTranslator): void {
-  if (
-    event.name !== "checkout.error" &&
-    event.name !== "checkout.payment.error"
-  ) {
-    return;
-  }
-
-  console.error("[cevoryn:paddle] Checkout error", event);
-  Sentry.captureMessage("Paddle checkout error", {
-    level: "error",
-    tags: {
-      scope: "paddle-checkout",
-      paddleEventName: event.name ?? "unknown",
-    },
-    extra: { event },
-  });
-  toast.error(getPaddleErrorMessage(event, t) ?? t("paddleCheckoutNotOpened"));
-}
-
-async function loadPaddle(
-  environment: PaddleEnvironment,
-  t: BillingTranslator
-): Promise<PaddleInstance> {
-  const token = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN?.trim();
-  if (!token) throw new Error(t("paddleNotConfigured"));
-
-  if (environment === "sandbox" && !token.startsWith("test_")) {
-    throw new Error(t("paddleSandboxTokenRequired"));
-  }
-
-  if (environment === "production" && !token.startsWith("live_")) {
-    throw new Error(t("paddleProductionTokenRequired"));
-  }
-
-  if (!window.Paddle) {
-    await new Promise<void>((resolve, reject) => {
-      const existing = document.querySelector<HTMLScriptElement>(
-        'script[data-cevoryn-paddle="true"]'
-      );
-      if (existing) {
-        existing.addEventListener("load", () => resolve(), { once: true });
-        existing.addEventListener(
-          "error",
-          () => reject(new Error(t("paddleScriptLoadFailed"))),
-          { once: true }
-        );
-        return;
-      }
-
-      const script = document.createElement("script");
-      script.src = "https://cdn.paddle.com/paddle/v2/paddle.js";
-      script.async = true;
-      script.dataset.cevorynPaddle = "true";
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error(t("paddleScriptLoadFailed")));
-      document.head.appendChild(script);
-    });
-  }
-
-  if (!window.Paddle) throw new Error(t("paddleUnavailable"));
-
-  if (!window.__cevorynPaddleInitialized) {
-    if (environment === "sandbox") window.Paddle.Environment.set("sandbox");
-    window.Paddle.Initialize({
-      token,
-      eventCallback: (event) => handlePaddleEvent(event, t),
-    });
-    window.__cevorynPaddleInitialized = true;
-  }
-
-  return window.Paddle;
-}
-
 export function BillingActions({
   currentPlan,
   hasBillingAccount,
@@ -215,36 +83,19 @@ export function BillingActions({
     const action = `checkout:${plan}`;
     try {
       setPendingAction(action);
-      const response = await fetch("/api/billing/checkout", {
+      const response = await fetch("/api/billing/polar/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ plan }),
       });
-      const result = (await response.json()) as PaddleCheckoutResponse;
+      const result = (await response.json()) as PolarCheckoutResponse;
 
-      if (
-        !response.ok ||
-        !result.priceId ||
-        !result.environment ||
-        !result.customData
-      ) {
+      if (!response.ok || !result.url) {
         throw new Error(result.error ?? t("billingRequestFailed"));
       }
 
-      const paddle = await loadPaddle(result.environment, t);
-      paddle.Checkout.open({
-        items: [{ priceId: result.priceId, quantity: 1 }],
-        customer: result.customerEmail
-          ? { email: result.customerEmail }
-          : undefined,
-        customData: result.customData,
-        settings: { displayMode: "overlay", theme: "light" },
-      });
-      setPendingAction(null);
+      window.location.assign(result.url);
     } catch (error) {
-      Sentry.captureException(error, {
-        tags: { scope: "paddle-checkout-request", plan },
-      });
       toast.error(
         error instanceof Error ? error.message : t("billingUnavailable")
       );

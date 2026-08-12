@@ -10,12 +10,6 @@ const serverSchema = z.object({
   DAILY_TOKEN_LIMIT_PER_ORG: z.coerce.number().int().positive().default(500000),
   RESEND_API_KEY: z.string().startsWith("re_").optional(),
   EMAIL_FROM: z.string().min(3).optional(),
-  PADDLE_API_KEY: z.string().min(1).optional(),
-  PADDLE_WEBHOOK_SECRET: z.string().min(1).optional(),
-  PADDLE_ENV: z.enum(["sandbox", "production"]).optional(),
-  PADDLE_PRICE_STARTER: z.string().min(1).optional(),
-  PADDLE_PRICE_PROFESSIONAL: z.string().min(1).optional(),
-  PADDLE_PRICE_BUSINESS: z.string().min(1).optional(),
   POLAR_ACCESS_TOKEN: z.string().min(1).optional(),
   POLAR_WEBHOOK_SECRET: z.string().min(1).optional(),
   POLAR_ENV: z.enum(["sandbox", "production"]).optional(),
@@ -41,10 +35,6 @@ const clientSchema = z.object({
     .transform((value) => value === "true")
     .default("true"),
   NEXT_PUBLIC_SENTRY_DSN: z.string().url().optional(),
-  NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: z
-    .string()
-    .regex(/^(test|live)_/, "must start with test_ or live_")
-    .optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverSchema>;
@@ -66,37 +56,6 @@ export function validateServerEnv(): ServerEnv {
     throw new Error(
       "RESEND_API_KEY and EMAIL_FROM must either both be configured or both be omitted"
     );
-  }
-
-  const paddleVars = {
-    PADDLE_API_KEY: parsed.data.PADDLE_API_KEY,
-    PADDLE_WEBHOOK_SECRET: parsed.data.PADDLE_WEBHOOK_SECRET,
-    PADDLE_PRICE_STARTER: parsed.data.PADDLE_PRICE_STARTER,
-    PADDLE_PRICE_PROFESSIONAL: parsed.data.PADDLE_PRICE_PROFESSIONAL,
-    PADDLE_PRICE_BUSINESS: parsed.data.PADDLE_PRICE_BUSINESS,
-    NEXT_PUBLIC_PADDLE_CLIENT_TOKEN:
-      process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN?.trim(),
-  };
-  const paddleConfigured = Object.values(paddleVars).some(Boolean);
-  const paddleMissing = Object.entries(paddleVars)
-    .filter(([, value]) => !value)
-    .map(([key]) => key);
-  if (paddleConfigured && paddleMissing.length > 0) {
-    throw new Error(
-      `Paddle billing is partially configured; missing: ${paddleMissing.join(", ")}`
-    );
-  }
-
-  if (paddleConfigured) {
-    const expectedPrefix =
-      parsed.data.PADDLE_ENV === "sandbox" ? "test_" : "live_";
-    if (
-      !paddleVars.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN?.startsWith(expectedPrefix)
-    ) {
-      throw new Error(
-        `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN must start with "${expectedPrefix}" when PADDLE_ENV is ${parsed.data.PADDLE_ENV ?? "production"}`
-      );
-    }
   }
 
   const polarVars = {
