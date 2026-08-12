@@ -84,17 +84,31 @@ export interface SubscriptionIntegrityReport {
   subscription: OrganizationSubscription | null;
   /** null when there is no subscription row to evaluate. */
   originatedFromPaddleWebhook: boolean | null;
+  /** null when there is no subscription row to evaluate. */
+  originatedFromPolarWebhook: boolean | null;
   anomalies: string[];
+  /** Historical; Paddle is no longer an active billing provider. */
   totalPaddleWebhookEventsProcessed: number;
+  totalPolarWebhookEventsProcessed: number;
 }
 
 export async function getSubscriptionIntegrityReport(
   organizationId: string
 ): Promise<SubscriptionIntegrityReport> {
-  const [subscription, totalPaddleWebhookEventsProcessed] = await Promise.all([
+  const [
+    subscription,
+    totalPaddleWebhookEventsProcessed,
+    totalPolarWebhookEventsProcessed,
+  ] = await Promise.all([
     getOrganizationSubscription(organizationId),
     prisma.billingWebhookEvent
       .count({ where: { provider: "paddle" } })
+      .catch((error) => {
+        if (isMissingBillingTableError(error)) return 0;
+        throw error;
+      }),
+    prisma.billingWebhookEvent
+      .count({ where: { provider: "polar" } })
       .catch((error) => {
         if (isMissingBillingTableError(error)) return 0;
         throw error;
@@ -106,8 +120,10 @@ export async function getSubscriptionIntegrityReport(
       organizationId,
       subscription: null,
       originatedFromPaddleWebhook: null,
+      originatedFromPolarWebhook: null,
       anomalies: [],
       totalPaddleWebhookEventsProcessed,
+      totalPolarWebhookEventsProcessed,
     };
   }
 
@@ -118,5 +134,6 @@ export async function getSubscriptionIntegrityReport(
     subscription,
     ...findings,
     totalPaddleWebhookEventsProcessed,
+    totalPolarWebhookEventsProcessed,
   };
 }

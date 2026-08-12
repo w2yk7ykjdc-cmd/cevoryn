@@ -13,7 +13,7 @@ import { isSubscriptionActive } from "@/features/billing/types";
 import { requireMembership, requireUser } from "@/lib/auth";
 import { isRoleAtLeast } from "@/lib/rbac";
 import { getOrganizationSubscription } from "@/server/services/billing.service";
-import { getPlanPrices } from "@/server/services/paddle-catalog.service";
+import { getPlanPrices } from "@/server/services/polar-catalog.service";
 
 export const metadata: Metadata = { title: "Billing — CEVORYN" };
 

@@ -20,7 +20,7 @@ export default function RefundsPage() {
 
         <LegalSection title="Subscription billing">
           Starter, Professional, and Business plans are billed monthly in
-          advance through our payment provider, Paddle. Subscriptions renew
+          advance through our payment provider, Polar. Subscriptions renew
           automatically each billing period until cancelled.
         </LegalSection>
 
@@ -34,7 +34,7 @@ export default function RefundsPage() {
           If you believe you were charged in error, or are unsatisfied within
           the first 14 days of a new paid subscription, contact us and we will
           review the request. Approved refunds are issued to the original
-          payment method through Paddle.
+          payment method through Polar.
         </LegalSection>
 
         <LegalSection title="Partial periods">

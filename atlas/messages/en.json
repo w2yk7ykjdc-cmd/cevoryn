@@ -307,7 +307,10 @@
           "label": "Email ready",
           "approveLabel": "Approve draft"
         },
-        "TASK": { "label": "Task ready", "approveLabel": "Copy task details" },
+        "TASK": {
+          "label": "Task ready",
+          "approveLabel": "Copy task details"
+        },
         "CALENDAR_PROPOSAL": {
           "label": "Meeting ready",
           "approveLabel": "Approve meeting"
@@ -316,7 +319,10 @@
           "label": "Follow-up ready",
           "approveLabel": "Copy follow-up details"
         },
-        "default": { "label": "Action ready", "approveLabel": "Copy details" }
+        "default": {
+          "label": "Action ready",
+          "approveLabel": "Copy details"
+        }
       }
     }
   },
@@ -651,15 +657,6 @@
     "billingRequestFailed": "Billing request failed.",
     "billingUnavailable": "Billing is unavailable.",
     "portalUnavailable": "Billing portal is unavailable.",
-    "paddleLinkNotConfigured": "Paddle default payment link is not configured for this sandbox account.",
-    "paddleInvalidToken": "The Paddle client-side token is invalid or belongs to the wrong environment.",
-    "paddleCheckoutNotOpened": "Paddle checkout could not be opened.",
-    "paddleCheckoutError": "Paddle checkout error: {code}",
-    "paddleNotConfigured": "Paddle checkout is not configured.",
-    "paddleSandboxTokenRequired": "Paddle sandbox requires a test_ client-side token.",
-    "paddleProductionTokenRequired": "Paddle production requires a live_ client-side token.",
-    "paddleScriptLoadFailed": "Paddle.js failed to load.",
-    "paddleUnavailable": "Paddle.js is unavailable.",
     "tokenLimitMillions": "{count}M monthly AI tokens",
     "tokenLimitThousands": "{count}K monthly AI tokens"
   },

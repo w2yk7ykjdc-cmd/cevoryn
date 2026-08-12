@@ -2,16 +2,14 @@ import { NextResponse } from "next/server";
 
 import { getMembership, getUser } from "@/lib/auth";
 import { captureServerError } from "@/lib/error-reporting";
-import { paddleApi, PaddleConfigurationError } from "@/lib/paddle/config";
+import { polarApi, PolarConfigurationError } from "@/lib/polar/config";
 import { isRoleAtLeast } from "@/lib/rbac";
 import { getOrganizationSubscription } from "@/server/services/billing.service";
 
 export const runtime = "nodejs";
 
-type PortalResponse = {
-  data: {
-    urls: { general: { overview: string } };
-  };
+type CustomerSessionResponse = {
+  customer_portal_url: string;
 };
 
 export async function POST(): Promise<NextResponse> {
@@ -37,34 +35,32 @@ export async function POST(): Promise<NextResponse> {
     const subscription = await getOrganizationSubscription(
       membership.organizationId
     );
-    if (!subscription?.paddleCustomerId) {
+    if (!subscription?.polarCustomerId) {
       return NextResponse.json(
-        { error: "No Paddle billing account exists for this organization." },
+        { error: "No Polar billing account exists for this organization." },
         { status: 404 }
       );
     }
 
-    const payload = await paddleApi<PortalResponse>(
-      `/customers/${subscription.paddleCustomerId}/portal-sessions`,
+    const session = await polarApi<CustomerSessionResponse>(
+      "/v1/customer-sessions/",
       {
         method: "POST",
-        body: JSON.stringify(
-          subscription.paddleSubscriptionId
-            ? { subscription_ids: [subscription.paddleSubscriptionId] }
-            : {}
-        ),
+        body: JSON.stringify({
+          external_customer_id: membership.organizationId,
+        }),
       }
     );
 
-    return NextResponse.json({ url: payload.data.urls.general.overview });
+    return NextResponse.json({ url: session.customer_portal_url });
   } catch (error) {
-    captureServerError("paddle-portal", error, {
+    captureServerError("polar-portal", error, {
       organizationId: membership.organizationId,
     });
     return NextResponse.json(
       {
         error:
-          error instanceof PaddleConfigurationError
+          error instanceof PolarConfigurationError
             ? error.message
             : "Unable to open billing management.",
       },

@@ -32,15 +32,14 @@ function withEnv<T>(
   }
 }
 
-test("boots with no Paddle or Google configuration", () => {
+test("boots with no Polar or Google configuration", () => {
   withEnv(
     {
-      PADDLE_API_KEY: undefined,
-      PADDLE_WEBHOOK_SECRET: undefined,
-      PADDLE_PRICE_STARTER: undefined,
-      PADDLE_PRICE_PROFESSIONAL: undefined,
-      PADDLE_PRICE_BUSINESS: undefined,
-      NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: undefined,
+      POLAR_ACCESS_TOKEN: undefined,
+      POLAR_WEBHOOK_SECRET: undefined,
+      POLAR_PRODUCT_STARTER: undefined,
+      POLAR_PRODUCT_PROFESSIONAL: undefined,
+      POLAR_PRODUCT_BUSINESS: undefined,
       GOOGLE_CLIENT_ID: undefined,
       GOOGLE_CLIENT_SECRET: undefined,
       GOOGLE_TOKEN_ENCRYPTION_KEY: undefined,
@@ -49,53 +48,32 @@ test("boots with no Paddle or Google configuration", () => {
   );
 });
 
-test("rejects a partially configured Paddle setup", () => {
+test("rejects a partially configured Polar setup", () => {
   withEnv(
     {
-      PADDLE_API_KEY: "pdl_live_key",
-      PADDLE_WEBHOOK_SECRET: undefined,
-      PADDLE_PRICE_STARTER: "pri_starter",
-      PADDLE_PRICE_PROFESSIONAL: "pri_pro",
-      PADDLE_PRICE_BUSINESS: "pri_business",
-      NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: "live_token",
+      POLAR_ACCESS_TOKEN: "polar_oat_live_key",
+      POLAR_WEBHOOK_SECRET: undefined,
+      POLAR_PRODUCT_STARTER: "prod_starter",
+      POLAR_PRODUCT_PROFESSIONAL: "prod_pro",
+      POLAR_PRODUCT_BUSINESS: "prod_business",
     },
     () =>
       assert.throws(
         () => validateServerEnv(),
-        /Paddle billing is partially configured/
+        /Polar billing is partially configured/
       )
   );
 });
 
-test("rejects a sandbox Paddle client token that doesn't match PADDLE_ENV", () => {
+test("accepts a fully configured production Polar setup", () => {
   withEnv(
     {
-      PADDLE_API_KEY: "pdl_live_key",
-      PADDLE_WEBHOOK_SECRET: "whsec_test",
-      PADDLE_ENV: "sandbox",
-      PADDLE_PRICE_STARTER: "pri_starter",
-      PADDLE_PRICE_PROFESSIONAL: "pri_pro",
-      PADDLE_PRICE_BUSINESS: "pri_business",
-      NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: "live_token",
-    },
-    () =>
-      assert.throws(
-        () => validateServerEnv(),
-        /NEXT_PUBLIC_PADDLE_CLIENT_TOKEN must start with "test_"/
-      )
-  );
-});
-
-test("accepts a fully configured production Paddle setup", () => {
-  withEnv(
-    {
-      PADDLE_API_KEY: "pdl_live_key",
-      PADDLE_WEBHOOK_SECRET: "whsec_test",
-      PADDLE_ENV: "production",
-      PADDLE_PRICE_STARTER: "pri_starter",
-      PADDLE_PRICE_PROFESSIONAL: "pri_pro",
-      PADDLE_PRICE_BUSINESS: "pri_business",
-      NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: "live_token",
+      POLAR_ACCESS_TOKEN: "polar_oat_live_key",
+      POLAR_WEBHOOK_SECRET: "whsec_test",
+      POLAR_ENV: "production",
+      POLAR_PRODUCT_STARTER: "prod_starter",
+      POLAR_PRODUCT_PROFESSIONAL: "prod_pro",
+      POLAR_PRODUCT_BUSINESS: "prod_business",
     },
     () => assert.doesNotThrow(() => validateServerEnv())
   );

@@ -11,8 +11,9 @@ export const dynamic = "force-dynamic";
  * Read-only diagnostic for the organization's subscription row. Lets an
  * owner/admin confirm — from inside the deployed app, without direct DB
  * access — whether the active subscription was actually written by the
- * Paddle webhook (the only code path that creates these rows) or looks
- * anomalous. See SubscriptionIntegrityReport for what's checked.
+ * Polar webhook (the only active code path that creates these rows; some
+ * rows may predate the Paddle-to-Polar migration) or looks anomalous. See
+ * SubscriptionIntegrityReport for what's checked.
  */
 export async function GET(): Promise<NextResponse> {
   const user = await getUser();

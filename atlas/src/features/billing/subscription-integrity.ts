@@ -1,13 +1,16 @@
 import type { OrganizationSubscription } from "./types";
 
 /**
- * The Paddle and Polar webhook handlers
- * (src/app/api/billing/{paddle,polar}/webhook/route.ts) are the only code
- * paths that write to "subscriptions", and each always stores
- * `<provider>:<providerCustomerId>` in the legacy stripe_customer_id column
- * (repurposed because it's NOT NULL + UNIQUE from the pre-Paddle schema). A
- * row that doesn't follow that convention did not come from either current
- * billing code path — e.g. leftover Stripe-era data or a manual DB edit.
+ * The Polar webhook handler (src/app/api/billing/polar/webhook/route.ts) is
+ * the only active code path that writes to "subscriptions" today; it always
+ * stores `polar:<providerCustomerId>` in the legacy stripe_customer_id
+ * column (repurposed because it's NOT NULL + UNIQUE from the pre-Paddle
+ * schema). Some existing rows may still carry a `paddle:<id>` prefix from
+ * before Paddle was decommissioned as a provider — those are recognized
+ * here for historical/audit purposes but are no longer written going
+ * forward. A row that doesn't follow either convention did not come from
+ * any billing code path — e.g. leftover Stripe-era data or a manual DB
+ * edit.
  */
 export const PADDLE_CUSTOMER_ID_PREFIX = "paddle:";
 export const POLAR_CUSTOMER_ID_PREFIX = "polar:";

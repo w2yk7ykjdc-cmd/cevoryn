@@ -16,7 +16,7 @@ import { ROUTES } from "@/lib/constants";
 import {
   getPlanPrices,
   type PlanPrice,
-} from "@/server/services/paddle-catalog.service";
+} from "@/server/services/polar-catalog.service";
 
 export const metadata: Metadata = { title: "Pricing — CEVORYN" };
 
