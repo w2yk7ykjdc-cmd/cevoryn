@@ -62,7 +62,9 @@ export async function POST(): Promise<NextResponse> {
         error:
           error instanceof PolarConfigurationError
             ? error.message
-            : "Unable to open billing management.",
+            : error instanceof Error
+              ? error.message
+              : "Unable to open billing management.",
       },
       { status: 500 }
     );

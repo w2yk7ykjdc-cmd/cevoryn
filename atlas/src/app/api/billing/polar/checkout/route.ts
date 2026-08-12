@@ -100,7 +100,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     const message =
       error instanceof PolarConfigurationError
         ? error.message
-        : "Unable to start checkout.";
+        : error instanceof Error
+          ? error.message
+          : "Unable to start checkout.";
 
     return NextResponse.json({ error: message }, { status: 500 });
   }
