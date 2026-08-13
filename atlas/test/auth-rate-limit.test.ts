@@ -209,3 +209,73 @@ test("parseClientIpFromHeaderValues returns null for blank/whitespace-only heade
   const result = parseClientIpFromHeaderValues("   ", "  ");
   assert.equal(result, null);
 });
+
+test("polar_checkout_org allows up to the configured limit, then blocks", async () => {
+  const store = createFakeStore();
+  const limit = AUTH_RATE_LIMIT_RULES.polar_checkout_org.limit;
+  const organizationId = "org_1";
+
+  for (let i = 0; i < limit; i++) {
+    assert.equal(
+      await isAuthRateLimited(store, "polar_checkout_org", organizationId),
+      false,
+      `attempt ${i + 1} should not be limited yet`
+    );
+    await recordAuthAttempt(store, "polar_checkout_org", organizationId);
+  }
+
+  assert.equal(
+    await isAuthRateLimited(store, "polar_checkout_org", organizationId),
+    true
+  );
+});
+
+test("billing_portal_org allows up to the configured limit, then blocks", async () => {
+  const store = createFakeStore();
+  const limit = AUTH_RATE_LIMIT_RULES.billing_portal_org.limit;
+  const organizationId = "org_2";
+
+  for (let i = 0; i < limit; i++) {
+    await recordAuthAttempt(store, "billing_portal_org", organizationId);
+  }
+
+  assert.equal(
+    await isAuthRateLimited(store, "billing_portal_org", organizationId),
+    true
+  );
+});
+
+test("change_plan_org allows up to the configured limit, then blocks", async () => {
+  const store = createFakeStore();
+  const limit = AUTH_RATE_LIMIT_RULES.change_plan_org.limit;
+  const organizationId = "org_3";
+
+  for (let i = 0; i < limit; i++) {
+    await recordAuthAttempt(store, "change_plan_org", organizationId);
+  }
+
+  assert.equal(
+    await isAuthRateLimited(store, "change_plan_org", organizationId),
+    true
+  );
+});
+
+test("billing rate-limit actions never share a budget with each other for the same organization", async () => {
+  const store = createFakeStore();
+  const organizationId = "org_shared";
+  const checkoutLimit = AUTH_RATE_LIMIT_RULES.polar_checkout_org.limit;
+
+  for (let i = 0; i < checkoutLimit; i++) {
+    await recordAuthAttempt(store, "polar_checkout_org", organizationId);
+  }
+
+  assert.equal(
+    await isAuthRateLimited(store, "polar_checkout_org", organizationId),
+    true
+  );
+  assert.equal(
+    await isAuthRateLimited(store, "change_plan_org", organizationId),
+    false,
+    "checkout attempts must not count toward change_plan_org's separate budget"
+  );
+});

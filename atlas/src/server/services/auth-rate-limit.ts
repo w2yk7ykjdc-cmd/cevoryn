@@ -6,7 +6,13 @@
  */
 
 export type AuthRateLimitAction =
-  "login_email" | "login_ip" | "signup_ip" | "forgot_password_email";
+  | "login_email"
+  | "login_ip"
+  | "signup_ip"
+  | "forgot_password_email"
+  | "polar_checkout_org"
+  | "billing_portal_org"
+  | "change_plan_org";
 
 interface RateLimitRule {
   windowMs: number;
@@ -19,6 +25,15 @@ interface RateLimitRule {
  * budget). signup_ip and forgot_password_email are incremented on every
  * attempt regardless of outcome, since neither has a meaningful
  * "failure" worth distinguishing for abuse purposes.
+ *
+ * The three Polar billing actions (polar_checkout_org, billing_portal_org,
+ * change_plan_org) reuse this same module (despite the "auth" name)
+ * rather than a second rate-limit implementation - they're keyed by
+ * organizationId instead of email/IP since the caller is already an
+ * authenticated org admin/owner by the time these run. Limits are
+ * generous enough for legitimate retries (a declined card, a flaky
+ * network) while still bounding how hard a bug or a compromised session
+ * can hammer Polar's API.
  */
 export const AUTH_RATE_LIMIT_RULES: Record<AuthRateLimitAction, RateLimitRule> =
   {
@@ -26,6 +41,9 @@ export const AUTH_RATE_LIMIT_RULES: Record<AuthRateLimitAction, RateLimitRule> =
     login_ip: { windowMs: 15 * 60 * 1000, limit: 20 },
     signup_ip: { windowMs: 60 * 60 * 1000, limit: 5 },
     forgot_password_email: { windowMs: 60 * 60 * 1000, limit: 3 },
+    polar_checkout_org: { windowMs: 10 * 60 * 1000, limit: 10 },
+    billing_portal_org: { windowMs: 10 * 60 * 1000, limit: 20 },
+    change_plan_org: { windowMs: 10 * 60 * 1000, limit: 10 },
   };
 
 /** Minimal storage contract — implemented for real by Prisma, and by an

@@ -44,6 +44,11 @@ export async function POST(request: Request): Promise<NextResponse> {
   const secret = process.env.POLAR_WEBHOOK_SECRET?.trim();
 
   if (!secret) {
+    captureServerError(
+      "polar-webhook",
+      new Error("POLAR_WEBHOOK_SECRET is not configured."),
+      { eventId: request.headers.get("webhook-id") }
+    );
     return NextResponse.json(
       { error: "Webhook is not configured." },
       { status: 401 }
@@ -65,6 +70,12 @@ export async function POST(request: Request): Promise<NextResponse> {
     const webhook = new Webhook(base64Secret);
     verified = webhook.verify(rawBody, headers);
   } catch (error) {
+    // Not the secret or any signature material - just enough to tell a
+    // genuine misconfiguration/rotation apart from routine internet noise
+    // hitting the endpoint.
+    captureServerError("polar-webhook-signature", error, {
+      eventId: request.headers.get("webhook-id"),
+    });
     if (error instanceof WebhookVerificationError) {
       return NextResponse.json(
         { error: "Invalid webhook signature." },
@@ -79,6 +90,11 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const event = verified as PolarSubscriptionEvent;
   if (!event || typeof event.type !== "string" || !event.data) {
+    captureServerError(
+      "polar-webhook",
+      new Error("Invalid webhook payload shape after signature verification."),
+      { eventId: request.headers.get("webhook-id") }
+    );
     return NextResponse.json(
       { error: "Invalid webhook payload." },
       { status: 400 }
@@ -86,11 +102,21 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   if (!SUPPORTED_POLAR_EVENT_TYPES.has(event.type)) {
+    // Expected, not an error: Polar sends many event types (checkout.*,
+    // order.*, customer.*, product.*, refund.*, benefit.*, member.*,
+    // organization.updated, ...) this integration deliberately doesn't
+    // act on. Reporting these would just be noise that drowns out real
+    // failures.
     return NextResponse.json({ received: true });
   }
 
   const eventId = request.headers.get("webhook-id");
   if (!eventId) {
+    captureServerError(
+      "polar-webhook",
+      new Error("Missing webhook-id header."),
+      { eventType: event.type }
+    );
     return NextResponse.json(
       { error: "Missing webhook-id header." },
       { status: 400 }
