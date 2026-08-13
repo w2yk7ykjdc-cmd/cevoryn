@@ -18,6 +18,16 @@
  *   INTEGRATION_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/cevoryn_integration_test \
  *     npm run test:integration
  *
+ * `node --test` runs separate test FILES concurrently by default (verified
+ * empirically - not documented prominently). This file, health-database
+ * .integration.ts, and rate-limit.integration.ts all target the same
+ * database, and health-database.integration.ts deliberately corrupts and
+ * restores `_prisma_migrations` rows mid-run - running concurrently with
+ * this file's own `prisma migrate deploy` (in before()) caused a real,
+ * observed cleanup failure (a leftover test org/subscription survived a
+ * run). The `test:integration` npm script passes `--test-concurrency=1`
+ * to force strictly sequential file execution - do not remove that flag.
+ *
  * This file intentionally does NOT end in `.test.ts` so the default
  * `npm test` (test/**\/*.test.ts) never picks it up - it must never run
  * without a database, and `npm test` must stay usable for contributors
@@ -125,16 +135,37 @@ before(async () => {
 });
 
 after(async () => {
-  // Subscription rows cascade-delete with their organization
-  // (onDelete: Cascade in schema.prisma), so deleting the org is enough
-  // to clean that up. billing_webhook_events rows aren't linked by FK to
-  // the organization, so they're deleted explicitly by event id.
-  await prisma.organization.delete({ where: { id: ORG_ID } }).catch(() => {});
+  // Each cleanup step runs independently (its own try/catch) so one
+  // failing doesn't skip the other, and failures are logged rather than
+  // silently swallowed - a swallowed cleanup failure is exactly how a
+  // stale integration-test-org row would go unnoticed run after run.
+  // billing_webhook_events rows aren't linked by FK to the organization,
+  // so they're deleted explicitly by event id, independent of the org.
   if (usedEventIds.length > 0) {
-    await prisma.billingWebhookEvent.deleteMany({
-      where: { eventId: { in: usedEventIds } },
-    });
+    try {
+      await prisma.billingWebhookEvent.deleteMany({
+        where: { eventId: { in: usedEventIds } },
+      });
+    } catch (error) {
+      console.error(
+        "[test cleanup] Failed to delete billing_webhook_events test rows:",
+        error
+      );
+    }
   }
+
+  // Subscription rows cascade-delete with their organization
+  // (onDelete: Cascade in schema.prisma), so this also cleans up the
+  // subscription row created during the lifecycle tests.
+  try {
+    await prisma.organization.delete({ where: { id: ORG_ID } });
+  } catch (error) {
+    console.error(
+      `[test cleanup] Failed to delete test organization ${ORG_ID}:`,
+      error
+    );
+  }
+
   await prisma.$disconnect();
 });
 
@@ -212,6 +243,37 @@ async function sendWebhook(
   const body = await response.json();
   return { status: response.status, body };
 }
+
+// ============================================================================
+// Canary: this whole suite depends on a fragile, three-part mechanism -
+// NODE_OPTIONS=--conditions=react-server making Node resolve the
+// "server-only" package to its no-op empty.js (the same export condition
+// Next.js's real bundler uses), which is the only reason the route module
+// can be imported outside Next.js at all. If any of tsx's esbuild
+// transform, this Node flag, or the "server-only" package's own
+// detection mechanism ever changes, every test below would fail with
+// confusing, unrelated-looking errors. This test fails first, with an
+// unambiguous message, if that ever happens.
+// ============================================================================
+
+test("canary: the server-only workaround this whole suite depends on is actually in effect", async () => {
+  let threw = false;
+  try {
+    await import("server-only");
+  } catch {
+    threw = true;
+  }
+  assert.equal(
+    threw,
+    false,
+    'Importing "server-only" threw - NODE_OPTIONS=--conditions=react-server ' +
+      "(see package.json's test:integration script) is not resolving it to " +
+      "empty.js the way it does in Next.js's real bundler. Every other test " +
+      'in this file imports the webhook route, which imports "server-only" ' +
+      "transitively via src/lib/error-reporting.ts, and will fail for this " +
+      "same underlying reason."
+  );
+});
 
 // ============================================================================
 // Full realistic lifecycle for one organization, in order: this exercises
@@ -399,6 +461,47 @@ test("idempotency: redelivering the exact same event id does not reprocess or du
     eventRows.length,
     1,
     "exactly one billing_webhook_events row must exist for this event id, not two"
+  );
+});
+
+test("idempotency under true concurrency: two truly parallel deliveries of the same event id still claim exactly once", async () => {
+  // The sequential test above proves the ON CONFLICT DO NOTHING check works
+  // across separate requests, but two sequential awaits can never actually
+  // race each other. Polar (or its own retry logic) can deliver near-
+  // simultaneously, so this fires both requests with Promise.all - no
+  // await between them - to exercise the real concurrent path. This only
+  // proves anything because "billing_webhook_events" INSERT ... ON CONFLICT
+  // DO NOTHING is atomic at the Postgres level, not because of any
+  // application-level locking (there isn't any).
+  const eventId = `evt-${TEST_RUN_ID}-concurrent-idempotency-check`;
+  const event = buildSubscriptionEvent("subscription.active", {
+    status: "active",
+  });
+
+  const [first, second] = await Promise.all([
+    sendWebhook(event, eventId),
+    sendWebhook(event, eventId),
+  ]);
+
+  assert.equal(first.status, 200);
+  assert.equal(second.status, 200);
+
+  const processedFlags = [first.body, second.body]
+    .map((body) => (body as { processed?: boolean }).processed)
+    .sort();
+  assert.deepEqual(
+    processedFlags,
+    [false, true],
+    "exactly one of the two concurrent deliveries must have processed the event, the other must see it already claimed"
+  );
+
+  const eventRows = await prisma.billingWebhookEvent.findMany({
+    where: { eventId },
+  });
+  assert.equal(
+    eventRows.length,
+    1,
+    "two truly concurrent deliveries of the same event id must still leave exactly one row, not two"
   );
 });
 
