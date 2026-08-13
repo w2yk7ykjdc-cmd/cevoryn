@@ -26,6 +26,7 @@ import { after, before, test } from "node:test";
 import type {
   isAuthRateLimited as IsAuthRateLimitedType,
   recordAuthAttempt as RecordAuthAttemptType,
+  tryRecordAuthAttempt as TryRecordAuthAttemptType,
 } from "../../src/server/services/auth-rate-limit.service";
 import { AUTH_RATE_LIMIT_RULES } from "../../src/server/services/auth-rate-limit";
 import type { prisma as PrismaType } from "../../src/lib/prisma";
@@ -52,6 +53,7 @@ if (/supabase\.co/i.test(INTEGRATION_DATABASE_URL)) {
 
 let isAuthRateLimited: typeof IsAuthRateLimitedType;
 let recordAuthAttempt: typeof RecordAuthAttemptType;
+let tryRecordAuthAttempt: typeof TryRecordAuthAttemptType;
 let prisma: typeof PrismaType;
 
 before(async () => {
@@ -65,6 +67,7 @@ before(async () => {
     await import("../../src/server/services/auth-rate-limit.service");
   isAuthRateLimited = serviceModule.isAuthRateLimited;
   recordAuthAttempt = serviceModule.recordAuthAttempt;
+  tryRecordAuthAttempt = serviceModule.tryRecordAuthAttempt;
 
   const prismaModule = await import("../../src/lib/prisma");
   prisma = prismaModule.prisma;
@@ -112,6 +115,48 @@ for (const action of [
     });
   });
 }
+
+test("tryRecordAuthAttempt closes the check-then-act race: N truly concurrent attempts against a real limit allow exactly `limit` through", async () => {
+  // The old isAuthRateLimited() + recordAuthAttempt() two-step pattern has
+  // a TOCTOU window: under Postgres's default READ COMMITTED isolation,
+  // concurrent callers can all observe "under the limit" before any of
+  // them has inserted a row, letting more than `limit` attempts through.
+  // This fires far more parallel requests than the limit, all at once
+  // (no await between dispatch), against the real DB-backed
+  // tryRecordAuthAttempt() - if the advisory-lock serialization in
+  // auth-rate-limit.service.ts's tryRecord() didn't work, this would
+  // observe more than `limit` "allowed" results and/or more than `limit`
+  // persisted rows.
+  const organizationId = `integration-test-org-concurrent-${randomUUID().slice(0, 8)}`;
+  const limit = AUTH_RATE_LIMIT_RULES.polar_checkout_org.limit;
+  const attemptCount = limit * 3;
+
+  const results = await Promise.all(
+    Array.from({ length: attemptCount }, () =>
+      tryRecordAuthAttempt("polar_checkout_org", organizationId)
+    )
+  );
+
+  const allowedCount = results.filter((allowed) => allowed).length;
+  assert.equal(
+    allowedCount,
+    limit,
+    `exactly ${limit} of ${attemptCount} truly concurrent attempts must be allowed, not more`
+  );
+
+  const rows = await prisma.authRateLimitAttempt.count({
+    where: { action: "polar_checkout_org", key: organizationId },
+  });
+  assert.equal(
+    rows,
+    limit,
+    "exactly `limit` rows must have actually been persisted, matching the allowed count"
+  );
+
+  await prisma.authRateLimitAttempt.deleteMany({
+    where: { action: "polar_checkout_org", key: organizationId },
+  });
+});
 
 test("different organizations never share a billing rate-limit budget in the real store", async () => {
   const orgA = `integration-test-org-a-${randomUUID().slice(0, 8)}`;
