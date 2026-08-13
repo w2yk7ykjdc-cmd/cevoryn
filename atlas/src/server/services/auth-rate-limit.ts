@@ -30,10 +30,19 @@ interface RateLimitRule {
  * change_plan_org) reuse this same module (despite the "auth" name)
  * rather than a second rate-limit implementation - they're keyed by
  * organizationId instead of email/IP since the caller is already an
- * authenticated org admin/owner by the time these run. Limits are
- * generous enough for legitimate retries (a declined card, a flaky
- * network) while still bounding how hard a bug or a compromised session
- * can hammer Polar's API.
+ * authenticated org admin/owner by the time these run.
+ *
+ * These three limits are a starting estimate, not a calibrated figure -
+ * there's no production traffic history for this integration yet to size
+ * them against. The reasoning: checkout/change_plan involve a real
+ * external API call to Polar per attempt, so 10/10min comfortably covers
+ * a legitimate user retrying a declined card or a flaky network several
+ * times, while still bounding how hard a bug or a compromised session
+ * could hammer Polar's API before the window resets. billing_portal_org
+ * is read-like (opens a hosted session, no state change) so it gets a
+ * looser 20/10min. Revisit these once there's real usage data - a 429 a
+ * legitimate admin actually hits in practice is a signal to raise the
+ * limit, not proof the limit is doing its job.
  */
 export const AUTH_RATE_LIMIT_RULES: Record<AuthRateLimitAction, RateLimitRule> =
   {

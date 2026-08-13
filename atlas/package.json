@@ -23,7 +23,7 @@
     "gdpr:delete": "tsx scripts/gdpr-delete-organization.ts",
     "check": "npm run type-check && npm run lint && npm run format:check",
     "test": "tsx --test test/**/*.test.ts",
-    "test:integration": "NODE_OPTIONS=--conditions=react-server tsx --test test/integration/polar-webhook.integration.ts"
+    "test:integration": "NODE_OPTIONS=--conditions=react-server tsx --test --test-concurrency=1 test/integration/*.integration.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
