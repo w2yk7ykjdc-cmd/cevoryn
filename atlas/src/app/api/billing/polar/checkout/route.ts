@@ -10,10 +10,7 @@ import {
   PolarConfigurationError,
 } from "@/lib/polar/config";
 import { isRoleAtLeast } from "@/lib/rbac";
-import {
-  isAuthRateLimited,
-  recordAuthAttempt,
-} from "@/server/services/auth-rate-limit.service";
+import { tryRecordAuthAttempt } from "@/server/services/auth-rate-limit.service";
 import { getOrganizationSubscription } from "@/server/services/billing.service";
 
 export const runtime = "nodejs";
@@ -44,14 +41,16 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   if (
-    await isAuthRateLimited("polar_checkout_org", membership.organizationId)
+    !(await tryRecordAuthAttempt(
+      "polar_checkout_org",
+      membership.organizationId
+    ))
   ) {
     return NextResponse.json(
       { error: "Too many checkout attempts. Please try again shortly." },
       { status: 429 }
     );
   }
-  await recordAuthAttempt("polar_checkout_org", membership.organizationId);
 
   let requestBody: unknown;
   try {

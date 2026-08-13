@@ -4,10 +4,7 @@ import { getMembership, getUser } from "@/lib/auth";
 import { captureServerError } from "@/lib/error-reporting";
 import { polarApi, PolarConfigurationError } from "@/lib/polar/config";
 import { isRoleAtLeast } from "@/lib/rbac";
-import {
-  isAuthRateLimited,
-  recordAuthAttempt,
-} from "@/server/services/auth-rate-limit.service";
+import { tryRecordAuthAttempt } from "@/server/services/auth-rate-limit.service";
 import { getOrganizationSubscription } from "@/server/services/billing.service";
 
 export const runtime = "nodejs";
@@ -36,14 +33,16 @@ export async function POST(): Promise<NextResponse> {
   }
 
   if (
-    await isAuthRateLimited("billing_portal_org", membership.organizationId)
+    !(await tryRecordAuthAttempt(
+      "billing_portal_org",
+      membership.organizationId
+    ))
   ) {
     return NextResponse.json(
       { error: "Too many requests. Please try again shortly." },
       { status: 429 }
     );
   }
-  await recordAuthAttempt("billing_portal_org", membership.organizationId);
 
   try {
     const subscription = await getOrganizationSubscription(

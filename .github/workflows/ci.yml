@@ -18,6 +18,21 @@ jobs:
       run:
         working-directory: atlas
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cevoryn
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cevoryn
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/cevoryn
@@ -70,6 +85,11 @@ jobs:
 
       - name: Test
         run: npm test
+
+      - name: Integration tests (real Postgres service container)
+        env:
+          INTEGRATION_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cevoryn
+        run: npm run test:integration
 
       - name: Build
         run: npm run build

@@ -64,6 +64,26 @@ export interface AuthRateLimitStore {
     since: Date
   ): Promise<number>;
   record(action: AuthRateLimitAction, key: string): Promise<void>;
+  /**
+   * Atomically checks the window count against `limit` and, if still
+   * under it, records the attempt — as a single DB-level operation.
+   * Returns true if the attempt was allowed (and recorded), false if it
+   * was rejected as already at/over the limit (nothing recorded).
+   *
+   * This exists to close the check-then-act race between calling
+   * isAuthRateLimited() and recordAuthAttempt() as two separate steps:
+   * under concurrent requests, both can observe "under the limit" before
+   * either has recorded anything, letting more than `limit` attempts
+   * through. Callers that need atomicity (currently the three
+   * organization-keyed billing actions) should call
+   * tryRecordAuthAttempt() instead of the two-step pattern.
+   */
+  tryRecord(
+    action: AuthRateLimitAction,
+    key: string,
+    since: Date,
+    limit: number
+  ): Promise<boolean>;
 }
 
 export async function isAuthRateLimited(
@@ -84,6 +104,23 @@ export async function recordAuthAttempt(
   key: string
 ): Promise<void> {
   await store.record(action, key);
+}
+
+/**
+ * Atomic check-and-record: returns true if the attempt is allowed (and
+ * has been recorded), false if it was blocked by the limit (nothing was
+ * recorded). See AuthRateLimitStore.tryRecord for why this exists instead
+ * of composing isAuthRateLimited() + recordAuthAttempt().
+ */
+export async function tryRecordAuthAttempt(
+  store: AuthRateLimitStore,
+  action: AuthRateLimitAction,
+  key: string,
+  now: Date = new Date()
+): Promise<boolean> {
+  const rule = AUTH_RATE_LIMIT_RULES[action];
+  const cutoff = new Date(now.getTime() - rule.windowMs);
+  return store.tryRecord(action, key, cutoff, rule.limit);
 }
 
 /**

@@ -15,6 +15,7 @@ import {
   isAuthRateLimited,
   parseClientIpFromHeaderValues,
   recordAuthAttempt,
+  tryRecordAuthAttempt,
 } from "../src/server/services/auth-rate-limit";
 import type {
   AuthRateLimitAction,
@@ -40,6 +41,15 @@ function createFakeStore(): AuthRateLimitStore & {
     },
     async record(action, key) {
       rows.push({ action, key, createdAt: new Date() });
+    },
+    async tryRecord(action, key, since, limit) {
+      const count = rows.filter(
+        (row) =>
+          row.action === action && row.key === key && row.createdAt >= since
+      ).length;
+      if (count >= limit) return false;
+      rows.push({ action, key, createdAt: new Date() });
+      return true;
     },
   };
 }
@@ -184,6 +194,33 @@ test("different actions never share a rate-limit budget even with the same key v
     await isAuthRateLimited(store, "signup_ip", sharedValue),
     false,
     "login_ip attempts must not count toward signup_ip's separate budget"
+  );
+});
+
+test("tryRecordAuthAttempt allows up to the configured limit, then blocks, without a separate record() call", async () => {
+  const store = createFakeStore();
+  const limit = AUTH_RATE_LIMIT_RULES.polar_checkout_org.limit;
+  const organizationId = "org_atomic";
+
+  for (let i = 0; i < limit; i++) {
+    assert.equal(
+      await tryRecordAuthAttempt(store, "polar_checkout_org", organizationId),
+      true,
+      `attempt ${i + 1} should be allowed and recorded`
+    );
+  }
+
+  assert.equal(
+    await tryRecordAuthAttempt(store, "polar_checkout_org", organizationId),
+    false,
+    "the limit-th+1 attempt must be blocked and not recorded"
+  );
+  assert.equal(
+    store.rows.filter(
+      (row) => row.action === "polar_checkout_org" && row.key === organizationId
+    ).length,
+    limit,
+    "a blocked attempt must not add a row"
   );
 });
 
