@@ -4,6 +4,20 @@ import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
+interface MigrationStatus {
+  /** Migrations Prisma's `_prisma_migrations` table records as finished. */
+  appliedCount: number;
+  /** Most recently finished migration, by started_at. Null if none. */
+  latestApplied: string | null;
+  /**
+   * Migrations with a row but no `finished_at` - i.e. the exact P3009/P3018
+   * "failed migration blocks all future deploys" state this project hit in
+   * production once (see scripts/deploy-migrate.mjs). Should always be
+   * empty; a non-empty list here means a deploy needs manual attention.
+   */
+  unfinished: string[];
+}
+
 interface DiagnosticResult {
   databaseReachable: boolean;
   schemaReady: boolean;
@@ -11,9 +25,10 @@ interface DiagnosticResult {
   tablesMissing: string[];
   prismaErrorCode: string | null;
   sanitizedMessage: string;
+  migrations: MigrationStatus | null;
 }
 
-const REQUIRED_TABLES = ["organizations", "members"];
+const REQUIRED_TABLES = ["organizations", "members", "subscriptions"];
 
 export async function GET() {
   const result: DiagnosticResult = {
@@ -23,6 +38,7 @@ export async function GET() {
     tablesMissing: [],
     prismaErrorCode: null,
     sanitizedMessage: "",
+    migrations: null,
   };
 
   try {
@@ -49,6 +65,26 @@ export async function GET() {
     result.sanitizedMessage = result.schemaReady
       ? "Database ready"
       : `Missing tables: ${result.tablesMissing.join(", ")}. Run: npx prisma migrate deploy`;
+
+    // Proof that a deploy actually ran `prisma migrate deploy` against
+    // this database, not just `prisma generate` (see scripts/deploy-migrate.mjs) -
+    // check this endpoint after a deploy instead of digging through build logs.
+    if (tableNames.includes("_prisma_migrations")) {
+      const migrations = await prisma.$queryRaw<
+        Array<{ migration_name: string; finished_at: Date | null }>
+      >`
+        SELECT migration_name, finished_at FROM "_prisma_migrations"
+        ORDER BY started_at ASC
+      `;
+      const finished = migrations.filter((m) => m.finished_at !== null);
+      result.migrations = {
+        appliedCount: finished.length,
+        latestApplied: finished.at(-1)?.migration_name ?? null,
+        unfinished: migrations
+          .filter((m) => m.finished_at === null)
+          .map((m) => m.migration_name),
+      };
+    }
   } catch (error) {
     const prismaError = error as { code?: string };
     result.prismaErrorCode = prismaError.code ?? "QUERY_FAILED";
