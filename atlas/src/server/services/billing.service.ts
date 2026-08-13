@@ -4,6 +4,7 @@ import "server-only";
 import { evaluateSubscriptionIntegrity } from "@/features/billing/subscription-integrity";
 import type { OrganizationSubscription } from "@/features/billing/types";
 import { prisma } from "@/lib/prisma";
+import { isMissingBillingTableError } from "@/server/services/billing-errors";
 
 type DatabaseClient = Prisma.TransactionClient | typeof prisma;
 
@@ -29,32 +30,6 @@ function mapSubscription(row: Subscription): OrganizationSubscription {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
-}
-
-function isMissingBillingTableError(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false;
-
-  const candidate = error as {
-    code?: string;
-    meta?: { code?: string; message?: string; modelName?: string };
-    message?: string;
-  };
-
-  return (
-    // Raised by Prisma's generated client (e.g. .findUnique()) when the
-    // underlying table is missing.
-    candidate.code === "P2021" ||
-    // Raised by $queryRaw against a bare Postgres connection.
-    candidate.code === "42P01" ||
-    candidate.meta?.code === "42P01" ||
-    candidate.meta?.message?.includes(
-      'relation "subscriptions" does not exist'
-    ) === true ||
-    candidate.message?.includes('relation "subscriptions" does not exist') ===
-      true ||
-    candidate.message?.includes("does not exist in the current database") ===
-      true
-  );
 }
 
 export async function getOrganizationSubscription(
