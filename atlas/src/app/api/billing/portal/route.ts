@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 
 import { getMembership, getUser } from "@/lib/auth";
 import { captureServerError } from "@/lib/error-reporting";
-import { polarApi, PolarConfigurationError } from "@/lib/polar/config";
+import {
+  polarApi,
+  PolarApiError,
+  PolarConfigurationError,
+} from "@/lib/polar/config";
 import { isRoleAtLeast } from "@/lib/rbac";
 import { tryRecordAuthAttempt } from "@/server/services/auth-rate-limit.service";
 import { getOrganizationSubscription } from "@/server/services/billing.service";
@@ -70,14 +74,16 @@ export async function POST(): Promise<NextResponse> {
     captureServerError("polar-portal", error, {
       organizationId: membership.organizationId,
     });
+    // Only PolarConfigurationError/PolarApiError messages are authored to
+    // be safe to show a customer. Any other error must never have its raw
+    // message relayed to the client.
     return NextResponse.json(
       {
         error:
-          error instanceof PolarConfigurationError
+          error instanceof PolarConfigurationError ||
+          error instanceof PolarApiError
             ? error.message
-            : error instanceof Error
-              ? error.message
-              : "Unable to open billing management.",
+            : "Unable to open billing management.",
       },
       { status: 500 }
     );

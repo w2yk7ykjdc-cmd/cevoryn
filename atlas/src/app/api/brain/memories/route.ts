@@ -14,6 +14,7 @@ import {
   internalErrorResponse,
 } from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
+import { isRoleAtLeast } from "@/lib/rbac";
 
 export async function GET(request: NextRequest) {
   try {
@@ -75,6 +76,17 @@ export async function DELETE(request: NextRequest) {
     if (!user) return unauthorizedResponse();
     const membership = await getMembership(user.id);
     if (!membership) return forbiddenResponse();
+
+    // Memories are a shared, organization-wide knowledge base (not owned by
+    // whoever created them) - deleting one affects every member's chat
+    // context, so it needs the same elevated-role bar as other destructive
+    // shared-workspace actions (team/settings management), not just "is a
+    // member".
+    if (!isRoleAtLeast(membership.role, "ADMIN")) {
+      return forbiddenResponse(
+        "Only organization owners and admins can delete memories"
+      );
+    }
 
     const url = new URL(request.url);
     const id = url.searchParams.get("id");
