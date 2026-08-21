@@ -9,6 +9,21 @@ export class PolarConfigurationError extends Error {
   }
 }
 
+/**
+ * Thrown only for a real error response FROM Polar's API (declined card,
+ * invalid product, etc.) - its message is authored by Polar/us to be safe
+ * to relay to the org admin who triggered the request. Deliberately a
+ * distinct class from a plain Error so callers can tell "safe to show the
+ * user" apart from an unexpected internal exception (Prisma error, bug,
+ * network failure) whose raw message must never reach the client.
+ */
+export class PolarApiError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PolarApiError";
+  }
+}
+
 export function getPolarEnvironment(): "sandbox" | "production" {
   return process.env.POLAR_ENV === "sandbox" ? "sandbox" : "production";
 }
@@ -83,7 +98,7 @@ export async function polarApi<T>(
 
   const payload: unknown = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new Error(
+    throw new PolarApiError(
       getPolarErrorDetail(payload) ??
         `Polar API request failed with ${response.status}.`
     );

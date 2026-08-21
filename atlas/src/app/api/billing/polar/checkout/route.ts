@@ -7,6 +7,7 @@ import { captureServerError } from "@/lib/error-reporting";
 import {
   getPolarProductId,
   polarApi,
+  PolarApiError,
   PolarConfigurationError,
 } from "@/lib/polar/config";
 import { isRoleAtLeast } from "@/lib/rbac";
@@ -110,12 +111,13 @@ export async function POST(request: Request): Promise<NextResponse> {
       organizationId: membership.organizationId,
     });
 
+    // Only PolarConfigurationError/PolarApiError messages are authored to
+    // be safe to show a customer. Any other error must never have its raw
+    // message relayed to the client.
     const message =
-      error instanceof PolarConfigurationError
+      error instanceof PolarConfigurationError || error instanceof PolarApiError
         ? error.message
-        : error instanceof Error
-          ? error.message
-          : "Unable to start checkout.";
+        : "Unable to start checkout.";
 
     return NextResponse.json({ error: message }, { status: 500 });
   }

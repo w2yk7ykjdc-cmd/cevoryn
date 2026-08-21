@@ -17,8 +17,18 @@ import assert from "node:assert/strict";
 import { execSync } from "node:child_process";
 import { after, before, test } from "node:test";
 
+import { NextRequest } from "next/server";
+
 import type { GET as GetType } from "../../src/app/api/health/database/route";
 import type { prisma as PrismaType } from "../../src/lib/prisma";
+
+const TEST_CRON_SECRET = "integration-test-cron-secret-0123456789";
+
+function authorizedRequest(): NextRequest {
+  return new NextRequest("http://localhost/api/health/database", {
+    headers: { authorization: `Bearer ${TEST_CRON_SECRET}` },
+  });
+}
 
 const INTEGRATION_DATABASE_URL = process.env.INTEGRATION_DATABASE_URL;
 
@@ -47,6 +57,7 @@ before(async () => {
   process.env.DATABASE_URL = INTEGRATION_DATABASE_URL;
   process.env.DIRECT_URL =
     process.env.INTEGRATION_DIRECT_URL ?? INTEGRATION_DATABASE_URL;
+  process.env.CRON_SECRET = TEST_CRON_SECRET;
 
   execSync("npx prisma migrate deploy", { stdio: "inherit", env: process.env });
 
@@ -61,8 +72,17 @@ after(async () => {
   await prisma.$disconnect();
 });
 
+test("an unauthenticated request is rejected before any diagnostic data is returned", async () => {
+  const response = await GET(
+    new NextRequest("http://localhost/api/health/database")
+  );
+  assert.equal(response.status, 401);
+  const body = await response.json();
+  assert.equal(body.error.code, "UNAUTHORIZED");
+});
+
 test("a fully-migrated database reports schemaReady=true and an empty unfinished list", async () => {
-  const response = await GET();
+  const response = await GET(authorizedRequest());
   const body = await response.json();
 
   assert.equal(response.status, 200);
@@ -84,7 +104,7 @@ test("a migration left with no finished_at (the real P3009/P3018 production stat
   `;
 
   try {
-    const response = await GET();
+    const response = await GET(authorizedRequest());
     const body = await response.json();
 
     assert.equal(

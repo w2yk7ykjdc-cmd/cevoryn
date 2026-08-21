@@ -61,7 +61,8 @@ before(async () => {
   cleanupStaleAuthRateLimitAttempts =
     rateLimitModule.cleanupStaleAuthRateLimitAttempts;
 
-  const billingModule = await import("../../src/server/services/billing.service");
+  const billingModule =
+    await import("../../src/server/services/billing.service");
   cleanupStaleBillingWebhookEvents =
     billingModule.cleanupStaleBillingWebhookEvents;
 

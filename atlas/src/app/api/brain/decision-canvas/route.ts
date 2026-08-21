@@ -5,6 +5,11 @@ import { generateDecisionCanvas } from "@/features/brain/decisions/decision-canv
 import { createDecisionSchema } from "@/features/brain/decisions/schemas";
 import { getMembership, getUser } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
+import {
+  assertAiTokenCapacity,
+  PlanLimitError,
+} from "@/server/services/entitlement.service";
+import { checkRateLimit } from "@/server/services/rate-limit.service";
 
 export async function POST(request: NextRequest) {
   const user = await getUser();
@@ -45,6 +50,32 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: { code: "VALIDATION_ERROR", message: "Invalid input" } },
       { status: 400 }
+    );
+  }
+
+  // This route calls the AI provider directly (generateDecisionCanvas), so
+  // it needs the same cost/abuse gates as the other AI-calling brain
+  // routes (decisions, insights, brief) - without them, any authenticated
+  // org member could call it repeatedly with no limit on AI spend.
+  try {
+    await assertAiTokenCapacity(membership.organizationId);
+  } catch (error) {
+    if (error instanceof PlanLimitError) {
+      return NextResponse.json(
+        { error: { code: error.code, message: error.message } },
+        { status: 429 }
+      );
+    }
+    throw error;
+  }
+
+  const rateLimit = await checkRateLimit(membership.organizationId);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {
+        error: { code: "RATE_LIMITED", message: "Daily token limit reached" },
+      },
+      { status: 429 }
     );
   }
 

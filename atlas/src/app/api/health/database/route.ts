@@ -1,8 +1,23 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
+
+/**
+ * Not tied to any organization (infra/deploy diagnostic, same answer for
+ * everyone) so this reuses the CRON_SECRET bearer-token pattern the cron
+ * routes use, rather than requiring an org admin session - simpler to
+ * check manually after a deploy (curl with the header) and avoids leaking
+ * table/migration names and Prisma error codes to anonymous callers, which
+ * this endpoint did unconditionally before this check existed.
+ */
+function isAuthorized(request: NextRequest): boolean {
+  const secret = process.env.CRON_SECRET?.trim();
+  if (!secret) return false;
+  return request.headers.get("authorization") === `Bearer ${secret}`;
+}
 
 interface MigrationStatus {
   /** Migrations Prisma's `_prisma_migrations` table records as finished. */
@@ -30,7 +45,14 @@ interface DiagnosticResult {
 
 const REQUIRED_TABLES = ["organizations", "members", "subscriptions"];
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  if (!isAuthorized(request)) {
+    return NextResponse.json(
+      { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
+      { status: 401 }
+    );
+  }
+
   const result: DiagnosticResult = {
     databaseReachable: false,
     schemaReady: false,

@@ -529,6 +529,11 @@ model Subscription {
   currentPeriodEnd     DateTime?          @map("current_period_end")
   cancelAtPeriodEnd    Boolean            @default(false) @map("cancel_at_period_end")
   trialEnd             DateTime?          @map("trial_end")
+  /// Timestamp of the last Polar webhook event actually applied to this row -
+  /// used to reject an older, redelivered/delayed event from overwriting
+  /// state a newer event already wrote. Null for rows never touched by a
+  /// Polar webhook (pre-Polar rows, or Paddle-era rows).
+  lastWebhookEventAt   DateTime?          @map("last_webhook_event_at")
   createdAt            DateTime           @default(now()) @map("created_at")
   updatedAt            DateTime           @updatedAt @map("updated_at")
 

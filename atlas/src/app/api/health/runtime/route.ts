@@ -1,9 +1,30 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+/**
+ * Not tied to any organization (infra/deploy diagnostic) so this reuses the
+ * CRON_SECRET bearer-token pattern the cron routes use, rather than an org
+ * admin session. This endpoint returns real infra fingerprinting detail
+ * (Node version, which secrets are configured, commit SHA) that should
+ * never be reachable by an anonymous caller.
+ */
+function isAuthorized(request: NextRequest): boolean {
+  const secret = process.env.CRON_SECRET?.trim();
+  if (!secret) return false;
+  return request.headers.get("authorization") === `Bearer ${secret}`;
+}
+
+export async function GET(request: NextRequest) {
+  if (!isAuthorized(request)) {
+    return NextResponse.json(
+      { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
+      { status: 401 }
+    );
+  }
+
   return NextResponse.json(
     {
       ok: true,

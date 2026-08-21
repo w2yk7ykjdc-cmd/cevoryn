@@ -182,6 +182,10 @@ interface SubscriptionEventOverrides {
   cancel_at_period_end?: boolean;
   product_id?: string | null;
   metadata?: Record<string, unknown> | null;
+  /** The event's own `timestamp` field (when it occurred at Polar, not when
+   * it's delivered) - overridable to test out-of-order delivery. Defaults
+   * to now. */
+  timestamp?: string;
 }
 
 function buildSubscriptionEvent(
@@ -190,7 +194,7 @@ function buildSubscriptionEvent(
 ) {
   return {
     type,
-    timestamp: new Date().toISOString(),
+    timestamp: overrides.timestamp ?? new Date().toISOString(),
     data: {
       id: SUBSCRIPTION_ID,
       created_at: new Date().toISOString(),
@@ -502,6 +506,67 @@ test("idempotency under true concurrency: two truly parallel deliveries of the s
     eventRows.length,
     1,
     "two truly concurrent deliveries of the same event id must still leave exactly one row, not two"
+  );
+});
+
+test("out-of-order webhook delivery: a delayed/retried OLDER event never overwrites state a NEWER event already applied", async () => {
+  // Polar (like any webhook provider) does not guarantee events arrive in
+  // the order they occurred. This simulates that: a NEWER event is
+  // delivered and applied first, then a DIFFERENT, OLDER event (different
+  // event id, so billing_webhook_events' dedup doesn't catch it) is
+  // delivered - it must be acknowledged (claimed) but must NOT be allowed
+  // to regress the subscription row. A genuinely newer event afterward
+  // must still apply normally.
+  const now = Date.now();
+  const olderTimestamp = new Date(now - 60 * 60 * 1000).toISOString();
+  const newerTimestamp = new Date(now).toISOString();
+  const evenNewerTimestamp = new Date(now + 60 * 60 * 1000).toISOString();
+
+  const newerResult = await sendWebhook(
+    buildSubscriptionEvent("subscription.active", {
+      status: "active",
+      timestamp: newerTimestamp,
+    })
+  );
+  assert.equal(newerResult.status, 200);
+  assert.deepEqual(newerResult.body, { received: true, processed: true });
+
+  const afterNewer = await getOrganizationSubscription(ORG_ID);
+  assert.equal(afterNewer?.subscriptionStatus, "ACTIVE");
+
+  const olderResult = await sendWebhook(
+    buildSubscriptionEvent("subscription.past_due", {
+      status: "past_due",
+      timestamp: olderTimestamp,
+    })
+  );
+  assert.equal(olderResult.status, 200);
+  assert.deepEqual(
+    olderResult.body,
+    { received: true, processed: true },
+    "the older event is still claimed (new event id, not a duplicate) - only the DB write is rejected, not the whole request"
+  );
+
+  const afterOlder = await getOrganizationSubscription(ORG_ID);
+  assert.equal(
+    afterOlder?.subscriptionStatus,
+    "ACTIVE",
+    "a delayed/retried OLDER event must not regress status a newer event already set"
+  );
+
+  const evenNewerResult = await sendWebhook(
+    buildSubscriptionEvent("subscription.past_due", {
+      status: "past_due",
+      timestamp: evenNewerTimestamp,
+    })
+  );
+  assert.equal(evenNewerResult.status, 200);
+
+  const afterEvenNewer = await getOrganizationSubscription(ORG_ID);
+  assert.equal(
+    afterEvenNewer?.subscriptionStatus,
+    "PAST_DUE",
+    "a genuinely newer event must still apply normally - the guard must never block legitimate forward progress"
   );
 });
 
