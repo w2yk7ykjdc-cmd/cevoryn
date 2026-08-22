@@ -7,6 +7,7 @@ import { signOutAction } from "@/features/auth/actions/auth";
 import { getMembership, requireUser } from "@/lib/auth";
 
 import { DisplayNameForm } from "./display-name-form";
+import { EmailChangeForm } from "./email-change-form";
 
 function formatDisplayName(name: string): string {
   const normalized = name.trim().replace(/\s+/g, " ");
@@ -77,13 +78,13 @@ export default async function ProfilePage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 py-4">
-            <Mail className="h-5 w-5 shrink-0 text-muted-foreground" />
-            <div className="min-w-0">
+          <div className="flex items-start gap-3 py-4">
+            <Mail className="mt-2 h-5 w-5 shrink-0 text-muted-foreground" />
+            <div className="min-w-0 flex-1 space-y-2">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 {t("email")}
               </p>
-              <p className="truncate font-medium">{user.email}</p>
+              <EmailChangeForm initialEmail={user.email} />
             </div>
           </div>
 

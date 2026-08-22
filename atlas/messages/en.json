@@ -726,7 +726,13 @@
     "updateFailed": "Failed to update name",
     "updated": "Name updated",
     "nameLabel": "Your name",
-    "save": "Save"
+    "save": "Save",
+    "emailLabel": "Your email",
+    "emailInvalid": "Enter a valid email address",
+    "emailUnchanged": "This is already your current email address",
+    "emailInUse": "This email address is already in use by another account",
+    "emailUpdateFailed": "Failed to update email",
+    "emailConfirmationSent": "Confirmation link sent to {email} - click it to complete the change"
   },
   "feedback": {
     "privateBeta": "Private beta",
