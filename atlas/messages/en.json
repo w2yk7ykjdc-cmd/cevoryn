@@ -50,11 +50,11 @@
       },
       "brief": {
         "title": "Morning brief",
-        "description": "A short daily summary of what changed and what needs attention, built from your workspace's real activity."
+        "description": "Generate a short summary of what changed and what needs attention, built from your workspace's real activity — on demand, whenever you need it."
       },
       "pulse": {
         "title": "Company Pulse",
-        "description": "A live engagement score across conversations, response time, and team coverage, with the contributing factors shown."
+        "description": "An engagement score from your team's CEVORYN activity — conversations, response time, and usage — generated on demand, with the contributing factors shown."
       },
       "team": {
         "title": "Team collaboration",
