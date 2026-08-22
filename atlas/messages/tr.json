@@ -50,11 +50,11 @@
       },
       "brief": {
         "title": "Sabah özeti",
-        "description": "Çalışma alanınızın gerçek aktivitesinden oluşturulan, neyin değiştiğine ve nelere dikkat edilmesi gerektiğine dair kısa bir günlük özet."
+        "description": "Çalışma alanınızın gerçek aktivitesinden, neyin değiştiğine ve nelere dikkat edilmesi gerektiğine dair kısa bir özet oluşturun — istediğiniz an, tek tıkla."
       },
       "pulse": {
         "title": "Şirket Nabzı",
-        "description": "Konuşmalar, yanıt süresi ve ekip kapsamı genelinde canlı bir katılım skoru, katkıda bulunan faktörlerle birlikte gösterilir."
+        "description": "Ekibinizin CEVORYN kullanımından — konuşmalar, yanıt süresi ve aktivite — istediğiniz an oluşturulan bir katılım skoru, katkıda bulunan faktörlerle birlikte gösterilir."
       },
       "team": {
         "title": "Ekip iş birliği",
