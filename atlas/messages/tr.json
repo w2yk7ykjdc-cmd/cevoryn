@@ -726,7 +726,13 @@
     "updateFailed": "Ad güncellenemedi",
     "updated": "Ad güncellendi",
     "nameLabel": "Adınız",
-    "save": "Kaydet"
+    "save": "Kaydet",
+    "emailLabel": "E-posta adresiniz",
+    "emailInvalid": "Geçerli bir e-posta adresi girin",
+    "emailUnchanged": "Bu zaten mevcut e-posta adresiniz",
+    "emailInUse": "Bu e-posta adresi başka bir hesap tarafından kullanılıyor",
+    "emailUpdateFailed": "E-posta güncellenemedi",
+    "emailConfirmationSent": "{email} adresine onay bağlantısı gönderildi - değişikliği tamamlamak için tıklayın"
   },
   "feedback": {
     "privateBeta": "Özel beta",
