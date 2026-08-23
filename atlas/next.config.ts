@@ -18,6 +18,17 @@ const nextConfig: NextConfig = {
   images: {
     formats: ["image/avif", "image/webp"],
   },
+  // Canonicalize traffic away from the raw Vercel deployment domain onto the
+  // custom domain, so links/bookmarks to cevoryn.vercel.app still work but
+  // always end up on www.cevoryn.com.
+  redirects: async () => [
+    {
+      source: "/:path*",
+      has: [{ type: "host", value: "cevoryn.vercel.app" }],
+      destination: "https://www.cevoryn.com/:path*",
+      permanent: true,
+    },
+  ],
   headers: async () => [
     {
       source: "/(.*)",
