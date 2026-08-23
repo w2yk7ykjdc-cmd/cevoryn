@@ -3,6 +3,7 @@ import "server-only";
 import { toTimelineEventType, toDecisionStatus } from "@/lib/enum-validators";
 import { prisma } from "@/lib/prisma";
 
+import { parseDecisionCanvas } from "./json-schemas";
 import type { DecisionCanvas, DecisionTimeline, TimelineEvent } from "./types";
 
 /**
@@ -129,7 +130,7 @@ export async function getDecisionTimeline(
 
   if (!decision) return null;
 
-  const canvas = decision.canvas as unknown as DecisionCanvas;
+  const canvas = parseDecisionCanvas(decision.canvas);
 
   const events: TimelineEvent[] = decision.timelineEvents.map(
     (e: {
@@ -152,7 +153,7 @@ export async function getDecisionTimeline(
 
   return {
     decisionId: decision.id,
-    problemStatement: canvas.problemStatement,
+    problemStatement: canvas?.problemStatement ?? "",
     status: decision.status,
     events,
     currentPhase,

@@ -2,11 +2,11 @@ import "server-only";
 
 import { getLocale, getTranslations } from "next-intl/server";
 
-import type { PulseMetrics } from "@/features/brain/core/types";
-import type { DecisionCanvas } from "@/features/brain/decisions/types";
+import { parsePulseMetrics } from "@/features/brain/core/json-schemas";
+import { parseDecisionCanvas } from "@/features/brain/decisions/json-schemas";
 import { computePulseScore } from "@/features/brain/pulse/pulse-scorer";
 import { computePulse } from "@/features/brain/pulse/pulse.service";
-import type { Evidence } from "@/features/brain/trust/types";
+import { parseEvidence } from "@/features/brain/trust/json-schemas";
 import { prisma } from "@/lib/prisma";
 import type { MembershipContext } from "@/types";
 
@@ -113,7 +113,7 @@ export async function loadExecutiveHome(
       : [];
 
   const previousMetrics = previousSnapshot
-    ? (previousSnapshot.metrics as unknown as PulseMetrics)
+    ? parsePulseMetrics(previousSnapshot.metrics)
     : null;
   const pulseScore = computePulseScore(pulseMetrics, previousMetrics);
 
@@ -286,32 +286,36 @@ function buildTopPriority(
     topDecision &&
     (!topInsight || topDecision.priorityScore >= topInsight.priority)
   ) {
-    const canvas = topDecision.canvas as unknown as DecisionCanvas;
-    return {
-      id: topDecision.id,
-      title: canvas.problemStatement,
-      category: canvas.scoringBreakdown?.[0]?.name ?? "General",
-      severity:
-        canvas.priorityScore >= 8
-          ? "CRITICAL"
-          : canvas.priorityScore >= 6
-            ? "WARNING"
-            : "SUGGESTION",
-      summary: canvas.executiveSummary,
-      description: canvas.businessImpact,
-      impact: canvas.businessImpact,
-      confidence: canvas.confidenceScore,
-      reasoning:
-        canvas.scoringBreakdown
-          ?.map(
-            (d: { name: string; reasoning: string }) =>
-              `${d.name}: ${d.reasoning}`
-          )
-          .join(". ") ?? "",
-      recommendedAction: canvas.recommendedDecision,
-      evidence: canvas.evidence ?? [],
-      missingInformation: canvas.followUpPlan ?? [],
-    };
+    const canvas = parseDecisionCanvas(topDecision.canvas);
+    if (canvas) {
+      return {
+        id: topDecision.id,
+        title: canvas.problemStatement,
+        category: canvas.scoringBreakdown?.[0]?.name ?? "General",
+        severity:
+          canvas.priorityScore >= 8
+            ? "CRITICAL"
+            : canvas.priorityScore >= 6
+              ? "WARNING"
+              : "SUGGESTION",
+        summary: canvas.executiveSummary,
+        description: canvas.businessImpact,
+        impact: canvas.businessImpact,
+        confidence: canvas.confidenceScore,
+        reasoning:
+          canvas.scoringBreakdown
+            ?.map(
+              (d: { name: string; reasoning: string }) =>
+                `${d.name}: ${d.reasoning}`
+            )
+            .join(". ") ?? "",
+        recommendedAction: canvas.recommendedDecision,
+        evidence: canvas.evidence ?? [],
+        missingInformation: canvas.followUpPlan ?? [],
+      };
+    }
+    // Corrupted/stale canvas - fall through to the top insight below
+    // instead of surfacing a broken decision.
   }
 
   if (!topInsight) return null;
@@ -327,7 +331,7 @@ function buildTopPriority(
     confidence: topInsight.confidence,
     reasoning: topInsight.reasoning,
     recommendedAction: topInsight.recommendedAction,
-    evidence: (topInsight.evidence as Evidence[]) ?? [],
+    evidence: parseEvidence(topInsight.evidence),
     missingInformation: [],
   };
 }
@@ -364,7 +368,8 @@ function buildAttentionQueue(
 
   for (const d of decisions) {
     if (d.id === excludeId) continue;
-    const canvas = d.canvas as DecisionCanvas;
+    const canvas = parseDecisionCanvas(d.canvas);
+    if (!canvas) continue;
     items.push({
       id: d.id,
       type: "decision",

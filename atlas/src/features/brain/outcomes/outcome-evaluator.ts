@@ -5,7 +5,7 @@ import { AI_CONFIG } from "@/lib/constants";
 import { toOutcomeResult } from "@/lib/enum-validators";
 import { prisma } from "@/lib/prisma";
 
-import type { DecisionCanvas } from "../decisions/types";
+import { parseDecisionCanvas } from "../decisions/json-schemas";
 import { conversationEvidence } from "../trust/trust-engine";
 import type { Evidence } from "../trust/types";
 
@@ -60,7 +60,8 @@ export async function evaluateOutcome(
 
   if (!decision || !decision.outcome) return null;
 
-  const canvas = decision.canvas as unknown as DecisionCanvas;
+  const canvas = parseDecisionCanvas(decision.canvas);
+  if (!canvas) return null;
 
   // Build evidence from timeline
   const timelineEvents = await prisma.decisionTimelineEvent.findMany({

@@ -667,7 +667,8 @@
       "title": "Invite a team member",
       "emailPlaceholder": "colleague@company.com",
       "roleLabel": "Invite role",
-      "inviteButton": "Invite"
+      "inviteButton": "Invite",
+      "invalidEmail": "Enter a valid email address"
     },
     "toasts": {
       "tooManyAttempts": "Too many invite attempts. Try again in about {minutes, plural, one {# minute} other {# minutes}}.",

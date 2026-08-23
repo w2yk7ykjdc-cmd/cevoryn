@@ -19,18 +19,20 @@ export function EmailChangeForm({ initialEmail }: EmailChangeFormProps) {
   const t = useTranslations("profile");
   const [email, setEmail] = useState(initialEmail);
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const [fieldError, setFieldError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function save() {
     const normalized = email.trim().toLowerCase();
     if (!EMAIL_PATTERN.test(normalized)) {
-      toast.error(t("emailInvalid"));
+      setFieldError(t("emailInvalid"));
       return;
     }
     if (normalized === initialEmail.toLowerCase()) {
-      toast.error(t("emailUnchanged"));
+      setFieldError(t("emailUnchanged"));
       return;
     }
+    setFieldError(null);
 
     startTransition(async () => {
       try {
@@ -45,9 +47,9 @@ export function EmailChangeForm({ initialEmail }: EmailChangeFormProps) {
         const data = await response.json().catch(() => null);
         if (!response.ok) {
           if (data?.error?.code === "EMAIL_IN_USE") {
-            toast.error(t("emailInUse"));
+            setFieldError(t("emailInUse"));
           } else {
-            toast.error(data?.error?.message ?? t("emailUpdateFailed"));
+            setFieldError(data?.error?.message ?? t("emailUpdateFailed"));
           }
           return;
         }
@@ -55,7 +57,7 @@ export function EmailChangeForm({ initialEmail }: EmailChangeFormProps) {
         setPendingEmail(normalized);
         toast.success(t("emailConfirmationSent", { email: normalized }));
       } catch (_error) {
-        toast.error(t("emailUpdateFailed"));
+        setFieldError(t("emailUpdateFailed"));
       }
     });
   }
@@ -66,9 +68,13 @@ export function EmailChangeForm({ initialEmail }: EmailChangeFormProps) {
         <Input
           type="email"
           value={email}
-          onChange={(event) => setEmail(event.target.value)}
+          onChange={(event) => {
+            setEmail(event.target.value);
+            if (fieldError) setFieldError(null);
+          }}
           disabled={isPending}
           aria-label={t("emailLabel")}
+          aria-invalid={fieldError ? true : undefined}
         />
         <Button
           type="button"
@@ -87,6 +93,11 @@ export function EmailChangeForm({ initialEmail }: EmailChangeFormProps) {
           {t("save")}
         </Button>
       </div>
+      {fieldError ? (
+        <p role="alert" className="text-xs text-destructive">
+          {fieldError}
+        </p>
+      ) : null}
       {pendingEmail ? (
         <p className="text-xs text-muted-foreground">
           {t("emailConfirmationSent", { email: pendingEmail })}

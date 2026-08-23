@@ -16,7 +16,7 @@ import { getTranslations } from "next-intl/server";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { PulseMetrics } from "@/features/brain/core/types";
+import { parsePulseMetrics } from "@/features/brain/core/json-schemas";
 import { getInsightCounts } from "@/features/brain/insights/insight.service";
 import { getMemoryCount } from "@/features/brain/memory/memory.service";
 import { computePulseScore } from "@/features/brain/pulse/pulse-scorer";
@@ -51,7 +51,7 @@ export default async function HealthPage() {
     ]);
 
   const previousMetrics = previousSnapshot
-    ? (previousSnapshot.metrics as unknown as PulseMetrics)
+    ? parsePulseMetrics(previousSnapshot.metrics)
     : null;
   const pulse = computePulseScore(metrics, previousMetrics);
   const rankedDimensions = [...pulse.dimensions].sort(

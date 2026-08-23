@@ -667,7 +667,8 @@
       "title": "Bir ekip üyesi davet et",
       "emailPlaceholder": "meslektas@sirket.com",
       "roleLabel": "Davet rolü",
-      "inviteButton": "Davet et"
+      "inviteButton": "Davet et",
+      "invalidEmail": "Geçerli bir e-posta adresi girin"
     },
     "toasts": {
       "tooManyAttempts": "Çok fazla davet denemesi yapıldı. Yaklaşık {minutes, plural, one {# dakika} other {# dakika}} sonra tekrar deneyin.",

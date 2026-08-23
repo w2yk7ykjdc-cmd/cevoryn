@@ -8,6 +8,10 @@
 
 The branch must be considered beta-ready only when the latest Vercel Production deployment succeeds. Vercel's free-tier plan caps deployments at 100/day; if that cap is hit, pushes and merges stop reaching production silently until the cap resets or the plan is upgraded. Check the "Deployments" tab in the Vercel dashboard, not just CI, before assuming a merge shipped.
 
+### Cron limits (verified)
+
+`vercel.json` defines exactly 2 cron jobs (`cleanup-usage-reservations` at `0 3 * * *`, `cleanup-billing-hardening-records` at `30 3 * * *`), both invoked once per day. This fits inside Vercel's Hobby plan cron limits (max 2 cron jobs, invoked at most once/day each) with no headroom to spare — adding a third cron job, or increasing either job's frequency past once/day, requires the Pro plan (up to 40 cron jobs, more frequent schedules) first. If a cron job silently stops running in production, check the current plan tier before assuming an application bug.
+
 ## Code-complete reliability work
 
 - Authentication redirects preserve safe `next` paths.

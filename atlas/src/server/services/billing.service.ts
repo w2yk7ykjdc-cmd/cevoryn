@@ -119,11 +119,15 @@ export async function getSubscriptionIntegrityReport(
  * event_id) DO NOTHING` can recognize and ignore a redelivered event; a row
  * only needs to survive as long as the provider might still redeliver it.
  *
- * Polar's exact webhook redelivery window is not documented anywhere I
- * could confirm, so this defaults to 30 days - a conservative upper bound
- * modeled on common webhook-provider retry practice (e.g. Stripe retries
- * failed deliveries for up to 3 days), chosen because this table is small
- * and low-volume: the cost of retaining rows too long is negligible, while
+ * Polar does not publish an exact redelivery *window* (a "retries stop
+ * after N days" number). What is documented/observed: failed deliveries are
+ * retried with exponential backoff for a period measured in hours (not
+ * days), an endpoint is auto-disabled after 10 consecutive failures, and
+ * there is no dead-letter queue - once Polar gives up on an event, it is
+ * gone for good, not replayed later. So the real redelivery window this
+ * table needs to survive is short (hours). 30 days is kept anyway as a
+ * deliberately oversized margin: this table is small/low-volume, so the
+ * cost of retaining rows far longer than necessary is negligible, while
  * the cost of deleting one too early is a real correctness bug (a late
  * legitimate retry gets reprocessed as if it were new).
  */

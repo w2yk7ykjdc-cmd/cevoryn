@@ -3,7 +3,11 @@ import { getLocale } from "next-intl/server";
 
 import { listPreparedActions } from "@/features/brain/actions/action.service";
 import { getLatestBrief } from "@/features/brain/brief/brief.service";
-import type { BriefSection, PulseMetrics } from "@/features/brain/core/types";
+import {
+  parseBriefSections,
+  parsePulseMetrics,
+} from "@/features/brain/core/json-schemas";
+import type { BriefSection } from "@/features/brain/core/types";
 import { listInsights } from "@/features/brain/insights/insight.service";
 import { computePulseScore } from "@/features/brain/pulse/pulse-scorer";
 import { computePulse } from "@/features/brain/pulse/pulse.service";
@@ -44,14 +48,13 @@ export default async function BriefPage() {
     ]);
 
   const previousMetrics = previousSnapshot
-    ? (previousSnapshot.metrics as unknown as PulseMetrics)
+    ? parsePulseMetrics(previousSnapshot.metrics)
     : null;
   const pulseScore = computePulseScore(pulseMetrics, previousMetrics);
 
-  const rawSections: BriefSection[] =
-    brief && Array.isArray(brief.sections)
-      ? (brief.sections as unknown as BriefSection[])
-      : [];
+  const rawSections: BriefSection[] = brief
+    ? parseBriefSections(brief.sections)
+    : [];
 
   const sections = rawSections
     .filter(

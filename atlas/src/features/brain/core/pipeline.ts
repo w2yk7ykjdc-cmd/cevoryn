@@ -12,7 +12,7 @@ import { computePulse } from "../pulse/pulse.service";
 import { createTrustEnvelope } from "../trust/trust-engine";
 import type { Evidence, TrustEnvelope } from "../trust/types";
 
-import type { PulseMetrics } from "./types";
+import { parsePulseMetrics } from "./json-schemas";
 
 /**
  * Brain Pipeline
@@ -87,7 +87,7 @@ export async function executePipeline(
 
   // ── Stage 3: UNDERSTAND — compute pulse score ──
   const previousMetrics = previousSnapshot
-    ? (previousSnapshot.metrics as unknown as PulseMetrics)
+    ? parsePulseMetrics(previousSnapshot.metrics)
     : null;
   const pulseScore = computePulseScore(currentPulseMetrics, previousMetrics);
 
