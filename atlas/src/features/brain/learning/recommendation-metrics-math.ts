@@ -3,7 +3,6 @@
  * testable without that file's server-only Prisma dependency.
  */
 
-import type { DecisionCanvas } from "../decisions/types";
 import type { RecommendationMetrics } from "../outcomes/types";
 
 export interface DecisionMetricsInput {
@@ -60,8 +59,23 @@ export function computeMetricsFromDecisions(
     { count: number; successCount: number }
   >();
   for (const d of decisions) {
-    const canvas = d.canvas as unknown as DecisionCanvas;
-    const cat = canvas.scoringBreakdown?.[0]?.name ?? "General";
+    // d.canvas is a Prisma Json column - narrow defensively rather than
+    // trust-casting, since a malformed/null row must not crash this
+    // aggregate (this file stays dependency-free/pure for testability, so
+    // it doesn't pull in the zod-backed json-schemas parser used elsewhere).
+    const scoringBreakdown =
+      d.canvas &&
+      typeof d.canvas === "object" &&
+      "scoringBreakdown" in d.canvas &&
+      Array.isArray(
+        (d.canvas as { scoringBreakdown: unknown }).scoringBreakdown
+      )
+        ? (d.canvas as { scoringBreakdown: Array<{ name?: unknown }> })
+            .scoringBreakdown
+        : [];
+    const firstDimensionName = scoringBreakdown[0]?.name;
+    const cat =
+      typeof firstDimensionName === "string" ? firstDimensionName : "General";
     const entry = categoryMap.get(cat) ?? { count: 0, successCount: 0 };
     entry.count++;
     if (d.status === "SUCCESSFUL" || d.status === "COMPLETED") {

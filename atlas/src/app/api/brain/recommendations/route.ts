@@ -4,7 +4,7 @@ import {
   getDecisionStats,
   listDecisions,
 } from "@/features/brain/decisions/decision.service";
-import type { DecisionCanvas } from "@/features/brain/decisions/types";
+import { parseDecisionCanvas } from "@/features/brain/decisions/json-schemas";
 import {
   unauthorizedResponse,
   forbiddenResponse,
@@ -28,7 +28,7 @@ export async function GET() {
       getDecisionStats(membership.organizationId),
     ]);
 
-    const recommendations = pendingDecisions.map(
+    const recommendations = pendingDecisions.flatMap(
       (d: {
         id: string;
         canvas: unknown;
@@ -36,16 +36,19 @@ export async function GET() {
         status: string;
         createdAt: Date;
       }) => {
-        const canvas = d.canvas as DecisionCanvas;
-        return {
-          id: d.id,
-          problemStatement: canvas.problemStatement,
-          recommendedDecision: canvas.recommendedDecision,
-          priorityScore: d.priorityScore,
-          confidenceScore: canvas.confidenceScore,
-          status: d.status,
-          createdAt: d.createdAt.toISOString(),
-        };
+        const canvas = parseDecisionCanvas(d.canvas);
+        if (!canvas) return [];
+        return [
+          {
+            id: d.id,
+            problemStatement: canvas.problemStatement,
+            recommendedDecision: canvas.recommendedDecision,
+            priorityScore: d.priorityScore,
+            confidenceScore: canvas.confidenceScore,
+            status: d.status,
+            createdAt: d.createdAt.toISOString(),
+          },
+        ];
       }
     );
 

@@ -2,7 +2,7 @@ import "server-only";
 
 import { prisma } from "@/lib/prisma";
 
-import type { DecisionCanvas } from "../decisions/types";
+import { parseDecisionCanvas } from "../decisions/json-schemas";
 import type {
   RecommendationHistoryEntry,
   RecommendationMetrics,
@@ -66,7 +66,7 @@ export async function getRecommendationHistory(
     ])
   );
 
-  return decisions.map(
+  return decisions.flatMap(
     (d: {
       id: string;
       canvas: unknown;
@@ -75,18 +75,21 @@ export async function getRecommendationHistory(
       createdAt: Date;
       resolvedAt: Date | null;
     }) => {
-      const canvas = d.canvas as DecisionCanvas;
-      return {
-        decisionId: d.id,
-        problemStatement: canvas.problemStatement,
-        recommendedDecision: canvas.recommendedDecision,
-        status: d.status,
-        priorityScore: d.priorityScore,
-        confidenceScore: canvas.confidenceScore,
-        outcomeScore: evalMap.get(d.id) ?? null,
-        createdAt: d.createdAt.toISOString(),
-        resolvedAt: d.resolvedAt?.toISOString() ?? null,
-      };
+      const canvas = parseDecisionCanvas(d.canvas);
+      if (!canvas) return [];
+      return [
+        {
+          decisionId: d.id,
+          problemStatement: canvas.problemStatement,
+          recommendedDecision: canvas.recommendedDecision,
+          status: d.status,
+          priorityScore: d.priorityScore,
+          confidenceScore: canvas.confidenceScore,
+          outcomeScore: evalMap.get(d.id) ?? null,
+          createdAt: d.createdAt.toISOString(),
+          resolvedAt: d.resolvedAt?.toISOString() ?? null,
+        },
+      ];
     }
   );
 }

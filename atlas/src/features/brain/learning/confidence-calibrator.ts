@@ -2,7 +2,7 @@ import "server-only";
 
 import { prisma } from "@/lib/prisma";
 
-import type { DecisionCanvas } from "../decisions/types";
+import { parseDecisionCanvas } from "../decisions/json-schemas";
 
 import { computeAdjustmentFactor } from "./confidence-calibration-math";
 import type { CalibrationData } from "./types";
@@ -68,7 +68,8 @@ export async function computeCalibration(organizationId: string): Promise<{
     const decision = decisionMap.get(eval_.decisionId);
     if (!decision) continue;
 
-    const canvas = decision.canvas as DecisionCanvas;
+    const canvas = parseDecisionCanvas(decision.canvas);
+    if (!canvas) continue;
     const predicted = canvas.confidenceScore ?? 0.5;
     const actual = eval_.outcomeScore;
 

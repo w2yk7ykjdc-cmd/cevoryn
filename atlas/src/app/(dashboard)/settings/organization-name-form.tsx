@@ -19,14 +19,16 @@ export function OrganizationNameForm({
   const t = useTranslations("settings.organizationName");
   const [name, setName] = useState(initialName);
   const [savedName, setSavedName] = useState(initialName);
+  const [fieldError, setFieldError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function save() {
     const normalized = name.trim();
     if (normalized.length < 2 || normalized.length > 80) {
-      toast.error(t("invalidLength"));
+      setFieldError(t("invalidLength"));
       return;
     }
+    setFieldError(null);
 
     startTransition(async () => {
       try {
@@ -40,7 +42,7 @@ export function OrganizationNameForm({
 
         const data = await response.json().catch(() => null);
         if (!response.ok) {
-          toast.error(data?.error?.message ?? t("updateFailed"));
+          setFieldError(data?.error?.message ?? t("updateFailed"));
           return;
         }
 
@@ -48,33 +50,44 @@ export function OrganizationNameForm({
         setSavedName(data.data.name);
         toast.success(t("updated"));
       } catch (_error) {
-        toast.error(t("updateFailed"));
+        setFieldError(t("updateFailed"));
       }
     });
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <Input
-        value={name}
-        onChange={(event) => setName(event.target.value)}
-        maxLength={80}
-        disabled={isPending}
-        aria-label={t("nameLabel")}
-      />
-      <Button
-        type="button"
-        size="sm"
-        onClick={save}
-        disabled={isPending || name.trim() === savedName}
-      >
-        {isPending ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <Save className="h-4 w-4" />
-        )}
-        {t("save")}
-      </Button>
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-2">
+        <Input
+          value={name}
+          onChange={(event) => {
+            setName(event.target.value);
+            if (fieldError) setFieldError(null);
+          }}
+          maxLength={80}
+          disabled={isPending}
+          aria-label={t("nameLabel")}
+          aria-invalid={fieldError ? true : undefined}
+        />
+        <Button
+          type="button"
+          size="sm"
+          onClick={save}
+          disabled={isPending || name.trim() === savedName}
+        >
+          {isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4" />
+          )}
+          {t("save")}
+        </Button>
+      </div>
+      {fieldError ? (
+        <p role="alert" className="text-xs text-destructive">
+          {fieldError}
+        </p>
+      ) : null}
     </div>
   );
 }

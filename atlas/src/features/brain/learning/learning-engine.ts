@@ -2,7 +2,7 @@ import "server-only";
 
 import { prisma } from "@/lib/prisma";
 
-import type { DecisionCanvas } from "../decisions/types";
+import { parseDecisionCanvas } from "../decisions/json-schemas";
 import { createMemory } from "../memory/memory.service";
 
 import type { LearnedPattern, PatternType } from "./types";
@@ -161,7 +161,8 @@ async function detectRepeatPatterns(
   const problemWords = new Map<string, number>();
 
   for (const d of decisions) {
-    const canvas = d.canvas as DecisionCanvas;
+    const canvas = parseDecisionCanvas(d.canvas);
+    if (!canvas) continue;
     const words = canvas.problemStatement
       .toLowerCase()
       .split(/\s+/)

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getAIProvider } from "@/features/ai/providers";
+import { parseEvidence } from "@/features/brain/trust/json-schemas";
 import {
   conversationEvidence,
   createTrustEnvelope,
@@ -247,7 +248,7 @@ export async function getInsightWithTrust(
 
   return createTrustEnvelope({
     data: insight,
-    evidence: (insight.evidence as unknown as Evidence[]) || [],
+    evidence: parseEvidence(insight.evidence),
     reasoning: insight.reasoning,
     dataWindowHours: 168,
   });

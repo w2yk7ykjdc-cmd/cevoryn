@@ -88,7 +88,11 @@ export async function buildContext(params: {
       },
     }),
     prisma.message.findMany({
-      where: { conversationId },
+      // Defense-in-depth: conversationId alone should already be caller-
+      // scoped (the /api/chat route validates it against the session's org
+      // + owner before reaching this function), but this join keeps that
+      // guarantee true even if a future caller skips that upstream check.
+      where: { conversationId, conversation: { organizationId: orgId } },
       orderBy: { createdAt: "desc" },
       take: AI_CONFIG.maxConversationHistory,
       select: {

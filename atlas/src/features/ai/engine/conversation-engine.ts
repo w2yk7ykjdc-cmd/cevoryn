@@ -194,7 +194,10 @@ export async function* streamResponse(params: {
 
         // 8. Auto-title on first exchange
         const messageCount = await prisma.message.count({
-          where: { conversationId },
+          where: {
+            conversationId,
+            conversation: { organizationId: membership.organizationId },
+          },
         });
         if (messageCount <= 2) {
           generateTitle(userMessageContent)

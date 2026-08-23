@@ -39,6 +39,8 @@ interface PendingInvite {
   acceptPath?: string;
 }
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 interface TeamClientProps {
   orgName: string;
   currentUserId: string;
@@ -74,6 +76,7 @@ export function TeamClient({
   const [members, setMembers] = useState(initialMembers);
   const [invites, setInvites] = useState(initialInvites);
   const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [inviteRole, setInviteRole] = useState<"ADMIN" | "MEMBER">("MEMBER");
   const [isPending, startTransition] = useTransition();
   const [busyMemberId, setBusyMemberId] = useState<string | null>(null);
@@ -93,6 +96,11 @@ export function TeamClient({
   function handleInvite() {
     const normalizedEmail = email.trim();
     if (!normalizedEmail) return;
+    if (!EMAIL_PATTERN.test(normalizedEmail)) {
+      setEmailError(t("inviteCard.invalidEmail"));
+      return;
+    }
+    setEmailError(null);
 
     startTransition(async () => {
       try {
@@ -311,16 +319,26 @@ export function TeamClient({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Input
-                type="email"
-                placeholder={t("inviteCard.emailPlaceholder")}
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                onKeyDown={(event) => event.key === "Enter" && handleInvite()}
-                disabled={isPending}
-                className="flex-1"
-              />
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+              <div className="flex-1 space-y-1.5">
+                <Input
+                  type="email"
+                  placeholder={t("inviteCard.emailPlaceholder")}
+                  value={email}
+                  onChange={(event) => {
+                    setEmail(event.target.value);
+                    if (emailError) setEmailError(null);
+                  }}
+                  onKeyDown={(event) => event.key === "Enter" && handleInvite()}
+                  disabled={isPending}
+                  aria-invalid={emailError ? true : undefined}
+                />
+                {emailError ? (
+                  <p role="alert" className="text-xs text-destructive">
+                    {emailError}
+                  </p>
+                ) : null}
+              </div>
               {currentUserRole === "OWNER" && (
                 <select
                   aria-label={t("inviteCard.roleLabel")}
