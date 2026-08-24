@@ -98,6 +98,18 @@ tool calls via the RBAC-checked Tool Engine (`src/server/ai/tools`) until the
 model returns a final answer. Long-term memory is stored as pgvector
 embeddings and queried by cosine distance (`src/server/ai/memory/long-term.ts`).
 
+The chat UI (`/dashboard/chat`) drives `streamConversationTurn` through
+`POST /api/ai/chat` with `stream: true`: the route resolves any tool calls
+server-side first (silently, non-streamed — the model's tool-selection
+reasoning isn't shown token by token), then streams the final answer as an
+SSE response of `StreamEvent`s (`text_delta`, `error`, plus a leading
+`conversation` event carrying the conversation id for a fresh chat). The
+non-streaming JSON response (`stream: false`, the default) still exists for
+callers that just want the finished answer in one round trip. Both paths
+share the same pre-flight `checkUsageLimit` and post-call `recordUsage`
+calls, so a maxed-out organization is stopped before either ever resolves a
+model — see "Billing & usage metering" below.
+
 ### Background jobs
 
 `src/server/jobs/worker.ts` is a separate process (own Docker image, own
@@ -167,8 +179,12 @@ JSON Schema. The model calls `propose_plan` exactly once with the ordered
 steps it wants to take; if it decides no tool call is needed, it proposes an
 empty list and the planner falls back to a direct text answer. A plan step
 whose `toolName` isn't a real registered tool, or whose shape doesn't match
-the `propose_plan` schema (including the hard cap of 8 steps), is rejected
-with `PlannerValidationError` before anything runs.
+the `propose_plan` schema (including the hard cap of 8 steps), triggers one
+corrective retry — the validation error is fed back to the model as the
+`propose_plan` call's tool result, asking it to call `propose_plan` again
+with corrected arguments — before giving up with `PlannerValidationError`.
+`Plan.usage` sums token usage across both attempts, so a retry is still
+metered accurately.
 
 **Multi-tool execution.** `startAgentRun` (`src/server/ai/agent/executor.ts`)
 persists the plan as an `AgentRun` with one `AgentStep` row per step, then
@@ -290,17 +306,18 @@ via `docker compose up -d postgres redis`, or any reachable instance your
 - `tests/rbac.test.ts` — permission boundaries across all four roles, including the CRM resources
 - `tests/tenant-isolation.test.ts` — `getTenantScopedClient` guarantees
 - `tests/tool-engine.test.ts` — the Tool Engine's permission gate and invocation logging
+- `tests/memory-tools.test.ts` — RBAC and argument validation for `remember_fact`/`search_memory`, verified to run (and fail closed) entirely before either ever reaches the embedding provider, so no AI provider key is needed
 - `tests/audit-log.test.ts` — the audit log service
 - `tests/companies.test.ts`, `tests/contacts.test.ts`, `tests/leads.test.ts`, `tests/tasks.test.ts` — CRM domain CRUD, soft delete, cross-tenant reference validation, audit logging
 - `tests/lead-analysis.test.ts` — the deterministic `analyzeLead` risk/next-action rules (pure, no DB)
 - `tests/ai-sales-employee.test.ts` — the AI tools via `executeToolCall`, including a real RBAC denial (a viewer genuinely can't `create_task`)
 - `tests/e2e-scenario.test.ts` — the full acceptance scenario below, driven end to end
-- `tests/planner.test.ts` — `createPlan` against a scripted `AIProvider` test double: valid plans, the direct-answer fallback, and every validation-error path (malformed args, unknown tool, over the step cap)
+- `tests/planner.test.ts` — `createPlan` against a scripted `AIProvider` test double: valid plans, the direct-answer fallback, every validation-error path (malformed args, unknown tool, over the step cap), and the corrective-retry loop (succeeds after one bad response, still fails after two, sums usage across both attempts)
 - `tests/approval-policy.test.ts` — the risk classification table, including the secure-by-default fallback for unrecognized tools
 - `tests/agent-executor.test.ts` — the full agent run loop against the real Tool Engine: multi-step completion, halt-on-error (a genuine RBAC denial mid-run), pause/approve/resume, pause/reject/continue, and RBAC preserved on the approval decision itself
 - `tests/billing-subscription.test.ts` — default provisioning, checkout/portal session creation against a fake `PaymentProvider`, and webhook lifecycle application (`checkout.session.completed`, `customer.subscription.{updated,deleted}`) including idempotency on a redelivered event id
 - `tests/billing-usage.test.ts` — the usage ledger, `checkUsageLimit`'s pass/throw boundary, `getUsageSummary`, and billing-period rollover (advances free-tier subscriptions, leaves Stripe-managed ones alone)
-- `tests/billing-limit-enforcement.test.ts` — `runConversationTurn` and `startAgentRun` both refuse to start once a plan's limit is exhausted, verified without needing a real AI provider key since the check runs before either ever resolves a provider
+- `tests/billing-limit-enforcement.test.ts` — `runConversationTurn`, `streamConversationTurn`, and `startAgentRun` all refuse to start once a plan's limit is exhausted, verified without needing a real AI provider key since the check runs before any of them ever resolves a provider
 
 Each test creates its own users/organizations with random emails and slugs,
 so the suite is safe to run repeatedly against the same database.

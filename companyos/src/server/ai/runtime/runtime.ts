@@ -141,7 +141,8 @@ export async function runConversationTurn(
  * loop, then streams only the final, tool-free completion as text deltas.
  * Interleaved token-by-token tool-call streaming is not implemented in
  * Sprint 0 — callers get a fast, correct response with streaming limited to
- * the human-visible final answer.
+ * the human-visible final answer. Backs the SSE response from
+ * `POST /api/ai/chat` (see `stream=true` in the request body).
  */
 export async function* streamConversationTurn(
   input: RunConversationInput,
@@ -149,6 +150,7 @@ export async function* streamConversationTurn(
   const conversation = await prisma.conversation.findFirstOrThrow({
     where: { id: input.conversationId, organizationId: input.organizationId },
   });
+  await checkUsageLimit(input.organizationId, "ai_tokens");
 
   const model = input.model ?? conversation.model;
   const providerId: ProviderId = input.provider ?? resolveProviderForModel(model);
@@ -160,9 +162,14 @@ export async function* streamConversationTurn(
 
   const messages = await assembleContext(input);
   const tools = listToolDefinitions();
+  let totalUsage = { inputTokens: 0, outputTokens: 0 };
 
   for (let round = 0; round < maxRounds; round += 1) {
     const result = await provider.generate({ model, messages, tools, maxTokens: 2048 });
+    totalUsage = {
+      inputTokens: totalUsage.inputTokens + result.usage.inputTokens,
+      outputTokens: totalUsage.outputTokens + result.usage.outputTokens,
+    };
     if (result.finishReason !== "tool_calls" || result.toolCalls.length === 0) {
       break;
     }
@@ -197,11 +204,18 @@ export async function* streamConversationTurn(
   let finalContent = "";
   for await (const event of provider.stream({ model, messages, maxTokens: 2048 })) {
     if (event.type === "text_delta") finalContent += event.delta;
+    if (event.type === "done") {
+      totalUsage = {
+        inputTokens: totalUsage.inputTokens + event.result.usage.inputTokens,
+        outputTokens: totalUsage.outputTokens + event.result.usage.outputTokens,
+      };
+    }
     yield event;
   }
 
   await appendMessage({ conversationId: input.conversationId, role: "assistant", content: finalContent });
   await notifyMessageCreated(input, "assistant");
+  await recordUsage(input.organizationId, "ai_tokens", totalUsage.inputTokens + totalUsage.outputTokens);
 }
 
 async function assembleContext(input: RunConversationInput): Promise<ChatMessage[]> {

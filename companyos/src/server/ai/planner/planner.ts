@@ -37,6 +37,9 @@ export type CreatePlanInput = {
  * takes no action — `src/server/ai/agent` executes it step by step through
  * the existing RBAC-checked Tool Engine.
  */
+/** Planning is retried once, with the validation error fed back to the model, before giving up. */
+const MAX_PLANNING_ATTEMPTS = 2;
+
 export async function createPlan(input: CreatePlanInput): Promise<Plan> {
   const target = resolveDefaultTarget();
   const model = input.model ?? target.model;
@@ -56,38 +59,67 @@ export async function createPlan(input: CreatePlanInput): Promise<Plan> {
     { role: "user", content: input.goal },
   ];
 
-  const result = await provider.generate({
-    model,
-    messages,
-    tools: [buildProposePlanToolDefinition()],
-    maxTokens: 1536,
-  });
+  let totalUsage = { inputTokens: 0, outputTokens: 0 };
+  let lastError: PlannerValidationError | null = null;
 
-  const proposal = result.toolCalls.find((call) => call.name === PROPOSE_PLAN_TOOL_NAME);
+  for (let attempt = 1; attempt <= MAX_PLANNING_ATTEMPTS; attempt += 1) {
+    const result = await provider.generate({
+      model,
+      messages,
+      tools: [buildProposePlanToolDefinition()],
+      maxTokens: 1536,
+    });
+    totalUsage = {
+      inputTokens: totalUsage.inputTokens + result.usage.inputTokens,
+      outputTokens: totalUsage.outputTokens + result.usage.outputTokens,
+    };
 
-  if (!proposal) {
-    return { goal: input.goal, steps: [], directAnswer: result.content || null, usage: result.usage };
-  }
-
-  const parsed = proposePlanSchema.safeParse(proposal.arguments);
-  if (!parsed.success) {
-    throw new PlannerValidationError(`Planner produced an invalid plan: ${parsed.error.message}`);
-  }
-
-  for (const step of parsed.data.steps) {
-    if (!getTool(step.toolName)) {
-      throw new PlannerValidationError(`Planner proposed a call to unknown tool "${step.toolName}"`);
+    const proposal = result.toolCalls.find((call) => call.name === PROPOSE_PLAN_TOOL_NAME);
+    if (!proposal) {
+      return { goal: input.goal, steps: [], directAnswer: result.content || null, usage: totalUsage };
     }
+
+    const parsed = proposePlanSchema.safeParse(proposal.arguments);
+    const unknownStep = parsed.success ? parsed.data.steps.find((step) => !getTool(step.toolName)) : undefined;
+
+    if (!parsed.success || unknownStep) {
+      const reason = !parsed.success
+        ? `Invalid: ${parsed.error.message}.`
+        : `Invalid: tool "${unknownStep!.toolName}" does not exist.`;
+      lastError = new PlannerValidationError(
+        parsed.success
+          ? `Planner proposed a call to unknown tool "${unknownStep!.toolName}"`
+          : `Planner produced an invalid plan: ${parsed.error.message}`,
+      );
+
+      if (attempt < MAX_PLANNING_ATTEMPTS) {
+        // Feed the validation error back as the tool's result and let the
+        // model correct itself, instead of failing on the first bad response.
+        messages.push({ role: "assistant", content: result.content, toolCalls: result.toolCalls });
+        messages.push({
+          role: "tool",
+          toolCallId: proposal.id,
+          toolName: proposal.name,
+          content: `${reason} Call propose_plan again with corrected arguments that match the schema and use only the tools listed in the system prompt.`,
+        });
+        continue;
+      }
+      throw lastError;
+    }
+
+    return {
+      goal: input.goal,
+      steps: parsed.data.steps.map((step) => ({
+        toolName: step.toolName,
+        input: step.input,
+        rationale: step.rationale,
+      })),
+      directAnswer: null,
+      usage: totalUsage,
+    };
   }
 
-  return {
-    goal: input.goal,
-    steps: parsed.data.steps.map((step) => ({
-      toolName: step.toolName,
-      input: step.input,
-      rationale: step.rationale,
-    })),
-    directAnswer: null,
-    usage: result.usage,
-  };
+  // Unreachable — every loop iteration returns or throws — but keeps the
+  // function's return type sound without relying on TS narrowing the loop.
+  throw lastError ?? new PlannerValidationError("Planner failed to produce a valid plan");
 }
