@@ -102,7 +102,7 @@ export async function tryCreateGoogleCalendarEventFromChat(params: {
   });
 
   return {
-    content: `Google Calendar etkinliği oluşturuldu. Etkinlik kimliği: ${result.id}`,
+    content: `Google Calendar event created. Event ID: ${result.id}`,
     usage: completion.usage,
   };
 }
@@ -151,12 +151,12 @@ function parseDate(value: string): Date | null {
 
 function buildMissingFieldsMessage(missing: string[]): string {
   const labels: Record<string, string> = {
-    title: "etkinlik başlığı",
-    start: "başlangıç tarihi ve saati",
-    end: "bitiş tarihi ve saati ya da süre",
-    "valid attendee email": "geçerli katılımcı e-posta adresi",
-    "end after start": "başlangıçtan sonraki geçerli bir bitiş saati",
+    title: "event title",
+    start: "start date and time",
+    end: "end date and time or duration",
+    "valid attendee email": "a valid attendee email address",
+    "end after start": "a valid end time after the start time",
   };
   const fields = missing.map((field) => labels[field] ?? field).join(", ");
-  return `Takvim etkinliğini oluşturmak için şu bilgiler eksik veya geçersiz: ${fields}.`;
+  return `The following information is missing or invalid to create the calendar event: ${fields}.`;
 }
