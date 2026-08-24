@@ -306,6 +306,7 @@ via `docker compose up -d postgres redis`, or any reachable instance your
 - `tests/rbac.test.ts` — permission boundaries across all four roles, including the CRM resources
 - `tests/tenant-isolation.test.ts` — `getTenantScopedClient` guarantees
 - `tests/tool-engine.test.ts` — the Tool Engine's permission gate and invocation logging
+- `tests/memory-tools.test.ts` — RBAC and argument validation for `remember_fact`/`search_memory`, verified to run (and fail closed) entirely before either ever reaches the embedding provider, so no AI provider key is needed
 - `tests/audit-log.test.ts` — the audit log service
 - `tests/companies.test.ts`, `tests/contacts.test.ts`, `tests/leads.test.ts`, `tests/tasks.test.ts` — CRM domain CRUD, soft delete, cross-tenant reference validation, audit logging
 - `tests/lead-analysis.test.ts` — the deterministic `analyzeLead` risk/next-action rules (pure, no DB)
