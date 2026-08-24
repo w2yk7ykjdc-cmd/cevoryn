@@ -116,6 +116,8 @@ model Organization {
   tasks             Task[]
   agentRuns         AgentRun[]
   agentApprovals    AgentApproval[]
+  subscription      Subscription?
+  usageRecords      UsageRecord[]
 
   @@unique([slug])
   @@map("organization")
@@ -662,4 +664,100 @@ model AgentApproval {
   @@index([organizationId, status])
   @@index([agentRunId])
   @@map("agent_approval")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Sprint 3: Billing — plans, subscriptions, usage metering
+// ─────────────────────────────────────────────────────────────────────────
+
+enum PlanTier {
+  free
+  pro
+  enterprise
+}
+
+enum SubscriptionStatus {
+  trialing
+  active
+  past_due
+  canceled
+  incomplete
+}
+
+enum UsageMetric {
+  ai_tokens
+  agent_run
+}
+
+/// The billing plan catalog. A small, global reference table (no
+/// organizationId — every organization can subscribe to any plan), seeded
+/// idempotently at runtime by `ensurePlansSeeded()` rather than via a
+/// migration data step, so it needs no separate seed script in CI.
+model Plan {
+  id                String         @id @default(cuid())
+  tier              PlanTier       @unique
+  name              String
+  monthlyPriceCents Int
+  stripePriceId     String?        @unique
+  aiTokenLimit      Int
+  agentRunLimit     Int
+  seatLimit         Int?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  subscriptions     Subscription[]
+
+  @@map("plan")
+}
+
+/// One row per organization — every organization has exactly one
+/// subscription, provisioned onto the free plan at creation time
+/// (`provisionDefaultSubscription`, called from the same
+/// `afterCreateOrganization` hook Sprint 1 used for pipeline seeding) and
+/// upgraded/downgraded via Stripe checkout + webhooks thereafter.
+model Subscription {
+  id                   String             @id @default(cuid())
+  organizationId       String             @unique
+  organization         Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  planId               String
+  plan                 Plan               @relation(fields: [planId], references: [id])
+  status               SubscriptionStatus @default(trialing)
+  stripeCustomerId     String?            @unique
+  stripeSubscriptionId String?            @unique
+  currentPeriodStart   DateTime           @default(now())
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@index([status])
+  @@map("subscription")
+}
+
+/// Append-only usage ledger. Current-period usage for a metric is computed
+/// on read by summing rows within `[currentPeriodStart, currentPeriodEnd)`
+/// of the organization's `Subscription` — there is no running counter to
+/// keep in sync, so a missed decrement can never happen.
+model UsageRecord {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  metric         UsageMetric
+  quantity       Int
+  metadata       Json         @default("{}")
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, metric, createdAt])
+  @@map("usage_record")
+}
+
+/// Idempotency ledger for inbound Stripe webhook events — the event's own
+/// Stripe id is the primary key, so a redelivered event is a no-op insert
+/// failure the handler catches rather than double-applying a state change.
+model BillingWebhookEvent {
+  id          String   @id
+  type        String
+  payload     Json
+  processedAt DateTime @default(now())
+
+  @@map("billing_webhook_event")
 }

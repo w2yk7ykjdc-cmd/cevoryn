@@ -8,6 +8,7 @@ import { appendMessage, getConversationHistory, trimToTokenBudget } from "@/serv
 import { searchMemory } from "@/server/ai/memory/long-term";
 import { publishEvent } from "@/server/events/event-bus";
 import { logger } from "@/server/logger/logger";
+import { checkUsageLimit, recordUsage } from "@/server/billing/usage";
 import type { RunConversationInput, RunConversationResult, ToolRoundLog } from "@/server/ai/runtime/types";
 
 const DEFAULT_MAX_TOOL_ROUNDS = 4;
@@ -39,6 +40,7 @@ export async function runConversationTurn(
   const conversation = await prisma.conversation.findFirstOrThrow({
     where: { id: input.conversationId, organizationId: input.organizationId },
   });
+  await checkUsageLimit(input.organizationId, "ai_tokens");
 
   const model = input.model ?? conversation.model;
   const providerId: ProviderId = input.provider ?? resolveProviderForModel(model);
@@ -80,6 +82,7 @@ export async function runConversationTurn(
         outputTokens: result.usage.outputTokens,
       });
       await notifyMessageCreated(input, "assistant");
+      await recordUsage(input.organizationId, "ai_tokens", totalUsage.inputTokens + totalUsage.outputTokens);
       return { content: result.content, toolRounds, usage: totalUsage };
     }
 
@@ -125,6 +128,7 @@ export async function runConversationTurn(
     { conversationId: input.conversationId, maxRounds },
     "conversation hit max tool-call rounds without a final answer",
   );
+  await recordUsage(input.organizationId, "ai_tokens", totalUsage.inputTokens + totalUsage.outputTokens);
   return {
     content: "I wasn't able to finish resolving tool calls in time. Please try again.",
     toolRounds,

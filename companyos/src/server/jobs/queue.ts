@@ -43,6 +43,11 @@ export async function scheduleRecurringJobs(): Promise<void> {
     { every: 60_000 },
     { name: "sweep-task-reminders", data: {} },
   );
+  await getQueue().upsertJobScheduler(
+    "roll-billing-periods-scheduler",
+    { every: 3_600_000 },
+    { name: "roll-billing-periods", data: {} },
+  );
 }
 
 export { QUEUE_NAME };

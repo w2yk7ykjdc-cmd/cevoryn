@@ -11,6 +11,7 @@ import { publishEvent } from "@/server/events/event-bus";
 import { recordAuditLog } from "@/server/audit/audit-log";
 import { accessControl, roles } from "@/server/auth/permissions";
 import { seedDefaultPipelineStages } from "@/server/leads/pipeline";
+import { provisionDefaultSubscription } from "@/server/billing/subscription";
 
 /**
  * Server-side Better Auth instance. This is the single source of truth for
@@ -96,6 +97,7 @@ export const auth = betterAuth({
             metadata: { name: org.name, slug: org.slug },
           });
           await seedDefaultPipelineStages(org.id);
+          await provisionDefaultSubscription(org.id);
         },
       },
     }),
