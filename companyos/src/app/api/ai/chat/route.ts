@@ -7,6 +7,8 @@ import { runConversationTurn, streamConversationTurn } from "@/server/ai/runtime
 import { createConversation } from "@/server/ai/runtime/conversations";
 import { UsageLimitExceededError } from "@/server/billing/usage";
 import type { StreamEvent } from "@/server/ai/providers/types";
+import { hasScope, mintSessionForApiKey, verifyApiKey } from "@/server/api-keys/service";
+import { InvalidApiKeyError } from "@/server/api-keys/types";
 import { env } from "@/env";
 import { logger } from "@/server/logger/logger";
 
@@ -19,30 +21,82 @@ const bodySchema = z.object({
   stream: z.boolean().optional().default(false),
 });
 
+type ResolvedCaller = { organizationId: string; userId: string; requestHeaders: Headers };
+type CallerResolution = { ok: true; caller: ResolvedCaller } | { ok: false; status: number; error: string };
+
+/**
+ * Resolves who's calling and which headers to use for every downstream
+ * RBAC check. Two paths:
+ *
+ * - Session cookie/bearer token (a logged-in user): the existing
+ *   `aiConversation:create` permission check, exactly as before.
+ * - `Authorization: Bearer cos_live_...` API key: verified against
+ *   `ApiKey.keyHash`, then a short-lived Better Auth session is minted for
+ *   the key's creator (see `mintSessionForApiKey`) so every downstream
+ *   permission check — including each tool call's own `hasPermission` —
+ *   runs through the exact same path a real session would, scoped to
+ *   whatever that person's role actually permits. An API key additionally
+ *   needs the `ai:chat` scope.
+ */
+async function resolveCaller(request: Request): Promise<CallerResolution> {
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (session) {
+    const organizationId = session.session.activeOrganizationId;
+    if (!organizationId) {
+      return { ok: false, status: 400, error: "No active organization" };
+    }
+    const permitted = await auth.api.hasPermission({
+      headers: request.headers,
+      body: { organizationId, permissions: { aiConversation: ["create"] } },
+    });
+    if (!permitted.success) {
+      return { ok: false, status: 403, error: "Forbidden" };
+    }
+    return { ok: true, caller: { organizationId, userId: session.user.id, requestHeaders: request.headers } };
+  }
+
+  const authHeader = request.headers.get("authorization");
+  const bearerKey = authHeader?.toLowerCase().startsWith("bearer ") ? authHeader.slice(7).trim() : null;
+  if (!bearerKey) {
+    return { ok: false, status: 401, error: "Unauthorized" };
+  }
+
+  try {
+    const verified = await verifyApiKey(bearerKey);
+    if (!hasScope(verified, "ai:chat")) {
+      return { ok: false, status: 403, error: "This API key does not have the ai:chat scope" };
+    }
+    const sessionToken = await mintSessionForApiKey(verified);
+    return {
+      ok: true,
+      caller: {
+        organizationId: verified.organizationId,
+        userId: verified.userId,
+        requestHeaders: new Headers({ authorization: `Bearer ${sessionToken}` }),
+      },
+    };
+  } catch (err) {
+    if (err instanceof InvalidApiKeyError) {
+      return { ok: false, status: 401, error: err.message };
+    }
+    throw err;
+  }
+}
+
 /**
  * POST /api/ai/chat — send a message to the AI Runtime and get back the
  * final assistant response (tool calls, if any, are resolved server-side
- * before responding). Authenticated via the same session cookie/bearer
- * token as the rest of the app; scoped to the caller's active organization.
+ * before responding). Authenticated via a session cookie/bearer token
+ * (the logged-in dashboard user) or an `Authorization: Bearer` API key
+ * with the `ai:chat` scope (see `/dashboard/settings/api-keys`); either
+ * way, scoped to the caller's organization.
  */
 export async function POST(request: Request) {
-  const session = await auth.api.getSession({ headers: request.headers });
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const resolution = await resolveCaller(request);
+  if (!resolution.ok) {
+    return NextResponse.json({ error: resolution.error }, { status: resolution.status });
   }
-
-  const organizationId = session.session.activeOrganizationId;
-  if (!organizationId) {
-    return NextResponse.json({ error: "No active organization" }, { status: 400 });
-  }
-
-  const permitted = await auth.api.hasPermission({
-    headers: request.headers,
-    body: { organizationId, permissions: { aiConversation: ["create"] } },
-  });
-  if (!permitted.success) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const { organizationId, userId, requestHeaders } = resolution.caller;
 
   const json = await request.json().catch(() => null);
   const parsed = bodySchema.safeParse(json);
@@ -74,27 +128,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
     }
   } else {
-    const conversation = await createConversation({ organizationId, userId: session.user.id });
+    const conversation = await createConversation({ organizationId, userId });
     conversationId = conversation.id;
   }
 
   if (parsed.data.stream) {
     return streamChatResponse({
       organizationId,
-      userId: session.user.id,
+      userId,
       conversationId,
       userMessage: parsed.data.message,
-      requestHeaders: request.headers,
+      requestHeaders,
     });
   }
 
   try {
     const result = await runConversationTurn({
       organizationId,
-      userId: session.user.id,
+      userId,
       conversationId,
       userMessage: parsed.data.message,
-      requestHeaders: request.headers,
+      requestHeaders,
     });
 
     return NextResponse.json({

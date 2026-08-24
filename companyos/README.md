@@ -57,6 +57,7 @@ src/
       subscription.ts        provisioning, checkout/portal sessions, webhook event application
       usage.ts               usage ledger, current-period aggregation, limit enforcement
       rollover.ts            advances free-tier billing periods once they've ended
+    api-keys/                create/list/revoke/verify + short-lived session minting for programmatic auth
 ```
 
 ### Multi-tenancy
@@ -259,6 +260,44 @@ plan's billing period has no Stripe-driven renewal, so a scheduled job
 subscriptions are left alone since Stripe's own `customer.subscription.updated`
 webhook keeps their period current.
 
+### API keys
+
+The `ApiKey` model (and its `apiKey: ["create", "read", "revoke"]` RBAC
+statement) has existed since Sprint 0, but until now nothing used it. This
+sprint wires it up end to end: `/dashboard/settings/api-keys` lets anyone
+with the `apiKey` permission create, list, and revoke keys for their
+organization; `POST /api/ai/chat` accepts them as a second authentication
+path alongside the existing session cookie.
+
+**Storage.** `src/server/api-keys/service.ts` generates a `cos_live_`-prefixed
+token from 256 bits of random entropy and stores only its SHA-256 hash
+(`ApiKey.keyHash`, unique) plus a short `keyPrefix` for safe display — a
+fast, non-adaptive hash is the right tradeoff here precisely because the
+input is already high-entropy, unlike a human-chosen password. The plaintext
+key is returned exactly once, at creation time, and never persisted or
+retrievable again; the settings UI makes that explicit with a one-time
+"copy now" dialog.
+
+**Authentication without touching RBAC.** The Tool Engine's `executeToolCall`
+authorizes every tool call with `auth.api.hasPermission({ headers, ... })`
+against a real Better Auth session — an arbitrary bearer string can't
+satisfy that. Rather than special-case API keys through the RBAC layer,
+`mintSessionForApiKey` mints a genuine, short-lived (5 minute) `Session` row
+for the key's creator, scoped to the key's organization, the moment a key
+verifies successfully; `/api/ai/chat`'s `resolveCaller` then uses that
+session's token as the `Authorization: Bearer` header for the rest of the
+request, so every downstream permission check — including each tool call's
+own — runs through the exact same path a logged-in user's request would.
+No changes to Sprint 0–2's RBAC or Tool Engine internals were needed. One
+consequence falls out for free: an API key's effective permissions always
+track its creator's *current* role, not a snapshot from when the key was
+made — if they're later demoted, so is the key.
+
+**Scopes.** Keys additionally carry a scope list (currently just `ai:chat`,
+`src/server/api-keys/types.ts`); a key missing the scope a route requires
+is rejected with 403 before a session is ever minted, independent of what
+its creator's role would otherwise allow.
+
 ## Getting started
 
 ```bash
@@ -318,6 +357,7 @@ via `docker compose up -d postgres redis`, or any reachable instance your
 - `tests/billing-subscription.test.ts` — default provisioning, checkout/portal session creation against a fake `PaymentProvider`, and webhook lifecycle application (`checkout.session.completed`, `customer.subscription.{updated,deleted}`) including idempotency on a redelivered event id
 - `tests/billing-usage.test.ts` — the usage ledger, `checkUsageLimit`'s pass/throw boundary, `getUsageSummary`, and billing-period rollover (advances free-tier subscriptions, leaves Stripe-managed ones alone)
 - `tests/billing-limit-enforcement.test.ts` — `runConversationTurn`, `streamConversationTurn`, and `startAgentRun` all refuse to start once a plan's limit is exhausted, verified without needing a real AI provider key since the check runs before any of them ever resolves a provider
+- `tests/api-keys.test.ts` — key creation (plaintext-once, hash-only persistence), listing, idempotent revocation, `verifyApiKey`'s unknown/revoked/expired rejection and scope filtering, the session-minting mechanism proven to track a key creator's *current* role (an owner's key can `aiConversation:create`, a demoted-to-viewer creator's key can't), and `POST /api/ai/chat`'s bearer-auth path end to end (401 for no/unknown/revoked key, 403 for a key missing the `ai:chat` scope, and a 502 past that point since no AI provider is configured in CI — the same documented boundary the rest of the AI suite hits)
 
 Each test creates its own users/organizations with random emails and slugs,
 so the suite is safe to run repeatedly against the same database.
