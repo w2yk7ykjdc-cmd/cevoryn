@@ -99,7 +99,7 @@ export async function tryCreateGoogleDraftFromChat(params: {
   });
 
   return {
-    content: `Gmail taslağı oluşturuldu. Taslak kimliği: ${result.id}`,
+    content: `Gmail draft created. Draft ID: ${result.id}`,
     usage: completion.usage,
   };
 }
@@ -131,10 +131,10 @@ function parseExtraction(content: string): DraftExtraction | null {
 
 function buildMissingFieldsMessage(missing: string[]): string {
   const labels: Record<string, string> = {
-    recipient: "alıcı e-posta adresi",
-    subject: "konu",
-    body: "mesaj metni",
+    recipient: "recipient email address",
+    subject: "subject",
+    body: "message body",
   };
   const fields = missing.map((field) => labels[field] ?? field).join(", ");
-  return `Gmail taslağını oluşturmak için şu bilgiler eksik: ${fields}.`;
+  return `The following information is missing to create the Gmail draft: ${fields}.`;
 }

@@ -6,8 +6,13 @@ export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = "en";
 export const LOCALE_COOKIE = "NEXT_LOCALE";
 
-function resolveLocale(value: string | undefined): Locale {
-  return LOCALES.includes(value as Locale) ? (value as Locale) : DEFAULT_LOCALE;
+// English-only for the current (global/sales) release: the app always
+// resolves to DEFAULT_LOCALE regardless of any stored NEXT_LOCALE cookie,
+// so a returning user who previously switched to Turkish doesn't see it
+// again. LOCALES/messages/tr.json are kept intact - re-enable the
+// cookie-based branch below to bring back a second active language.
+function resolveLocale(_value: string | undefined): Locale {
+  return DEFAULT_LOCALE;
 }
 
 export default getRequestConfig(async () => {

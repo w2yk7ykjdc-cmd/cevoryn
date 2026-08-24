@@ -18,7 +18,6 @@ import { useTranslations } from "next-intl";
 import { useEffect } from "react";
 
 import { LogoMark } from "@/components/brand/logo-mark";
-import { LanguageSelector } from "@/components/language-selector";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -172,7 +171,6 @@ export function Sidebar({ membership, onNavigate }: SidebarProps) {
       </nav>
 
       <div className="space-y-2 border-t px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-3">
-        <LanguageSelector />
         <ThemeToggle />
 
         <div className="flex flex-wrap gap-x-3 gap-y-1 px-1 text-[11px] text-muted-foreground">

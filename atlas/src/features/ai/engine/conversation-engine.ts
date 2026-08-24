@@ -101,7 +101,7 @@ export async function* streamResponse(params: {
       error instanceof Error
         ? error.message
         : "The Gmail draft could not be created";
-    const content = `Gmail taslağı oluşturulamadı: ${message}`;
+    const content = `The Gmail draft could not be created: ${message}`;
     const assistantMessage = await prisma.message.create({
       data: {
         conversationId,
