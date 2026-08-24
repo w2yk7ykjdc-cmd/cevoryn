@@ -49,3 +49,16 @@ export function malformedPlanResult(): GenerateResult {
     usage: { inputTokens: 0, outputTokens: 0 },
   };
 }
+
+/** Returns each result in order on successive `generate()` calls, repeating the last one once exhausted — for testing the planner's corrective-retry loop. */
+export function createSequencedProvider(results: GenerateResult[]): AIProvider {
+  if (results.length === 0) {
+    throw new Error("createSequencedProvider requires at least one result");
+  }
+  let index = 0;
+  return createFakeProvider(() => {
+    const result = results[Math.min(index, results.length - 1)]!;
+    index += 1;
+    return result;
+  });
+}
