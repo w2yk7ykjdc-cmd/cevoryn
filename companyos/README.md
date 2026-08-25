@@ -80,7 +80,16 @@ organizations can also define their own custom roles at runtime.
 
 `recordAuditLog` (`src/server/audit/audit-log.ts`) writes an append-only row
 per state-changing action and publishes an event. Nothing in the app updates
-or deletes audit rows.
+or deletes audit rows. `/dashboard/audit-log` filters by action, target type,
+and date range (the read path, `listAuditLogs`, has always supported this —
+the UI just didn't expose it until now); anyone holding the `auditLog:["export"]`
+permission (another statement that's existed since Sprint 0 with nothing
+behind it) additionally sees an **Export CSV** button, backed by
+`GET /api/audit-log/export`, which streams the filtered set as CSV — capped
+at 10,000 rows, since an org with more history than that needs a real
+reporting pipeline, not a browser download. The export itself is written
+back to the audit log (`audit_log.exported`), since knowing who pulled a
+copy of the compliance record is part of the record.
 
 ### Event bus
 
@@ -358,6 +367,7 @@ via `docker compose up -d postgres redis`, or any reachable instance your
 - `tests/billing-usage.test.ts` — the usage ledger, `checkUsageLimit`'s pass/throw boundary, `getUsageSummary`, and billing-period rollover (advances free-tier subscriptions, leaves Stripe-managed ones alone)
 - `tests/billing-limit-enforcement.test.ts` — `runConversationTurn`, `streamConversationTurn`, and `startAgentRun` all refuse to start once a plan's limit is exhausted, verified without needing a real AI provider key since the check runs before any of them ever resolves a provider
 - `tests/api-keys.test.ts` — key creation (plaintext-once, hash-only persistence), listing, idempotent revocation, `verifyApiKey`'s unknown/revoked/expired rejection and scope filtering, the session-minting mechanism proven to track a key creator's *current* role (an owner's key can `aiConversation:create`, a demoted-to-viewer creator's key can't), and `POST /api/ai/chat`'s bearer-auth path end to end (401 for no/unknown/revoked key, 403 for a key missing the `ai:chat` scope, and a 502 past that point since no AI provider is configured in CI — the same documented boundary the rest of the AI suite hits)
+- `tests/audit-log-export.test.ts` — `exportAuditLogsCsv`'s CSV formatting (header row, comma/quote escaping in metadata) and action/targetType/date-range filtering, plus `GET /api/audit-log/export` end to end: 401 unauthenticated, 403 for a viewer (lacks the `export` permission), 200 with the right CSV headers and body for a permitted owner, the export itself landing back in the audit log, and the route's own query-string filters
 
 Each test creates its own users/organizations with random emails and slugs,
 so the suite is safe to run repeatedly against the same database.

@@ -121,3 +121,64 @@ export async function listAuditLogs(input: ListAuditLogsInput) {
     nextCursor: hasMore ? page[page.length - 1]?.id : null,
   };
 }
+
+const CSV_HEADER = ["id", "createdAt", "action", "targetType", "targetId", "actorType", "actorId", "metadata"];
+const MAX_EXPORT_ROWS = 10_000;
+
+function csvField(value: string): string {
+  return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+}
+
+export type ExportAuditLogsInput = {
+  organizationId: string;
+  action?: string;
+  targetType?: string;
+  from?: Date;
+  to?: Date;
+};
+
+/**
+ * Renders every entry matching the filters as CSV, paging through
+ * `listAuditLogs` under the hood so a large organization's history doesn't
+ * need to be materialized as one giant Prisma query. Capped at
+ * `MAX_EXPORT_ROWS` — an org with more history than that needs a real
+ * reporting pipeline, not a browser download.
+ */
+export async function exportAuditLogsCsv(input: ExportAuditLogsInput): Promise<{ csv: string; rowCount: number }> {
+  const rows = [CSV_HEADER.join(",")];
+  let cursor: string | undefined;
+  let rowCount = 0;
+
+  while (rowCount < MAX_EXPORT_ROWS) {
+    const { entries, nextCursor } = await listAuditLogs({
+      organizationId: input.organizationId,
+      action: input.action,
+      targetType: input.targetType,
+      from: input.from,
+      to: input.to,
+      cursor,
+      limit: 200,
+    });
+
+    for (const entry of entries) {
+      rows.push(
+        [
+          entry.id,
+          entry.createdAt.toISOString(),
+          csvField(entry.action),
+          csvField(entry.targetType),
+          entry.targetId,
+          entry.actorType,
+          entry.actorId ?? "",
+          csvField(JSON.stringify(entry.metadata)),
+        ].join(","),
+      );
+    }
+
+    rowCount += entries.length;
+    if (!nextCursor || entries.length === 0) break;
+    cursor = nextCursor;
+  }
+
+  return { csv: rows.join("\n"), rowCount };
+}
