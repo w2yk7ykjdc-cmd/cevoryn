@@ -1,8 +1,19 @@
 import { requirePermission } from "@/server/auth/session";
+import { getConversationMessages, listConversations } from "@/server/ai/runtime/conversations";
 import { ChatClient } from "@/app/(dashboard)/dashboard/chat/chat-client";
 
-export default async function ChatPage() {
-  await requirePermission({ aiConversation: ["create"] });
+type SearchParams = Promise<{ conversation?: string }>;
+
+export default async function ChatPage({ searchParams }: { searchParams: SearchParams }) {
+  const { session, organization } = await requirePermission({ aiConversation: ["create"] });
+  const params = await searchParams;
+
+  const conversations = await listConversations(organization.id, session.user.id);
+  const activeConversationId =
+    params.conversation && conversations.some((c) => c.id === params.conversation) ? params.conversation : undefined;
+  const initialMessages = activeConversationId
+    ? await getConversationMessages(organization.id, activeConversationId)
+    : [];
 
   return (
     <div className="flex h-[calc(100svh-8rem)] flex-col gap-4">
@@ -12,7 +23,12 @@ export default async function ChatPage() {
           Backed by the CompanyOS AI Runtime — provider-agnostic, tool-using, memory-aware.
         </p>
       </div>
-      <ChatClient />
+      <ChatClient
+        key={activeConversationId ?? "new"}
+        conversations={conversations}
+        activeConversationId={activeConversationId}
+        initialMessages={initialMessages}
+      />
     </div>
   );
 }

@@ -120,6 +120,22 @@ share the same pre-flight `checkUsageLimit` and post-call `recordUsage`
 calls, so a maxed-out organization is stopped before either ever resolves a
 model — see "Billing & usage metering" below.
 
+**Conversation history.** `/dashboard/chat` has a sidebar listing an
+organization member's own past conversations (`listConversations`,
+`src/server/ai/runtime/conversations.ts` — defined since Sprint 0 but never
+actually called until now), each labeled by its explicit `title` if one was
+set (agent runs do this; regular chat never has) or else a snippet of its
+first user message. Clicking one loads its history
+(`getConversationMessages`, filtered to user/assistant messages — the
+model-facing `getConversationHistory` in `memory/short-term.ts` is a
+different function, meant to feed the provider, not a chat bubble list) via
+a `?conversation=<id>` URL param, so a reload keeps you where you were.
+Deleting a conversation (`archiveConversation`) soft-deletes it via
+`archivedAt`, the same pattern the CRM domain's `deletedAt` uses, gated by
+the `aiConversation:["delete"]` permission — also declared since Sprint 0
+and, like `apiKey` and `auditLog:["export"]` before it, never wired to
+anything until now.
+
 ### Background jobs
 
 `src/server/jobs/worker.ts` is a separate process (own Docker image, own
@@ -368,6 +384,7 @@ via `docker compose up -d postgres redis`, or any reachable instance your
 - `tests/billing-limit-enforcement.test.ts` — `runConversationTurn`, `streamConversationTurn`, and `startAgentRun` all refuse to start once a plan's limit is exhausted, verified without needing a real AI provider key since the check runs before any of them ever resolves a provider
 - `tests/api-keys.test.ts` — key creation (plaintext-once, hash-only persistence), listing, idempotent revocation, `verifyApiKey`'s unknown/revoked/expired rejection and scope filtering, the session-minting mechanism proven to track a key creator's *current* role (an owner's key can `aiConversation:create`, a demoted-to-viewer creator's key can't), and `POST /api/ai/chat`'s bearer-auth path end to end (401 for no/unknown/revoked key, 403 for a key missing the `ai:chat` scope, and a 502 past that point since no AI provider is configured in CI — the same documented boundary the rest of the AI suite hits)
 - `tests/audit-log-export.test.ts` — `exportAuditLogsCsv`'s CSV formatting (header row, comma/quote escaping in metadata) and action/targetType/date-range filtering, plus `GET /api/audit-log/export` end to end: 401 unauthenticated, 403 for a viewer (lacks the `export` permission), 200 with the right CSV headers and body for a permitted owner, the export itself landing back in the audit log, and the route's own query-string filters
+- `tests/conversation-history.test.ts` — `listConversations`'s title fallback (explicit title vs. a snippet of the first user message) and ordering/archived-exclusion, `getConversationMessages` filtering to user/assistant rows only and rejecting a conversation from another organization, and `archiveConversation` recording the audit entry and rejecting an already-archived or cross-organization conversation
 
 Each test creates its own users/organizations with random emails and slugs,
 so the suite is safe to run repeatedly against the same database.
