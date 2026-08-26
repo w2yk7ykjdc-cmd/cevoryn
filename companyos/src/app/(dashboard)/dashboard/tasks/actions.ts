@@ -14,6 +14,8 @@ export async function createTaskAction(input: {
   reminderAt?: string;
   assigneeId?: string;
   leadId?: string;
+  contactId?: string;
+  companyId?: string;
 }): Promise<ActionResult> {
   const { session, organization } = await requirePermission({ task: ["create"] });
 
@@ -32,8 +34,12 @@ export async function createTaskAction(input: {
       reminderAt: input.reminderAt ? new Date(input.reminderAt) : null,
       assigneeId: input.assigneeId || null,
       leadId: input.leadId || null,
+      contactId: input.contactId || null,
+      companyId: input.companyId || null,
     });
     revalidatePath("/dashboard/tasks");
+    if (input.contactId) revalidatePath(`/dashboard/contacts/${input.contactId}`);
+    if (input.companyId) revalidatePath(`/dashboard/companies/${input.companyId}`);
     return { success: true };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Failed to create task" };

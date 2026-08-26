@@ -35,6 +35,8 @@ export type ListTasksInput = {
   status?: TaskStatus;
   assigneeId?: string;
   leadId?: string;
+  contactId?: string;
+  companyId?: string;
   query?: string;
   cursor?: string;
   limit?: number;
@@ -58,5 +60,19 @@ export class TaskLeadReferenceError extends Error {
   constructor(leadId: string) {
     super(`Lead "${leadId}" was not found in this organization`);
     this.name = "TaskLeadReferenceError";
+  }
+}
+
+export class TaskContactReferenceError extends Error {
+  constructor(contactId: string) {
+    super(`Contact "${contactId}" was not found in this organization`);
+    this.name = "TaskContactReferenceError";
+  }
+}
+
+export class TaskCompanyReferenceError extends Error {
+  constructor(companyId: string) {
+    super(`Company "${companyId}" was not found in this organization`);
+    this.name = "TaskCompanyReferenceError";
   }
 }

@@ -4,6 +4,8 @@ import { getTenantScopedClient } from "@/server/db/tenant";
 import { recordAuditLog, publishAuditEvent } from "@/server/audit/audit-log";
 import {
   TaskAssigneeReferenceError,
+  TaskCompanyReferenceError,
+  TaskContactReferenceError,
   TaskLeadReferenceError,
   TaskNotFoundError,
 } from "@/server/tasks/types";
@@ -34,6 +36,34 @@ async function assertLeadBelongsToOrg(
   }
 }
 
+async function assertContactBelongsToOrg(
+  tx: Prisma.TransactionClient,
+  organizationId: string,
+  contactId: string,
+) {
+  const contact = await tx.contact.findFirst({
+    where: { id: contactId, organizationId, deletedAt: null },
+    select: { id: true },
+  });
+  if (!contact) {
+    throw new TaskContactReferenceError(contactId);
+  }
+}
+
+async function assertCompanyBelongsToOrg(
+  tx: Prisma.TransactionClient,
+  organizationId: string,
+  companyId: string,
+) {
+  const company = await tx.company.findFirst({
+    where: { id: companyId, organizationId, deletedAt: null },
+    select: { id: true },
+  });
+  if (!company) {
+    throw new TaskCompanyReferenceError(companyId);
+  }
+}
+
 export async function createTask(input: CreateTaskInput) {
   const actorType = input.actorType ?? "user";
 
@@ -43,6 +73,12 @@ export async function createTask(input: CreateTaskInput) {
     }
     if (input.leadId) {
       await assertLeadBelongsToOrg(tx, input.organizationId, input.leadId);
+    }
+    if (input.contactId) {
+      await assertContactBelongsToOrg(tx, input.organizationId, input.contactId);
+    }
+    if (input.companyId) {
+      await assertCompanyBelongsToOrg(tx, input.organizationId, input.companyId);
     }
 
     const task = await tx.task.create({
@@ -193,6 +229,8 @@ export async function listTasks(input: ListTasksInput) {
       status: input.status,
       assigneeId: input.assigneeId,
       leadId: input.leadId,
+      contactId: input.contactId,
+      companyId: input.companyId,
       title: input.query ? { contains: input.query, mode: "insensitive" } : undefined,
     },
     include: {

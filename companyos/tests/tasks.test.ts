@@ -1,6 +1,8 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { prisma } from "@/server/db/client";
 import { createLead } from "@/server/leads/service";
+import { createContact } from "@/server/contacts/service";
+import { createCompany } from "@/server/companies/service";
 import {
   createTask,
   getTask,
@@ -10,6 +12,8 @@ import {
 } from "@/server/tasks/service";
 import {
   TaskAssigneeReferenceError,
+  TaskCompanyReferenceError,
+  TaskContactReferenceError,
   TaskLeadReferenceError,
   TaskNotFoundError,
 } from "@/server/tasks/types";
@@ -115,6 +119,63 @@ describe("tasks", () => {
     await expect(
       createTask({ organizationId: a.organization.id, actorId: a.owner.userId, title: "X", leadId: leadInB.id }),
     ).rejects.toThrow(TaskLeadReferenceError);
+  });
+
+  it("links a task directly to a contact and a company, and rejects ones from a different organization", async () => {
+    const { owner, organization } = await setup();
+    const contact = await createContact({
+      organizationId: organization.id,
+      actorId: owner.userId,
+      firstName: "Jane",
+      lastName: "Doe",
+    });
+    const company = await createCompany({ organizationId: organization.id, actorId: owner.userId, name: "Acme" });
+
+    const task = await createTask({
+      organizationId: organization.id,
+      actorId: owner.userId,
+      title: "Call Jane at Acme",
+      contactId: contact.id,
+      companyId: company.id,
+    });
+    expect(task.contactId).toBe(contact.id);
+    expect(task.companyId).toBe(company.id);
+
+    const { tasks: forContact } = await listTasks({ organizationId: organization.id, contactId: contact.id });
+    expect(forContact).toHaveLength(1);
+    const { tasks: forCompany } = await listTasks({ organizationId: organization.id, companyId: company.id });
+    expect(forCompany).toHaveLength(1);
+
+    const other = await setup();
+    const otherContact = await createContact({
+      organizationId: other.organization.id,
+      actorId: other.owner.userId,
+      firstName: "Out",
+      lastName: "Sider",
+    });
+    const otherCompany = await createCompany({
+      organizationId: other.organization.id,
+      actorId: other.owner.userId,
+      name: "OtherCo",
+    });
+
+    await expect(
+      createTask({
+        organizationId: organization.id,
+        actorId: owner.userId,
+        title: "X",
+        contactId: otherContact.id,
+      }),
+    ).rejects.toThrow(TaskContactReferenceError);
+
+    await expect(
+      createTask({
+        organizationId: organization.id,
+        actorId: owner.userId,
+        title: "X",
+        companyId: otherCompany.id,
+      }),
+    ).rejects.toThrow(TaskCompanyReferenceError);
   });
 
   it("sets completedAt when status moves to done, clears it when reopened", async () => {
