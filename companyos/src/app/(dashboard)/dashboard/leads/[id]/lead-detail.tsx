@@ -55,18 +55,23 @@ type LeadDetailData = {
   tasks: { id: string; title: string; status: string; dueDate: Date | null }[];
 };
 
+const NONE = "__none__";
+
 export function LeadDetail({
   lead,
   stages,
+  members,
 }: {
   lead: LeadDetailData;
   stages: { id: string; name: string }[];
+  members: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [title, setTitle] = useState(lead.title);
   const [value, setValue] = useState(String(lead.value));
   const [probability, setProbability] = useState(String(lead.probability));
   const [source, setSource] = useState(lead.source ?? "");
+  const [ownerId, setOwnerId] = useState(lead.owner?.id ?? NONE);
   const [isSaving, setIsSaving] = useState(false);
   const [isChangingStage, setIsChangingStage] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -81,6 +86,7 @@ export function LeadDetail({
       value: value ? Number(value) : undefined,
       probability: probability ? Number(probability) : undefined,
       source: source || null,
+      ownerId: ownerId === NONE ? null : ownerId,
     });
     setIsSaving(false);
     if (!result.success) {
@@ -215,15 +221,26 @@ export function LeadDetail({
               <Label htmlFor="edit-source">Source</Label>
               <Input id="edit-source" value={source} onChange={(e) => setSource(e.target.value)} />
             </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="edit-owner">Owner</Label>
+              <Select value={ownerId} onValueChange={setOwnerId}>
+                <SelectTrigger id="edit-owner">
+                  <SelectValue placeholder="Unassigned" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>Unassigned</SelectItem>
+                  {members.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex items-center gap-3 sm:col-span-3">
               <Button type="submit" disabled={isSaving}>
                 {isSaving ? "Saving…" : "Save changes"}
               </Button>
-              {lead.owner && (
-                <span className="text-sm text-muted-foreground">
-                  Owner: {lead.owner.name} ({lead.owner.email})
-                </span>
-              )}
             </div>
           </form>
         </CardContent>

@@ -23,10 +23,12 @@ export function CreateLeadDialog({
   stages,
   companies,
   contacts,
+  members,
 }: {
   stages: { id: string; name: string }[];
   companies: { id: string; name: string }[];
   contacts: { id: string; name: string }[];
+  members: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -38,6 +40,7 @@ export function CreateLeadDialog({
   const [value, setValue] = useState("");
   const [probability, setProbability] = useState("");
   const [source, setSource] = useState("");
+  const [ownerId, setOwnerId] = useState(NONE);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -50,6 +53,7 @@ export function CreateLeadDialog({
       value: value ? Number(value) : undefined,
       probability: probability ? Number(probability) : undefined,
       source,
+      ownerId: ownerId === NONE ? undefined : ownerId,
     });
     setIsSubmitting(false);
 
@@ -65,6 +69,7 @@ export function CreateLeadDialog({
     setValue("");
     setProbability("");
     setSource("");
+    setOwnerId(NONE);
     router.refresh();
   }
 
@@ -160,6 +165,22 @@ export function CreateLeadDialog({
                 {contacts.map((contact) => (
                   <SelectItem key={contact.id} value={contact.id}>
                     {contact.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="lead-owner">Owner</Label>
+            <Select value={ownerId} onValueChange={setOwnerId}>
+              <SelectTrigger id="lead-owner">
+                <SelectValue placeholder="Me" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>Me</SelectItem>
+                {members.map((member) => (
+                  <SelectItem key={member.id} value={member.id}>
+                    {member.name}
                   </SelectItem>
                 ))}
               </SelectContent>

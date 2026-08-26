@@ -6,6 +6,7 @@ import {
   LeadCompanyReferenceError,
   LeadContactReferenceError,
   LeadNotFoundError,
+  LeadOwnerReferenceError,
   PipelineStageNotFoundError,
 } from "@/server/leads/types";
 import type {
@@ -31,7 +32,7 @@ async function loadStage(tx: Prisma.TransactionClient, organizationId: string, s
 async function assertReferencesBelongToOrg(
   tx: Prisma.TransactionClient,
   organizationId: string,
-  refs: { companyId?: string | null; contactId?: string | null },
+  refs: { companyId?: string | null; contactId?: string | null; ownerId?: string | null },
 ) {
   if (refs.companyId) {
     const company = await tx.company.findFirst({
@@ -49,6 +50,15 @@ async function assertReferencesBelongToOrg(
     });
     if (!contact) {
       throw new LeadContactReferenceError(refs.contactId);
+    }
+  }
+  if (refs.ownerId) {
+    const member = await tx.member.findFirst({
+      where: { organizationId, userId: refs.ownerId },
+      select: { id: true },
+    });
+    if (!member) {
+      throw new LeadOwnerReferenceError(refs.ownerId);
     }
   }
 }

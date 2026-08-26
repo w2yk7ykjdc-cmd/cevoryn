@@ -34,6 +34,7 @@ type Company = {
 export function CompanyDetail({ company }: { company: Company }) {
   const router = useRouter();
   const [name, setName] = useState(company.name);
+  const [domain, setDomain] = useState(company.domain ?? "");
   const [industry, setIndustry] = useState(company.industry ?? "");
   const [website, setWebsite] = useState(company.website ?? "");
   const [description, setDescription] = useState(company.description ?? "");
@@ -45,6 +46,7 @@ export function CompanyDetail({ company }: { company: Company }) {
     setIsSaving(true);
     const result = await updateCompanyAction(company.id, {
       name,
+      domain: domain || null,
       industry: industry || null,
       website: website || null,
       description: description || null,
@@ -104,6 +106,10 @@ export function CompanyDetail({ company }: { company: Company }) {
           <div className="flex flex-col gap-2">
             <Label htmlFor="edit-name">Name</Label>
             <Input id="edit-name" required value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="edit-domain">Domain</Label>
+            <Input id="edit-domain" value={domain} onChange={(e) => setDomain(e.target.value)} />
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="edit-industry">Industry</Label>

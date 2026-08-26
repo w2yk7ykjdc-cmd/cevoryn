@@ -1,4 +1,5 @@
 import { requirePermission } from "@/server/auth/session";
+import { prisma } from "@/server/db/client";
 import { listPipelineStages } from "@/server/leads/pipeline";
 import { listLeads } from "@/server/leads/service";
 import { listCompanies } from "@/server/companies/service";
@@ -10,11 +11,15 @@ import { PipelineBoard } from "@/app/(dashboard)/dashboard/leads/pipeline-board"
 export default async function LeadsPage() {
   const { organization } = await requirePermission({ lead: ["read"] });
 
-  const [stages, { leads }, { companies }, { contacts }] = await Promise.all([
+  const [stages, { leads }, { companies }, { contacts }, members] = await Promise.all([
     listPipelineStages(organization.id),
     listLeads({ organizationId: organization.id, limit: 200 }),
     listCompanies({ organizationId: organization.id, limit: 200 }),
     listContacts({ organizationId: organization.id, limit: 200 }),
+    prisma.member.findMany({
+      where: { organizationId: organization.id },
+      include: { user: { select: { id: true, name: true } } },
+    }),
   ]);
 
   return (
@@ -30,6 +35,7 @@ export default async function LeadsPage() {
             stages={stages.map((s) => ({ id: s.id, name: s.name }))}
             companies={companies.map((c) => ({ id: c.id, name: c.name }))}
             contacts={contacts.map((c) => ({ id: c.id, name: `${c.firstName} ${c.lastName}` }))}
+            members={members.map((m) => ({ id: m.user.id, name: m.user.name }))}
           />
         </div>
       </div>

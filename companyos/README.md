@@ -162,9 +162,14 @@ mutation and its audit entry commit atomically; the outbox event publish
 happens after the transaction commits (`publishAuditEvent`). Reads go
 through `getTenantScopedClient` for the same defense-in-depth tenant
 isolation Sprint 0 established. Cross-entity references (a lead's
-`companyId`, a task's `leadId`, an assignee) are validated to belong to the
-same organization inside the transaction before the write happens —
-`LeadCompanyReferenceError`, `TaskAssigneeReferenceError`, etc.
+`companyId`, a task's `leadId`, an assignee, a lead's `ownerId`) are
+validated to belong to the same organization inside the transaction before
+the write happens — `LeadCompanyReferenceError`, `TaskAssigneeReferenceError`,
+`LeadOwnerReferenceError`, etc. A lead's owner defaults to whoever created
+it but can be reassigned (to any org member — checked the same way) from
+both the create dialog and the lead detail page, handing it off to someone
+else; `Company.domain` — always accepted by the service layer but missing
+from both company forms until now — is likewise editable end to end.
 
 ### AI Sales Employee
 
@@ -372,7 +377,7 @@ via `docker compose up -d postgres redis`, or any reachable instance your
 - `tests/tool-engine.test.ts` — the Tool Engine's permission gate and invocation logging
 - `tests/memory-tools.test.ts` — RBAC and argument validation for `remember_fact`/`search_memory`, verified to run (and fail closed) entirely before either ever reaches the embedding provider, so no AI provider key is needed
 - `tests/audit-log.test.ts` — the audit log service
-- `tests/companies.test.ts`, `tests/contacts.test.ts`, `tests/leads.test.ts`, `tests/tasks.test.ts` — CRM domain CRUD, soft delete, cross-tenant reference validation, audit logging
+- `tests/companies.test.ts`, `tests/contacts.test.ts`, `tests/leads.test.ts`, `tests/tasks.test.ts` — CRM domain CRUD, soft delete, cross-tenant reference validation, audit logging, including reassigning a lead's owner to another member and rejecting one who isn't a member of the organization
 - `tests/lead-analysis.test.ts` — the deterministic `analyzeLead` risk/next-action rules (pure, no DB)
 - `tests/ai-sales-employee.test.ts` — the AI tools via `executeToolCall`, including a real RBAC denial (a viewer genuinely can't `create_task`)
 - `tests/e2e-scenario.test.ts` — the full acceptance scenario below, driven end to end
