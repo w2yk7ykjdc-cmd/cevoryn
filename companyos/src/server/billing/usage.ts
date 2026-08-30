@@ -14,6 +14,17 @@ export class UsageLimitExceededError extends Error {
   }
 }
 
+const HEALTHY_STATUSES = new Set(["active", "trialing"]);
+
+export class SubscriptionInactiveError extends Error {
+  constructor(public readonly status: string) {
+    super(
+      `This organization's subscription is "${status}" — AI features are paused until billing is resolved.`,
+    );
+    this.name = "SubscriptionInactiveError";
+  }
+}
+
 /** Appends one usage ledger entry. A no-op for non-positive quantities (nothing to bill). */
 export async function recordUsage(
   organizationId: string,
@@ -51,6 +62,17 @@ export async function getCurrentPeriodUsage(organizationId: string, metric: Usag
  */
 export async function checkUsageLimit(organizationId: string, metric: UsageMetric): Promise<void> {
   const subscription = await getSubscriptionForOrg(organizationId);
+
+  // The free plan never gates on subscription status — its `status` only
+  // ever reflects "active" (never paid) or "canceled" (churned back down
+  // from a paid plan via the webhook), and a free organization should keep
+  // working like any other free organization in both cases. Paid plans
+  // (pro/enterprise) require the subscription actually be in good standing
+  // with Stripe — a lapsed payment shouldn't keep granting paid-tier limits.
+  if (subscription.plan.tier !== "free" && !HEALTHY_STATUSES.has(subscription.status)) {
+    throw new SubscriptionInactiveError(subscription.status);
+  }
+
   const limit = metric === "ai_tokens" ? subscription.plan.aiTokenLimit : subscription.plan.agentRunLimit;
   const current = await getCurrentPeriodUsage(organizationId, metric);
 

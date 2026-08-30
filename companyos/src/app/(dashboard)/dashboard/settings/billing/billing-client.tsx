@@ -107,9 +107,22 @@ export function BillingClient({
   }
 
   const nextTier = subscription.plan.tier === "free" ? "pro" : subscription.plan.tier === "pro" ? "enterprise" : null;
+  const paymentUnhealthy = subscription.plan.tier !== "free" && subscription.status !== "active" && subscription.status !== "trialing";
 
   return (
     <div className="flex flex-col gap-6">
+      {paymentUnhealthy && (
+        <Card className="max-w-lg border-destructive/50 bg-destructive/5">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-6">
+            <p className="text-sm font-medium text-destructive">
+              Payment failed — update your billing to keep using {subscription.plan.name} features.
+            </p>
+            <Button size="sm" variant="destructive" disabled={pending !== null} onClick={handlePortal}>
+              Update billing
+            </Button>
+          </CardContent>
+        </Card>
+      )}
       <Card className="max-w-lg">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">

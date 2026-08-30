@@ -6,8 +6,11 @@ import { auth } from "@/server/auth/auth";
 import { requirePermission } from "@/server/auth/session";
 import { recordAuditLog } from "@/server/audit/audit-log";
 import { publishEvent } from "@/server/events/event-bus";
+import { SeatLimitExceededError, withSeatLimitLock } from "@/server/billing/seats";
 
-export type ActionResult = { success: true } | { success: false; error: string };
+export type ActionResult =
+  | { success: true }
+  | { success: false; error: string; code?: "seat_limit_exceeded" };
 
 export async function inviteMemberAction(
   email: string,
@@ -17,10 +20,12 @@ export async function inviteMemberAction(
   const headers = await nextHeaders();
 
   try {
-    const invitation = await auth.api.createInvitation({
-      headers,
-      body: { email, role, organizationId: organization.id },
-    });
+    const invitation = await withSeatLimitLock(organization.id, () =>
+      auth.api.createInvitation({
+        headers,
+        body: { email, role, organizationId: organization.id },
+      }),
+    );
 
     await recordAuditLog({
       organizationId: organization.id,
@@ -35,6 +40,9 @@ export async function inviteMemberAction(
     revalidatePath("/dashboard/members");
     return { success: true };
   } catch (err) {
+    if (err instanceof SeatLimitExceededError) {
+      return { success: false, error: err.message, code: "seat_limit_exceeded" };
+    }
     return { success: false, error: err instanceof Error ? err.message : "Failed to send invitation" };
   }
 }

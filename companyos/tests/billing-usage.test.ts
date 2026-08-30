@@ -1,7 +1,15 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { prisma } from "@/server/db/client";
-import { checkUsageLimit, getCurrentPeriodUsage, getUsageSummary, recordUsage, UsageLimitExceededError } from "@/server/billing/usage";
+import {
+  checkUsageLimit,
+  getCurrentPeriodUsage,
+  getUsageSummary,
+  recordUsage,
+  SubscriptionInactiveError,
+  UsageLimitExceededError,
+} from "@/server/billing/usage";
 import { getSubscriptionForOrg } from "@/server/billing/subscription";
+import { getPlanByTier } from "@/server/billing/plans";
 import { rolloverExpiredPeriods } from "@/server/billing/rollover";
 import { closeTestConnections, createOrgForUser, signUpUser } from "./helpers";
 
@@ -93,6 +101,69 @@ describe("billing: usage metering", () => {
     const updated = await getSubscriptionForOrg(organization.id);
     expect(updated.currentPeriodStart.getTime()).toBe(pastEnd.getTime());
     expect(updated.currentPeriodEnd.getTime()).toBeGreaterThan(pastEnd.getTime());
+  });
+
+  it("checkUsageLimit throws SubscriptionInactiveError for a pro subscription that's past_due", async () => {
+    const owner = await signUpUser();
+    const organization = await createOrgForUser(owner);
+    const subscription = await getSubscriptionForOrg(organization.id);
+    const proPlan = await getPlanByTier("pro");
+
+    await prisma.subscription.update({
+      where: { id: subscription.id },
+      data: { planId: proPlan.id, status: "past_due" },
+    });
+
+    try {
+      await checkUsageLimit(organization.id, "ai_tokens");
+      expect.unreachable("expected checkUsageLimit to throw");
+    } catch (err) {
+      expect(err).toBeInstanceOf(SubscriptionInactiveError);
+      if (err instanceof SubscriptionInactiveError) {
+        expect(err.status).toBe("past_due");
+      }
+    }
+  });
+
+  it("checkUsageLimit passes for a pro subscription that's active", async () => {
+    const owner = await signUpUser();
+    const organization = await createOrgForUser(owner);
+    const subscription = await getSubscriptionForOrg(organization.id);
+    const proPlan = await getPlanByTier("pro");
+
+    await prisma.subscription.update({
+      where: { id: subscription.id },
+      data: { planId: proPlan.id, status: "active" },
+    });
+
+    await expect(checkUsageLimit(organization.id, "ai_tokens")).resolves.toBeUndefined();
+  });
+
+  it("checkUsageLimit passes for a pro subscription that's trialing", async () => {
+    const owner = await signUpUser();
+    const organization = await createOrgForUser(owner);
+    const subscription = await getSubscriptionForOrg(organization.id);
+    const proPlan = await getPlanByTier("pro");
+
+    await prisma.subscription.update({
+      where: { id: subscription.id },
+      data: { planId: proPlan.id, status: "trialing" },
+    });
+
+    await expect(checkUsageLimit(organization.id, "ai_tokens")).resolves.toBeUndefined();
+  });
+
+  it("checkUsageLimit never blocks the free plan on subscription status, even when it's canceled", async () => {
+    const owner = await signUpUser();
+    const organization = await createOrgForUser(owner);
+    const subscription = await getSubscriptionForOrg(organization.id);
+
+    // Mirrors what applyWebhookEvent(customer.subscription.deleted) leaves behind
+    // for a churned-from-paid org: back on the free plan, status "canceled".
+    expect(subscription.plan.tier).toBe("free");
+    await prisma.subscription.update({ where: { id: subscription.id }, data: { status: "canceled" } });
+
+    await expect(checkUsageLimit(organization.id, "ai_tokens")).resolves.toBeUndefined();
   });
 
   it("rolloverExpiredPeriods leaves Stripe-managed (paid) subscriptions alone even if their period has ended", async () => {

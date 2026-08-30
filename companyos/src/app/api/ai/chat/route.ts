@@ -5,7 +5,7 @@ import { prisma } from "@/server/db/client";
 import { assertWithinRateLimit, RateLimitExceededError } from "@/server/rate-limit/limiter";
 import { runConversationTurn, streamConversationTurn } from "@/server/ai/runtime/runtime";
 import { createConversation } from "@/server/ai/runtime/conversations";
-import { UsageLimitExceededError } from "@/server/billing/usage";
+import { SubscriptionInactiveError, UsageLimitExceededError } from "@/server/billing/usage";
 import type { StreamEvent } from "@/server/ai/providers/types";
 import { hasScope, mintSessionForApiKey, verifyApiKey } from "@/server/api-keys/service";
 import { InvalidApiKeyError } from "@/server/api-keys/types";
@@ -161,6 +161,12 @@ export async function POST(request: Request) {
     if (err instanceof UsageLimitExceededError) {
       return NextResponse.json({ error: err.message }, { status: 429 });
     }
+    if (err instanceof SubscriptionInactiveError) {
+      return NextResponse.json(
+        { error: err.message, billingUrl: "/dashboard/settings/billing" },
+        { status: 402 },
+      );
+    }
     logger.error({ err, conversationId, organizationId }, "AI runtime turn failed");
     return NextResponse.json({ error: "AI request failed" }, { status: 502 });
   }
@@ -188,6 +194,12 @@ async function streamChatResponse(input: {
   } catch (err) {
     if (err instanceof UsageLimitExceededError) {
       return NextResponse.json({ error: err.message }, { status: 429 });
+    }
+    if (err instanceof SubscriptionInactiveError) {
+      return NextResponse.json(
+        { error: err.message, billingUrl: "/dashboard/settings/billing" },
+        { status: 402 },
+      );
     }
     logger.error({ err, conversationId: input.conversationId, organizationId: input.organizationId }, "AI runtime stream failed to start");
     return NextResponse.json({ error: "AI request failed" }, { status: 502 });

@@ -297,6 +297,33 @@ plan's billing period has no Stripe-driven renewal, so a scheduled job
 subscriptions are left alone since Stripe's own `customer.subscription.updated`
 webhook keeps their period current.
 
+**Enforcement.** Two plan limits the product advertises had nothing behind
+them until now: `checkUsageLimit` checked token/agent-run counts but never
+`Subscription.status`, and `Plan.seatLimit` was shown on the billing page
+but never checked anywhere. Both are enforced now:
+
+- `checkUsageLimit` throws `SubscriptionInactiveError` for a paid
+  (`pro`/`enterprise`) subscription whose status isn't `active` or
+  `trialing` — a lapsed payment (`past_due`) stops AI/agent usage before
+  either ever resolves a provider, same as an exhausted quota. The free
+  plan is never gated on status: its `status` only ever reflects "never
+  paid" (`active`) or "churned back down from paid" (`canceled`, set by
+  `applyWebhookEvent`'s `customer.subscription.deleted` handler), and both
+  should keep working like any other free organization.
+  `POST /api/ai/chat` returns 402 with a `billingUrl` for this error,
+  distinct from the 429 `UsageLimitExceededError` already returns.
+- `assertSeatAvailable` (`src/server/billing/seats.ts`) counts active
+  `Member` rows plus `pending` `Invitation` rows against
+  `plan.seatLimit` (`null` = unlimited) and throws `SeatLimitExceededError`
+  once they're equal — `inviteMemberAction` checks this before creating an
+  invitation. A downgrade never removes existing members; it only blocks
+  *new* invitations once the org is at or over the new, lower limit.
+  Two invitations racing for the last seat are serialized by
+  `withSeatLimitLock`, a transaction-scoped Postgres advisory lock keyed on
+  the organization id (`pg_advisory_xact_lock(hashtext(organizationId))`)
+  — the second caller blocks until the first's invitation has already
+  committed, so it recounts correctly instead of both passing the check.
+
 ### API keys
 
 The `ApiKey` model (and its `apiKey: ["create", "read", "revoke"]` RBAC
@@ -392,8 +419,9 @@ via `docker compose up -d postgres redis`, or any reachable instance your
 - `tests/approval-policy.test.ts` — the risk classification table, including the secure-by-default fallback for unrecognized tools
 - `tests/agent-executor.test.ts` — the full agent run loop against the real Tool Engine: multi-step completion, halt-on-error (a genuine RBAC denial mid-run), pause/approve/resume, pause/reject/continue, and RBAC preserved on the approval decision itself
 - `tests/billing-subscription.test.ts` — default provisioning, checkout/portal session creation against a fake `PaymentProvider`, and webhook lifecycle application (`checkout.session.completed`, `customer.subscription.{updated,deleted}`) including idempotency on a redelivered event id
-- `tests/billing-usage.test.ts` — the usage ledger, `checkUsageLimit`'s pass/throw boundary, `getUsageSummary`, and billing-period rollover (advances free-tier subscriptions, leaves Stripe-managed ones alone)
-- `tests/billing-limit-enforcement.test.ts` — `runConversationTurn`, `streamConversationTurn`, and `startAgentRun` all refuse to start once a plan's limit is exhausted, verified without needing a real AI provider key since the check runs before any of them ever resolves a provider
+- `tests/billing-usage.test.ts` — the usage ledger, `checkUsageLimit`'s pass/throw boundary, `getUsageSummary`, billing-period rollover (advances free-tier subscriptions, leaves Stripe-managed ones alone), and subscription-status gating: a `past_due` pro subscription throws `SubscriptionInactiveError`, `active`/`trialing` pass, and the free plan is never blocked by status (including when it's `canceled`, the churned-back-down case)
+- `tests/billing-limit-enforcement.test.ts` — `runConversationTurn`, `streamConversationTurn`, and `startAgentRun` all refuse to start once a plan's limit is exhausted or its paid subscription is `past_due`, verified without needing a real AI provider key since both checks run before any of them ever resolves a provider
+- `tests/billing-seats.test.ts` — `assertSeatAvailable`'s pass/throw boundary (counting pending invitations, not just active members), Enterprise's `seatLimit: null` never blocking, a downgrade leaving existing members in place while blocking new invitations, and `withSeatLimitLock` actually serializing two concurrent invitations racing for the last seat on a real Postgres advisory lock — exactly one succeeds
 - `tests/api-keys.test.ts` — key creation (plaintext-once, hash-only persistence), listing, idempotent revocation, `verifyApiKey`'s unknown/revoked/expired rejection and scope filtering, the session-minting mechanism proven to track a key creator's *current* role (an owner's key can `aiConversation:create`, a demoted-to-viewer creator's key can't), and `POST /api/ai/chat`'s bearer-auth path end to end (401 for no/unknown/revoked key, 403 for a key missing the `ai:chat` scope, and a 502 past that point since no AI provider is configured in CI — the same documented boundary the rest of the AI suite hits)
 - `tests/audit-log-export.test.ts` — `exportAuditLogsCsv`'s CSV formatting (header row, comma/quote escaping in metadata) and action/targetType/date-range filtering, plus `GET /api/audit-log/export` end to end: 401 unauthenticated, 403 for a viewer (lacks the `export` permission), 200 with the right CSV headers and body for a permitted owner, the export itself landing back in the audit log, and the route's own query-string filters
 - `tests/conversation-history.test.ts` — `listConversations`'s title fallback (explicit title vs. a snippet of the first user message) and ordering/archived-exclusion, `getConversationMessages` filtering to user/assistant rows only and rejecting a conversation from another organization, and `archiveConversation` recording the audit entry and rejecting an already-archived or cross-organization conversation
