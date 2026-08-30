@@ -20,6 +20,7 @@ export async function createLeadAction(input: {
   value?: number;
   probability?: number;
   source?: string;
+  ownerId?: string;
 }): Promise<ActionResult> {
   const { session, organization } = await requirePermission({ lead: ["create"] });
 
@@ -38,6 +39,7 @@ export async function createLeadAction(input: {
       value: input.value,
       probability: input.probability,
       source: input.source?.trim() || null,
+      ownerId: input.ownerId || null,
     });
     revalidatePath("/dashboard/leads");
     return { success: true };
@@ -55,6 +57,7 @@ export async function updateLeadAction(
     value?: number;
     probability?: number;
     source?: string | null;
+    ownerId?: string | null;
   },
 ): Promise<ActionResult> {
   const { session, organization } = await requirePermission({ lead: ["update"] });

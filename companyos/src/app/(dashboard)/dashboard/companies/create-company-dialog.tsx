@@ -22,6 +22,7 @@ export function CreateCompanyDialog() {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [name, setName] = useState("");
+  const [domain, setDomain] = useState("");
   const [industry, setIndustry] = useState("");
   const [website, setWebsite] = useState("");
   const [description, setDescription] = useState("");
@@ -29,7 +30,7 @@ export function CreateCompanyDialog() {
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setIsSubmitting(true);
-    const result = await createCompanyAction({ name, industry, website, description });
+    const result = await createCompanyAction({ name, domain, industry, website, description });
     setIsSubmitting(false);
 
     if (!result.success) {
@@ -39,6 +40,7 @@ export function CreateCompanyDialog() {
     toast.success("Company created");
     setOpen(false);
     setName("");
+    setDomain("");
     setIndustry("");
     setWebsite("");
     setDescription("");
@@ -58,6 +60,15 @@ export function CreateCompanyDialog() {
           <div className="flex flex-col gap-2">
             <Label htmlFor="company-name">Name</Label>
             <Input id="company-name" required value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="company-domain">Domain</Label>
+            <Input
+              id="company-domain"
+              placeholder="acme.com"
+              value={domain}
+              onChange={(e) => setDomain(e.target.value)}
+            />
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="company-industry">Industry</Label>

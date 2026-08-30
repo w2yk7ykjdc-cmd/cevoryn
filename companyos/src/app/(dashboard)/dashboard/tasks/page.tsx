@@ -2,6 +2,8 @@ import { requirePermission } from "@/server/auth/session";
 import { listTasks } from "@/server/tasks/service";
 import { prisma } from "@/server/db/client";
 import { listLeads } from "@/server/leads/service";
+import { listContacts } from "@/server/contacts/service";
+import { listCompanies } from "@/server/companies/service";
 import { Card, CardContent } from "@/components/ui/card";
 import { CreateTaskDialog } from "@/app/(dashboard)/dashboard/tasks/create-task-dialog";
 import { TasksTable } from "@/app/(dashboard)/dashboard/tasks/tasks-table";
@@ -9,13 +11,15 @@ import { TasksTable } from "@/app/(dashboard)/dashboard/tasks/tasks-table";
 export default async function TasksPage() {
   const { organization } = await requirePermission({ task: ["read"] });
 
-  const [{ tasks }, members, { leads }] = await Promise.all([
+  const [{ tasks }, members, { leads }, { contacts }, { companies }] = await Promise.all([
     listTasks({ organizationId: organization.id, limit: 200 }),
     prisma.member.findMany({
       where: { organizationId: organization.id },
       include: { user: { select: { id: true, name: true } } },
     }),
     listLeads({ organizationId: organization.id, limit: 200 }),
+    listContacts({ organizationId: organization.id, limit: 200 }),
+    listCompanies({ organizationId: organization.id, limit: 200 }),
   ]);
 
   const assignees = members.map((m) => ({ id: m.user.id, name: m.user.name }));
@@ -30,6 +34,8 @@ export default async function TasksPage() {
         <CreateTaskDialog
           assignees={assignees}
           leads={leads.map((l) => ({ id: l.id, title: l.title }))}
+          contacts={contacts.map((c) => ({ id: c.id, name: `${c.firstName} ${c.lastName}` }))}
+          companies={companies.map((c) => ({ id: c.id, name: c.name }))}
         />
       </div>
 

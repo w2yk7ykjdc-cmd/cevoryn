@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requirePermission } from "@/server/auth/session";
 import { getCompany } from "@/server/companies/service";
 import { getTenantScopedClient } from "@/server/db/tenant";
+import { listTasks } from "@/server/tasks/service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CompanyDetail } from "@/app/(dashboard)/dashboard/companies/[id]/company-detail";
@@ -21,7 +22,7 @@ export default async function CompanyDetailPage({
   }
 
   const scoped = getTenantScopedClient(organization.id);
-  const [contacts, leads] = await Promise.all([
+  const [contacts, leads, { tasks }] = await Promise.all([
     scoped.contact.findMany({
       where: { companyId: id, deletedAt: null },
       orderBy: { createdAt: "desc" },
@@ -33,6 +34,7 @@ export default async function CompanyDetailPage({
       orderBy: { createdAt: "desc" },
       take: 20,
     }),
+    listTasks({ organizationId: organization.id, companyId: id, limit: 50 }),
   ]);
 
   return (
@@ -81,6 +83,31 @@ export default async function CompanyDetailPage({
             ))}
           </CardContent>
         </Card>
+
+        {tasks.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Tasks ({tasks.length})</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2">
+              {tasks.map((task) => (
+                <div key={task.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                  <span>{task.title}</span>
+                  <div className="flex items-center gap-2">
+                    {task.dueDate && (
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(task.dueDate).toLocaleDateString()}
+                      </span>
+                    )}
+                    <Badge variant="secondary" className="capitalize">
+                      {task.status.replace("_", " ")}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

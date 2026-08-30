@@ -16,9 +16,10 @@ import {
   LeadCompanyReferenceError,
   LeadContactReferenceError,
   LeadNotFoundError,
+  LeadOwnerReferenceError,
   PipelineStageNotFoundError,
 } from "@/server/leads/types";
-import { closeTestConnections, createOrgForUser, signUpUser } from "./helpers";
+import { addMemberDirect, closeTestConnections, createOrgForUser, signUpUser } from "./helpers";
 
 describe("leads", () => {
   afterAll(closeTestConnections);
@@ -108,6 +109,42 @@ describe("leads", () => {
     await expect(
       createLead({ organizationId: a.organization.id, actorId: a.owner.userId, title: "X", contactId: bContact.id }),
     ).rejects.toThrow(LeadContactReferenceError);
+
+    await expect(
+      createLead({ organizationId: a.organization.id, actorId: a.owner.userId, title: "X", ownerId: b.owner.userId }),
+    ).rejects.toThrow(LeadOwnerReferenceError);
+  });
+
+  it("reassigns a lead's owner to another member of the same organization", async () => {
+    const { owner, organization } = await setup();
+    const otherMember = await signUpUser();
+    await addMemberDirect(organization.id, otherMember, "member");
+
+    const lead = await createLead({ organizationId: organization.id, actorId: owner.userId, title: "Handoff" });
+    expect(lead.ownerId).toBe(owner.userId);
+
+    const updated = await updateLead({
+      organizationId: organization.id,
+      actorId: owner.userId,
+      leadId: lead.id,
+      data: { ownerId: otherMember.userId },
+    });
+    expect(updated.ownerId).toBe(otherMember.userId);
+  });
+
+  it("rejects reassigning a lead's owner to a user who isn't a member of the organization", async () => {
+    const { owner, organization } = await setup();
+    const outsider = await signUpUser();
+    const lead = await createLead({ organizationId: organization.id, actorId: owner.userId, title: "No handoff" });
+
+    await expect(
+      updateLead({
+        organizationId: organization.id,
+        actorId: owner.userId,
+        leadId: lead.id,
+        data: { ownerId: outsider.userId },
+      }),
+    ).rejects.toThrow(LeadOwnerReferenceError);
   });
 
   it("moves a lead through stages, closing it when it reaches Won", async () => {

@@ -25,9 +25,13 @@ const PRIORITIES: TaskPriority[] = ["low", "medium", "high", "urgent"];
 export function CreateTaskDialog({
   assignees,
   leads,
+  contacts,
+  companies,
 }: {
   assignees: { id: string; name: string }[];
   leads: { id: string; title: string }[];
+  contacts: { id: string; name: string }[];
+  companies: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -39,6 +43,8 @@ export function CreateTaskDialog({
   const [reminderAt, setReminderAt] = useState("");
   const [assigneeId, setAssigneeId] = useState(NONE);
   const [leadId, setLeadId] = useState(NONE);
+  const [contactId, setContactId] = useState(NONE);
+  const [companyId, setCompanyId] = useState(NONE);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -51,6 +57,8 @@ export function CreateTaskDialog({
       reminderAt: reminderAt || undefined,
       assigneeId: assigneeId === NONE ? undefined : assigneeId,
       leadId: leadId === NONE ? undefined : leadId,
+      contactId: contactId === NONE ? undefined : contactId,
+      companyId: companyId === NONE ? undefined : companyId,
     });
     setIsSubmitting(false);
 
@@ -67,6 +75,8 @@ export function CreateTaskDialog({
     setReminderAt("");
     setAssigneeId(NONE);
     setLeadId(NONE);
+    setContactId(NONE);
+    setCompanyId(NONE);
     router.refresh();
   }
 
@@ -151,6 +161,40 @@ export function CreateTaskDialog({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="task-contact">Related contact</Label>
+              <Select value={contactId} onValueChange={setContactId}>
+                <SelectTrigger id="task-contact">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>No contact</SelectItem>
+                  {contacts.map((contact) => (
+                    <SelectItem key={contact.id} value={contact.id}>
+                      {contact.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="task-company">Related company</Label>
+              <Select value={companyId} onValueChange={setCompanyId}>
+                <SelectTrigger id="task-company">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>No company</SelectItem>
+                  {companies.map((company) => (
+                    <SelectItem key={company.id} value={company.id}>
+                      {company.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <DialogFooter>
             <Button type="submit" disabled={isSubmitting || title.trim().length === 0}>

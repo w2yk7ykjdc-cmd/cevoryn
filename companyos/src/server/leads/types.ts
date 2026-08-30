@@ -61,6 +61,13 @@ export class LeadContactReferenceError extends Error {
   }
 }
 
+export class LeadOwnerReferenceError extends Error {
+  constructor(ownerId: string) {
+    super(`User "${ownerId}" is not a member of this organization`);
+    this.name = "LeadOwnerReferenceError";
+  }
+}
+
 export class LeadNotFoundError extends Error {
   constructor(leadId: string) {
     super(`Lead "${leadId}" was not found in this organization`);
