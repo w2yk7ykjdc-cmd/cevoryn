@@ -12,6 +12,7 @@ import { recordAuditLog } from "@/server/audit/audit-log";
 import { accessControl, roles } from "@/server/auth/permissions";
 import { seedDefaultPipelineStages } from "@/server/leads/pipeline";
 import { provisionDefaultSubscription } from "@/server/billing/subscription";
+import { assertSafeToDeleteAccount } from "@/server/organizations/lifecycle";
 
 /**
  * Server-side Better Auth instance. This is the single source of truth for
@@ -37,6 +38,17 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: false,
     minPasswordLength: 10,
+  },
+  user: {
+    deleteUser: {
+      enabled: true,
+      async beforeDelete(user) {
+        await assertSafeToDeleteAccount(user.id);
+      },
+      async afterDelete(user) {
+        logger.warn({ userId: user.id }, "user account permanently deleted");
+      },
+    },
   },
   socialProviders: {
     ...(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
@@ -67,6 +79,14 @@ export const auth = betterAuth({
       roles,
       creatorRole: "owner",
       invitationExpiresIn: 60 * 60 * 24 * 7, // 7 days
+      // Better Auth's own /organization/delete endpoint accepts nothing but
+      // an id — no confirmation, no billing awareness. Deletion is a
+      // permanent, whole-tenant-destroying action, so it's disabled here
+      // entirely; `deleteOrganization` (src/server/organizations/lifecycle.ts),
+      // called only from `deleteOrganizationAction`, is the sole supported
+      // path — it requires typed slug confirmation and cancels any live
+      // Stripe subscription before anything is deleted.
+      disableOrganizationDeletion: true,
       dynamicAccessControl: {
         enabled: true,
       },

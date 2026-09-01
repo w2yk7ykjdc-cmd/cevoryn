@@ -18,6 +18,13 @@ export class AgentRunNotResumableError extends Error {
   }
 }
 
+export class AgentRunOrphanedUserError extends Error {
+  constructor(agentRunId: string) {
+    super(`Agent run "${agentRunId}" cannot be resumed — the user who started it no longer has an account.`);
+    this.name = "AgentRunOrphanedUserError";
+  }
+}
+
 export class ApprovalNotResolvedError extends Error {
   constructor(approvalId: string) {
     super(`Approval "${approvalId}" is still pending a decision`);

@@ -18,3 +18,14 @@ export function getPaymentProvider(): PaymentProvider {
 export function isBillingConfigured(): boolean {
   return Boolean(env.STRIPE_SECRET_KEY);
 }
+
+/**
+ * Whether inbound Stripe webhooks can be verified. Checked separately from
+ * `isBillingConfigured()`: a deployment can have `STRIPE_SECRET_KEY` set
+ * (checkout/portal work fine) while `STRIPE_WEBHOOK_SECRET` is missing —
+ * that combination must fail loudly at the webhook route rather than
+ * quietly rejecting every event as an "invalid signature".
+ */
+export function isWebhookVerificationConfigured(): boolean {
+  return Boolean(env.STRIPE_SECRET_KEY) && Boolean(env.STRIPE_WEBHOOK_SECRET);
+}

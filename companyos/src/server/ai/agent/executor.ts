@@ -12,6 +12,7 @@ import { logger } from "@/server/logger/logger";
 import {
   AgentRunNotFoundError,
   AgentRunNotResumableError,
+  AgentRunOrphanedUserError,
   ApprovalNotResolvedError,
   type AgentRunWithSteps,
 } from "@/server/ai/agent/types";
@@ -132,6 +133,14 @@ export async function continueAgentRun(input: ContinueAgentRunInput): Promise<Ag
   });
   if (blockedStep?.approval && blockedStep.approval.status === "pending") {
     throw new ApprovalNotResolvedError(blockedStep.approval.id);
+  }
+
+  // `userId` is nullable on AgentRun (SetNull if the initiating user's
+  // account is later deleted, so the run's history survives) — but
+  // `runFromPendingSteps` attributes further tool calls/audit entries to a
+  // real user, so a run orphaned this way cannot be resumed.
+  if (!run.userId) {
+    throw new AgentRunOrphanedUserError(run.id);
   }
 
   return runFromPendingSteps({

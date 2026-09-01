@@ -177,4 +177,68 @@ describe("billing: subscription provisioning + Stripe lifecycle", () => {
     const stored = await prisma.billingWebhookEvent.findMany({ where: { id: event.id } });
     expect(stored).toHaveLength(1);
   });
+
+  it("applyWebhookEvent redelivering an already-applied subscription update does not write a second audit entry", async () => {
+    const owner = await signUpUser();
+    const organization = await createOrgForUser(owner);
+    const customerId = `cus_${organization.id}`;
+    const subscriptionId = `sub_${organization.id}`;
+    await applyWebhookEvent({
+      id: `evt_checkout_${organization.id}`,
+      type: "checkout.session.completed",
+      data: { object: { client_reference_id: organization.id, customer: customerId, subscription: subscriptionId } },
+    });
+
+    const proPlan = await prisma.plan.findUniqueOrThrow({ where: { tier: "pro" } });
+    const event: WebhookEvent = {
+      id: `evt_update_dup_${organization.id}`,
+      type: "customer.subscription.updated",
+      data: {
+        object: {
+          id: subscriptionId,
+          customer: customerId,
+          status: "active",
+          items: { data: [{ price: { id: proPlan.stripePriceId } }] },
+        },
+      },
+    };
+
+    await applyWebhookEvent(event);
+    await applyWebhookEvent(event); // redelivery of the exact same, already-applied event
+
+    const auditEntries = await prisma.auditLog.findMany({
+      where: { organizationId: organization.id, action: "billing.subscription_updated" },
+    });
+    expect(auditEntries).toHaveLength(1);
+  });
+
+  it("applyWebhookEvent rolls back the idempotency record when processing fails, so a Stripe retry is genuinely reprocessed", async () => {
+    // A subscription webhook for an organization whose Subscription row
+    // doesn't exist (client_reference_id points nowhere) makes the DB
+    // update inside the transaction throw — proving the whole transaction,
+    // including the `BillingWebhookEvent` insert, rolls back together.
+    const event: WebhookEvent = {
+      id: "evt_processing_failure_test",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          client_reference_id: "org-that-does-not-exist",
+          customer: "cus_orphan",
+          subscription: "sub_orphan",
+        },
+      },
+    };
+
+    await expect(applyWebhookEvent(event)).rejects.toThrow();
+
+    const afterFirstAttempt = await prisma.billingWebhookEvent.findUnique({ where: { id: event.id } });
+    expect(afterFirstAttempt).toBeNull();
+
+    // Simulating Stripe's retry: the same event, still failing the same
+    // way, must be genuinely reprocessed (and fail again) — not silently
+    // reported as an already-handled duplicate.
+    await expect(applyWebhookEvent(event)).rejects.toThrow();
+    const afterRetry = await prisma.billingWebhookEvent.findUnique({ where: { id: event.id } });
+    expect(afterRetry).toBeNull();
+  });
 });
