@@ -1,14 +1,24 @@
 "use client";
 
-import { Loader2, Plus, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  Pause,
+  Play,
+  Plus,
+  X,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { handleUnauthorized } from "@/lib/client-auth";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +27,10 @@ interface WatchedEntityRow {
   name: string;
   domain: string | null;
   watchReason: string;
+  isPaused: boolean;
+  priority: number;
+  tags: string[];
+  notes: string;
 }
 
 type WatchReason =
@@ -25,6 +39,17 @@ type WatchReason =
 interface WatchlistManagerProps {
   canManage: boolean;
   initialEntities: WatchedEntityRow[];
+}
+
+function toCsv(values: string[]): string {
+  return values.join(", ");
+}
+
+function fromCsv(value: string): string[] {
+  return value
+    .split(",")
+    .map((v) => v.trim())
+    .filter((v) => v.length > 0);
 }
 
 export function WatchlistManager({
@@ -36,8 +61,20 @@ export function WatchlistManager({
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
   const [watchReason, setWatchReason] = useState<WatchReason>("PROSPECT");
+  const [priority, setPriority] = useState(5);
+  const [tags, setTags] = useState("");
+  const [notes, setNotes] = useState("");
+  const [showAddAdvanced, setShowAddAdvanced] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [pausingId, setPausingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<{
+    priority: number;
+    tags: string;
+    notes: string;
+  } | null>(null);
 
   async function addEntity() {
     if (!name.trim()) return;
@@ -50,6 +87,9 @@ export function WatchlistManager({
           name: name.trim(),
           domain: domain.trim() || null,
           watchReason,
+          priority,
+          tags: fromCsv(tags),
+          notes: notes.trim(),
           metadata: {},
         }),
       });
@@ -71,11 +111,18 @@ export function WatchlistManager({
           name: data.data.name,
           domain: data.data.domain,
           watchReason: data.data.watchReason,
+          isPaused: data.data.isPaused,
+          priority: data.data.priority,
+          tags: data.data.tags,
+          notes: data.data.notes,
         },
         ...prev,
       ]);
       setName("");
       setDomain("");
+      setPriority(5);
+      setTags("");
+      setNotes("");
       toast.success(t("added"));
     } catch (_error) {
       toast.error(t("addFailed"));
@@ -99,6 +146,77 @@ export function WatchlistManager({
       toast.error(error instanceof Error ? error.message : t("removeFailed"));
     } finally {
       setRemovingId(null);
+    }
+  }
+
+  async function togglePause(entity: WatchedEntityRow) {
+    setPausingId(entity.id);
+    try {
+      const response = await fetch(`/api/radar/entities/${entity.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isPaused: !entity.isPaused }),
+      });
+      if (handleUnauthorized(response)) return;
+      if (!response.ok) throw new Error(t("updateFailed"));
+
+      setEntities((prev) =>
+        prev.map((e) =>
+          e.id === entity.id ? { ...e, isPaused: !entity.isPaused } : e
+        )
+      );
+      toast.success(entity.isPaused ? t("resumed") : t("paused"));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("updateFailed"));
+    } finally {
+      setPausingId(null);
+    }
+  }
+
+  function startEdit(entity: WatchedEntityRow) {
+    setEditingId(entity.id);
+    setEditDraft({
+      priority: entity.priority,
+      tags: toCsv(entity.tags),
+      notes: entity.notes,
+    });
+  }
+
+  async function saveEdit(id: string) {
+    if (!editDraft) return;
+    setSavingId(id);
+    try {
+      const response = await fetch(`/api/radar/entities/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          priority: editDraft.priority,
+          tags: fromCsv(editDraft.tags),
+          notes: editDraft.notes.trim(),
+        }),
+      });
+      if (handleUnauthorized(response)) return;
+      if (!response.ok) throw new Error(t("updateFailed"));
+
+      setEntities((prev) =>
+        prev.map((e) =>
+          e.id === id
+            ? {
+                ...e,
+                priority: editDraft.priority,
+                tags: fromCsv(editDraft.tags),
+                notes: editDraft.notes.trim(),
+              }
+            : e
+        )
+      );
+      setEditingId(null);
+      setEditDraft(null);
+      toast.success(t("updated"));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("updateFailed"));
+    } finally {
+      setSavingId(null);
     }
   }
 
@@ -150,6 +268,63 @@ export function WatchlistManager({
               </select>
             </div>
 
+            <button
+              type="button"
+              onClick={() => setShowAddAdvanced((prev) => !prev)}
+              className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+            >
+              {showAddAdvanced ? (
+                <ChevronUp className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5" />
+              )}
+              {showAddAdvanced ? t("hideAdvanced") : t("showAdvanced")}
+            </button>
+
+            {showAddAdvanced ? (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="watchlist-priority">{t("priority")}</Label>
+                  <Input
+                    id="watchlist-priority"
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={priority}
+                    disabled={isAdding}
+                    onChange={(event) =>
+                      setPriority(
+                        Math.min(
+                          10,
+                          Math.max(1, Number(event.target.value) || 5)
+                        )
+                      )
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="watchlist-tags">{t("tags")}</Label>
+                  <Input
+                    id="watchlist-tags"
+                    value={tags}
+                    disabled={isAdding}
+                    placeholder={t("listFieldHint")}
+                    onChange={(event) => setTags(event.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="watchlist-notes">{t("notes")}</Label>
+                  <Textarea
+                    id="watchlist-notes"
+                    value={notes}
+                    disabled={isAdding}
+                    rows={2}
+                    onChange={(event) => setNotes(event.target.value)}
+                  />
+                </div>
+              </div>
+            ) : null}
+
             <Button
               type="button"
               onClick={addEntity}
@@ -176,31 +351,156 @@ export function WatchlistManager({
         <Card>
           <CardContent className="divide-y p-0">
             {entities.map((entity) => (
-              <div
-                key={entity.id}
-                className="flex items-center justify-between gap-2 p-3"
-              >
-                <div>
-                  <p className="text-sm font-medium">{entity.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {entity.watchReason}
-                    {entity.domain ? ` · ${entity.domain}` : ""}
-                  </p>
+              <div key={entity.id} className="p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-medium">
+                        {entity.name}
+                      </p>
+                      {entity.isPaused ? (
+                        <Badge variant="secondary">{t("pausedBadge")}</Badge>
+                      ) : null}
+                      <Badge variant="outline">P{entity.priority}</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {entity.watchReason}
+                      {entity.domain ? ` · ${entity.domain}` : ""}
+                    </p>
+                    {entity.tags.length > 0 ? (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {entity.tags.map((tag) => (
+                          <Badge
+                            key={tag}
+                            variant="secondary"
+                            className="font-normal"
+                          >
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                  {canManage ? (
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={pausingId === entity.id}
+                        onClick={() => togglePause(entity)}
+                        aria-label={entity.isPaused ? t("resume") : t("pause")}
+                      >
+                        {pausingId === entity.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : entity.isPaused ? (
+                          <Play className="h-4 w-4" />
+                        ) : (
+                          <Pause className="h-4 w-4" />
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() =>
+                          editingId === entity.id
+                            ? setEditingId(null)
+                            : startEdit(entity)
+                        }
+                      >
+                        {t("edit")}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={removingId === entity.id}
+                        onClick={() => removeEntity(entity.id)}
+                        aria-label={t("remove")}
+                      >
+                        {removingId === entity.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <X className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
-                {canManage ? (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={removingId === entity.id}
-                    onClick={() => removeEntity(entity.id)}
-                    aria-label={t("remove")}
-                  >
-                    {removingId === entity.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <X className="h-4 w-4" />
-                    )}
-                  </Button>
+
+                {editingId === entity.id && editDraft ? (
+                  <div className="mt-3 space-y-3 rounded-md border bg-muted/30 p-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`edit-priority-${entity.id}`}>
+                          {t("priority")}
+                        </Label>
+                        <Input
+                          id={`edit-priority-${entity.id}`}
+                          type="number"
+                          min={1}
+                          max={10}
+                          value={editDraft.priority}
+                          onChange={(event) =>
+                            setEditDraft((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    priority: Math.min(
+                                      10,
+                                      Math.max(
+                                        1,
+                                        Number(event.target.value) || 5
+                                      )
+                                    ),
+                                  }
+                                : prev
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`edit-tags-${entity.id}`}>
+                          {t("tags")}
+                        </Label>
+                        <Input
+                          id={`edit-tags-${entity.id}`}
+                          value={editDraft.tags}
+                          placeholder={t("listFieldHint")}
+                          onChange={(event) =>
+                            setEditDraft((prev) =>
+                              prev
+                                ? { ...prev, tags: event.target.value }
+                                : prev
+                            )
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`edit-notes-${entity.id}`}>
+                        {t("notes")}
+                      </Label>
+                      <Textarea
+                        id={`edit-notes-${entity.id}`}
+                        value={editDraft.notes}
+                        rows={2}
+                        onChange={(event) =>
+                          setEditDraft((prev) =>
+                            prev ? { ...prev, notes: event.target.value } : prev
+                          )
+                        }
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => saveEdit(entity.id)}
+                      disabled={savingId === entity.id}
+                    >
+                      {savingId === entity.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : null}
+                      {t("save")}
+                    </Button>
+                  </div>
                 ) : null}
               </div>
             ))}

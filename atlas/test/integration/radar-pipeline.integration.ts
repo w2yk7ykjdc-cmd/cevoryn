@@ -126,6 +126,9 @@ test("createWatchedEntity rejects a duplicate normalized name within the same or
   await createWatchedEntity(ORG_A_ID, USER_ID, {
     name: "Duplicate Co",
     watchReason: "PROSPECT",
+    priority: 5,
+    tags: [],
+    notes: "",
     metadata: {},
   });
 
@@ -134,7 +137,10 @@ test("createWatchedEntity rejects a duplicate normalized name within the same or
       createWatchedEntity(ORG_A_ID, USER_ID, {
         name: "Duplicate Co, Inc.",
         watchReason: "CUSTOMER",
-        metadata: {},
+        priority: 5,
+    tags: [],
+    notes: "",
+    metadata: {},
       }),
     DuplicateEntityError
   );
@@ -144,11 +150,17 @@ test("the same company name is allowed in two different organizations (no cross-
   const entityA = await createWatchedEntity(ORG_A_ID, USER_ID, {
     name: "Shared Name Co",
     watchReason: "PROSPECT",
+    priority: 5,
+    tags: [],
+    notes: "",
     metadata: {},
   });
   const entityB = await createWatchedEntity(ORG_B_ID, USER_ID, {
     name: "Shared Name Co",
     watchReason: "COMPETITOR",
+    priority: 5,
+    tags: [],
+    notes: "",
     metadata: {},
   });
 
@@ -161,6 +173,9 @@ test("tenant isolation: org A cannot list, update, or see org B's watchlist enti
   const entityB = await createWatchedEntity(ORG_B_ID, USER_ID, {
     name: "Org B Only Co",
     watchReason: "SUPPLIER",
+    priority: 5,
+    tags: [],
+    notes: "",
     metadata: {},
   });
 
@@ -171,9 +186,12 @@ test("tenant isolation: org A cannot list, update, or see org B's watchlist enti
     "org A's list must never contain org B's entity"
   );
 
-  const updateResult = await updateWatchedEntity(ORG_A_ID, entityB.id, {
-    isActive: false,
-  });
+  const updateResult = await updateWatchedEntity(
+    ORG_A_ID,
+    entityB.id,
+    { isActive: false },
+    USER_ID
+  );
   assert.equal(
     updateResult.count,
     0,
@@ -195,6 +213,9 @@ test("idempotent signal ingestion: the (organizationId, hash) unique constraint 
   const entity = await createWatchedEntity(ORG_A_ID, USER_ID, {
     name: "Ingestion Test Co",
     watchReason: "PROSPECT",
+    priority: 5,
+    tags: [],
+    notes: "",
     metadata: {},
   });
 
@@ -233,11 +254,17 @@ test("the same signal hash is independent per organization (no cross-tenant dedu
   const entityA = await createWatchedEntity(ORG_A_ID, USER_ID, {
     name: "Cross Tenant Hash Co A",
     watchReason: "PROSPECT",
+    priority: 5,
+    tags: [],
+    notes: "",
     metadata: {},
   });
   const entityB = await createWatchedEntity(ORG_B_ID, USER_ID, {
     name: "Cross Tenant Hash Co B",
     watchReason: "PROSPECT",
+    priority: 5,
+    tags: [],
+    notes: "",
     metadata: {},
   });
 
@@ -282,6 +309,9 @@ test("full chain: Signal -> Event -> Opportunity -> Action -> Outcome links reso
   const entity = await createWatchedEntity(ORG_A_ID, USER_ID, {
     name: "Full Chain Co",
     watchReason: "PROSPECT",
+    priority: 5,
+    tags: [],
+    notes: "",
     metadata: {},
   });
 
@@ -382,12 +412,18 @@ test("full chain: Signal -> Event -> Opportunity -> Action -> Outcome links reso
   const fetchedFromWrongOrg = await getOpportunity(ORG_B_ID, opportunity.id);
   assert.equal(fetchedFromWrongOrg, null);
 
-  const statusUpdate = await updateOpportunityStatus(ORG_A_ID, opportunity.id, "WON");
+  const statusUpdate = await updateOpportunityStatus(
+    ORG_A_ID,
+    opportunity.id,
+    "WON",
+    USER_ID
+  );
   assert.equal(statusUpdate.count, 1);
   const wrongOrgStatusUpdate = await updateOpportunityStatus(
     ORG_B_ID,
     opportunity.id,
-    "LOST"
+    "LOST",
+    USER_ID
   );
   assert.equal(
     wrongOrgStatusUpdate.count,
@@ -405,6 +441,9 @@ test("cascade delete: removing an Organization removes its entities, signals, ev
   const entity = await createWatchedEntity(orgId, USER_ID, {
     name: "Cascade Co",
     watchReason: "PROSPECT",
+    priority: 5,
+    tags: [],
+    notes: "",
     metadata: {},
   });
   const signal = await prisma.externalSignal.create({

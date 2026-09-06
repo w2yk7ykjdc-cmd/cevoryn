@@ -2,6 +2,7 @@ import "server-only";
 
 import type { Prisma } from "@prisma/client";
 
+import { recordAuditEvent } from "@/features/enterprise/audit/audit.service";
 import { prisma } from "@/lib/prisma";
 
 import { normalizeCompanyName } from "./entity-normalization";
@@ -21,7 +22,7 @@ export async function listWatchedEntities(
       organizationId,
       ...(options.includeInactive ? {} : { isActive: true }),
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ priority: "asc" }, { createdAt: "desc" }],
   });
 }
 
@@ -53,7 +54,7 @@ export async function createWatchedEntity(
   });
   if (existing) throw new DuplicateEntityError(input.name);
 
-  return prisma.externalEntity.create({
+  const entity = await prisma.externalEntity.create({
     data: {
       organizationId,
       addedByUserId,
@@ -63,17 +64,33 @@ export async function createWatchedEntity(
       industry: input.industry ?? null,
       country: input.country ?? null,
       watchReason: input.watchReason,
+      priority: input.priority,
+      tags: input.tags,
+      notes: input.notes,
       metadata: input.metadata as Prisma.InputJsonValue,
     },
   });
+
+  await recordAuditEvent({
+    organizationId,
+    actorType: "USER",
+    actorId: addedByUserId,
+    action: "entity.created",
+    resourceType: "external_entity",
+    resourceId: entity.id,
+    metadata: { name: entity.name, watchReason: entity.watchReason },
+  });
+
+  return entity;
 }
 
 export async function updateWatchedEntity(
   organizationId: string,
   id: string,
-  input: UpdateExternalEntityInput
+  input: UpdateExternalEntityInput,
+  actorUserId: string
 ) {
-  return prisma.externalEntity.updateMany({
+  const result = await prisma.externalEntity.updateMany({
     where: { id, organizationId },
     data: {
       ...(input.domain !== undefined && { domain: input.domain }),
@@ -83,11 +100,29 @@ export async function updateWatchedEntity(
         watchReason: input.watchReason,
       }),
       ...(input.isActive !== undefined && { isActive: input.isActive }),
+      ...(input.isPaused !== undefined && { isPaused: input.isPaused }),
+      ...(input.priority !== undefined && { priority: input.priority }),
+      ...(input.tags !== undefined && { tags: input.tags }),
+      ...(input.notes !== undefined && { notes: input.notes }),
       ...(input.metadata !== undefined && {
         metadata: input.metadata as Prisma.InputJsonValue,
       }),
     },
   });
+
+  if (result.count > 0) {
+    await recordAuditEvent({
+      organizationId,
+      actorType: "USER",
+      actorId: actorUserId,
+      action: "entity.updated",
+      resourceType: "external_entity",
+      resourceId: id,
+      metadata: { fields: Object.keys(input) },
+    });
+  }
+
+  return result;
 }
 
 /**
@@ -98,10 +133,24 @@ export async function updateWatchedEntity(
  */
 export async function deactivateWatchedEntity(
   organizationId: string,
-  id: string
+  id: string,
+  actorUserId: string
 ) {
-  return prisma.externalEntity.updateMany({
+  const result = await prisma.externalEntity.updateMany({
     where: { id, organizationId },
     data: { isActive: false },
   });
+
+  if (result.count > 0) {
+    await recordAuditEvent({
+      organizationId,
+      actorType: "USER",
+      actorId: actorUserId,
+      action: "entity.removed",
+      resourceType: "external_entity",
+      resourceId: id,
+    });
+  }
+
+  return result;
 }

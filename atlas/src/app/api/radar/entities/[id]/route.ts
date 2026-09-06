@@ -69,7 +69,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const result = await updateWatchedEntity(
       membership.organizationId,
       id,
-      parsed.data
+      parsed.data,
+      user.id
     );
     if (result.count === 0) return notFoundResponse("Entity not found");
 
@@ -96,7 +97,11 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
       return forbiddenResponse("Insufficient permissions");
     }
 
-    const result = await deactivateWatchedEntity(membership.organizationId, id);
+    const result = await deactivateWatchedEntity(
+      membership.organizationId,
+      id,
+      user.id
+    );
     if (result.count === 0) return notFoundResponse("Entity not found");
 
     return NextResponse.json({ data: { id, isActive: false } });
