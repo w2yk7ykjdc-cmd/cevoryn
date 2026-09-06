@@ -1,5 +1,6 @@
 import "server-only";
 
+import { fetchWithRetry } from "./fetch-with-retry";
 import type { RawSignal, SignalAdapter, SignalAdapterContext } from "./types";
 
 const FETCH_TIMEOUT_MS = 8_000;
@@ -24,7 +25,9 @@ interface GreenhouseBoardResponse {
  * general way to derive a company's ATS board token from its name/domain
  * alone). Absence of that key is a normal "not configured for this
  * entity", not an error - this is a known, documented MVP limitation
- * rather than an attempt at automatic discovery.
+ * rather than an attempt at automatic discovery. An invalid token or
+ * unknown board returns a 404 from Greenhouse, which resolves here to an
+ * empty array (not retried - see fetchWithRetry's 4xx-vs-5xx distinction).
  */
 export const jobsAdapter: SignalAdapter = {
   name: "jobs_greenhouse",
@@ -36,11 +39,11 @@ export const jobsAdapter: SignalAdapter = {
     const url = `https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(token)}/jobs`;
 
     try {
-      const response = await fetch(url, {
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      const response = await fetchWithRetry(url, {
+        timeoutMs: FETCH_TIMEOUT_MS,
         headers: { Accept: "application/json" },
       });
-      if (!response.ok) return [];
+      if (!response || !response.ok) return [];
 
       const data = (await response.json()) as GreenhouseBoardResponse;
       const jobs = data.jobs ?? [];
