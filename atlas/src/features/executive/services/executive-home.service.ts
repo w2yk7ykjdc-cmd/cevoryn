@@ -90,9 +90,22 @@ export async function loadExecutiveHome(
     prisma.conversation.count({ where: { organizationId: orgId } }),
     prisma.member.count({ where: { organizationId: orgId } }),
     prisma.invite.count({ where: { organizationId: orgId } }),
+    // Isolated from the rest of this Promise.all: this raw query touches a
+    // table that isn't managed through normal Prisma Client calls anywhere
+    // else in the app, so it's the one query here most likely to break
+    // independently of everything else (it has before - see the
+    // GoogleConnection model's comment in schema.prisma). A failure here
+    // must not take down the entire dashboard; it degrades to "not
+    // connected" instead.
     prisma.$queryRaw<Array<{ count: bigint }>>`
       SELECT COUNT(*) AS count FROM "google_connections" WHERE "organization_id" = ${orgId}
-    `,
+    `.catch((error) => {
+      console.error(
+        "[cevoryn:dashboard] google_connections lookup failed",
+        error instanceof Error ? error.message : "unknown error"
+      );
+      return [{ count: 0n }];
+    }),
   ]);
 
   const onboardingProgress = {

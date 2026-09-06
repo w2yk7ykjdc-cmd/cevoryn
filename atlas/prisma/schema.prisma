@@ -49,8 +49,46 @@ model Organization {
   actionExecutions   ActionExecution[]
   auditLogs          AuditLog[]
   pipelineRuns       PipelineRun[]
+  googleConnections  GoogleConnection[]
 
   @@map("organizations")
+}
+
+// =============================================================================
+// GoogleConnection
+//
+// Table predates this schema file (created directly via a raw migration,
+// never previously declared as a Prisma model) and every call site reads/
+// writes it through prisma.$queryRaw/$executeRaw (see src/lib/google-
+// connection.ts and src/app/api/integrations/google/**) rather than the
+// Prisma Client. This model exists ONLY so `prisma migrate dev`'s schema
+// diff sees this table as intentional - without it, Prisma has no record
+// of "google_connections" and proposes dropping it as an orphan on the
+// next migration, which is exactly what happened in the migration that
+// shipped the Radar feature (20260906190948_add_radar_intelligence_layer
+// dropped this table, taking every organization's connected Google
+// account with it, and breaking every dashboard load that queries it).
+// Column/index/constraint shapes below intentionally mirror the original
+// 20260724150000_add_google_connections migration exactly.
+// =============================================================================
+
+model GoogleConnection {
+  id                    String   @id @default(cuid())
+  organizationId        String   @map("organization_id")
+  userId                String   @map("user_id")
+  googleEmail           String   @map("google_email")
+  accessTokenEncrypted  String   @map("access_token_encrypted")
+  refreshTokenEncrypted String?  @map("refresh_token_encrypted")
+  expiresAt             DateTime @map("expires_at")
+  scopes                String
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @default(now()) @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@map("google_connections")
 }
 
 // =============================================================================
