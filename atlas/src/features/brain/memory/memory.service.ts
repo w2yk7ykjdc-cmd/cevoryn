@@ -1,7 +1,13 @@
 import "server-only";
 
+import type { Memory } from "@prisma/client";
+
 import { toMemoryCategory } from "@/lib/enum-validators";
 import { prisma } from "@/lib/prisma";
+import {
+  createKeywordSearchProvider,
+  type SearchProvider,
+} from "@/lib/search/search-provider";
 
 import type { CreateMemoryInput, UpdateMemoryInput } from "./schemas";
 
@@ -68,24 +74,31 @@ export async function listMemories(
 }
 
 /**
- * Search memories by content for contextual retrieval.
- * Uses PostgreSQL ILIKE for text matching.
- * Future: replace with vector similarity search.
+ * Search memories by content for contextual retrieval. Behind the
+ * SearchProvider seam (src/lib/search/search-provider.ts) so a future
+ * SemanticSearchProvider can be substituted here without this function's
+ * callers changing - today it's still exactly the same PostgreSQL ILIKE
+ * query this function always ran.
  */
+const memorySearchProvider: SearchProvider<Memory> =
+  createKeywordSearchProvider((organizationId, query, limit) =>
+    prisma.memory.findMany({
+      where: {
+        organizationId,
+        isActive: true,
+        content: { contains: query, mode: "insensitive" },
+      },
+      orderBy: { confidence: "desc" },
+      take: limit,
+    })
+  );
+
 export async function searchMemories(
   organizationId: string,
   query: string,
   limit: number = 10
 ) {
-  return prisma.memory.findMany({
-    where: {
-      organizationId,
-      isActive: true,
-      content: { contains: query, mode: "insensitive" },
-    },
-    orderBy: { confidence: "desc" },
-    take: limit,
-  });
+  return memorySearchProvider.search(organizationId, query, limit);
 }
 
 /**
