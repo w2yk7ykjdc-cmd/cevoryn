@@ -229,6 +229,14 @@ function buildStructuredProfileContext(
     businessModel: string;
     strategicGoals: string[];
     strategicPriorities: string[];
+    knownCustomers: string[];
+    growthObjectives: string[];
+    preferredOpportunities: string[];
+    excludedOpportunities: string[];
+    companySize: string | null;
+    revenueRange: string | null;
+    preferredCurrency: string;
+    customContext: string;
   } | null
 ): string {
   if (
@@ -268,6 +276,24 @@ function buildStructuredProfileContext(
     lines.push(
       `Strategic priorities: ${profile.strategicPriorities.join(", ")}`
     );
+  if (profile.companySize) lines.push(`Company size: ${profile.companySize}`);
+  if (profile.revenueRange)
+    lines.push(`Revenue range: ${profile.revenueRange}`);
+  lines.push(`Preferred currency: ${profile.preferredCurrency}`);
+  if (profile.knownCustomers.length > 0)
+    lines.push(`Known customers: ${profile.knownCustomers.join(", ")}`);
+  if (profile.growthObjectives.length > 0)
+    lines.push(`Growth objectives: ${profile.growthObjectives.join(", ")}`);
+  if (profile.preferredOpportunities.length > 0)
+    lines.push(
+      `Opportunity types this org wants surfaced: ${profile.preferredOpportunities.join(", ")}`
+    );
+  if (profile.excludedOpportunities.length > 0)
+    lines.push(
+      `Opportunity types this org wants excluded: ${profile.excludedOpportunities.join(", ")}`
+    );
+  if (profile.customContext)
+    lines.push(`Additional context: ${profile.customContext}`);
 
   return lines.join("\n");
 }
