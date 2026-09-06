@@ -84,6 +84,7 @@ export async function launchApprovedAction(
     const subject = text(content.subject) || action.title;
     const body = text(content.body) || action.description;
     window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    await recordExecution(action.id, "MAILTO", "COMPLETED");
     return "Approved. Your email app is opening with the draft.";
   }
 
@@ -101,6 +102,7 @@ export async function launchApprovedAction(
     });
     if (date) params.set("dates", date);
     window.location.href = `https://calendar.google.com/calendar/render?${params.toString()}`;
+    await recordExecution(action.id, "GOOGLE_CALENDAR_EVENT", "COMPLETED");
     return "Approved. Google Calendar is opening with this event.";
   }
 
@@ -112,9 +114,35 @@ export async function launchApprovedAction(
     : `${action.title}\n\n${action.description}`;
 
   const copied = await copyText(executionNote);
+  await recordExecution(
+    action.id,
+    "CLIPBOARD",
+    copied ? "COMPLETED" : "FAILED"
+  );
   return copied
     ? "Approved. Details copied to your clipboard - paste them into your task tool."
     : "Approved. Copy the details from the card to act on them.";
+}
+
+/**
+ * Best-effort execution record for the Action Engine's audit trail
+ * (ActionExecution). Never allowed to affect the user-facing handoff
+ * outcome above - a failed recording is logged, not surfaced.
+ */
+async function recordExecution(
+  preparedActionId: string,
+  channel: "MAILTO" | "CLIPBOARD" | "GOOGLE_CALENDAR_EVENT",
+  status: "COMPLETED" | "FAILED"
+): Promise<void> {
+  try {
+    await fetch(`/api/brain/actions/${preparedActionId}/execute`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ channel, status }),
+    });
+  } catch (_error) {
+    // Non-critical - the approval itself already succeeded.
+  }
 }
 
 async function copyText(value: string): Promise<boolean> {

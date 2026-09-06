@@ -84,3 +84,43 @@ export async function getPendingActionCount(
     where: { organizationId, status: "PENDING" },
   });
 }
+
+/**
+ * Persists what actually happened when an approved action was launched
+ * client-side (action-handoff.ts) - mailto/clipboard/Google draft/Google
+ * calendar all still work exactly as before; this just gives that
+ * existing flow a durable record instead of a fire-and-forget client
+ * action with no server-side trace.
+ */
+export async function recordActionExecution(params: {
+  organizationId: string;
+  preparedActionId: string;
+  channel:
+    | "MAILTO"
+    | "CLIPBOARD"
+    | "GOOGLE_EMAIL_DRAFT"
+    | "GOOGLE_CALENDAR_EVENT"
+    | "RESEARCH_WORKER";
+  status: "COMPLETED" | "FAILED";
+  error?: string;
+}) {
+  const action = await prisma.preparedAction.findFirst({
+    where: {
+      id: params.preparedActionId,
+      organizationId: params.organizationId,
+    },
+    select: { id: true },
+  });
+  if (!action) return null;
+
+  return prisma.actionExecution.create({
+    data: {
+      organizationId: params.organizationId,
+      preparedActionId: params.preparedActionId,
+      channel: params.channel,
+      status: params.status,
+      error: params.error ?? null,
+      completedAt: new Date(),
+    },
+  });
+}

@@ -33,7 +33,12 @@ export async function computeCalibration(organizationId: string): Promise<{
   isCalibrated: boolean;
 }> {
   const evaluations = await prisma.outcomeEvaluation.findMany({
-    where: { organizationId },
+    // decisionId is nullable because this table now also carries Radar
+    // Opportunity outcomes (see prisma/schema.prisma) - confidence
+    // calibration is specifically about Decision Canvas confidence scores,
+    // so Radar-sourced rows must be excluded here, not just filtered out
+    // downstream.
+    where: { organizationId, decisionId: { not: null } },
     orderBy: { createdAt: "desc" },
     take: 50,
     select: {
@@ -50,9 +55,9 @@ export async function computeCalibration(organizationId: string): Promise<{
     };
   }
 
-  const decisionIds = evaluations.map(
-    (e: { decisionId: string }) => e.decisionId
-  );
+  const decisionIds = evaluations
+    .map((e: { decisionId: string | null }) => e.decisionId)
+    .filter((id): id is string => id !== null);
   const decisions = await prisma.decision.findMany({
     where: { id: { in: decisionIds } },
     select: { id: true, canvas: true },
@@ -65,6 +70,7 @@ export async function computeCalibration(organizationId: string): Promise<{
   const dataPoints: CalibrationData[] = [];
 
   for (const eval_ of evaluations) {
+    if (!eval_.decisionId) continue;
     const decision = decisionMap.get(eval_.decisionId);
     if (!decision) continue;
 

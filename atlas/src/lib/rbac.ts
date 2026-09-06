@@ -28,6 +28,10 @@ export const PERMISSIONS = {
 
   // AI
   "ai:use": "Use AI features",
+
+  // Radar (external company/opportunity intelligence)
+  "radar:read": "View Radar entities, events, and opportunities",
+  "radar:manage": "Manage watchlist, company profile, and opportunity status",
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -50,6 +54,8 @@ const ROLE_PERMISSIONS: Record<MemberRole, readonly Permission[]> = {
     "settings:read",
     "settings:update",
     "ai:use",
+    "radar:read",
+    "radar:manage",
   ],
   ADMIN: [
     "org:read",
@@ -62,6 +68,8 @@ const ROLE_PERMISSIONS: Record<MemberRole, readonly Permission[]> = {
     "settings:read",
     "settings:update",
     "ai:use",
+    "radar:read",
+    "radar:manage",
   ],
   MEMBER: [
     "org:read",
@@ -69,6 +77,7 @@ const ROLE_PERMISSIONS: Record<MemberRole, readonly Permission[]> = {
     "dashboard:read",
     "settings:read",
     "ai:use",
+    "radar:read",
   ],
 } as const;
 

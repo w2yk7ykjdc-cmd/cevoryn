@@ -39,6 +39,7 @@ export async function buildContext(params: {
 
   const [
     memberCount,
+    companyProfile,
     memories,
     insights,
     decisions,
@@ -49,6 +50,7 @@ export async function buildContext(params: {
     conversationCount,
   ] = await Promise.all([
     prisma.member.count({ where: { organizationId: orgId } }),
+    prisma.companyProfile.findUnique({ where: { organizationId: orgId } }),
     prisma.memory.findMany({
       where: { organizationId: orgId, isActive: true },
       orderBy: [{ confidence: "desc" }, { updatedAt: "desc" }],
@@ -139,9 +141,11 @@ export async function buildContext(params: {
     recentUsage,
     averageResponseMs: responseTime._avg.durationMs,
   });
+  const profileContext = buildStructuredProfileContext(companyProfile);
   const companyContext = buildCompanyContext(memories, insights, decisions);
   const systemPrompt = buildSystemPrompt(membership, memberCount, [
     telemetryContext,
+    profileContext,
     companyContext,
     ...moduleContexts,
   ]);
@@ -201,6 +205,71 @@ function buildTelemetryContext(params: {
     `Token usage in window: input ${tokens.input}, output ${tokens.output}, total ${tokens.total}`,
     "For questions about the current state, status, activity, usage, or performance, use this telemetry before stored memories. State the measurement window. Never present older memories or snapshots as current data.",
   ].join("\n");
+}
+
+/**
+ * Canonical, user-declared business context (industry, products, target
+ * market, competitors, etc.) - distinct from the emergent/learned context
+ * in buildCompanyContext() below, which comes from chat-derived Memory
+ * rows. This is the structured profile the Radar Opportunity Engine
+ * matches external events against; surfacing it here too means the main
+ * chat gets the same declared context for free.
+ */
+function buildStructuredProfileContext(
+  profile: {
+    description: string;
+    industry: string | null;
+    products: string[];
+    services: string[];
+    targetMarkets: string[];
+    targetCustomers: string;
+    idealCustomerProfile: string;
+    geographies: string[];
+    competitors: string[];
+    businessModel: string;
+    strategicGoals: string[];
+    strategicPriorities: string[];
+  } | null
+): string {
+  if (
+    !profile ||
+    (!profile.description &&
+      profile.products.length === 0 &&
+      profile.services.length === 0)
+  ) {
+    return [
+      "## Company Profile",
+      "No structured company profile has been declared yet (industry, products, target market, etc.). Ask the user to fill this in under Settings > Company Profile before making claims about what the company sells or who it targets.",
+    ].join("\n");
+  }
+
+  const lines = ["## Company Profile (user-declared, canonical)"];
+  if (profile.description) lines.push(`Description: ${profile.description}`);
+  if (profile.industry) lines.push(`Industry: ${profile.industry}`);
+  if (profile.products.length > 0)
+    lines.push(`Products: ${profile.products.join(", ")}`);
+  if (profile.services.length > 0)
+    lines.push(`Services: ${profile.services.join(", ")}`);
+  if (profile.targetMarkets.length > 0)
+    lines.push(`Target markets: ${profile.targetMarkets.join(", ")}`);
+  if (profile.targetCustomers)
+    lines.push(`Target customers: ${profile.targetCustomers}`);
+  if (profile.idealCustomerProfile)
+    lines.push(`Ideal customer profile: ${profile.idealCustomerProfile}`);
+  if (profile.geographies.length > 0)
+    lines.push(`Geographies: ${profile.geographies.join(", ")}`);
+  if (profile.competitors.length > 0)
+    lines.push(`Known competitors: ${profile.competitors.join(", ")}`);
+  if (profile.businessModel)
+    lines.push(`Business model: ${profile.businessModel}`);
+  if (profile.strategicGoals.length > 0)
+    lines.push(`Strategic goals: ${profile.strategicGoals.join(", ")}`);
+  if (profile.strategicPriorities.length > 0)
+    lines.push(
+      `Strategic priorities: ${profile.strategicPriorities.join(", ")}`
+    );
+
+  return lines.join("\n");
 }
 
 function buildCompanyContext(

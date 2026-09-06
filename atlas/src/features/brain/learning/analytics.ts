@@ -60,10 +60,15 @@ export async function getRecommendationHistory(
   });
 
   const evalMap = new Map(
-    evaluations.map((e: { decisionId: string; outcomeScore: number }) => [
-      e.decisionId,
-      e.outcomeScore,
-    ])
+    evaluations
+      .filter(
+        (e: { decisionId: string | null; outcomeScore: number }) =>
+          e.decisionId !== null
+      )
+      .map((e: { decisionId: string | null; outcomeScore: number }) => [
+        e.decisionId as string,
+        e.outcomeScore,
+      ])
   );
 
   return decisions.flatMap(

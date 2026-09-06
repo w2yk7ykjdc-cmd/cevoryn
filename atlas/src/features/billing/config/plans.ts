@@ -11,6 +11,7 @@ export const BILLING_FEATURES = [
   "TEAM",
   "ADVANCED_RBAC",
   "PRIORITY_SUPPORT",
+  "RADAR",
 ] as const;
 
 export type BillingFeature = (typeof BILLING_FEATURES)[number];
@@ -62,6 +63,7 @@ export const PLAN_CONFIG: Record<BillingPlan, PlanDefinition> = {
       "BRAIN",
       "ADVANCED_REPORTS",
       "TEAM",
+      "RADAR",
     ]),
   },
   BUSINESS: {
@@ -80,6 +82,7 @@ export const PLAN_CONFIG: Record<BillingPlan, PlanDefinition> = {
       "TEAM",
       "ADVANCED_RBAC",
       "PRIORITY_SUPPORT",
+      "RADAR",
     ]),
   },
 };
@@ -137,4 +140,8 @@ export function canUseBrain(plan: BillingPlan): boolean {
 
 export function canGenerateReport(plan: BillingPlan): boolean {
   return hasFeature(plan, "ADVANCED_REPORTS");
+}
+
+export function canUseRadar(plan: BillingPlan): boolean {
+  return hasFeature(plan, "RADAR");
 }

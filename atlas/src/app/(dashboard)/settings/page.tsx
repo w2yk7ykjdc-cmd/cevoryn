@@ -2,6 +2,7 @@ import {
   Building2,
   CreditCard,
   Link2,
+  Radar,
   Shield,
   ShieldAlert,
 } from "lucide-react";
@@ -179,6 +180,25 @@ export default async function SettingsPage() {
           />
         </CardContent>
       </Card>
+
+      {hasPermission(membership.role, "radar:read") ? (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Radar className="h-4 w-4" />
+              {t("companyProfile.title")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Link
+              href="/settings/company-profile"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              {t("companyProfile.title")}
+            </Link>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader className="pb-3">

@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import type { MembershipContext, OrganizationMembershipOption } from "@/types";
 
+import { NotificationBell } from "./notification-bell";
 import { OrganizationSwitcher } from "./organization-switcher";
 
 interface HeaderProps {
@@ -59,6 +60,8 @@ export function Header({
       </div>
 
       <div className="relative z-[110] flex items-center gap-2 pr-1">
+        <NotificationBell />
+
         <Link
           href="/profile"
           prefetch

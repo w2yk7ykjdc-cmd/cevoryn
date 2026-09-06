@@ -9,6 +9,7 @@ import {
   MessageCircle,
   MessageSquare,
   Newspaper,
+  Radar as RadarIcon,
   Settings,
   Users,
 } from "lucide-react";
@@ -48,6 +49,13 @@ const NAV_ITEMS = [
   { labelKey: "health", href: "/health", icon: Activity, group: "overview" },
   { labelKey: "chat", href: "/chat", icon: MessageSquare, group: "overview" },
   {
+    labelKey: "radar",
+    href: "/radar",
+    icon: RadarIcon,
+    radarOnly: true,
+    group: "overview",
+  },
+  {
     labelKey: "analytics",
     href: "/analytics",
     icon: BarChart3,
@@ -86,10 +94,13 @@ export function Sidebar({ membership, onNavigate }: SidebarProps) {
   const router = useRouter();
   const t = useTranslations("nav");
   const canViewAnalytics = hasPermission(membership.role, "analytics:read");
+  const canViewRadar = hasPermission(membership.role, "radar:read");
 
-  const visibleItems = NAV_ITEMS.filter(
-    (item) => !("adminOnly" in item && item.adminOnly) || canViewAnalytics
-  );
+  const visibleItems = NAV_ITEMS.filter((item) => {
+    if ("adminOnly" in item && item.adminOnly) return canViewAnalytics;
+    if ("radarOnly" in item && item.radarOnly) return canViewRadar;
+    return true;
+  });
 
   useEffect(() => {
     for (const item of visibleItems) {
@@ -97,7 +108,7 @@ export function Sidebar({ membership, onNavigate }: SidebarProps) {
         router.prefetch(item.href);
       }
     }
-  }, [pathname, router, canViewAnalytics]);
+  }, [pathname, router, canViewAnalytics, canViewRadar]);
 
   return (
     <aside className="flex h-full w-64 flex-col border-r bg-card">
