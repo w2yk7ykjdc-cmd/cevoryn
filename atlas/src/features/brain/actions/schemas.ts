@@ -14,3 +14,21 @@ export const updateActionStatusSchema = z.object({
 });
 
 export type UpdateActionStatusInput = z.infer<typeof updateActionStatusSchema>;
+
+export const actionExecutionChannels = [
+  "MAILTO",
+  "CLIPBOARD",
+  "GOOGLE_EMAIL_DRAFT",
+  "GOOGLE_CALENDAR_EVENT",
+  "RESEARCH_WORKER",
+] as const;
+
+export const recordActionExecutionSchema = z.object({
+  channel: z.enum(actionExecutionChannels),
+  status: z.enum(["COMPLETED", "FAILED"]).default("COMPLETED"),
+  error: z.string().trim().max(500).optional(),
+});
+
+export type RecordActionExecutionInput = z.infer<
+  typeof recordActionExecutionSchema
+>;

@@ -150,3 +150,88 @@ type MemoryCategory = (typeof MEMORY_CATEGORIES)[number];
 export function toMemoryCategory(value: string): MemoryCategory | null {
   return isEnumValue(MEMORY_CATEGORIES, value) ? value : null;
 }
+
+// =============================================================================
+// Radar enums
+// =============================================================================
+
+const WATCH_REASONS = [
+  "PROSPECT",
+  "CUSTOMER",
+  "COMPETITOR",
+  "SUPPLIER",
+  "OTHER",
+] as const;
+type WatchReason = (typeof WATCH_REASONS)[number];
+
+export function toWatchReason(value: string): WatchReason | null {
+  return isEnumValue(WATCH_REASONS, value) ? value : null;
+}
+
+const EXTERNAL_EVENT_STATUSES = ["NEW", "ANALYZED", "DISMISSED"] as const;
+type ExternalEventStatus = (typeof EXTERNAL_EVENT_STATUSES)[number];
+
+export function toExternalEventStatus(
+  value: string
+): ExternalEventStatus | null {
+  return isEnumValue(EXTERNAL_EVENT_STATUSES, value) ? value : null;
+}
+
+export const EXTERNAL_EVENT_TYPES = [
+  "HIRING_ACCELERATION",
+  "HIRING_DECLINE",
+  "EXPANSION",
+  "NEW_FACILITY",
+  "LEADERSHIP_CHANGE",
+  "FUNDING",
+  "ACQUISITION",
+  "PRODUCT_LAUNCH",
+  "PARTNERSHIP",
+  "PROCUREMENT",
+  "MARKET_ENTRY",
+  "REGULATORY_CHANGE",
+] as const;
+export type ExternalEventType = (typeof EXTERNAL_EVENT_TYPES)[number];
+
+export function toExternalEventType(value: string): ExternalEventType | null {
+  return isEnumValue(EXTERNAL_EVENT_TYPES, value) ? value : null;
+}
+
+const OPPORTUNITY_STATUSES = [
+  "NEW",
+  "REVIEWING",
+  "QUALIFIED",
+  "ACTED_ON",
+  "WON",
+  "LOST",
+  "DISMISSED",
+] as const;
+type OpportunityStatus = (typeof OPPORTUNITY_STATUSES)[number];
+
+export function toOpportunityStatus(value: string): OpportunityStatus | null {
+  return isEnumValue(OPPORTUNITY_STATUSES, value) ? value : null;
+}
+
+const OPPORTUNITY_POLARITIES = ["OPPORTUNITY", "THREAT"] as const;
+export type OpportunityPolarity = (typeof OPPORTUNITY_POLARITIES)[number];
+
+export function toOpportunityPolarity(
+  value: string
+): OpportunityPolarity | null {
+  return isEnumValue(OPPORTUNITY_POLARITIES, value) ? value : null;
+}
+
+const ACTION_EXECUTION_CHANNELS = [
+  "MAILTO",
+  "CLIPBOARD",
+  "GOOGLE_EMAIL_DRAFT",
+  "GOOGLE_CALENDAR_EVENT",
+  "RESEARCH_WORKER",
+] as const;
+export type ActionExecutionChannel = (typeof ACTION_EXECUTION_CHANNELS)[number];
+
+export function toActionExecutionChannel(
+  value: string
+): ActionExecutionChannel | null {
+  return isEnumValue(ACTION_EXECUTION_CHANNELS, value) ? value : null;
+}

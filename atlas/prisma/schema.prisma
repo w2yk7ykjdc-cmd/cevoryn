@@ -39,6 +39,14 @@ model Organization {
   learningPatterns   LearningPattern[]
   analyticsEvents    AnalyticsEvent[]
   subscription       Subscription?
+  companyProfile     CompanyProfile?
+  externalEntities   ExternalEntity[]
+  externalSignals    ExternalSignal[]
+  externalEvents     ExternalEvent[]
+  opportunities      Opportunity[]
+  notifications      Notification[]
+  researchTasks      ResearchTask[]
+  actionExecutions   ActionExecution[]
 
   @@map("organizations")
 }
@@ -346,23 +354,32 @@ enum ActionStatus {
 }
 
 model PreparedAction {
-  id              String       @id @default(cuid())
-  organizationId  String       @map("organization_id")
-  type            ActionType
-  title           String
-  description     String
-  content         Json
-  status          ActionStatus @default(PENDING)
-  sourceInsightId String?      @map("source_insight_id")
-  confidence      Float        @default(0.5)
-  reasoning       String       @default("")
-  createdAt       DateTime     @default(now()) @map("created_at")
-  updatedAt       DateTime     @updatedAt @map("updated_at")
+  id                  String       @id @default(cuid())
+  organizationId      String       @map("organization_id")
+  type                ActionType
+  title               String
+  description         String
+  content             Json
+  status              ActionStatus @default(PENDING)
+  sourceInsightId     String?      @map("source_insight_id")
+  /// Set when this action was generated from the Radar Opportunity Engine
+  /// rather than the Brain Insight Engine - the two source fields are
+  /// intentionally both optional/independent rather than a single
+  /// polymorphic column, matching how the rest of this schema models
+  /// optional provenance (e.g. Memory.sourceId).
+  sourceOpportunityId String?      @map("source_opportunity_id")
+  confidence          Float        @default(0.5)
+  reasoning           String       @default("")
+  createdAt           DateTime     @default(now()) @map("created_at")
+  updatedAt           DateTime     @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunity  Opportunity?      @relation(fields: [sourceOpportunityId], references: [id], onDelete: SetNull)
+  executions   ActionExecution[]
 
   @@index([organizationId, status])
   @@index([organizationId, createdAt(sort: Desc)])
+  @@index([sourceOpportunityId])
   @@map("prepared_actions")
 }
 
@@ -443,7 +460,15 @@ enum OutcomeResult {
 model OutcomeEvaluation {
   id             String        @id @default(cuid())
   organizationId String        @map("organization_id")
-  decisionId     String        @map("decision_id")
+  /// Nullable: an outcome evaluation is recorded against EITHER a Decision
+  /// OR a Radar Opportunity (enforced at the service layer, not the DB -
+  /// consistent with how other optional provenance fields in this schema,
+  /// e.g. Memory.sourceId, are not DB-constrained either). Made nullable
+  /// (was required) so the existing Decision outcome-evaluation pipeline
+  /// is unaffected while Radar reuses the same table instead of a
+  /// duplicate outcome-tracking system.
+  decisionId     String?       @map("decision_id")
+  opportunityId  String?       @map("opportunity_id")
   result         OutcomeResult
   outcomeScore   Float         @map("outcome_score")
   confidence     Float         @default(0.5)
@@ -452,9 +477,11 @@ model OutcomeEvaluation {
   createdAt      DateTime      @default(now()) @map("created_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunity  Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, createdAt(sort: Desc)])
   @@index([decisionId])
+  @@index([opportunityId])
   @@map("outcome_evaluations")
 }
 
@@ -568,4 +595,367 @@ model AuthRateLimitAttempt {
 
   @@index([action, key, createdAt])
   @@map("auth_rate_limit_attempts")
+}
+
+// =============================================================================
+// Radar: Structured Company Profile
+//
+// Canonical, user-declared context about what this organization's business
+// actually is - distinct from Memory, which stays the emergent/learned
+// context extracted from chat. The Opportunity Engine matches external
+// Events against this structured profile; Memory alone was too unstructured
+// to match against reliably.
+// =============================================================================
+
+model CompanyProfile {
+  id                   String   @id @default(cuid())
+  organizationId       String   @unique @map("organization_id")
+  description          String   @default("")
+  industry             String?
+  products             String[] @default([])
+  services             String[] @default([])
+  targetMarkets        String[] @default([]) @map("target_markets")
+  targetCustomers      String   @default("") @map("target_customers")
+  idealCustomerProfile String   @default("") @map("ideal_customer_profile")
+  geographies          String[] @default([])
+  competitors          String[] @default([])
+  suppliers            String[] @default([])
+  businessModel        String   @default("") @map("business_model")
+  averageDealSize      Float?   @map("average_deal_size")
+  strategicGoals       String[] @default([]) @map("strategic_goals")
+  strategicPriorities  String[] @default([]) @map("strategic_priorities")
+  capabilities         String[] @default([])
+  constraints          String[] @default([])
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("company_profiles")
+}
+
+// =============================================================================
+// Radar: External Entity System
+//
+// Tracked external companies (the org's own watchlist - prospects,
+// customers, competitors, suppliers). `type` is COMPANY-only today but kept
+// as an enum specifically so PERSON/PRODUCT/MARKET/TECHNOLOGY can be added
+// later without a new model. Each row is org-scoped (not a shared global
+// company registry), so no cross-tenant entity-resolution problem exists at
+// this stage - two orgs watching "the same" real company simply get two
+// independent rows, which is correct for MVP scope.
+// =============================================================================
+
+enum ExternalEntityType {
+  COMPANY
+}
+
+enum WatchReason {
+  PROSPECT
+  CUSTOMER
+  COMPETITOR
+  SUPPLIER
+  OTHER
+}
+
+model ExternalEntity {
+  id             String             @id @default(cuid())
+  organizationId String             @map("organization_id")
+  type           ExternalEntityType @default(COMPANY)
+  name           String
+  normalizedName String             @map("normalized_name")
+  domain         String?
+  industry       String?
+  country        String?
+  watchReason    WatchReason        @map("watch_reason")
+  isActive       Boolean            @default(true) @map("is_active")
+  addedByUserId  String             @map("added_by_user_id")
+  /// Per-entity adapter configuration, e.g. { "greenhouseToken": "acme" }
+  /// for the Jobs adapter. Absence of a key means that adapter is simply
+  /// not configured for this entity - not an error.
+  metadata       Json               @default("{}")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  organization  Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  signals       ExternalSignal[]
+  events        ExternalEvent[]
+  opportunities Opportunity[]
+
+  @@unique([organizationId, normalizedName])
+  @@index([organizationId, isActive])
+  @@map("external_entities")
+}
+
+// =============================================================================
+// Radar: External Signal Layer
+//
+// Raw ingested items, normalized just enough to dedupe and route - NOT yet
+// interpreted. `hash` (sha256 of source+sourceUrl+title) plus the unique
+// constraint below is what makes re-ingestion idempotent: a re-run of the
+// same adapter over the same feed silently no-ops on already-seen items
+// instead of creating duplicates or re-processing them.
+// =============================================================================
+
+enum SignalSourceType {
+  JOB_POSTING
+  PRESS_RELEASE
+  SEC_FILING
+}
+
+enum SignalStatus {
+  PENDING
+  PROCESSED
+  IGNORED
+  FAILED
+}
+
+model ExternalSignal {
+  id               String           @id @default(cuid())
+  organizationId   String           @map("organization_id")
+  externalEntityId String           @map("external_entity_id")
+  source           String
+  sourceType       SignalSourceType @map("source_type")
+  sourceUrl        String           @map("source_url")
+  title            String
+  /// Untrusted external data. Never treated as instructions - see
+  /// event-extractor.ts's prompt-injection handling.
+  rawContent       String           @map("raw_content")
+  publishedAt      DateTime?        @map("published_at")
+  observedAt       DateTime         @default(now()) @map("observed_at")
+  hash             String
+  metadata         Json             @default("{}")
+  status           SignalStatus     @default(PENDING)
+  createdAt        DateTime         @default(now()) @map("created_at")
+
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  externalEntity ExternalEntity @relation(fields: [externalEntityId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, hash])
+  @@index([organizationId, status])
+  @@index([externalEntityId, observedAt(sort: Desc)])
+  @@map("external_signals")
+}
+
+// =============================================================================
+// Radar: Event Engine
+//
+// Structured, LLM-classified events derived from one or more ExternalSignal
+// rows. Shape deliberately mirrors Insight (status lifecycle, evidence Json,
+// confidence) so the Intelligence Engine can treat both uniformly.
+// =============================================================================
+
+enum ExternalEventType {
+  HIRING_ACCELERATION
+  HIRING_DECLINE
+  EXPANSION
+  NEW_FACILITY
+  LEADERSHIP_CHANGE
+  FUNDING
+  ACQUISITION
+  PRODUCT_LAUNCH
+  PARTNERSHIP
+  PROCUREMENT
+  MARKET_ENTRY
+  REGULATORY_CHANGE
+}
+
+enum ExternalEventStatus {
+  NEW
+  ANALYZED
+  DISMISSED
+}
+
+model ExternalEvent {
+  id               String              @id @default(cuid())
+  organizationId   String              @map("organization_id")
+  externalEntityId String              @map("external_entity_id")
+  type             ExternalEventType
+  title            String
+  description      String
+  occurredAt       DateTime            @map("occurred_at")
+  confidence       Float
+  evidence         Json                @default("[]")
+  source           String
+  metadata         Json                @default("{}")
+  status           ExternalEventStatus @default(NEW)
+  createdAt        DateTime            @default(now()) @map("created_at")
+
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  externalEntity ExternalEntity @relation(fields: [externalEntityId], references: [id], onDelete: Cascade)
+  opportunities  Opportunity[]
+
+  @@index([organizationId, status])
+  @@index([externalEntityId, occurredAt(sort: Desc)])
+  @@map("external_events")
+}
+
+// =============================================================================
+// Radar: Opportunity Engine (covers both OPPORTUNITY and THREAT polarity -
+// intentionally one model, not two parallel engines, per the instruction not
+// to duplicate architecture for what is the same shape with an inverted
+// sign)
+// =============================================================================
+
+enum OpportunityPolarity {
+  OPPORTUNITY
+  THREAT
+}
+
+enum OpportunityStatus {
+  NEW
+  REVIEWING
+  QUALIFIED
+  ACTED_ON
+  WON
+  LOST
+  DISMISSED
+}
+
+model Opportunity {
+  id                String              @id @default(cuid())
+  organizationId    String              @map("organization_id")
+  externalEntityId  String              @map("external_entity_id")
+  eventId           String              @map("event_id")
+  polarity          OpportunityPolarity @default(OPPORTUNITY)
+  title             String
+  description       String
+  /// Value estimates are always a range, never a single fake-precise
+  /// figure - both nullable because a low-confidence opportunity may not
+  /// support a value estimate at all yet.
+  estimatedValueMin Float?              @map("estimated_value_min")
+  estimatedValueMax Float?              @map("estimated_value_max")
+  currency          String              @default("EUR")
+  probability       Float
+  confidence        Float
+  strategicFit      Float               @map("strategic_fit")
+  timeHorizon       String              @map("time_horizon")
+  reasoning         String
+  evidence          Json                @default("[]")
+  score             Float
+  scoreBreakdown    Json                @map("score_breakdown")
+  priority          Int                 @default(5)
+  status            OpportunityStatus   @default(NEW)
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  externalEntity     ExternalEntity      @relation(fields: [externalEntityId], references: [id], onDelete: Cascade)
+  event              ExternalEvent       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  preparedActions    PreparedAction[]
+  outcomeEvaluations OutcomeEvaluation[]
+  researchTasks      ResearchTask[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, polarity, createdAt(sort: Desc)])
+  @@index([externalEntityId])
+  @@map("opportunities")
+}
+
+// =============================================================================
+// Radar: Notifications
+// =============================================================================
+
+enum NotificationType {
+  NEW_OPPORTUNITY
+  HIGH_PRIORITY_EVENT
+  THREAT_DETECTED
+  ACTION_REQUIRED
+  ACTION_COMPLETED
+  RESEARCH_COMPLETED
+  SYSTEM_ALERT
+}
+
+model Notification {
+  id             String           @id @default(cuid())
+  organizationId String           @map("organization_id")
+  /// Null = broadcast to the whole organization rather than one member.
+  userId         String?          @map("user_id")
+  type           NotificationType
+  title          String
+  body           String
+  entityType     String?          @map("entity_type")
+  entityId       String?          @map("entity_id")
+  readAt         DateTime?        @map("read_at")
+  metadata       Json             @default("{}")
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, userId, readAt])
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+// =============================================================================
+// Radar: AI Research Worker v1
+// =============================================================================
+
+enum ResearchTaskStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model ResearchTask {
+  id                String             @id @default(cuid())
+  organizationId    String             @map("organization_id")
+  opportunityId     String             @map("opportunity_id")
+  requestedByUserId String             @map("requested_by_user_id")
+  status            ResearchTaskStatus @default(PENDING)
+  brief             String?
+  evidence          Json               @default("[]")
+  error             String?
+  createdAt         DateTime           @default(now()) @map("created_at")
+  completedAt       DateTime?          @map("completed_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunity  Opportunity  @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([opportunityId])
+  @@map("research_tasks")
+}
+
+// =============================================================================
+// Radar: Action Engine extension
+//
+// Records what actually happened after a PreparedAction was approved -
+// PreparedAction itself (title/description/content/status) is unchanged and
+// still drives the existing mailto/clipboard/Google-draft/Google-calendar
+// approval UI (action-handoff.ts); this table just gives that existing flow
+// a persistent execution record instead of a fire-and-forget client action.
+// =============================================================================
+
+enum ActionExecutionChannel {
+  MAILTO
+  CLIPBOARD
+  GOOGLE_EMAIL_DRAFT
+  GOOGLE_CALENDAR_EVENT
+  RESEARCH_WORKER
+}
+
+enum ActionExecutionStatus {
+  STARTED
+  COMPLETED
+  FAILED
+}
+
+model ActionExecution {
+  id               String                 @id @default(cuid())
+  organizationId   String                 @map("organization_id")
+  preparedActionId String                 @map("prepared_action_id")
+  channel          ActionExecutionChannel
+  status           ActionExecutionStatus  @default(STARTED)
+  result           Json?
+  error            String?
+  startedAt        DateTime               @default(now()) @map("started_at")
+  completedAt      DateTime?              @map("completed_at")
+
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  preparedAction PreparedAction @relation(fields: [preparedActionId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, preparedActionId])
+  @@map("action_executions")
 }
