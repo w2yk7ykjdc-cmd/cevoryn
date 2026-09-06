@@ -1,6 +1,13 @@
 "use client";
 
-import { ChevronDown, ChevronUp, Loader2, Search, X } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  Search,
+  X,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -22,6 +29,7 @@ export interface OpportunityCardData {
   confidence: number;
   timeHorizon: string;
   reasoning: string;
+  recommendedAction: string;
   evidence: unknown;
   score: number;
   scoreBreakdown: unknown;
@@ -150,6 +158,18 @@ export function OpportunityCard({
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm leading-relaxed">{opportunity.description}</p>
+
+        {opportunity.recommendedAction ? (
+          <div className="flex items-start gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm">
+            <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-primary">
+                {t("recommendedAction")}
+              </p>
+              <p className="mt-0.5">{opportunity.recommendedAction}</p>
+            </div>
+          </div>
+        ) : null}
 
         <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/40 p-3 text-xs sm:grid-cols-4">
           {valueRange ? (

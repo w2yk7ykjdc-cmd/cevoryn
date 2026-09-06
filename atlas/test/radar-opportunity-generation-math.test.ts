@@ -120,3 +120,23 @@ test("uppercases a lowercase currency code", () => {
     "USD"
   );
 });
+
+test("passes through a well-formed recommendedAction and defaults a missing or invalid one to an empty string", () => {
+  assert.equal(
+    validateGeneratedOpportunity(
+      validOpportunity({ recommendedAction: "Email their procurement lead." })
+    )?.recommendedAction,
+    "Email their procurement lead."
+  );
+  assert.equal(
+    validateGeneratedOpportunity(
+      validOpportunity({ recommendedAction: undefined })
+    )?.recommendedAction,
+    ""
+  );
+  assert.equal(
+    validateGeneratedOpportunity(validOpportunity({ recommendedAction: 42 }))
+      ?.recommendedAction,
+    ""
+  );
+});
