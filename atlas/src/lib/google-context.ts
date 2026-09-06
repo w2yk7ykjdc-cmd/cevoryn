@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getGoogleWorkspaceContext } from "@/lib/google-data";
+import { cleanText } from "@/lib/text";
 
 export async function buildGoogleWorkspacePromptContext(
   organizationId: string,
@@ -22,7 +23,7 @@ export async function buildGoogleWorkspacePromptContext(
           .slice(0, 10)
           .map(
             (email) =>
-              `- [${cleanContextValue(email.date, 80)}] From: ${cleanContextValue(email.from, 160)} | Subject: ${cleanContextValue(email.subject, 180)} | Snippet: ${cleanContextValue(email.snippet, 280)}`
+              `- [${cleanText(email.date, 80)}] From: ${cleanText(email.from, 160)} | Subject: ${cleanText(email.subject, 180)} | Snippet: ${cleanText(email.snippet, 280)}`
           )
       );
     } else {
@@ -39,7 +40,7 @@ export async function buildGoogleWorkspacePromptContext(
           .slice(0, 15)
           .map(
             (event) =>
-              `- ${cleanContextValue(event.start, 80)} to ${cleanContextValue(event.end ?? "unknown", 80)} | ${cleanContextValue(event.title, 180)} | Location: ${cleanContextValue(event.location ?? "not specified", 160)} | Attendees: ${event.attendees.length}`
+              `- ${cleanText(event.start, 80)} to ${cleanText(event.end ?? "unknown", 80)} | ${cleanText(event.title, 180)} | Location: ${cleanText(event.location ?? "not specified", 160)} | Attendees: ${event.attendees.length}`
           )
       );
     } else {
@@ -53,12 +54,4 @@ export async function buildGoogleWorkspacePromptContext(
   } catch (_error) {
     return null;
   }
-}
-
-function cleanContextValue(value: string, maxLength: number): string {
-  return value
-    .replace(/[\r\n\t]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, maxLength);
 }

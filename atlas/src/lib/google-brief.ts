@@ -2,6 +2,7 @@ import "server-only";
 
 import type { BriefSection } from "@/features/brain/core/types";
 import { getGoogleWorkspaceContext } from "@/lib/google-data";
+import { cleanText } from "@/lib/text";
 
 export async function buildGoogleBriefSections(
   organizationId: string,
@@ -23,9 +24,9 @@ export async function buildGoogleBriefSections(
         .map((event) => {
           const time = formatTime(event.start);
           const location = event.location
-            ? ` at ${clean(event.location, 80)}`
+            ? ` at ${cleanText(event.location, 80)}`
             : "";
-          return `${time} ${clean(event.title, 100)}${location}`;
+          return `${time} ${cleanText(event.title, 100)}${location}`;
         })
         .join("; ");
 
@@ -40,7 +41,8 @@ export async function buildGoogleBriefSections(
       const signals = context.emails
         .slice(0, 4)
         .map(
-          (email) => `${clean(email.from, 80)} — ${clean(email.subject, 110)}`
+          (email) =>
+            `${cleanText(email.from, 80)} — ${cleanText(email.subject, 110)}`
         )
         .join("; ");
 
@@ -55,14 +57,6 @@ export async function buildGoogleBriefSections(
   } catch (_error) {
     return [];
   }
-}
-
-function clean(value: string, maxLength: number): string {
-  return value
-    .replace(/[\r\n\t]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, maxLength);
 }
 
 function formatTime(value: string): string {

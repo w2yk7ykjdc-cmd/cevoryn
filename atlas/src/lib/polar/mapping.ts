@@ -61,3 +61,30 @@ export function mapPolarSubscriptionStatus(status: string | undefined): string {
   const upper = status?.toUpperCase();
   return upper && KNOWN_SUBSCRIPTION_STATUSES.has(upper) ? upper : "INCOMPLETE";
 }
+
+// Event shape verified against a real production webhook delivery payload
+// (Polar Dashboard > Webhooks > Deliveries), not the @polar-sh/sdk's
+// camelCase TypeScript types - the SDK converts the wire format to
+// camelCase internally, but the webhook route parses the raw JSON body
+// directly (to verify the Standard Webhooks signature first), so the field
+// names below must match the actual snake_case wire format Polar sends.
+export type PolarSubscriptionEvent = {
+  type: string;
+  timestamp?: string;
+  data: {
+    id?: string;
+    status?: string;
+    customer_id?: string;
+    product_id?: string;
+    current_period_start?: string;
+    current_period_end?: string;
+    cancel_at_period_end?: boolean;
+    metadata?: Record<string, unknown>;
+  };
+};
+
+export function parseDate(value: string | undefined): Date | null {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}

@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { internalErrorResponse } from "@/lib/api-utils";
-import { getMembership, getUser } from "@/lib/auth";
-import { isRoleAtLeast } from "@/lib/rbac";
+import { requireBillingAdmin } from "@/lib/billing-auth";
 import { getSubscriptionIntegrityReport } from "@/server/services/billing.service";
 
 export const dynamic = "force-dynamic";
@@ -16,25 +15,9 @@ export const dynamic = "force-dynamic";
  * SubscriptionIntegrityReport for what's checked.
  */
 export async function GET(): Promise<NextResponse> {
-  const user = await getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
-
-  const membership = await getMembership(user.id);
-  if (!membership) {
-    return NextResponse.json(
-      { error: "Organization membership is required." },
-      { status: 403 }
-    );
-  }
-
-  if (!isRoleAtLeast(membership.role, "ADMIN")) {
-    return NextResponse.json(
-      { error: "Only organization owners and admins can view this." },
-      { status: 403 }
-    );
-  }
+  const auth = await requireBillingAdmin();
+  if (!auth.ok) return auth.response;
+  const { membership } = auth;
 
   try {
     const report = await getSubscriptionIntegrityReport(

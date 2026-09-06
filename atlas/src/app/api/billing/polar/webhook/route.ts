@@ -1,43 +1,14 @@
-import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { Webhook, WebhookVerificationError } from "standardwebhooks";
 
 import { captureServerError } from "@/lib/error-reporting";
 import {
-  getBillingPlanFromPolarProductId,
-  mapPolarSubscriptionStatus,
   SUPPORTED_POLAR_EVENT_TYPES,
+  type PolarSubscriptionEvent,
 } from "@/lib/polar/mapping";
-import { prisma } from "@/lib/prisma";
+import { applyPolarSubscriptionEvent } from "@/server/services/billing.service";
 
 export const runtime = "nodejs";
-
-// Event shapes verified against a real production webhook delivery payload
-// (Polar Dashboard > Webhooks > Deliveries), not the @polar-sh/sdk's
-// camelCase TypeScript types - the SDK converts the wire format to
-// camelCase internally, but this route parses the raw JSON body directly
-// (to verify the Standard Webhooks signature first), so the field names
-// below must match the actual snake_case wire format Polar sends.
-type PolarSubscriptionEvent = {
-  type: string;
-  timestamp?: string;
-  data: {
-    id?: string;
-    status?: string;
-    customer_id?: string;
-    product_id?: string;
-    current_period_start?: string;
-    current_period_end?: string;
-    cancel_at_period_end?: boolean;
-    metadata?: Record<string, unknown>;
-  };
-};
-
-function parseDate(value: string | undefined): Date | null {
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
 
 export async function POST(request: Request): Promise<NextResponse> {
   const rawBody = await request.text();
@@ -124,78 +95,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
-    const processed = await prisma.$transaction(async (transaction) => {
-      const claimed = await transaction.$executeRaw(Prisma.sql`
-        INSERT INTO "billing_webhook_events" ("provider", "event_id", "event_type")
-        VALUES ('polar', ${eventId}, ${event.type})
-        ON CONFLICT ("provider", "event_id") DO NOTHING
-      `);
-      if (claimed === 0) return { processed: false, applied: false };
-
-      const organizationId = event.data.metadata?.organizationId;
-      const productId = event.data.product_id;
-      const plan = productId
-        ? getBillingPlanFromPolarProductId(productId)
-        : null;
-
-      if (
-        typeof organizationId !== "string" ||
-        !event.data.id ||
-        !event.data.customer_id ||
-        !productId ||
-        !plan
-      ) {
-        throw new Error(
-          "Polar subscription event is missing CEVORYN metadata or references an unknown product."
-        );
-      }
-
-      const eventTimestamp = parseDate(event.timestamp);
-
-      // Guards against out-of-order webhook delivery: Polar (like any
-      // webhook provider) does not guarantee events arrive in the order
-      // they occurred - a retried/delayed OLDER event can arrive after a
-      // NEWER event already updated this row. The WHERE clause below keeps
-      // this a single atomic statement (no separate SELECT, no race
-      // between check and write) and only blocks the update when we have
-      // positive evidence the incoming event is older than what's already
-      // stored; it never blocks when either side lacks a timestamp to
-      // compare, so a real update is never silently dropped just because
-      // Polar omitted a timestamp.
-      const updateResult = await transaction.$executeRaw(Prisma.sql`
-        INSERT INTO "subscriptions" (
-          "id", "organization_id", "stripe_customer_id", "plan", "subscription_status",
-          "polar_customer_id", "polar_subscription_id", "polar_product_id",
-          "current_period_start", "current_period_end", "cancel_at_period_end",
-          "last_webhook_event_at", "updated_at"
-        ) VALUES (
-          ${crypto.randomUUID()}, ${organizationId}, ${`polar:${event.data.customer_id}`},
-          ${plan}::"BillingPlan", ${mapPolarSubscriptionStatus(event.data.status)}::"SubscriptionStatus",
-          ${event.data.customer_id}, ${event.data.id}, ${productId},
-          ${parseDate(event.data.current_period_start)},
-          ${parseDate(event.data.current_period_end)},
-          ${event.data.cancel_at_period_end === true},
-          ${eventTimestamp}, CURRENT_TIMESTAMP
-        )
-        ON CONFLICT ("organization_id") DO UPDATE SET
-          "plan" = EXCLUDED."plan",
-          "subscription_status" = EXCLUDED."subscription_status",
-          "polar_customer_id" = EXCLUDED."polar_customer_id",
-          "polar_subscription_id" = EXCLUDED."polar_subscription_id",
-          "polar_product_id" = EXCLUDED."polar_product_id",
-          "current_period_start" = EXCLUDED."current_period_start",
-          "current_period_end" = EXCLUDED."current_period_end",
-          "cancel_at_period_end" = EXCLUDED."cancel_at_period_end",
-          "last_webhook_event_at" = EXCLUDED."last_webhook_event_at",
-          "updated_at" = CURRENT_TIMESTAMP
-        WHERE
-          "subscriptions"."last_webhook_event_at" IS NULL
-          OR EXCLUDED."last_webhook_event_at" IS NULL
-          OR EXCLUDED."last_webhook_event_at" >= "subscriptions"."last_webhook_event_at"
-      `);
-
-      return { processed: true, applied: updateResult > 0 };
-    });
+    const processed = await applyPolarSubscriptionEvent(eventId, event);
 
     if (processed.processed && !processed.applied) {
       console.warn(
