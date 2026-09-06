@@ -46,6 +46,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       channel: parsed.data.channel,
       status: parsed.data.status,
       error: parsed.data.error,
+      actorUserId: user.id,
     });
     if (!execution) return notFoundResponse("Action not found");
 

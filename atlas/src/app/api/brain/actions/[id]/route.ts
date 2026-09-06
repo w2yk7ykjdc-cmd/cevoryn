@@ -64,7 +64,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const result = await updateActionStatus(
       membership.organizationId,
       id,
-      parsed.data.status
+      parsed.data.status,
+      user.id
     );
 
     if (result.count === 0) return notFoundResponse("Action not found");

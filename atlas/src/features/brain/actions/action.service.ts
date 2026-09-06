@@ -2,6 +2,7 @@ import "server-only";
 
 import type { Prisma } from "@prisma/client";
 
+import { recordAuditEvent } from "@/features/enterprise/audit/audit.service";
 import { toActionStatus } from "@/lib/enum-validators";
 import { prisma } from "@/lib/prisma";
 
@@ -66,15 +67,39 @@ export async function getPreparedAction(organizationId: string, id: string) {
   });
 }
 
+/**
+ * Idempotency guard (Phase 2 hardening): only a PENDING action can
+ * transition to APPROVED/DISMISSED. Previously this updated unconditionally,
+ * so a duplicated PATCH (double-click, retried request, two tabs) on an
+ * already-APPROVED action would silently re-succeed and the client would
+ * re-run launchApprovedAction() a second time - re-opening a mailto/
+ * calendar window or re-copying to the clipboard. Restricting the WHERE
+ * clause to status: "PENDING" makes the second call affect zero rows, so
+ * callers correctly see "not found" instead of a false success.
+ */
 export async function updateActionStatus(
   organizationId: string,
   id: string,
-  status: "APPROVED" | "DISMISSED"
+  status: "APPROVED" | "DISMISSED",
+  actorUserId: string
 ) {
-  return prisma.preparedAction.updateMany({
-    where: { id, organizationId },
+  const result = await prisma.preparedAction.updateMany({
+    where: { id, organizationId, status: "PENDING" },
     data: { status },
   });
+
+  if (result.count > 0) {
+    await recordAuditEvent({
+      organizationId,
+      actorType: "USER",
+      actorId: actorUserId,
+      action: status === "APPROVED" ? "action.approved" : "action.dismissed",
+      resourceType: "prepared_action",
+      resourceId: id,
+    });
+  }
+
+  return result;
 }
 
 export async function getPendingActionCount(
@@ -103,17 +128,36 @@ export async function recordActionExecution(params: {
     | "RESEARCH_WORKER";
   status: "COMPLETED" | "FAILED";
   error?: string;
+  actorUserId: string;
 }) {
   const action = await prisma.preparedAction.findFirst({
     where: {
       id: params.preparedActionId,
       organizationId: params.organizationId,
     },
-    select: { id: true },
+    select: { id: true, status: true },
   });
-  if (!action) return null;
+  // Executing an action the user never approved (still PENDING) or
+  // explicitly rejected (DISMISSED) would let a client record a fake
+  // "completed" audit trail for something that was never actually
+  // authorized - the lifecycle is PENDING -> APPROVED -> executed, and
+  // this must reject any attempt to skip the approval step.
+  if (!action || action.status !== "APPROVED") return null;
 
-  return prisma.actionExecution.create({
+  // Idempotency guard: a completed execution already recorded for this
+  // action means the side effect (mailto/clipboard/etc.) already happened
+  // once - a duplicated record-execution call (retry, double-submit) must
+  // not be reported as a second successful execution.
+  const existingCompleted = await prisma.actionExecution.findFirst({
+    where: {
+      preparedActionId: params.preparedActionId,
+      organizationId: params.organizationId,
+      status: "COMPLETED",
+    },
+  });
+  if (existingCompleted) return existingCompleted;
+
+  const execution = await prisma.actionExecution.create({
     data: {
       organizationId: params.organizationId,
       preparedActionId: params.preparedActionId,
@@ -123,4 +167,16 @@ export async function recordActionExecution(params: {
       completedAt: new Date(),
     },
   });
+
+  await recordAuditEvent({
+    organizationId: params.organizationId,
+    actorType: "USER",
+    actorId: params.actorUserId,
+    action: "action.executed",
+    resourceType: "prepared_action",
+    resourceId: params.preparedActionId,
+    metadata: { channel: params.channel, status: params.status },
+  });
+
+  return execution;
 }
