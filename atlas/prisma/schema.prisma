@@ -45,8 +45,10 @@ model Organization {
   externalEvents     ExternalEvent[]
   opportunities      Opportunity[]
   notifications      Notification[]
-  researchTasks      ResearchTask[]
+  workerTasks        WorkerTask[]
   actionExecutions   ActionExecution[]
+  auditLogs          AuditLog[]
+  pipelineRuns       PipelineRun[]
 
   @@map("organizations")
 }
@@ -608,26 +610,37 @@ model AuthRateLimitAttempt {
 // =============================================================================
 
 model CompanyProfile {
-  id                   String   @id @default(cuid())
-  organizationId       String   @unique @map("organization_id")
-  description          String   @default("")
-  industry             String?
-  products             String[] @default([])
-  services             String[] @default([])
-  targetMarkets        String[] @default([]) @map("target_markets")
-  targetCustomers      String   @default("") @map("target_customers")
-  idealCustomerProfile String   @default("") @map("ideal_customer_profile")
-  geographies          String[] @default([])
-  competitors          String[] @default([])
-  suppliers            String[] @default([])
-  businessModel        String   @default("") @map("business_model")
-  averageDealSize      Float?   @map("average_deal_size")
-  strategicGoals       String[] @default([]) @map("strategic_goals")
-  strategicPriorities  String[] @default([]) @map("strategic_priorities")
-  capabilities         String[] @default([])
-  constraints          String[] @default([])
-  createdAt            DateTime @default(now()) @map("created_at")
-  updatedAt            DateTime @updatedAt @map("updated_at")
+  id                     String   @id @default(cuid())
+  organizationId         String   @unique @map("organization_id")
+  description            String   @default("")
+  industry               String?
+  products               String[] @default([])
+  services               String[] @default([])
+  targetMarkets          String[] @default([]) @map("target_markets")
+  targetCustomers        String   @default("") @map("target_customers")
+  idealCustomerProfile   String   @default("") @map("ideal_customer_profile")
+  geographies            String[] @default([])
+  competitors            String[] @default([])
+  suppliers              String[] @default([])
+  businessModel          String   @default("") @map("business_model")
+  averageDealSize        Float?   @map("average_deal_size")
+  strategicGoals         String[] @default([]) @map("strategic_goals")
+  strategicPriorities    String[] @default([]) @map("strategic_priorities")
+  capabilities           String[] @default([])
+  constraints            String[] @default([])
+  /// Phase 2 additions - all additive/optional so existing profiles remain
+  /// valid without a data migration; surfaced in the UI via progressive
+  /// disclosure (collapsed "Advanced" section), not the main form.
+  knownCustomers         String[] @default([]) @map("known_customers")
+  growthObjectives       String[] @default([]) @map("growth_objectives")
+  preferredOpportunities String[] @default([]) @map("preferred_opportunities")
+  excludedOpportunities  String[] @default([]) @map("excluded_opportunities")
+  companySize            String?  @map("company_size")
+  revenueRange           String?  @map("revenue_range")
+  preferredCurrency      String   @default("EUR") @map("preferred_currency")
+  customContext          String   @default("") @map("custom_context")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -669,6 +682,14 @@ model ExternalEntity {
   country        String?
   watchReason    WatchReason        @map("watch_reason")
   isActive       Boolean            @default(true) @map("is_active")
+  /// Distinct from isActive (a soft delete): a paused entity stays visible
+  /// on the watchlist and keeps its history, but the ingestion pipeline
+  /// skips it - unlike isActive:false, which also drops it from the
+  /// default list view.
+  isPaused       Boolean            @default(false) @map("is_paused")
+  priority       Int                @default(5)
+  tags           String[]           @default([])
+  notes          String             @default("")
   addedByUserId  String             @map("added_by_user_id")
   /// Per-entity adapter configuration, e.g. { "greenhouseToken": "acme" }
   /// for the Jobs adapter. Absence of a key means that adapter is simply
@@ -831,6 +852,11 @@ model Opportunity {
   strategicFit      Float               @map("strategic_fit")
   timeHorizon       String              @map("time_horizon")
   reasoning         String
+  /// A short, concrete suggested next step (e.g. "Reach out to their VP of
+  /// Engineering about the new facility"), distinct from `reasoning` (why
+  /// this matters) - default "" so existing rows remain valid without a
+  /// data migration.
+  recommendedAction String              @default("") @map("recommended_action")
   evidence          Json                @default("[]")
   score             Float
   scoreBreakdown    Json                @map("score_breakdown")
@@ -844,7 +870,7 @@ model Opportunity {
   event              ExternalEvent       @relation(fields: [eventId], references: [id], onDelete: Cascade)
   preparedActions    PreparedAction[]
   outcomeEvaluations OutcomeEvaluation[]
-  researchTasks      ResearchTask[]
+  workerTasks        WorkerTask[]
 
   @@index([organizationId, status])
   @@index([organizationId, polarity, createdAt(sort: Desc)])
@@ -888,34 +914,51 @@ model Notification {
 }
 
 // =============================================================================
-// Radar: AI Research Worker v1
+// Radar: AI Worker Foundation
+//
+// Generic Worker/Task pattern - Research is the only concrete worker today
+// (WorkerType has one value), but the shape (type/status/input via
+// opportunityId+requestedByUserId/output via brief+evidence/error) is
+// designed so a future Sales/Competitive-Intelligence/Finance worker can
+// reuse this same table and lifecycle rather than a new one per worker
+// type. See src/features/radar/workers/types.ts for the code-level Worker
+// interface this table backs.
 // =============================================================================
 
-enum ResearchTaskStatus {
+enum WorkerType {
+  RESEARCH
+}
+
+enum WorkerTaskStatus {
   PENDING
   RUNNING
   COMPLETED
   FAILED
 }
 
-model ResearchTask {
-  id                String             @id @default(cuid())
-  organizationId    String             @map("organization_id")
-  opportunityId     String             @map("opportunity_id")
-  requestedByUserId String             @map("requested_by_user_id")
-  status            ResearchTaskStatus @default(PENDING)
+model WorkerTask {
+  id                String           @id @default(cuid())
+  organizationId    String           @map("organization_id")
+  workerType        WorkerType       @default(RESEARCH) @map("worker_type")
+  opportunityId     String           @map("opportunity_id")
+  requestedByUserId String           @map("requested_by_user_id")
+  status            WorkerTaskStatus @default(PENDING)
+  /// Worker output - a text brief for the Research worker today; future
+  /// worker types may use this for a different textual result, or leave it
+  /// null and rely solely on `evidence`/`error`.
   brief             String?
-  evidence          Json               @default("[]")
+  evidence          Json             @default("[]")
   error             String?
-  createdAt         DateTime           @default(now()) @map("created_at")
-  completedAt       DateTime?          @map("completed_at")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  completedAt       DateTime?        @map("completed_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   opportunity  Opportunity  @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, status])
+  @@index([organizationId, workerType])
   @@index([opportunityId])
-  @@map("research_tasks")
+  @@map("worker_tasks")
 }
 
 // =============================================================================
@@ -958,4 +1001,76 @@ model ActionExecution {
 
   @@index([organizationId, preparedActionId])
   @@map("action_executions")
+}
+
+// =============================================================================
+// Enterprise Foundation: Audit Log
+//
+// General-purpose "who did what" trail, distinct from DecisionTimelineEvent
+// (which only covers a Decision's own lifecycle). Written from within the
+// service functions that perform a sensitive action (entity add/remove,
+// company profile change, opportunity status change, action approval/
+// execution) rather than at the API-route layer, so it captures the real
+// mutation regardless of which route or background job triggered it.
+// =============================================================================
+
+enum AuditActorType {
+  USER
+  SYSTEM
+  CRON
+  AI_WORKER
+}
+
+model AuditLog {
+  id             String         @id @default(cuid())
+  organizationId String         @map("organization_id")
+  actorType      AuditActorType @map("actor_type")
+  /// userId for USER, worker/job identifier for AI_WORKER/CRON, null for SYSTEM.
+  actorId        String?        @map("actor_id")
+  /// Dot-namespaced action name, e.g. "entity.created", "opportunity.status_changed".
+  action         String
+  resourceType   String         @map("resource_type")
+  resourceId     String?        @map("resource_id")
+  metadata       Json           @default("{}")
+  createdAt      DateTime       @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([organizationId, resourceType, resourceId])
+  @@map("audit_logs")
+}
+
+// =============================================================================
+// Radar: Pipeline Observability
+//
+// One row per runRadarPipelineForOrganization() execution - real structured
+// data for production debugging (section 18), not just console.warn. Kept
+// as a flat summary row (not per-stage rows) since the pipeline itself is
+// small enough today that stage-level granularity isn't needed yet; the
+// `errors` Json array already carries a per-stage-prefixed message list.
+// =============================================================================
+
+enum PipelineRunStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model PipelineRun {
+  id                   String            @id @default(cuid())
+  organizationId       String            @map("organization_id")
+  status               PipelineRunStatus @default(RUNNING)
+  signalsIngested      Int               @default(0) @map("signals_ingested")
+  eventsCreated        Int               @default(0) @map("events_created")
+  opportunitiesCreated Int               @default(0) @map("opportunities_created")
+  errorCount           Int               @default(0) @map("error_count")
+  errors               Json              @default("[]")
+  startedAt            DateTime          @default(now()) @map("started_at")
+  completedAt          DateTime?         @map("completed_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, startedAt(sort: Desc)])
+  @@map("pipeline_runs")
 }

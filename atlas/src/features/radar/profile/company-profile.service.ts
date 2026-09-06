@@ -1,5 +1,6 @@
 import "server-only";
 
+import { recordAuditEvent } from "@/features/enterprise/audit/audit.service";
 import { prisma } from "@/lib/prisma";
 
 import type { UpsertCompanyProfileInput } from "./schemas";
@@ -16,13 +17,25 @@ export async function getCompanyProfile(organizationId: string) {
  */
 export async function upsertCompanyProfile(
   organizationId: string,
-  input: UpsertCompanyProfileInput
+  input: UpsertCompanyProfileInput,
+  actorUserId: string
 ) {
-  return prisma.companyProfile.upsert({
+  const profile = await prisma.companyProfile.upsert({
     where: { organizationId },
     create: { organizationId, ...input },
     update: { ...input },
   });
+
+  await recordAuditEvent({
+    organizationId,
+    actorType: "USER",
+    actorId: actorUserId,
+    action: "company_profile.updated",
+    resourceType: "company_profile",
+    resourceId: profile.id,
+  });
+
+  return profile;
 }
 
 /** True once the org has declared at least a description or one product/service. */

@@ -67,6 +67,14 @@ export default async function CompanyProfilePage() {
               strategicPriorities: profile?.strategicPriorities ?? [],
               capabilities: profile?.capabilities ?? [],
               constraints: profile?.constraints ?? [],
+              knownCustomers: profile?.knownCustomers ?? [],
+              growthObjectives: profile?.growthObjectives ?? [],
+              preferredOpportunities: profile?.preferredOpportunities ?? [],
+              excludedOpportunities: profile?.excludedOpportunities ?? [],
+              companySize: profile?.companySize ?? "",
+              revenueRange: profile?.revenueRange ?? "",
+              preferredCurrency: profile?.preferredCurrency ?? "EUR",
+              customContext: profile?.customContext ?? "",
             }}
           />
         </CardContent>

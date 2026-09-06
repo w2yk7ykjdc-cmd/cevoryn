@@ -53,6 +53,10 @@ export default async function WatchlistPage() {
             name: entity.name,
             domain: entity.domain,
             watchReason: entity.watchReason,
+            isPaused: entity.isPaused,
+            priority: entity.priority,
+            tags: entity.tags,
+            notes: entity.notes,
           }))}
         />
       )}

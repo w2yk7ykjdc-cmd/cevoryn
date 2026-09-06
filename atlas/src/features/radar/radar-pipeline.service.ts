@@ -24,52 +24,100 @@ export interface RadarPipelineResult {
  * from at least attempting to run against whatever the earlier stage
  * already committed to the database (ingestion writes signals row-by-row,
  * so a later failure never loses already-ingested data).
+ *
+ * Wrapped in a PipelineRun row for observability (section 18): real
+ * structured data on every execution - stage counts, duration, status,
+ * error list - queryable after the fact, not just a console.warn at cron
+ * time. Status is COMPLETED whenever the function reaches its normal end
+ * (even with a non-empty `errors` list from a partial per-stage failure -
+ * `errorCount` communicates that, a single bad adapter isn't a failed
+ * run); FAILED is reserved for something outside the three per-stage
+ * try/catches throwing (a genuine bug, not an external source hiccup).
  */
 export async function runRadarPipelineForOrganization(
   organizationId: string
 ): Promise<RadarPipelineResult> {
+  const run = await prisma.pipelineRun.create({
+    data: { organizationId, status: "RUNNING" },
+  });
+
   const errors: string[] = [];
   let signalsIngested = 0;
   let eventsCreated = 0;
   let opportunitiesCreated = 0;
 
   try {
-    const ingestionResults = await ingestSignalsForOrganization(organizationId);
-    signalsIngested = ingestionResults.reduce((sum, r) => sum + r.created, 0);
-    for (const result of ingestionResults) {
+    try {
+      const ingestionResults = await ingestSignalsForOrganization(organizationId);
+      signalsIngested = ingestionResults.reduce((sum, r) => sum + r.created, 0);
+      for (const result of ingestionResults) {
+        errors.push(
+          ...result.adapterErrors.map(
+            (e) => `ingestion(${result.entityName}): ${e}`
+          )
+        );
+      }
+    } catch (error) {
       errors.push(
-        ...result.adapterErrors.map(
-          (e) => `ingestion(${result.entityName}): ${e}`
-        )
+        `ingestion: ${error instanceof Error ? error.message : "unknown error"}`
       );
     }
-  } catch (error) {
-    errors.push(
-      `ingestion: ${error instanceof Error ? error.message : "unknown error"}`
-    );
-  }
 
-  try {
-    const eventResult = await extractEventsForOrganization(organizationId);
-    eventsCreated = eventResult.eventsCreated;
-  } catch (error) {
-    errors.push(
-      `event-extraction: ${error instanceof Error ? error.message : "unknown error"}`
-    );
-  }
-
-  try {
-    const opportunityResult =
-      await generateOpportunitiesForOrganization(organizationId);
-    opportunitiesCreated = opportunityResult.opportunitiesCreated.length;
-
-    for (const opportunityId of opportunityResult.opportunitiesCreated) {
-      await notifyNewOpportunity(organizationId, opportunityId);
+    try {
+      const eventResult = await extractEventsForOrganization(organizationId);
+      eventsCreated = eventResult.eventsCreated;
+    } catch (error) {
+      errors.push(
+        `event-extraction: ${error instanceof Error ? error.message : "unknown error"}`
+      );
     }
+
+    try {
+      const opportunityResult =
+        await generateOpportunitiesForOrganization(organizationId);
+      opportunitiesCreated = opportunityResult.opportunitiesCreated.length;
+
+      for (const opportunityId of opportunityResult.opportunitiesCreated) {
+        await notifyNewOpportunity(organizationId, opportunityId);
+      }
+    } catch (error) {
+      errors.push(
+        `opportunity-generation: ${error instanceof Error ? error.message : "unknown error"}`
+      );
+    }
+
+    await prisma.pipelineRun.update({
+      where: { id: run.id, organizationId },
+      data: {
+        status: "COMPLETED",
+        signalsIngested,
+        eventsCreated,
+        opportunitiesCreated,
+        errorCount: errors.length,
+        errors,
+        completedAt: new Date(),
+      },
+    });
   } catch (error) {
-    errors.push(
-      `opportunity-generation: ${error instanceof Error ? error.message : "unknown error"}`
-    );
+    const message = error instanceof Error ? error.message : "unknown error";
+    errors.push(`pipeline: ${message}`);
+    await prisma.pipelineRun
+      .update({
+        where: { id: run.id, organizationId },
+        data: {
+          status: "FAILED",
+          signalsIngested,
+          eventsCreated,
+          opportunitiesCreated,
+          errorCount: errors.length,
+          errors,
+          completedAt: new Date(),
+        },
+      })
+      .catch(() => {
+        // Best-effort - if even the failure record can't be written, the
+        // in-memory result below is still returned to the caller.
+      });
   }
 
   return {
@@ -108,7 +156,10 @@ async function notifyNewOpportunity(
  * Runs the pipeline for every organization that has both RADAR plan access
  * and at least one active watchlist entity - skipping the (likely common)
  * case of an org with no watchlist keeps this from doing pointless work on
- * every tenant on every cron tick.
+ * every tenant on every cron tick. Each organization's run is independently
+ * try/caught here too, so one organization's pipeline throwing outright
+ * (rather than recording a per-stage error, which runRadarPipelineForOrganization
+ * already tolerates) never stops the cron from processing the rest.
  */
 export async function runRadarPipelineForAllOrganizations(): Promise<
   RadarPipelineResult[]
@@ -123,7 +174,19 @@ export async function runRadarPipelineForAllOrganizations(): Promise<
     const plan = await getOrganizationPlan(organization.id);
     if (!hasFeature(plan, "RADAR")) continue;
 
-    results.push(await runRadarPipelineForOrganization(organization.id));
+    try {
+      results.push(await runRadarPipelineForOrganization(organization.id));
+    } catch (error) {
+      results.push({
+        organizationId: organization.id,
+        signalsIngested: 0,
+        eventsCreated: 0,
+        opportunitiesCreated: 0,
+        errors: [
+          `pipeline: ${error instanceof Error ? error.message : "unknown error"}`,
+        ],
+      });
+    }
   }
 
   return results;

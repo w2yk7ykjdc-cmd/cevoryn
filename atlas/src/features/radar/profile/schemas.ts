@@ -19,6 +19,19 @@ export const upsertCompanyProfileSchema = z.object({
   strategicPriorities: stringList,
   capabilities: stringList,
   constraints: stringList,
+  knownCustomers: stringList,
+  growthObjectives: stringList,
+  preferredOpportunities: stringList,
+  excludedOpportunities: stringList,
+  companySize: z.string().trim().max(100).nullable().optional(),
+  revenueRange: z.string().trim().max(100).nullable().optional(),
+  preferredCurrency: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z]{3}$/, "Must be a 3-letter currency code")
+    .default("EUR"),
+  customContext: z.string().trim().max(4000).default(""),
 });
 
 export type UpsertCompanyProfileInput = z.infer<

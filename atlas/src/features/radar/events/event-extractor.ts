@@ -134,7 +134,7 @@ export async function extractEventsForOrganization(
   organizationId: string
 ): Promise<{ entitiesProcessed: number; eventsCreated: number }> {
   const entities = await prisma.externalEntity.findMany({
-    where: { organizationId, isActive: true },
+    where: { organizationId, isActive: true, isPaused: false },
     select: { id: true },
   });
 

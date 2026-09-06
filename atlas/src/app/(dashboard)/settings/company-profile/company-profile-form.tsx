@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Save } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Save } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -28,6 +28,14 @@ interface CompanyProfileFormValues {
   strategicPriorities: string[];
   capabilities: string[];
   constraints: string[];
+  knownCustomers: string[];
+  growthObjectives: string[];
+  preferredOpportunities: string[];
+  excludedOpportunities: string[];
+  companySize: string;
+  revenueRange: string;
+  preferredCurrency: string;
+  customContext: string;
 }
 
 interface CompanyProfileFormProps {
@@ -53,6 +61,16 @@ export function CompanyProfileForm({
   const t = useTranslations("settings.companyProfile");
   const [form, setForm] = useState(initialProfile);
   const [isPending, startTransition] = useTransition();
+  const [showAdvanced, setShowAdvanced] = useState(
+    () =>
+      Boolean(initialProfile.companySize) ||
+      Boolean(initialProfile.revenueRange) ||
+      Boolean(initialProfile.customContext) ||
+      initialProfile.knownCustomers.length > 0 ||
+      initialProfile.growthObjectives.length > 0 ||
+      initialProfile.preferredOpportunities.length > 0 ||
+      initialProfile.excludedOpportunities.length > 0
+  );
 
   function save() {
     startTransition(async () => {
@@ -63,6 +81,8 @@ export function CompanyProfileForm({
           body: JSON.stringify({
             ...form,
             industry: form.industry || null,
+            companySize: form.companySize || null,
+            revenueRange: form.revenueRange || null,
           }),
         });
 
@@ -208,6 +228,97 @@ export function CompanyProfileForm({
       {listField("strategicPriorities", t("strategicPriorities"))}
       {listField("capabilities", t("capabilities"))}
       {listField("constraints", t("constraints"))}
+
+      <div className="border-t pt-4">
+        <button
+          type="button"
+          onClick={() => setShowAdvanced((prev) => !prev)}
+          className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+        >
+          {showAdvanced ? (
+            <ChevronUp className="h-4 w-4" />
+          ) : (
+            <ChevronDown className="h-4 w-4" />
+          )}
+          {showAdvanced ? t("hideAdvanced") : t("showAdvanced")}
+        </button>
+
+        {showAdvanced ? (
+          <div className="mt-4 space-y-4">
+            <p className="text-xs text-muted-foreground">{t("advancedHint")}</p>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="companySize">{t("companySize")}</Label>
+                <Input
+                  id="companySize"
+                  value={form.companySize}
+                  disabled={!canManage || isPending}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      companySize: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="revenueRange">{t("revenueRange")}</Label>
+                <Input
+                  id="revenueRange"
+                  value={form.revenueRange}
+                  disabled={!canManage || isPending}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      revenueRange: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="preferredCurrency">
+                  {t("preferredCurrency")}
+                </Label>
+                <Input
+                  id="preferredCurrency"
+                  value={form.preferredCurrency}
+                  maxLength={3}
+                  disabled={!canManage || isPending}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      preferredCurrency: event.target.value.toUpperCase(),
+                    }))
+                  }
+                />
+              </div>
+            </div>
+
+            {listField("knownCustomers", t("knownCustomers"))}
+            {listField("growthObjectives", t("growthObjectives"))}
+            {listField("preferredOpportunities", t("preferredOpportunities"))}
+            {listField("excludedOpportunities", t("excludedOpportunities"))}
+
+            <div className="space-y-1.5">
+              <Label htmlFor="customContext">{t("customContext")}</Label>
+              <Textarea
+                id="customContext"
+                value={form.customContext}
+                disabled={!canManage || isPending}
+                placeholder={t("customContextPlaceholder")}
+                rows={3}
+                onChange={(event) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    customContext: event.target.value,
+                  }))
+                }
+              />
+            </div>
+          </div>
+        ) : null}
+      </div>
 
       {canManage ? (
         <Button type="button" onClick={save} disabled={isPending}>

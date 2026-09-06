@@ -1,5 +1,6 @@
 import "server-only";
 
+import { fetchWithRetry } from "./fetch-with-retry";
 import type { RawSignal, SignalAdapter, SignalAdapterContext } from "./types";
 
 const FETCH_TIMEOUT_MS = 8_000;
@@ -11,7 +12,9 @@ const SEARCH_FORMS = ["8-K", "10-K", "10-Q"];
  * companies that file with the SEC (US public companies), which is a real,
  * known limitation for a general watchlist of mostly-private companies -
  * this adapter simply returns nothing for anything it can't find, rather
- * than erroring.
+ * than erroring. SEC's own rate limit (10 req/sec, documented) is handled
+ * by fetchWithRetry's 429/5xx backoff; a malformed/unknown company name
+ * just returns zero hits, not an error.
  *
  * SEC requires every request to identify a real requester in the
  * User-Agent header (https://www.sec.gov/os/webmaster-faq#developers) -
@@ -57,11 +60,11 @@ export const secEdgarAdapter: SignalAdapter = {
     const url = `https://efts.sec.gov/LATEST/search-index?q=${query}&forms=${forms}`;
 
     try {
-      const response = await fetch(url, {
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      const response = await fetchWithRetry(url, {
+        timeoutMs: FETCH_TIMEOUT_MS,
         headers: { "User-Agent": userAgent, Accept: "application/json" },
       });
-      if (!response.ok) return [];
+      if (!response || !response.ok) return [];
 
       const data = (await response.json()) as EdgarSearchResponse;
       const hits = data.hits?.hits ?? [];

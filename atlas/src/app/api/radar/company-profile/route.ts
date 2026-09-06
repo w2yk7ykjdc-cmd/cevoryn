@@ -81,7 +81,8 @@ export async function PUT(request: NextRequest) {
 
     const profile = await upsertCompanyProfile(
       membership.organizationId,
-      parsed.data
+      parsed.data,
+      user.id
     );
 
     return NextResponse.json({ data: profile });

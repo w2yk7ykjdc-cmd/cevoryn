@@ -23,7 +23,11 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     const membership = await getMembership(user.id);
     if (!membership) return forbiddenResponse();
 
-    const result = await markNotificationRead(membership.organizationId, id);
+    const result = await markNotificationRead(
+      membership.organizationId,
+      user.id,
+      id
+    );
     if (result.count === 0) {
       return notFoundResponse("Notification not found or already read");
     }

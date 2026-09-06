@@ -72,7 +72,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const result = await updateOpportunityStatus(
       membership.organizationId,
       id,
-      parsed.data.status
+      parsed.data.status,
+      user.id
     );
     if (result.count === 0) return notFoundResponse("Opportunity not found");
 

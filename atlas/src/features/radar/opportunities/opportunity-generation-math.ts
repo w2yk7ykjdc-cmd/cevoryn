@@ -28,6 +28,7 @@ export interface GeneratedOpportunity {
   probability: number;
   timeHorizon: string;
   reasoning: string;
+  recommendedAction: string;
   relevance: number;
   strategicFit: number;
   economicPotential: number;
@@ -99,6 +100,8 @@ export function validateGeneratedOpportunity(
     timeHorizon:
       typeof item.timeHorizon === "string" ? item.timeHorizon : "unknown",
     reasoning: typeof item.reasoning === "string" ? item.reasoning : "",
+    recommendedAction:
+      typeof item.recommendedAction === "string" ? item.recommendedAction : "",
     relevance: item.relevance,
     strategicFit: item.strategicFit,
     economicPotential: item.economicPotential,

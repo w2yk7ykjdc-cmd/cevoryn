@@ -1,5 +1,6 @@
 import "server-only";
 
+import { recordAuditEvent } from "@/features/enterprise/audit/audit.service";
 import {
   toOpportunityPolarity,
   toOpportunityStatus,
@@ -35,7 +36,7 @@ export async function getOpportunity(organizationId: string, id: string) {
     include: {
       externalEntity: true,
       event: true,
-      researchTasks: { orderBy: { createdAt: "desc" }, take: 5 },
+      workerTasks: { orderBy: { createdAt: "desc" }, take: 5 },
       preparedActions: { orderBy: { createdAt: "desc" }, take: 5 },
     },
   });
@@ -44,10 +45,25 @@ export async function getOpportunity(organizationId: string, id: string) {
 export async function updateOpportunityStatus(
   organizationId: string,
   id: string,
-  status: "REVIEWING" | "QUALIFIED" | "ACTED_ON" | "WON" | "LOST" | "DISMISSED"
+  status: "REVIEWING" | "QUALIFIED" | "ACTED_ON" | "WON" | "LOST" | "DISMISSED",
+  actorUserId: string
 ) {
-  return prisma.opportunity.updateMany({
+  const result = await prisma.opportunity.updateMany({
     where: { id, organizationId },
     data: { status },
   });
+
+  if (result.count > 0) {
+    await recordAuditEvent({
+      organizationId,
+      actorType: "USER",
+      actorId: actorUserId,
+      action: "opportunity.status_changed",
+      resourceType: "opportunity",
+      resourceId: id,
+      metadata: { status },
+    });
+  }
+
+  return result;
 }
