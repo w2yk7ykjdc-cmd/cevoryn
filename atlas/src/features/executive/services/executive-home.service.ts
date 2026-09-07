@@ -7,6 +7,7 @@ import { parseDecisionCanvas } from "@/features/brain/decisions/json-schemas";
 import { computePulseScore } from "@/features/brain/pulse/pulse-scorer";
 import { computePulse } from "@/features/brain/pulse/pulse.service";
 import { parseEvidence } from "@/features/brain/trust/json-schemas";
+import { countGoogleConnections } from "@/lib/google-connection";
 import { prisma } from "@/lib/prisma";
 import type { MembershipContext } from "@/types";
 
@@ -50,7 +51,7 @@ export async function loadExecutiveHome(
     conversationCount,
     memberCount,
     inviteCount,
-    googleConnectionRows,
+    googleConnectionCount,
   ] = await Promise.all([
     computePulse(orgId, dayStart, now),
     prisma.pulseSnapshot.findFirst({
@@ -90,27 +91,12 @@ export async function loadExecutiveHome(
     prisma.conversation.count({ where: { organizationId: orgId } }),
     prisma.member.count({ where: { organizationId: orgId } }),
     prisma.invite.count({ where: { organizationId: orgId } }),
-    // Isolated from the rest of this Promise.all: this raw query touches a
-    // table that isn't managed through normal Prisma Client calls anywhere
-    // else in the app, so it's the one query here most likely to break
-    // independently of everything else (it has before - see the
-    // GoogleConnection model's comment in schema.prisma). A failure here
-    // must not take down the entire dashboard; it degrades to "not
-    // connected" instead.
-    prisma.$queryRaw<Array<{ count: bigint }>>`
-      SELECT COUNT(*) AS count FROM "google_connections" WHERE "organization_id" = ${orgId}
-    `.catch((error) => {
-      console.error(
-        "[cevoryn:dashboard] google_connections lookup failed",
-        error instanceof Error ? error.message : "unknown error"
-      );
-      return [{ count: 0n }];
-    }),
+    countGoogleConnections(orgId),
   ]);
 
   const onboardingProgress = {
     hasChatted: conversationCount > 0,
-    googleConnected: Number(googleConnectionRows[0]?.count ?? 0) > 0,
+    googleConnected: googleConnectionCount > 0,
     teamInvited: memberCount > 1 || inviteCount > 0,
   };
 

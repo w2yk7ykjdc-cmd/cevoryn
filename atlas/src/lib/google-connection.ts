@@ -26,6 +26,33 @@ export class GoogleConnectionError extends Error {
   }
 }
 
+/**
+ * Whether any member of this organization has connected Google. Used only
+ * for the dashboard's onboarding-progress indicator, so a failure here
+ * (e.g. the table itself being unreachable, as happened in production
+ * once - see the GoogleConnection model's comment in schema.prisma) must
+ * degrade to "not connected" rather than take down the caller. Isolated
+ * into its own function specifically so this fallback behavior is
+ * directly testable without needing the rest of loadExecutiveHome's
+ * Next.js request context (next-intl/cookies()).
+ */
+export async function countGoogleConnections(
+  organizationId: string
+): Promise<number> {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*) AS count FROM "google_connections" WHERE "organization_id" = ${organizationId}
+    `;
+    return Number(rows[0]?.count ?? 0);
+  } catch (error) {
+    console.error(
+      "[cevoryn:google-connection] google_connections lookup failed",
+      error instanceof Error ? error.message : "unknown error"
+    );
+    return 0;
+  }
+}
+
 export async function findConnectedGoogleUserId(
   organizationId: string
 ): Promise<string | null> {
