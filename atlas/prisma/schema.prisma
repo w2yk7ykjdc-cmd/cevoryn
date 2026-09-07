@@ -897,6 +897,17 @@ model Opportunity {
   /// data migration.
   recommendedAction String              @default("") @map("recommended_action")
   evidence          Json                @default("[]")
+  /// Step 7A: deterministic economic value foundation. Nullable/additive -
+  /// null for every row created before this field existed and for any row
+  /// where the deterministic calculator (economic-impact-calculator.ts)
+  /// could not run (no CompanyProfile.averageDealSize). Shape:
+  /// { basis: "DETERMINISTIC" | "LLM_ESTIMATE_UNVALIDATED" | "INSUFFICIENT_DATA",
+  ///   valueRangeMin: number | null, valueRangeMax: number | null,
+  ///   currency: string | null, inputs?: {...} }. Deliberately separate from
+  /// estimatedValueMin/Max below (the LLM's own always-produced estimate,
+  /// unchanged by this) - this column is the record of whether a real,
+  /// code-computed number backs that estimate, never a replacement for it.
+  economicImpact    Json?               @map("economic_impact")
   score             Float
   scoreBreakdown    Json                @map("score_breakdown")
   priority          Int                 @default(5)
