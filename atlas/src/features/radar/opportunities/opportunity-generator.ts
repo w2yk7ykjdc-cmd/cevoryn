@@ -11,6 +11,8 @@ import { prisma } from "@/lib/prisma";
 import { isProfileMeaningfullyComplete } from "../profile/company-profile.service";
 import type { OpportunityScoreBreakdown } from "../types";
 
+import { calculateDeterministicEconomicImpact } from "./economic-impact-calculator";
+import type { EconomicImpact } from "./economic-impact-calculator";
 import {
   mergeOpportunityEvidence,
   validateGeneratedOpportunity,
@@ -239,6 +241,32 @@ export async function generateOpportunityForEvent(
     };
     const { score, breakdown } = scoreOpportunity(scoreInputs);
 
+    // Deterministic economic value (Step 7A): source of truth when the
+    // organization has declared a real averageDealSize; otherwise falls
+    // back to honestly labeling whatever the LLM itself already produced
+    // (estimatedValueMin/Max, unchanged below) rather than computing or
+    // guessing a number here. Never the other way around - a deterministic
+    // result is never overridden by the LLM's guess.
+    const deterministicImpact = calculateDeterministicEconomicImpact({
+      averageDealSize: profile!.averageDealSize,
+      probability: generated.probability,
+      economicPotential: generated.economicPotential,
+      currency: generated.currency,
+    });
+    const economicImpact: EconomicImpact =
+      deterministicImpact.basis === "DETERMINISTIC"
+        ? deterministicImpact
+        : {
+            basis:
+              generated.estimatedValueMin !== null ||
+              generated.estimatedValueMax !== null
+                ? "LLM_ESTIMATE_UNVALIDATED"
+                : "INSUFFICIENT_DATA",
+            valueRangeMin: generated.estimatedValueMin,
+            valueRangeMax: generated.estimatedValueMax,
+            currency: generated.currency,
+          };
+
     const opportunity = await prisma.opportunity.create({
       data: {
         organizationId,
@@ -262,6 +290,7 @@ export async function generateOpportunityForEvent(
         ) as unknown as Prisma.InputJsonValue,
         score,
         scoreBreakdown: breakdown as unknown as Prisma.InputJsonValue,
+        economicImpact: economicImpact as unknown as Prisma.InputJsonValue,
         priority: scoreToPriority(score),
       },
     });
