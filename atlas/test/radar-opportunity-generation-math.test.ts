@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { validateGeneratedOpportunity } from "../src/features/radar/opportunities/opportunity-generation-math";
+import {
+  asExternalEvidence,
+  buildProprietaryEvidence,
+  mergeOpportunityEvidence,
+  validateGeneratedOpportunity,
+} from "../src/features/radar/opportunities/opportunity-generation-math";
 
 function validOpportunity(overrides: Record<string, unknown> = {}) {
   return {
@@ -139,4 +144,68 @@ test("passes through a well-formed recommendedAction and defaults a missing or i
       ?.recommendedAction,
     ""
   );
+});
+
+test("asExternalEvidence tags every item EXTERNAL, including rows written before the field existed", () => {
+  const rawEventEvidence = [
+    { label: "Job posting: Senior Engineer", sourceUrl: "https://x.com/1" },
+    { label: "Press release", excerpt: "Acme raises Series B" },
+  ];
+  const result = asExternalEvidence(rawEventEvidence);
+  assert.equal(result.length, 2);
+  assert.ok(result.every((item) => item.source === "EXTERNAL"));
+  const [first, second] = result;
+  assert.ok(first);
+  assert.ok(second);
+  assert.equal(first.label, "Job posting: Senior Engineer");
+  assert.equal(first.sourceUrl, "https://x.com/1");
+  assert.equal(second.excerpt, "Acme raises Series B");
+});
+
+test("asExternalEvidence ignores malformed entries and non-array input", () => {
+  assert.deepEqual(asExternalEvidence(null), []);
+  assert.deepEqual(asExternalEvidence("not an array"), []);
+  assert.deepEqual(asExternalEvidence([{ noLabel: true }, 42, null]), []);
+});
+
+test("buildProprietaryEvidence tags every item PROPRIETARY and passes through the excerpt verbatim", () => {
+  const result = buildProprietaryEvidence([
+    {
+      title: "Q3 pricing memo",
+      excerpt: "Enterprise tier discounting...",
+      url: "https://internal/doc",
+    },
+    { title: "Onboarding checklist", excerpt: "Step 1...", url: null },
+  ]);
+  assert.equal(result.length, 2);
+  assert.ok(result.every((item) => item.source === "PROPRIETARY"));
+  const [first, second] = result;
+  assert.ok(first);
+  assert.ok(second);
+  assert.equal(first.label, "Q3 pricing memo");
+  assert.equal(first.sourceUrl, "https://internal/doc");
+  assert.equal(second.sourceUrl, undefined);
+});
+
+test("mergeOpportunityEvidence combines external and proprietary evidence without dropping or relabeling either", () => {
+  const merged = mergeOpportunityEvidence(
+    [{ label: "Signal A", sourceUrl: "https://ext/1" }],
+    [{ title: "Internal doc", excerpt: "content", url: null }]
+  );
+  assert.equal(merged.length, 2);
+  const [first, second] = merged;
+  assert.ok(first);
+  assert.ok(second);
+  assert.equal(first.source, "EXTERNAL");
+  assert.equal(first.label, "Signal A");
+  assert.equal(second.source, "PROPRIETARY");
+  assert.equal(second.label, "Internal doc");
+});
+
+test("mergeOpportunityEvidence with no proprietary records is identical to the external-only evidence", () => {
+  const merged = mergeOpportunityEvidence([{ label: "Signal A" }], []);
+  assert.equal(merged.length, 1);
+  const [only] = merged;
+  assert.ok(only);
+  assert.equal(only.source, "EXTERNAL");
 });

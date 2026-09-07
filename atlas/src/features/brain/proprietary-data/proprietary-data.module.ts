@@ -1,5 +1,6 @@
 import "server-only";
 
+import { excerptProprietaryContent } from "@/features/enterprise/proprietary-data/content-excerpt";
 import { getProprietaryDataForContext } from "@/features/enterprise/proprietary-data/proprietary-data.service";
 
 import type { BrainContextParams, BrainModule } from "../core/types";
@@ -20,20 +21,14 @@ export class ProprietaryDataModule implements BrainModule {
 
     if (records.length === 0) return "";
 
-    // Excerpted, not the full record - content can be up to 20,000 chars
-    // (see createProprietaryDataRecordSchema) and this context is injected
-    // into every chat turn's system prompt, so an unbounded record must
-    // never be allowed to dominate the token budget. Matches the same
-    // excerpting convention research-worker.ts already uses for signal
-    // content in its own prompt.
-    const CONTENT_EXCERPT_LENGTH = 500;
-    const lines = records.map((record) => {
-      const excerpt =
-        record.content.length > CONTENT_EXCERPT_LENGTH
-          ? `${record.content.slice(0, CONTENT_EXCERPT_LENGTH)}…`
-          : record.content;
-      return `- [${record.sourceKind}] ${record.title}: ${excerpt}`;
-    });
+    // Excerpted, not the full record - see excerptProprietaryContent() for
+    // why this context is injected into every chat turn's system prompt,
+    // so an unbounded record must never be allowed to dominate the token
+    // budget.
+    const lines = records.map(
+      (record) =>
+        `- [${record.sourceKind}] ${record.title}: ${excerptProprietaryContent(record.content)}`
+    );
 
     return `## Proprietary Data (organization's own knowledge)\nThe following records were declared directly by this organization - treat them as authoritative company knowledge, not external signals:\n${lines.join("\n")}`;
   }

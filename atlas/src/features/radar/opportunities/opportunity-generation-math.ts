@@ -7,6 +7,8 @@
 import { toOpportunityPolarity } from "@/lib/enum-validators";
 import type { OpportunityPolarity } from "@/lib/enum-validators";
 
+import type { EvidenceItem } from "../types";
+
 const MIN_TITLE_LENGTH = 5;
 
 function isUnitInterval(value: unknown): value is number {
@@ -107,4 +109,69 @@ export function validateGeneratedOpportunity(
     economicPotential: item.economicPotential,
     timing: item.timing,
   };
+}
+
+/**
+ * Parses an ExternalEvent's stored `evidence` Json back into EvidenceItem[]
+ * and stamps every item `source: "EXTERNAL"` - these are always built by
+ * event-extractor.ts from cited ExternalSignal rows, never from proprietary
+ * data. A row written before Step 6 (no `source` field on disk) reads
+ * identically to one explicitly tagged EXTERNAL here - this function is
+ * itself the "missing source defaults to EXTERNAL" behavior for the write
+ * path; readers of already-stored evidence (e.g. the opportunity card)
+ * apply that same default independently for existing rows this function
+ * never touches.
+ */
+export function asExternalEvidence(value: unknown): EvidenceItem[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(
+      (item): item is Record<string, unknown> =>
+        !!item && typeof item === "object" && typeof item.label === "string"
+    )
+    .map((item) => ({
+      label: item.label as string,
+      sourceUrl:
+        typeof item.sourceUrl === "string" ? item.sourceUrl : undefined,
+      excerpt: typeof item.excerpt === "string" ? item.excerpt : undefined,
+      source: "EXTERNAL",
+    }));
+}
+
+/**
+ * Builds evidence items for proprietary records actually used as context -
+ * application-controlled, never LLM-asserted (the LLM's structured output,
+ * validated above, has no evidence field at all). `excerpt` is expected
+ * already-truncated by the caller (see excerptProprietaryContent() in
+ * proprietary-data.service.ts) - this file stays free of that server-only
+ * module so it keeps testing without AI/DB dependencies.
+ */
+export function buildProprietaryEvidence(
+  records: Array<{ title: string; excerpt: string; url: string | null }>
+): EvidenceItem[] {
+  return records.map((record) => ({
+    label: record.title,
+    sourceUrl: record.url ?? undefined,
+    excerpt: record.excerpt,
+    source: "PROPRIETARY",
+  }));
+}
+
+/**
+ * Combines an event's external evidence with the proprietary records that
+ * were actually sent to the LLM as context - the only two evidence sources
+ * an Opportunity can ever have, and both entirely code-constructed.
+ */
+export function mergeOpportunityEvidence(
+  eventEvidence: unknown,
+  proprietaryRecords: Array<{
+    title: string;
+    excerpt: string;
+    url: string | null;
+  }>
+): EvidenceItem[] {
+  return [
+    ...asExternalEvidence(eventEvidence),
+    ...buildProprietaryEvidence(proprietaryRecords),
+  ];
 }

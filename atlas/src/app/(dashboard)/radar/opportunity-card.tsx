@@ -59,16 +59,30 @@ function formatValueRange(
   return format(min ?? max ?? 0);
 }
 
-function asEvidenceList(
-  value: unknown
-): Array<{ label: string; sourceUrl?: string; excerpt?: string }> {
+interface EvidenceListItem {
+  label: string;
+  sourceUrl?: string;
+  excerpt?: string;
+  source?: "EXTERNAL" | "PROPRIETARY";
+}
+
+function asEvidenceList(value: unknown): EvidenceListItem[] {
   if (!Array.isArray(value)) return [];
-  return value.filter(
-    (item): item is { label: string; sourceUrl?: string; excerpt?: string } =>
-      !!item &&
-      typeof item === "object" &&
-      typeof (item as { label?: unknown }).label === "string"
-  );
+  return value
+    .filter(
+      (item): item is Record<string, unknown> =>
+        !!item && typeof item === "object" && typeof item.label === "string"
+    )
+    .map((item) => ({
+      label: item.label as string,
+      sourceUrl:
+        typeof item.sourceUrl === "string" ? item.sourceUrl : undefined,
+      excerpt: typeof item.excerpt === "string" ? item.excerpt : undefined,
+      // Evidence written before this field existed has no `source` at all -
+      // it was always external (signal/event-derived), so a missing value
+      // reads the same as an explicit "EXTERNAL" rather than as unknown.
+      source: item.source === "PROPRIETARY" ? "PROPRIETARY" : "EXTERNAL",
+    }));
 }
 
 function asScoreBreakdown(value: unknown): Record<string, number> {
@@ -268,6 +282,14 @@ export function OpportunityCard({
                 <ul className="space-y-1">
                   {evidence.map((item, index) => (
                     <li key={index}>
+                      {item.source === "PROPRIETARY" ? (
+                        <Badge
+                          variant="outline"
+                          className="mr-1.5 h-4 border-primary/30 px-1 py-0 align-middle text-[10px] font-medium text-primary"
+                        >
+                          {t("companyData")}
+                        </Badge>
+                      ) : null}
                       {item.sourceUrl ? (
                         <a
                           href={item.sourceUrl}
