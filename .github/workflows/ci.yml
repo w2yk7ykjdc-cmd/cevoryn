@@ -59,6 +59,9 @@ jobs:
       - name: Validate Prisma schema
         run: npm run db:validate
 
+      - name: Check for unreviewed destructive migrations
+        run: npm run db:check-destructive-migrations
+
       - name: Type-check
         run: npm run type-check
 
