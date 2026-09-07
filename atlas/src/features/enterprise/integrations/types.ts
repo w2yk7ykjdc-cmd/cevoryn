@@ -1,20 +1,30 @@
 /**
- * Proprietary Data / Custom Integrations foundation (Phase 2, section 16).
+ * Proprietary Data / Custom Integrations foundation (Phase 2, section 16;
+ * chosen as the Step 5 enterprise foundation).
  *
- * Status: interface only. No implementation exists yet, and nothing in the
- * running app constructs a value of this type - there is no real customer
- * document store, CRM, ERP, or internal API to integrate with today, and
- * building a fake one would violate the "no fake production implementation"
- * rule. This type exists so that when a real integration (e.g. a customer's
- * Salesforce instance, a document store, an internal REST API) is actually
- * built, it has a contract to implement rather than inventing an ad hoc
- * shape per integration - and so Radar's ingestion/context-building code
- * can eventually accept `ProprietaryDataProvider[]` alongside its existing
- * RSS/SEC/Greenhouse adapters without a breaking change.
+ * Status: PARTIALLY real as of Step 5. `ProprietaryDataSourceKind` is now
+ * the actual Prisma enum backing a real, organization-scoped table
+ * (`ProprietaryDataRecord`, prisma/schema.prisma) - see
+ * src/features/enterprise/proprietary-data/proprietary-data.service.ts for
+ * the real create/list/update/delete/search operations, wired into both a
+ * settings UI and the live chat system prompt via
+ * src/features/brain/proprietary-data/proprietary-data.module.ts. Every
+ * record today is added manually by a user through that UI.
+ *
+ * `ProprietaryDataProvider` and `CustomIntegrationConfig` below remain
+ * interface-only: nothing in the running app constructs one, because there
+ * is no real customer CRM/ERP/internal-API connection to fetch from yet,
+ * and building a fake one would violate the "no fake production
+ * implementation" rule. They exist so that when a real automated
+ * integration (e.g. a customer's Salesforce instance, a document store, an
+ * internal REST API) is built, it has a contract to implement - and can
+ * write into the same `ProprietaryDataRecord` table and pipeline the
+ * manual path already uses, rather than inventing a parallel one.
  */
 
-export type ProprietaryDataSourceKind =
-  "DOCUMENT_STORE" | "CRM" | "ERP" | "INTERNAL_API" | "KNOWLEDGE_BASE";
+import type { ProprietaryDataSourceKind } from "@prisma/client";
+
+export type { ProprietaryDataSourceKind };
 
 export interface ProprietaryDataRecord {
   id: string;

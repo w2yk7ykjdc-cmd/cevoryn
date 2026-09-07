@@ -669,6 +669,35 @@
       "saveFailed": "Şirket profili kaydedilemedi",
       "loadFailed": "Şirket profili yüklenemedi",
       "requiresPlan": "Şirket Profili, Professional veya Business plan gerektirir."
+    },
+    "proprietaryData": {
+      "title": "Özel Veri",
+      "subtitle": "Kuruluşunuzun kendi bilgisi - belgeler, CRM notları, iç bağlam - dış sinyallerin yanında sohbet ve Radar tarafından kullanılabilir.",
+      "titleField": "Başlık",
+      "content": "İçerik",
+      "sourceKind": "Tür",
+      "sourceKinds": {
+        "KNOWLEDGE_BASE": "Bilgi tabanı",
+        "DOCUMENT_STORE": "Belge",
+        "CRM": "CRM notu",
+        "ERP": "ERP kaydı",
+        "INTERNAL_API": "Dahili API"
+      },
+      "url": "Kaynak URL (isteğe bağlı)",
+      "tags": "Etiketler",
+      "listFieldHint": "Virgülle ayırın",
+      "add": "Kayıt ekle",
+      "added": "Kayıt eklendi",
+      "addFailed": "Kayıt eklenemedi",
+      "edit": "Düzenle",
+      "save": "Kaydet",
+      "updated": "Kayıt güncellendi",
+      "updateFailed": "Kayıt güncellenemedi",
+      "remove": "Kaldır",
+      "removed": "Kayıt kaldırıldı",
+      "removeFailed": "Kayıt kaldırılamadı",
+      "empty": "Henüz özel veri yok. Sohbet ve Radar'ın kullanabilmesi için kendi belgelerinizi, CRM notlarınızı veya iç bağlamınızı ekleyin.",
+      "requiresPlan": "Özel Veri, Professional veya Business plan gerektirir."
     }
   },
   "billing": {

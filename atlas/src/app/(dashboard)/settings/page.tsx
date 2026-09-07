@@ -1,6 +1,7 @@
 import {
   Building2,
   CreditCard,
+  Database,
   Link2,
   Radar,
   Shield,
@@ -195,6 +196,25 @@ export default async function SettingsPage() {
               className={buttonVariants({ variant: "outline", size: "sm" })}
             >
               {t("companyProfile.title")}
+            </Link>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {hasPermission(membership.role, "radar:read") ? (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Database className="h-4 w-4" />
+              {t("proprietaryData.title")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Link
+              href="/settings/proprietary-data"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              {t("proprietaryData.title")}
             </Link>
           </CardContent>
         </Card>

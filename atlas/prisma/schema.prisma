@@ -50,6 +50,7 @@ model Organization {
   auditLogs          AuditLog[]
   pipelineRuns       PipelineRun[]
   googleConnections  GoogleConnection[]
+  proprietaryDataRecords ProprietaryDataRecord[]
 
   @@map("organizations")
 }
@@ -1111,4 +1112,55 @@ model PipelineRun {
 
   @@index([organizationId, startedAt(sort: Desc)])
   @@map("pipeline_runs")
+}
+
+// =============================================================================
+// Enterprise Foundation: Proprietary Data
+//
+// Step 5. First real implementation of the "Proprietary Data / Custom
+// Integrations" contract sketched in src/features/enterprise/integrations/
+// types.ts (Phase 2, interface-only until now). Chosen over the other 10
+// enterprise foundations listed there because it is the only one buildable
+// as a real, self-contained feature today: it needs no second auth path
+// (unlike SSO), no queueing infra (unlike dedicated workers), no API-key
+// layer (unlike the public API), and no per-tenant database (unlike private
+// deployment) - it is an org-scoped table plus a UI to fill it, and it
+// directly strengthens Radar/Brain by giving the AI system prompt and (in a
+// later step) the Opportunity Engine access to the organization's own
+// declared knowledge, not just external signals.
+//
+// `sourceKind` reuses the exact ProprietaryDataSourceKind values the
+// interface already declared. Every record today is added manually through
+// the settings UI (`addedByUserId` is always a real user) - `sourceKind`
+// lets a user categorize what kind of knowledge it represents (e.g. an
+// exported CRM note vs. a knowledge-base article) without CEVORYN actually
+// having a live CRM/ERP/internal-API connector yet. `CustomIntegrationConfig`
+// (the *automated* fetch side of the same interface file) remains
+// unimplemented - see that file's status comment.
+// =============================================================================
+
+enum ProprietaryDataSourceKind {
+  DOCUMENT_STORE
+  CRM
+  ERP
+  INTERNAL_API
+  KNOWLEDGE_BASE
+}
+
+model ProprietaryDataRecord {
+  id             String                     @id @default(cuid())
+  organizationId String                     @map("organization_id")
+  sourceKind     ProprietaryDataSourceKind  @default(KNOWLEDGE_BASE) @map("source_kind")
+  title          String
+  content        String
+  url            String?
+  tags           String[]                   @default([])
+  addedByUserId  String                     @map("added_by_user_id")
+  createdAt      DateTime                   @default(now()) @map("created_at")
+  updatedAt      DateTime                   @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@map("proprietary_data_records")
 }
