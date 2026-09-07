@@ -2,12 +2,14 @@ import "server-only";
 
 import type { ProprietaryDataRecord } from "@prisma/client";
 
+import { hasFeature } from "@/features/billing/config/plans";
 import { recordAuditEvent } from "@/features/enterprise/audit/audit.service";
 import { prisma } from "@/lib/prisma";
 import {
   createKeywordSearchProvider,
   type SearchProvider,
 } from "@/lib/search/search-provider";
+import { getOrganizationPlan } from "@/server/services/entitlement.service";
 
 import type {
   CreateProprietaryDataRecordInput,
@@ -150,10 +152,11 @@ export async function searchProprietaryDataRecords(
 
 /**
  * Recency-ordered slice for AI context injection (see
- * src/features/brain/proprietary-data/proprietary-data.module.ts) - matches
- * the same "top N, not query-matched" pattern getMemoriesForContext()
- * already uses for Memory, rather than trying to relevance-match the live
- * user message against ILIKE (which would rarely fire usefully).
+ * src/features/brain/proprietary-data/proprietary-data.module.ts and
+ * src/features/radar/opportunities/opportunity-generator.ts) - matches the
+ * same "top N, not query-matched" pattern getMemoriesForContext() already
+ * uses for Memory, rather than trying to relevance-match the live message
+ * against ILIKE (which would rarely fire usefully).
  */
 export async function getProprietaryDataForContext(
   organizationId: string,
@@ -163,6 +166,34 @@ export async function getProprietaryDataForContext(
     where: { organizationId },
     orderBy: { updatedAt: "desc" },
     take,
-    select: { sourceKind: true, title: true, content: true },
+    select: {
+      id: true,
+      sourceKind: true,
+      title: true,
+      content: true,
+      url: true,
+    },
   });
+}
+
+/**
+ * Billing-gated variant of getProprietaryDataForContext() for the
+ * Opportunity/Threat generation path (src/features/radar/opportunities/
+ * opportunity-generator.ts). Proprietary data must never be read for an
+ * organization without the RADAR feature - the batch pipeline entry point
+ * (runRadarPipelineForAllOrganizations) already filters non-RADAR
+ * organizations out before this is ever reached, but that upstream filter
+ * is not this function's caller's only path (generateOpportunityForEvent
+ * can also run directly), so the check is repeated here, immediately
+ * before the only query that would read the data - not trusted to an
+ * upstream caller. Returns an empty array (never throws) for a non-RADAR
+ * organization, exactly as if it had no proprietary data at all.
+ */
+export async function getProprietaryDataForOpportunityGeneration(
+  organizationId: string,
+  take: number = 5
+) {
+  const plan = await getOrganizationPlan(organizationId);
+  if (!hasFeature(plan, "RADAR")) return [];
+  return getProprietaryDataForContext(organizationId, take);
 }
