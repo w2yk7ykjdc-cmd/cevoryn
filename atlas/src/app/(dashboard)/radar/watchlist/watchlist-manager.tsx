@@ -270,6 +270,8 @@ export function WatchlistManager({
 
             <button
               type="button"
+              aria-expanded={showAddAdvanced}
+              aria-controls="watchlist-advanced-fields"
               onClick={() => setShowAddAdvanced((prev) => !prev)}
               className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
             >
@@ -282,7 +284,10 @@ export function WatchlistManager({
             </button>
 
             {showAddAdvanced ? (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div
+                id="watchlist-advanced-fields"
+                className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+              >
                 <div className="space-y-1.5">
                   <Label htmlFor="watchlist-priority">{t("priority")}</Label>
                   <Input
