@@ -23,6 +23,12 @@ Structure your response as plain text with these sections: "Summary", "What we k
  * without waiting on the LLM call. The actual work happens in
  * processResearchTask(), scheduled via Next's after() so it runs post-
  * response instead of needing a separate queue/worker process.
+ *
+ * Idempotent: if a PENDING or RUNNING task already exists for this
+ * opportunity, that task is returned instead of creating a new one - the
+ * UI has no guard against a user clicking "Investigate" more than once
+ * before the first request finishes, and without this a rapid double-click
+ * would kick off two duplicate LLM calls.
  */
 export async function createResearchTask(
   organizationId: string,
@@ -34,6 +40,17 @@ export async function createResearchTask(
     select: { id: true },
   });
   if (!opportunity) return null;
+
+  const inFlight = await prisma.workerTask.findFirst({
+    where: {
+      organizationId,
+      opportunityId,
+      status: { in: ["PENDING", "RUNNING"] },
+    },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
+  if (inFlight) return { taskId: inFlight.id };
 
   const task = await prisma.workerTask.create({
     data: {

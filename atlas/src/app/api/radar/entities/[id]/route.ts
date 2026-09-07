@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+import { FeatureAccessError } from "@/features/billing/config/plans";
 import {
   deactivateWatchedEntity,
   getWatchedEntity,
@@ -16,6 +17,29 @@ import {
 } from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
+import { assertOrganizationFeatureAccess } from "@/server/services/entitlement.service";
+
+async function requireRadarFeature(
+  organizationId: string
+): Promise<NextResponse | null> {
+  try {
+    await assertOrganizationFeatureAccess(organizationId, "RADAR");
+    return null;
+  } catch (error) {
+    if (error instanceof FeatureAccessError) {
+      return NextResponse.json(
+        {
+          error: {
+            code: error.code,
+            message: "Radar requires the Professional or Business plan.",
+          },
+        },
+        { status: 403 }
+      );
+    }
+    throw error;
+  }
+}
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -55,6 +79,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (!hasPermission(membership.role, "radar:manage")) {
       return forbiddenResponse("Insufficient permissions");
     }
+
+    const featureError = await requireRadarFeature(membership.organizationId);
+    if (featureError) return featureError;
 
     let body: unknown;
     try {
@@ -96,6 +123,9 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     if (!hasPermission(membership.role, "radar:manage")) {
       return forbiddenResponse("Insufficient permissions");
     }
+
+    const featureError = await requireRadarFeature(membership.organizationId);
+    if (featureError) return featureError;
 
     const result = await deactivateWatchedEntity(
       membership.organizationId,

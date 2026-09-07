@@ -1,6 +1,7 @@
 "use client";
 
 import { Bell } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,18 @@ import { handleUnauthorized } from "@/lib/client-auth";
 
 const POLL_INTERVAL_MS = 60_000;
 
+/**
+ * Where a notification's entityType should take the user - both currently-
+ * produced entity-linked types (see radar-pipeline.service.ts and
+ * research-worker.ts) surface on the Radar feed, since there is no
+ * dedicated per-opportunity or per-research-task page. Anything not
+ * listed here (org-wide alerts with no entity) is not clickable-through.
+ */
+const ENTITY_TYPE_DESTINATION: Record<string, string> = {
+  opportunity: "/radar",
+  research_task: "/radar",
+};
+
 interface NotificationRow {
   id: string;
   type: string;
@@ -24,9 +37,12 @@ interface NotificationRow {
   body: string;
   readAt: string | null;
   createdAt: string;
+  entityType: string | null;
+  entityId: string | null;
 }
 
 export function NotificationBell() {
+  const router = useRouter();
   const [notifications, setNotifications] = useState<NotificationRow[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
@@ -118,12 +134,17 @@ export function NotificationBell() {
             No notifications yet
           </div>
         ) : (
-          notifications.slice(0, 10).map((notification) => (
+          notifications.slice(0, 10).map((notification) => {
+            const destination = notification.entityType
+              ? ENTITY_TYPE_DESTINATION[notification.entityType]
+              : undefined;
+            return (
             <DropdownMenuItem
               key={notification.id}
               className="flex flex-col items-start gap-0.5 whitespace-normal"
               onSelect={() => {
                 if (!notification.readAt) markRead(notification.id);
+                if (destination) router.push(destination);
               }}
             >
               <span className="flex w-full items-center gap-2 text-sm font-medium">
@@ -136,7 +157,8 @@ export function NotificationBell() {
                 {notification.body}
               </span>
             </DropdownMenuItem>
-          ))
+            );
+          })
         )}
       </DropdownMenuContent>
     </DropdownMenu>

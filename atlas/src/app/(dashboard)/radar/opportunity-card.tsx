@@ -35,6 +35,12 @@ export interface OpportunityCardData {
   scoreBreakdown: unknown;
   status: string;
   externalEntity: { id: string; name: string };
+  latestResearchTask?: {
+    id: string;
+    status: string;
+    brief: string | null;
+    error: string | null;
+  } | null;
 }
 
 function formatValueRange(
@@ -85,6 +91,11 @@ export function OpportunityCard({
   const [expanded, setExpanded] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isResearching, setIsResearching] = useState(false);
+  const [researchTask, setResearchTask] = useState(
+    opportunity.latestResearchTask ?? null
+  );
+  const researchInFlight =
+    researchTask?.status === "PENDING" || researchTask?.status === "RUNNING";
 
   const evidence = asEvidenceList(opportunity.evidence);
   const breakdown = asScoreBreakdown(opportunity.scoreBreakdown);
@@ -132,6 +143,13 @@ export function OpportunityCard({
       if (handleUnauthorized(response)) return;
       if (!response.ok) throw new Error(t("researchFailed"));
 
+      const data = await response.json().catch(() => null);
+      setResearchTask({
+        id: data?.data?.taskId ?? "",
+        status: "PENDING",
+        brief: null,
+        error: null,
+      });
       toast.success(t("researchStarted"));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t("researchFailed"));
@@ -204,6 +222,8 @@ export function OpportunityCard({
 
         <button
           type="button"
+          aria-expanded={expanded}
+          aria-controls={`opportunity-detail-${opportunity.id}`}
           className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
           onClick={() => setExpanded((prev) => !prev)}
         >
@@ -216,7 +236,10 @@ export function OpportunityCard({
         </button>
 
         {expanded ? (
-          <div className="space-y-3 rounded-lg border p-3 text-xs">
+          <div
+            id={`opportunity-detail-${opportunity.id}`}
+            className="space-y-3 rounded-lg border p-3 text-xs"
+          >
             <p>{opportunity.reasoning}</p>
 
             {Object.keys(breakdown).length > 0 ? (
@@ -268,6 +291,21 @@ export function OpportunityCard({
                 </ul>
               </div>
             ) : null}
+
+            {researchTask?.status === "COMPLETED" && researchTask.brief ? (
+              <div>
+                <p className="mb-1 font-medium uppercase tracking-wide text-muted-foreground">
+                  {t("researchBrief")}
+                </p>
+                <p className="whitespace-pre-wrap">{researchTask.brief}</p>
+              </div>
+            ) : researchInFlight ? (
+              <p className="text-muted-foreground">{t("researchPending")}</p>
+            ) : researchTask?.status === "FAILED" ? (
+              <p className="text-destructive">
+                {researchTask.error || t("researchFailed")}
+              </p>
+            ) : null}
           </div>
         ) : null}
 
@@ -276,15 +314,15 @@ export function OpportunityCard({
             <Button
               size="sm"
               variant="outline"
-              disabled={isResearching}
+              disabled={isResearching || researchInFlight}
               onClick={startResearch}
             >
-              {isResearching ? (
+              {isResearching || researchInFlight ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Search className="h-4 w-4" />
               )}
-              {t("investigate")}
+              {researchInFlight ? t("researchPending") : t("investigate")}
             </Button>
             {status === "NEW" || status === "REVIEWING" ? (
               <Button

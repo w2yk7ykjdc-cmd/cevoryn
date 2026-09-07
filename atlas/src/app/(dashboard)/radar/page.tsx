@@ -11,7 +11,15 @@ import { ROUTES } from "@/lib/constants";
 import { hasPermission } from "@/lib/rbac";
 import { getOrganizationPlan } from "@/server/services/entitlement.service";
 
+import type { OpportunityCardData } from "./opportunity-card";
 import { RadarFeed } from "./radar-feed";
+
+function withLatestResearchTask<
+  T extends { workerTasks: { id: string; status: string; brief: string | null; error: string | null }[] },
+>(opportunity: T): Omit<T, "workerTasks"> & Pick<OpportunityCardData, "latestResearchTask"> {
+  const { workerTasks, ...rest } = opportunity;
+  return { ...rest, latestResearchTask: workerTasks[0] ?? null };
+}
 
 export const metadata: Metadata = { title: "Radar — CEVORYN" };
 
@@ -59,8 +67,8 @@ export default async function RadarPage() {
       ) : (
         <RadarFeed
           canManage={hasPermission(membership.role, "radar:manage")}
-          opportunities={opportunities}
-          threats={threats}
+          opportunities={opportunities.map(withLatestResearchTask)}
+          threats={threats.map(withLatestResearchTask)}
           events={events}
         />
       )}
