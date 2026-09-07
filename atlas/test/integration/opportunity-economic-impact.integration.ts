@@ -1,16 +1,30 @@
 /**
- * Real Postgres integration coverage for Step 7A: the deterministic
- * economic value foundation on Opportunity.economicImpact.
+ * Real Postgres integration coverage for:
+ * - Step 7A: the deterministic economic value foundation on
+ *   Opportunity.economicImpact.
+ * - Step 7B: economic value traceability - assumptions[]/evidenceRefs[]/
+ *   impactType/confidence/timeHorizon layered onto the same column, with
+ *   no new Prisma model and no migration (still the same Json? column).
  *
  * What this suite CAN verify without a real AI provider credential:
- * - The new additive `economic_impact` column round-trips real JSON
- *   through real Postgres (migration actually works, not just parses).
+ * - The additive `economic_impact` column round-trips real JSON through
+ *   real Postgres (migration actually works, not just parses) - now
+ *   including the richer Step 7B shape.
  * - Feeding a real, DB-fetched CompanyProfile.averageDealSize into the
- *   pure calculator produces the expected DETERMINISTIC result - the
+ *   pure calculator produces the expected DETERMINISTIC result, with
+ *   code-derived assumptions attributed to real data, not the LLM - the
  *   wiring between "real stored data" and "the calculator" is correct,
  *   not just the calculator in isolation (already unit-tested).
+ * - buildEconomicImpactRecord() correctly distinguishes EXTERNAL vs
+ *   PROPRIETARY evidence (the same provenance discriminator Step 6
+ *   established) when assigning evidenceRefs, against a real merged
+ *   evidence array written to a real Opportunity row.
+ * - A Step-7A-shaped economicImpact value (no assumptions/evidenceRefs/
+ *   impactType/confidence field at all) still round-trips unchanged -
+ *   backward compatibility with rows written before Step 7B, proving no
+ *   migration or backfill was needed.
  * - generateOpportunityForEvent() still runs its full pre-LLM pipeline
- *   (now including the new economic-impact computation path, which sits
+ *   (now including the new economic-impact-record assembly, which sits
  *   after the LLM call and is therefore itself unreachable without a
  *   real credential - see below) and still fails gracefully instead of
  *   creating a corrupt/partial row - a regression check, not new coverage
@@ -31,8 +45,14 @@ import { execSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
 
+import type { Prisma } from "@prisma/client";
+
 import type { calculateDeterministicEconomicImpact as CalculateDeterministicEconomicImpactType } from "../../src/features/radar/opportunities/economic-impact-calculator";
 import type { createWatchedEntity as CreateWatchedEntityType } from "../../src/features/radar/entities/entity.service";
+import type {
+  buildEconomicImpactRecord as BuildEconomicImpactRecordType,
+  mergeOpportunityEvidence as MergeOpportunityEvidenceType,
+} from "../../src/features/radar/opportunities/opportunity-generation-math";
 import type { generateOpportunityForEvent as GenerateOpportunityForEventType } from "../../src/features/radar/opportunities/opportunity-generator";
 import type { prisma as PrismaType } from "../../src/lib/prisma";
 
@@ -65,6 +85,8 @@ let prisma: typeof PrismaType;
 let calculateDeterministicEconomicImpact: typeof CalculateDeterministicEconomicImpactType;
 let createWatchedEntity: typeof CreateWatchedEntityType;
 let generateOpportunityForEvent: typeof GenerateOpportunityForEventType;
+let buildEconomicImpactRecord: typeof BuildEconomicImpactRecordType;
+let mergeOpportunityEvidence: typeof MergeOpportunityEvidenceType;
 
 before(async () => {
   process.env.DATABASE_URL = INTEGRATION_DATABASE_URL;
@@ -88,6 +110,11 @@ before(async () => {
   const generatorModule =
     await import("../../src/features/radar/opportunities/opportunity-generator");
   generateOpportunityForEvent = generatorModule.generateOpportunityForEvent;
+
+  const generationMathModule =
+    await import("../../src/features/radar/opportunities/opportunity-generation-math");
+  buildEconomicImpactRecord = generationMathModule.buildEconomicImpactRecord;
+  mergeOpportunityEvidence = generationMathModule.mergeOpportunityEvidence;
 
   await prisma.organization.createMany({
     data: [
@@ -270,6 +297,195 @@ test("a real, DB-fetched CompanyProfile with no averageDealSize feeds the calcul
   assert.equal(result.basis, "INSUFFICIENT_DATA");
   assert.equal(result.valueRangeMin, null);
   assert.equal(result.valueRangeMax, null);
+});
+
+test("Step 7B: a DETERMINISTIC economicImpact record's assumptions and evidenceRefs round-trip through real Postgres, referencing only PROPRIETARY evidence", async () => {
+  const { event } = await createTestOpportunityChain(ORG_A_ID);
+
+  const mergedEvidence = mergeOpportunityEvidence(
+    [{ label: "Job posting: Senior Facilities Engineer" }],
+    [
+      {
+        title: "Internal deal-size memo",
+        excerpt: "Typical enterprise contract is six figures.",
+        url: null,
+      },
+    ]
+  );
+
+  const calculated = calculateDeterministicEconomicImpact({
+    averageDealSize: 200_000,
+    probability: 0.5,
+    economicPotential: 0.6,
+    currency: "EUR",
+  });
+
+  const economicImpact = buildEconomicImpactRecord({
+    calculated,
+    polarity: "OPPORTUNITY",
+    eventConfidence: 0.8,
+    timeHorizon: "3-6 months",
+    mergedEvidence,
+  });
+
+  const created = await prisma.opportunity.create({
+    data: {
+      organizationId: ORG_A_ID,
+      externalEntityId: event.externalEntityId,
+      eventId: event.id,
+      polarity: "OPPORTUNITY",
+      title: "Traceability round-trip test opportunity",
+      description: "test",
+      probability: 0.5,
+      confidence: 0.8,
+      strategicFit: 0.6,
+      timeHorizon: "3-6 months",
+      reasoning: "test",
+      score: 0.6,
+      scoreBreakdown: {
+        relevance: 0.6,
+        strategicFit: 0.6,
+        economicPotential: 0.6,
+        timing: 0.6,
+        confidence: 0.6,
+      },
+      evidence: mergedEvidence as unknown as Prisma.InputJsonValue,
+      economicImpact: economicImpact as unknown as Prisma.InputJsonValue,
+    },
+  });
+
+  const fetched = await prisma.opportunity.findUniqueOrThrow({
+    where: { id: created.id },
+  });
+  assert.deepEqual(fetched.economicImpact, economicImpact);
+
+  const stored = fetched.economicImpact as unknown as typeof economicImpact;
+  assert.equal(stored.impactType, "REVENUE_OPPORTUNITY");
+  assert.equal(stored.confidence, 0.8);
+  assert.equal(stored.timeHorizon, "3-6 months");
+  // mergedEvidence is [EXTERNAL, PROPRIETARY] - only index 1 should be
+  // referenced, and every assumption must be sourced from real data, not
+  // the LLM.
+  assert.deepEqual(stored.evidenceRefs, [
+    { evidenceIndex: 1, role: "supports_economic_estimate" },
+  ]);
+  assert.ok(stored.assumptions.length > 0);
+  for (const assumption of stored.assumptions) {
+    assert.notEqual(assumption.source, "LLM_ESTIMATE_UNVALIDATED");
+  }
+});
+
+test("Step 7B backward compatibility: a Step-7A-shaped economicImpact (no assumptions/evidenceRefs/impactType/confidence at all) round-trips unchanged - no migration or backfill needed", async () => {
+  const { event } = await createTestOpportunityChain(ORG_A_ID);
+
+  const step7aShapedImpact = {
+    basis: "DETERMINISTIC" as const,
+    valueRangeMin: 18_000,
+    valueRangeMax: 42_000,
+    currency: "EUR",
+    inputs: {
+      averageDealSize: 100_000,
+      probability: 0.5,
+      economicPotential: 0.6,
+      lowMultiplier: 0.6,
+      highMultiplier: 1.4,
+    },
+  };
+
+  const created = await prisma.opportunity.create({
+    data: {
+      organizationId: ORG_A_ID,
+      externalEntityId: event.externalEntityId,
+      eventId: event.id,
+      polarity: "OPPORTUNITY",
+      title: "Pre-Step-7B shaped opportunity",
+      description: "test",
+      probability: 0.5,
+      confidence: 0.8,
+      strategicFit: 0.6,
+      timeHorizon: "3-6 months",
+      reasoning: "test",
+      score: 0.6,
+      scoreBreakdown: {
+        relevance: 0.6,
+        strategicFit: 0.6,
+        economicPotential: 0.6,
+        timing: 0.6,
+        confidence: 0.6,
+      },
+      economicImpact: step7aShapedImpact,
+    },
+  });
+
+  const fetched = await prisma.opportunity.findUniqueOrThrow({
+    where: { id: created.id },
+  });
+  // Written exactly as-is - Postgres/Prisma never injects the new fields
+  // into an old row, and reading it back doesn't throw or coerce it.
+  assert.deepEqual(fetched.economicImpact, step7aShapedImpact);
+});
+
+test("Step 7B: buildEconomicImpactRecord for INSUFFICIENT_DATA nulls confidence/timeHorizon and produces no evidenceRefs even with real PROPRIETARY evidence present, and round-trips that way", async () => {
+  // ORG_A_ID, not ORG_B_ID - ORG_B_ID is reserved as the "zero Opportunity
+  // rows" organization for the tenant isolation regression test below.
+  const { event } = await createTestOpportunityChain(ORG_A_ID);
+
+  const mergedEvidence = mergeOpportunityEvidence(
+    [],
+    [{ title: "Internal doc", excerpt: "content", url: null }]
+  );
+
+  const calculated = calculateDeterministicEconomicImpact({
+    averageDealSize: null,
+    probability: 0.5,
+    economicPotential: 0.6,
+    currency: "EUR",
+  });
+
+  const economicImpact = buildEconomicImpactRecord({
+    calculated,
+    polarity: "OPPORTUNITY",
+    eventConfidence: 0.9,
+    timeHorizon: "6-12 months",
+    mergedEvidence,
+  });
+
+  const created = await prisma.opportunity.create({
+    data: {
+      organizationId: ORG_A_ID,
+      externalEntityId: event.externalEntityId,
+      eventId: event.id,
+      polarity: "OPPORTUNITY",
+      title: "Insufficient data traceability test opportunity",
+      description: "test",
+      probability: 0.5,
+      confidence: 0.9,
+      strategicFit: 0.6,
+      timeHorizon: "6-12 months",
+      reasoning: "test",
+      score: 0.6,
+      scoreBreakdown: {
+        relevance: 0.6,
+        strategicFit: 0.6,
+        economicPotential: 0.6,
+        timing: 0.6,
+        confidence: 0.6,
+      },
+      evidence: mergedEvidence as unknown as Prisma.InputJsonValue,
+      economicImpact: economicImpact as unknown as Prisma.InputJsonValue,
+    },
+  });
+
+  const fetched = await prisma.opportunity.findUniqueOrThrow({
+    where: { id: created.id },
+  });
+  const stored = fetched.economicImpact as unknown as typeof economicImpact;
+  assert.equal(stored.basis, "INSUFFICIENT_DATA");
+  assert.equal(stored.impactType, "INSUFFICIENT_DATA");
+  assert.equal(stored.confidence, null);
+  assert.equal(stored.timeHorizon, null);
+  assert.deepEqual(stored.evidenceRefs, []);
+  assert.deepEqual(stored.assumptions, []);
 });
 
 test("tenant isolation regression: economic_impact values never leak across organizations", async () => {

@@ -9,6 +9,8 @@ import type { OpportunityPolarity } from "@/lib/enum-validators";
 
 import type { EvidenceItem } from "../types";
 
+import type { EconomicImpact } from "./economic-impact-calculator";
+
 const MIN_TITLE_LENGTH = 5;
 
 function isUnitInterval(value: unknown): value is number {
@@ -174,4 +176,90 @@ export function mergeOpportunityEvidence(
     ...asExternalEvidence(eventEvidence),
     ...buildProprietaryEvidence(proprietaryRecords),
   ];
+}
+
+/**
+ * Step 7B: economic value traceability. Everything this type adds on top
+ * of EconomicImpact (impactType, confidence, timeHorizon, evidenceRefs) is
+ * assigned by code below, from data already trusted elsewhere in this
+ * pipeline - never asserted by the LLM's own structured output, which has
+ * no field for any of it.
+ */
+export type EconomicImpactType =
+  | "REVENUE_OPPORTUNITY"
+  | "REVENUE_EXPOSURE"
+  | "COST_AVOIDANCE"
+  | "INSUFFICIENT_DATA";
+
+export interface EconomicEvidenceRef {
+  evidenceIndex: number;
+  role: string;
+}
+
+export interface EconomicImpactRecord extends EconomicImpact {
+  impactType: EconomicImpactType;
+  /** Same confidence already stored on Opportunity.confidence
+   *  (event.confidence) - null when there is no value to be confident
+   *  about (INSUFFICIENT_DATA). */
+  confidence: number | null;
+  /** Same string already stored on Opportunity.timeHorizon - null when
+   *  there is no value it applies to (INSUFFICIENT_DATA). */
+  timeHorizon: string | null;
+  /** Which merged evidence items (see mergeOpportunityEvidence) support
+   *  this specific economic estimate - always the PROPRIETARY (real
+   *  company data) items, since those are the direct, code-verifiable
+   *  context for a deal's scale. Never LLM-assigned: the LLM's structured
+   *  output has no evidence field at all, so it cannot claim a link that
+   *  code didn't actually build. */
+  evidenceRefs: EconomicEvidenceRef[];
+}
+
+const ECONOMIC_EVIDENCE_ROLE = "supports_economic_estimate";
+
+/**
+ * Assembles the full persisted economicImpact shape from the pure
+ * calculator's result plus the surrounding generation context. COST_AVOIDANCE
+ * is a reserved impactType value (see the Step 7B spec's own enum) that no
+ * code path here assigns yet - nothing in the current schema distinguishes
+ * a cost-avoidance signal from a revenue one, so claiming it would be a
+ * fabricated distinction, not a real one.
+ */
+export function buildEconomicImpactRecord(params: {
+  calculated: EconomicImpact;
+  polarity: OpportunityPolarity;
+  eventConfidence: number;
+  timeHorizon: string;
+  mergedEvidence: EvidenceItem[];
+}): EconomicImpactRecord {
+  const { calculated, polarity, eventConfidence, timeHorizon, mergedEvidence } =
+    params;
+
+  if (calculated.basis === "INSUFFICIENT_DATA") {
+    return {
+      ...calculated,
+      impactType: "INSUFFICIENT_DATA",
+      confidence: null,
+      timeHorizon: null,
+      evidenceRefs: [],
+    };
+  }
+
+  const impactType: EconomicImpactType =
+    polarity === "THREAT" ? "REVENUE_EXPOSURE" : "REVENUE_OPPORTUNITY";
+
+  const evidenceRefs: EconomicEvidenceRef[] = mergedEvidence
+    .map((item, evidenceIndex) => ({ item, evidenceIndex }))
+    .filter(({ item }) => item.source === "PROPRIETARY")
+    .map(({ evidenceIndex }) => ({
+      evidenceIndex,
+      role: ECONOMIC_EVIDENCE_ROLE,
+    }));
+
+  return {
+    ...calculated,
+    impactType,
+    confidence: eventConfidence,
+    timeHorizon,
+    evidenceRefs,
+  };
 }
