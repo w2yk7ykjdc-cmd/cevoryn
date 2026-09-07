@@ -11,9 +11,12 @@ import { prisma } from "@/lib/prisma";
 import { isProfileMeaningfullyComplete } from "../profile/company-profile.service";
 import type { OpportunityScoreBreakdown } from "../types";
 
-import { calculateDeterministicEconomicImpact } from "./economic-impact-calculator";
-import type { EconomicImpact } from "./economic-impact-calculator";
 import {
+  buildLlmEstimateEconomicImpact,
+  calculateDeterministicEconomicImpact,
+} from "./economic-impact-calculator";
+import {
+  buildEconomicImpactRecord,
   mergeOpportunityEvidence,
   validateGeneratedOpportunity,
 } from "./opportunity-generation-math";
@@ -253,19 +256,33 @@ export async function generateOpportunityForEvent(
       economicPotential: generated.economicPotential,
       currency: generated.currency,
     });
-    const economicImpact: EconomicImpact =
+    const calculatedImpact =
       deterministicImpact.basis === "DETERMINISTIC"
         ? deterministicImpact
-        : {
-            basis:
-              generated.estimatedValueMin !== null ||
-              generated.estimatedValueMax !== null
-                ? "LLM_ESTIMATE_UNVALIDATED"
-                : "INSUFFICIENT_DATA",
-            valueRangeMin: generated.estimatedValueMin,
-            valueRangeMax: generated.estimatedValueMax,
+        : buildLlmEstimateEconomicImpact({
+            estimatedValueMin: generated.estimatedValueMin,
+            estimatedValueMax: generated.estimatedValueMax,
             currency: generated.currency,
-          };
+          });
+
+    const mergedEvidence = mergeOpportunityEvidence(
+      event.evidence,
+      excerptedProprietaryRecords
+    );
+
+    // Step 7B: economic value traceability - impactType/confidence/
+    // timeHorizon/evidenceRefs are all assigned here from data already
+    // trusted elsewhere in this function (polarity, event.confidence,
+    // generated.timeHorizon, the same merged evidence array written to
+    // Opportunity.evidence below), never from anything the LLM asserts
+    // about its own estimate.
+    const economicImpact = buildEconomicImpactRecord({
+      calculated: calculatedImpact,
+      polarity: generated.polarity,
+      eventConfidence: event.confidence,
+      timeHorizon: generated.timeHorizon,
+      mergedEvidence,
+    });
 
     const opportunity = await prisma.opportunity.create({
       data: {
@@ -284,10 +301,7 @@ export async function generateOpportunityForEvent(
         timeHorizon: generated.timeHorizon,
         reasoning: generated.reasoning,
         recommendedAction: generated.recommendedAction,
-        evidence: mergeOpportunityEvidence(
-          event.evidence,
-          excerptedProprietaryRecords
-        ) as unknown as Prisma.InputJsonValue,
+        evidence: mergedEvidence as unknown as Prisma.InputJsonValue,
         score,
         scoreBreakdown: breakdown as unknown as Prisma.InputJsonValue,
         economicImpact: economicImpact as unknown as Prisma.InputJsonValue,

@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { calculateDeterministicEconomicImpact } from "../src/features/radar/opportunities/economic-impact-calculator";
 import {
   asExternalEvidence,
+  buildEconomicImpactRecord,
   buildProprietaryEvidence,
   mergeOpportunityEvidence,
   validateGeneratedOpportunity,
@@ -208,4 +210,81 @@ test("mergeOpportunityEvidence with no proprietary records is identical to the e
   const [only] = merged;
   assert.ok(only);
   assert.equal(only.source, "EXTERNAL");
+});
+
+test("buildEconomicImpactRecord derives REVENUE_OPPORTUNITY for OPPORTUNITY polarity and links only PROPRIETARY evidence", () => {
+  const calculated = calculateDeterministicEconomicImpact({
+    averageDealSize: 100_000,
+    probability: 0.5,
+    economicPotential: 0.6,
+    currency: "EUR",
+  });
+  const mergedEvidence = mergeOpportunityEvidence(
+    [{ label: "Signal A" }, { label: "Signal B" }],
+    [{ title: "Internal doc", excerpt: "content", url: null }]
+  );
+
+  const record = buildEconomicImpactRecord({
+    calculated,
+    polarity: "OPPORTUNITY",
+    eventConfidence: 0.75,
+    timeHorizon: "3-6 months",
+    mergedEvidence,
+  });
+
+  assert.equal(record.basis, "DETERMINISTIC");
+  assert.equal(record.impactType, "REVENUE_OPPORTUNITY");
+  assert.equal(record.confidence, 0.75);
+  assert.equal(record.timeHorizon, "3-6 months");
+  // mergedEvidence is [EXTERNAL, EXTERNAL, PROPRIETARY] - only index 2
+  // (the PROPRIETARY item) should be referenced.
+  assert.deepEqual(record.evidenceRefs, [
+    { evidenceIndex: 2, role: "supports_economic_estimate" },
+  ]);
+});
+
+test("buildEconomicImpactRecord derives REVENUE_EXPOSURE for THREAT polarity", () => {
+  const calculated = calculateDeterministicEconomicImpact({
+    averageDealSize: 100_000,
+    probability: 0.5,
+    economicPotential: 0.6,
+    currency: "EUR",
+  });
+  const record = buildEconomicImpactRecord({
+    calculated,
+    polarity: "THREAT",
+    eventConfidence: 0.4,
+    timeHorizon: "1-3 months",
+    mergedEvidence: [],
+  });
+  assert.equal(record.impactType, "REVENUE_EXPOSURE");
+  assert.deepEqual(record.evidenceRefs, []);
+});
+
+test("buildEconomicImpactRecord for INSUFFICIENT_DATA nulls out confidence/timeHorizon and produces no evidenceRefs, regardless of evidence present", () => {
+  const calculated = calculateDeterministicEconomicImpact({
+    averageDealSize: null,
+    probability: 0.5,
+    economicPotential: 0.6,
+    currency: "EUR",
+  });
+  const mergedEvidence = mergeOpportunityEvidence(
+    [],
+    [{ title: "Internal doc", excerpt: "content", url: null }]
+  );
+
+  const record = buildEconomicImpactRecord({
+    calculated,
+    polarity: "OPPORTUNITY",
+    eventConfidence: 0.9,
+    timeHorizon: "6-12 months",
+    mergedEvidence,
+  });
+
+  assert.equal(record.basis, "INSUFFICIENT_DATA");
+  assert.equal(record.impactType, "INSUFFICIENT_DATA");
+  assert.equal(record.confidence, null);
+  assert.equal(record.timeHorizon, null);
+  assert.deepEqual(record.evidenceRefs, []);
+  assert.deepEqual(record.assumptions, []);
 });

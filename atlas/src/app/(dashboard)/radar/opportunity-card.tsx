@@ -33,6 +33,10 @@ export interface OpportunityCardData {
   evidence: unknown;
   score: number;
   scoreBreakdown: unknown;
+  /** Step 7B: null for pre-Step-7A rows and for anything malformed - see
+   *  asEconomicImpact() below, which is the single place that treats this
+   *  as untrusted until validated. */
+  economicImpact: unknown;
   status: string;
   externalEntity: { id: string; name: string };
   latestResearchTask?: {
@@ -93,6 +97,89 @@ function asScoreBreakdown(value: unknown): Record<string, number> {
   return Object.fromEntries(entries);
 }
 
+interface EconomicAssumptionView {
+  key: string;
+  value: string;
+  source: string;
+}
+
+interface EconomicEvidenceRefView {
+  evidenceIndex: number;
+  role: string;
+}
+
+interface EconomicImpactView {
+  basis: "DETERMINISTIC" | "LLM_ESTIMATE_UNVALIDATED" | "INSUFFICIENT_DATA";
+  valueRangeMin: number | null;
+  valueRangeMax: number | null;
+  currency: string | null;
+  confidence: number | null;
+  assumptions: EconomicAssumptionView[];
+  evidenceRefs: EconomicEvidenceRefView[];
+}
+
+/**
+ * Defensive parse of the Opportunity.economicImpact Json column. Returns
+ * null for: no value at all (pre-Step-7A rows), or anything without a
+ * recognized `basis` - a row this old/malformed falls back to the card's
+ * pre-Step-7A rendering (opportunity.estimatedValueMin/Max) rather than
+ * guessing at a shape. Rows written by Step 7A (basis present, but no
+ * confidence/assumptions/evidenceRefs yet) still parse correctly - those
+ * fields just come back empty/null, which the render below already
+ * treats as "nothing to show" rather than an error.
+ */
+function asEconomicImpact(value: unknown): EconomicImpactView | null {
+  if (!value || typeof value !== "object") return null;
+  const item = value as Record<string, unknown>;
+  if (
+    item.basis !== "DETERMINISTIC" &&
+    item.basis !== "LLM_ESTIMATE_UNVALIDATED" &&
+    item.basis !== "INSUFFICIENT_DATA"
+  ) {
+    return null;
+  }
+
+  const assumptions = Array.isArray(item.assumptions)
+    ? item.assumptions.filter(
+        (a): a is EconomicAssumptionView =>
+          !!a &&
+          typeof a === "object" &&
+          typeof (a as Record<string, unknown>).key === "string" &&
+          typeof (a as Record<string, unknown>).value === "string" &&
+          typeof (a as Record<string, unknown>).source === "string"
+      )
+    : [];
+  const evidenceRefs = Array.isArray(item.evidenceRefs)
+    ? item.evidenceRefs.filter(
+        (r): r is EconomicEvidenceRefView =>
+          !!r &&
+          typeof r === "object" &&
+          typeof (r as Record<string, unknown>).evidenceIndex === "number" &&
+          typeof (r as Record<string, unknown>).role === "string"
+      )
+    : [];
+
+  return {
+    basis: item.basis,
+    valueRangeMin:
+      typeof item.valueRangeMin === "number" ? item.valueRangeMin : null,
+    valueRangeMax:
+      typeof item.valueRangeMax === "number" ? item.valueRangeMax : null,
+    currency: typeof item.currency === "string" ? item.currency : null,
+    confidence: typeof item.confidence === "number" ? item.confidence : null,
+    assumptions,
+    evidenceRefs,
+  };
+}
+
+function confidenceLabelKey(
+  confidence: number
+): "confidenceHigh" | "confidenceMedium" | "confidenceLow" {
+  if (confidence >= 0.67) return "confidenceHigh";
+  if (confidence >= 0.34) return "confidenceMedium";
+  return "confidenceLow";
+}
+
 export function OpportunityCard({
   opportunity,
   canManage,
@@ -113,10 +200,21 @@ export function OpportunityCard({
 
   const evidence = asEvidenceList(opportunity.evidence);
   const breakdown = asScoreBreakdown(opportunity.scoreBreakdown);
-  const valueRange = formatValueRange(
+  const economicImpact = asEconomicImpact(opportunity.economicImpact);
+  const legacyValueRange = formatValueRange(
     opportunity.estimatedValueMin,
     opportunity.estimatedValueMax,
     opportunity.currency
+  );
+  const economicValueRange = economicImpact
+    ? formatValueRange(
+        economicImpact.valueRangeMin,
+        economicImpact.valueRangeMax,
+        economicImpact.currency ?? opportunity.currency
+      )
+    : null;
+  const evidenceRefIndexes = new Set(
+    (economicImpact?.evidenceRefs ?? []).map((ref) => ref.evidenceIndex)
   );
   const isThreat = opportunity.polarity === "THREAT";
 
@@ -204,12 +302,36 @@ export function OpportunityCard({
         ) : null}
 
         <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/40 p-3 text-xs sm:grid-cols-4">
-          {valueRange ? (
+          {economicImpact && economicImpact.basis === "INSUFFICIENT_DATA" ? (
             <div>
               <p className="font-medium text-muted-foreground">
                 {t("estimatedValue")}
               </p>
-              <p className="font-semibold">{valueRange}</p>
+              <p className="font-semibold text-muted-foreground">
+                {t("economicInsufficientData")}
+              </p>
+            </div>
+          ) : economicImpact && economicValueRange ? (
+            <div>
+              <p className="font-medium text-muted-foreground">
+                {t("estimatedValue")}
+              </p>
+              <p className="font-semibold">{economicValueRange}</p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">
+                {economicImpact.basis === "DETERMINISTIC"
+                  ? t("economicBasisCalculated")
+                  : t("economicBasisAiEstimate")}
+                {economicImpact.confidence !== null
+                  ? ` · ${t(confidenceLabelKey(economicImpact.confidence))}`
+                  : ""}
+              </p>
+            </div>
+          ) : legacyValueRange ? (
+            <div>
+              <p className="font-medium text-muted-foreground">
+                {t("estimatedValue")}
+              </p>
+              <p className="font-semibold">{legacyValueRange}</p>
             </div>
           ) : null}
           <div>
@@ -256,6 +378,24 @@ export function OpportunityCard({
           >
             <p>{opportunity.reasoning}</p>
 
+            {economicImpact && economicImpact.assumptions.length > 0 ? (
+              <div>
+                <p className="mb-1 font-medium uppercase tracking-wide text-muted-foreground">
+                  {t("economicAssumptions")}
+                </p>
+                <ul className="space-y-0.5">
+                  {economicImpact.assumptions.map((assumption, index) => (
+                    <li key={index} className="flex justify-between gap-2">
+                      <span className="text-muted-foreground">
+                        {assumption.key.replaceAll("_", " ")}
+                      </span>
+                      <span className="font-medium">{assumption.value}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
             {Object.keys(breakdown).length > 0 ? (
               <div>
                 <p className="mb-1 font-medium uppercase tracking-wide text-muted-foreground">
@@ -288,6 +428,14 @@ export function OpportunityCard({
                           className="mr-1.5 h-4 border-primary/30 px-1 py-0 align-middle text-[10px] font-medium text-primary"
                         >
                           {t("companyData")}
+                        </Badge>
+                      ) : null}
+                      {evidenceRefIndexes.has(index) ? (
+                        <Badge
+                          variant="outline"
+                          className="mr-1.5 h-4 border-emerald-500/30 px-1 py-0 align-middle text-[10px] font-medium text-emerald-600"
+                        >
+                          {t("supportsEconomicValue")}
                         </Badge>
                       ) : null}
                       {item.sourceUrl ? (
