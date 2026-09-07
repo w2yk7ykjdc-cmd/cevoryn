@@ -19,6 +19,7 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
+    "db:check-destructive-migrations": "node scripts/check-destructive-migrations.mjs",
     "gdpr:export": "tsx scripts/gdpr-export-organization.ts",
     "gdpr:delete": "tsx scripts/gdpr-delete-organization.ts",
     "check": "npm run type-check && npm run lint && npm run format:check",

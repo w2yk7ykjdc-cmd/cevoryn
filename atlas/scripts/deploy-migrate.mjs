@@ -22,6 +22,17 @@
 // already-applied migration is a harmless no-op (P3008) - so this is
 // permanently safe to leave in for repeat builds.
 import { execSync } from "node:child_process";
+import { readFileSync, readdirSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import {
+  ALLOW_DESTRUCTIVE_MARKER,
+  scanMigrationSql,
+} from "./lib/destructive-migration-check.mjs";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const MIGRATIONS_DIR = path.join(__dirname, "..", "prisma", "migrations");
 
 function run(command) {
   return execSync(command, { stdio: "pipe" }).toString();
@@ -60,10 +71,108 @@ function baselinePreExistingMigrations() {
   }
 }
 
+/**
+ * Destructive-migration fail-safe (added after the incident where an
+ * auto-generated migration silently dropped the live `google_connections`
+ * table - see the GoogleConnection model's comment in schema.prisma).
+ *
+ * Before running any SQL against production, this scans every migration
+ * that has not yet been recorded as applied for statements that discard
+ * data outright (DROP TABLE/COLUMN/DATABASE/SCHEMA, TRUNCATE). Comments
+ * are stripped first so a mention of these words in an explanatory
+ * comment (like this file's own migration.sql headers) never triggers a
+ * false positive - only literal SQL statements do.
+ *
+ * This is a deliberate-override gate, not an unconditional block: a
+ * migration that genuinely needs to drop something can proceed by adding
+ * a `-- cevoryn:allow-destructive` comment line to its migration.sql,
+ * which is itself a durable, git-reviewable record of "yes, this was
+ * intentional" (unlike an environment variable, which is invisible in the
+ * diff a reviewer actually looks at).
+ */
+function listAllMigrationNames() {
+  return readdirSync(MIGRATIONS_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
+}
+
+/**
+ * Already-applied migration names, read directly via the generated Prisma
+ * Client (available since `prisma generate` already ran earlier in `npm
+ * run build`) rather than shelling out to the CLI, whose plain-text output
+ * isn't a stable contract to parse. If `_prisma_migrations` doesn't exist
+ * yet (a brand-new database), every migration is treated as pending -
+ * the conservative direction, since scanning a migration that turns out
+ * to already be applied costs nothing, while skipping one that is
+ * genuinely about to run for the first time is the failure mode this
+ * guard exists to prevent.
+ */
+async function getAppliedMigrationNames() {
+  const { PrismaClient } = await import("@prisma/client");
+  const prisma = new PrismaClient();
+  try {
+    const rows = await prisma.$queryRaw`
+      SELECT migration_name FROM "_prisma_migrations" WHERE finished_at IS NOT NULL
+    `;
+    return new Set(rows.map((row) => row.migration_name));
+  } catch {
+    return new Set();
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+async function assertNoUnreviewedDestructiveMigrations() {
+  const applied = await getAppliedMigrationNames();
+  const pending = listAllMigrationNames().filter((name) => !applied.has(name));
+
+  const blocked = [];
+  for (const name of pending) {
+    const sqlPath = path.join(MIGRATIONS_DIR, name, "migration.sql");
+    let rawSql;
+    try {
+      rawSql = readFileSync(sqlPath, "utf8");
+    } catch {
+      continue;
+    }
+
+    const statements = scanMigrationSql(rawSql);
+    if (statements.length > 0) {
+      blocked.push({ name, statements });
+    }
+  }
+
+  if (blocked.length === 0) {
+    console.log(
+      `[build] Destructive-migration check passed (${pending.length} pending migration(s) scanned).`
+    );
+    return;
+  }
+
+  console.error(
+    "\n[build] BLOCKED: pending migration(s) contain destructive SQL that has not been explicitly reviewed.\n"
+  );
+  for (const { name, statements } of blocked) {
+    console.error(`  - ${name}: ${statements.join(", ")}`);
+  }
+  console.error(
+    "\nIf this is genuinely intentional (e.g. dropping a table confirmed to have\n" +
+      "no readers/data worth keeping), add this exact line to that migration's\n" +
+      `migration.sql to acknowledge it and unblock the deploy:\n\n  -- ${ALLOW_DESTRUCTIVE_MARKER}\n\n` +
+      "Otherwise, rewrite the migration to be additive/non-destructive (see the\n" +
+      "GoogleConnection model's comment in schema.prisma for the incident this\n" +
+      "check exists to prevent) and never edit an already-applied migration file\n" +
+      "in place.\n"
+  );
+  process.exit(1);
+}
+
 if (process.env.VERCEL_ENV === "production") {
   console.log(
     "[build] VERCEL_ENV=production - running `prisma migrate deploy`"
   );
+  await assertNoUnreviewedDestructiveMigrations();
   try {
     console.log(run("npx prisma migrate deploy"));
   } catch (error) {
