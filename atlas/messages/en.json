@@ -669,6 +669,35 @@
       "saveFailed": "Failed to save company profile",
       "loadFailed": "Failed to load company profile",
       "requiresPlan": "Company Profile requires the Professional or Business plan."
+    },
+    "proprietaryData": {
+      "title": "Proprietary Data",
+      "subtitle": "Your organization's own knowledge - documents, CRM notes, internal context - available to chat and Radar alongside external signals.",
+      "titleField": "Title",
+      "content": "Content",
+      "sourceKind": "Type",
+      "sourceKinds": {
+        "KNOWLEDGE_BASE": "Knowledge base",
+        "DOCUMENT_STORE": "Document",
+        "CRM": "CRM note",
+        "ERP": "ERP record",
+        "INTERNAL_API": "Internal API"
+      },
+      "url": "Source URL (optional)",
+      "tags": "Tags",
+      "listFieldHint": "Comma-separated",
+      "add": "Add record",
+      "added": "Record added",
+      "addFailed": "Failed to add record",
+      "edit": "Edit",
+      "save": "Save",
+      "updated": "Record updated",
+      "updateFailed": "Failed to update record",
+      "remove": "Remove",
+      "removed": "Record removed",
+      "removeFailed": "Failed to remove record",
+      "empty": "No proprietary data yet. Add your own documents, CRM notes, or internal context so chat and Radar can use them.",
+      "requiresPlan": "Proprietary Data requires the Professional or Business plan."
     }
   },
   "billing": {
