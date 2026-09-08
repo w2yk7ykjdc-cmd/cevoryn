@@ -63,7 +63,7 @@ src/
     intelligence/
       signals/               CompanySignal ledger: recordSignal(), event subscriber, scanner, detection rules
       health/                Sales Health scoring: computeSalesHealthScore(), snapshot persistence
-      opportunity/           Opportunity Engine V1: signal -> opportunity generation, read path
+      opportunity/           Opportunity Engine V1: signal -> opportunity generation, read path; expireStaleOpportunity (Sprint 10 pilot)
       risk/                  Risk Engine V1: signal -> risk generation (with auto-resolution), read path
       decision/              Decision Engine V1: ranks open Risks + Opportunities into one recommendation
       compute.ts             recurring "compute intelligence" pass: health, opportunities, risks, decision per org
@@ -747,6 +747,100 @@ triggering for L5 — that's Sprint 10. No changes to any prior sprint's
 architecture or behavior beyond the one deliberate fix described above
 (chat-triggered gated calls now pause, matching the agent-run path).
 
+### First autonomy pilot: expire_stale_opportunity (Sprint 10)
+
+Sprint 9 built the full `L0`-`L5` policy/enforcement machinery but deliberately
+shipped no `autonomyEligible` tool and no populated allowlist — infrastructure
+only. Sprint 10 proves that machinery actually works end to end with the
+**first real autonomous action**: `expire_stale_opportunity`, a single,
+narrowly-scoped `L4` CRM housekeeping tool. The goal is not broad autonomy —
+it is a safe, measurable proof that the platform can execute one genuinely
+low-risk action unattended, under the complete Sprint 9 safety chain, with
+market/financial autonomy still completely untouched.
+
+**The action: internal advisory housekeeping, nothing else.** It transitions
+one `Opportunity` from `"new"` to `"expired"` — a status the schema has
+carried since Sprint 6 (`OpportunityStatus.expired`) but that no code path
+had ever actually written until now. It never sends email, creates a task,
+assigns work, modifies a Lead/Contact/Company, deletes anything, or reaches
+outside the organization's own advisory records.
+
+**The eligibility rule is derived, not invented.** `expireStaleOpportunity`
+(`src/server/intelligence/opportunity/service.ts`) re-runs the EXACT same
+deterministic rule that created the Opportunity in the first place
+(`evaluateHighValueStalledLead`, Sprint 5) against the related Lead's
+*current* state — never the Opportunity's own, potentially stale, stored
+evidence. An Opportunity is eligible only if all of: it is still in the
+`high_value_stalled_lead` v1 rule's shape; its `status` is still exactly
+`"new"` (a human's own `reviewed`/`acted`/`dismissed` decision is never
+touched, matching the invariant Sprint 6 already established); its related
+Lead is gone, soft-deleted, won, or lost; or re-evaluating the rule against
+the Lead's live activity/value/stage now returns no match. The LLM only ever
+supplies an `opportunityId` — eligibility is always independently
+re-verified in code, never taken on the model's word.
+
+**Idempotent and concurrency-safe without a new locking mechanism.** The
+actual write is one conditional `updateMany` (`WHERE id = ? AND status =
+"new"`) — Postgres serializes two concurrent UPDATEs against the same row,
+so a retry or a second simultaneous caller always finds zero rows left to
+match and reports back `already_transitioned` rather than corrupting state
+or erroring. No `pg_advisory_xact_lock` needed here (unlike
+`AutonomyPolicy`'s lazy-create, there's no race to create a row — only to
+update one that already exists).
+
+**Wired through the existing chain exactly like any other gated tool** —
+`executeToolCall` → `resolveAutonomyDecision` → domain ceiling → allowlist →
+daily limits → execution → audit, no bypass, no second executor. Classified
+`domain: "crm"`, `mutationCategory: "mutating_gated"`, `blastRadius:
+"destructive"` (honest: it modifies an existing record, not just appends),
+`autonomyEligible: true` — the only built-in tool with that flag as of
+Sprint 10, `requiredPermission: {opportunity: ["update"]}` (a new,
+minimal RBAC action added to the existing `opportunity` resource, granted to
+owner/admin/member, withheld from viewer — the narrowest permission that
+accurately represents "this is now a write").
+
+**`actionRiskValue`, wired for real.** Sprint 9 already defined
+`ResolveAutonomyDecisionInput.actionRiskValue` but no real tool ever
+populated it — every call through `executeToolCall` implicitly passed
+`undefined`, silently skipping the risk-budget arithmetic. Sprint 10 adds
+the matching static field to `RegisteredTool` (`actionRiskValue?: number`)
+and threads it through `executeToolCall`. The pilot tool sets it to an
+explicit `0` — genuinely risk-free, but deliberately not omitted, so the
+daily/per-action risk-budget checks actually execute against real numbers
+(0 vs. the configured limits) rather than being skipped by the `undefined`
+branch. The action still counts toward `dailyActionLimit` exactly like any
+other `executed` row — that accounting was always independent of
+`actionRiskValue`.
+
+**Owner-controlled allowlist path, filled in for real.** Sprint 9's
+`addAllowlistEntry`/`removeAllowlistEntry`/`listAllowlist` existed in
+`policy-service.ts` from day one but were never exposed anywhere. Sprint 10
+adds the missing surface: `/dashboard/settings/autonomy` now has a third
+card (alongside the kill switch and the policy form) showing whether
+`expire_stale_opportunity` is currently allowlisted, with an owner-only
+toggle — hardcoded to this one pilot tool, not a free-text "allowlist
+anything" field, keeping the UI as minimal as Sprint 9's own. To actually
+turn the pilot on, an owner needs both: allowlist the tool here, AND raise
+the domain's level to `L4` and its `dailyActionLimit` above `0` in the
+policy form above it — either alone leaves it inert, exactly as designed.
+The AI can never do either of these itself.
+
+**L4 only — L5 untouched.** No scheduler, no event-triggered worker, no
+recurring unattended execution exists in this sprint; the pilot only runs
+when a human-initiated chat or agent-run session calls the tool
+(`triggeredBy: "interactive_chat"`/`"agent_run"`), same as every other tool.
+`MAX_AUTONOMY_LEVEL_BY_DOMAIN` is untouched (`crm` was already `L5`,
+`market` stays `L2`) — no market/crypto/stocks/trading tool, signal, or
+execution logic of any kind was added, and none can reach unattended
+execution without a future code change to that constant.
+
+**Scope.** No L5 scheduler/event execution. No second `autonomyEligible`
+tool. No new audit table, no new domain event (state transitions like this
+one, and `Risk`'s own pre-existing auto-resolve, have never published a
+domain event — `AuditLog`/`AutonomousActionLog` are the record). No
+migration — `OpportunityStatus.expired` and `Opportunity.updatedAt` already
+existed; this sprint only adds the first code path that ever writes to them.
+
 ### API keys
 
 The `ApiKey` model (and its `apiKey: ["create", "read", "revoke"]` RBAC
@@ -864,6 +958,7 @@ via `docker compose up -d postgres redis`, or any reachable instance your
 - `tests/autonomy-audit.test.ts` — every decision outcome (`executed`, `requires_approval`, and all four `blocked_*` variants) writes exactly one `AutonomousActionLog` row, blocked and pending-approval calls never produce a `ToolInvocation` row or publish `ai.tool.invoked`, a routine `L2` `auto_append` execution does *not* write the generic `autonomy.action_executed` `AuditLog` entry (it already has its own tool-specific one), and a genuine `L4`/`L5` allowlisted execution does
 - `tests/chat-approval-gap.test.ts` — the specific bug this sprint fixes: a gated tool called with the exact `ToolContext` shape `runConversationTurn`/`streamConversationTurn` construct now pauses for approval instead of executing immediately, `resolveAutonomyDecision` reaches the identical outcome for the same tool/org/policy state regardless of whether `triggeredBy` is `interactive_chat` or `agent_run`, a chat-initiated gated call approves and resumes through the exact same `AgentApproval`/`AgentRun` machinery the agent-run path uses, and an `auto_append` tool still executes immediately via chat (the fix doesn't over-block)
 - `tests/autonomous-execution.test.ts` — an `L4`-allowlisted tool executes without ever creating an `AgentApproval` or `AgentRun`, the daily action limit blocks the N+1th attempt and falls back to approval, the daily risk budget blocks independently of the action-count limit, a single action over the per-action risk limit is blocked as the very first action of the day, the kill switch takes effect immediately mid-sequence with no caching of a prior policy read, and the `market` domain can never reach `L4`/`L5` execution regardless of what its policy is configured to
+- `tests/sprint-10-autonomy-pilot.test.ts` — the first real autonomy pilot end to end: tool registration/classification, RBAC (`opportunity:update`) enforced for `expire_stale_opportunity` specifically, every eligibility branch of `expireStaleOpportunity` (won/soft-deleted/no-longer-stalled lead all expire it; a still-stalled lead doesn't; a human's own triage status is never overwritten; an unsupported rule or nonexistent id is rejected; cross-tenant ids resolve as not-found, never touching another org's data), idempotent retries and concurrent double-calls both resolving to exactly one winner with exactly one audit entry, calling the service directly (bypassing `executeToolCall`) never producing an autonomy audit trail, the full `L0`-`L4` gate matrix specific to this tool (including that `L2` hard-blocks it as `destructive`, while `L3` correctly routes it to approval), `actionRiskValue: 0` genuinely exercising the risk-budget arithmetic rather than being skipped, and a full `executeToolCall` end-to-end run proving real execution writes `AutonomousActionLog` + `AuditLog(autonomy.action_executed)` + the tool's own `opportunity.ai_expired` entry, creates no `AgentApproval`/`AgentRun`, and — without the allowlist entry — the identical call is queued for human approval instead, leaving the CRM data untouched
 
 Each test creates its own users/organizations with random emails and slugs,
 so the suite is safe to run repeatedly against the same database.
