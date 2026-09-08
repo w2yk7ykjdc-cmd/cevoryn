@@ -41,7 +41,7 @@ type ContactDetailData = {
   companyId: string | null;
   company: { id: string; name: string } | null;
   tags: { tag: { id: string; name: string } }[];
-  notes: { id: string; body: string; createdAt: Date; author: { name: string } }[];
+  notes: { id: string; body: string; createdAt: Date; author: { name: string } | null }[];
 };
 
 export function ContactDetail({
@@ -278,7 +278,7 @@ export function ContactDetail({
               <div key={note.id} className="rounded-md border p-3 text-sm">
                 <p className="whitespace-pre-wrap">{note.body}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {note.author.name} · {new Date(note.createdAt).toLocaleString()}
+                  {note.author?.name ?? "Deleted user"} · {new Date(note.createdAt).toLocaleString()}
                 </p>
               </div>
             ))}

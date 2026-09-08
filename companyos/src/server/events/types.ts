@@ -74,6 +74,20 @@ export type EventMap = {
     limit: number;
     current: number;
   };
+  /**
+   * Durable, off-tenant compliance record for a permanent organization
+   * deletion. Deliberately keyed as `deletedOrganizationId` (not
+   * `organizationId`) so `publishEvent`'s auto-scoping never links this
+   * `DomainEvent` row to the (now-deleted) organization via its own
+   * `organizationId` foreign key — the whole point is that this record
+   * outlives the tenant it describes.
+   */
+  "organization.deleted": {
+    deletedOrganizationId: string;
+    name: string;
+    slug: string;
+    deletedByUserId: string;
+  };
 };
 
 export type EventName = keyof EventMap;

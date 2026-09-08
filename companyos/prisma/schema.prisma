@@ -255,8 +255,8 @@ model Conversation {
   id             String           @id @default(cuid())
   organizationId String
   organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  userId         String
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String?
+  user           User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
   title          String?
   provider       String
   model          String
@@ -351,8 +351,8 @@ model Company {
   industry       String?
   website        String?
   description    String?
-  createdById    String
-  createdBy      User         @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdById    String?
+  createdBy      User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   deletedAt      DateTime?
@@ -389,8 +389,8 @@ model Contact {
   email          String?
   phone          String?
   title          String?
-  createdById    String
-  createdBy      User          @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdById    String?
+  createdBy      User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   deletedAt      DateTime?
@@ -419,8 +419,8 @@ model ContactNote {
   id        String   @id @default(cuid())
   contactId String
   contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  authorId  String
-  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId  String?
+  author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
   body      String
   createdAt DateTime @default(now())
 
@@ -463,8 +463,8 @@ model Lead {
   source         String?
   ownerId        String?
   owner          User?          @relation("LeadOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  createdById    String
-  createdBy      User           @relation("LeadCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  createdById    String?
+  createdBy      User?          @relation("LeadCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   deletedAt      DateTime?
@@ -543,8 +543,8 @@ model Task {
   company        Company?     @relation(fields: [companyId], references: [id], onDelete: SetNull)
   assigneeId     String?
   assignee       User?        @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
-  createdById    String
-  createdBy      User         @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  createdById    String?
+  createdBy      User?        @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   completedAt    DateTime?
@@ -596,8 +596,8 @@ model AgentRun {
   organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   conversationId String
   conversation   Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  userId         String
-  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String?
+  user           User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
   goal           String
   plan           Json
   status         AgentRunStatus  @default(planning)

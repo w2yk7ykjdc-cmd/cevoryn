@@ -276,9 +276,18 @@ opt-in per environment, same as an AI provider key. Checkout and billing
 portal sessions, and inbound webhook processing
 (`POST /api/billing/webhook`), all go through this interface, so tests
 exercise the billing business logic against an injected fake provider
-instead of real Stripe. Webhook events are idempotent: the event's own
-Stripe id is the primary key of `BillingWebhookEvent`, so a redelivery is
-caught as a unique-constraint violation and safely ignored.
+instead of real Stripe. `STRIPE_WEBHOOK_SECRET` is checked separately from
+`STRIPE_SECRET_KEY` (`isWebhookVerificationConfigured()`) — a deployment
+with the secret key set but the webhook secret missing gets a loud 500
+"not configured" from the webhook route instead of every event silently
+failing signature verification forever. Webhook processing is idempotent
+*and* retry-safe: the event's own Stripe id insert into
+`BillingWebhookEvent` and its side effects (subscription update, audit
+log) run inside one database transaction, so a failure partway through
+rolls back the insert too — a Stripe retry is genuinely reprocessed rather
+than being mistaken for an already-applied duplicate — while a
+concurrent/replayed delivery of an event that *did* fully commit is caught
+as a unique-constraint violation and safely ignored.
 
 **Usage metering.** `src/server/billing/usage.ts` records AI token
 consumption (from both the chat runtime and the agent planner) and agent
@@ -323,6 +332,52 @@ but never checked anywhere. Both are enforced now:
   the organization id (`pg_advisory_xact_lock(hashtext(organizationId))`)
   — the second caller blocks until the first's invitation has already
   committed, so it recounts correctly instead of both passing the check.
+
+### Lifecycle safety (Sprint 4)
+
+Two destructive, whole-tenant-scale actions had no real safety architecture
+behind them: deleting an organization, and deleting a user account.
+
+**Organization deletion.** Better Auth's own `/organization/delete`
+endpoint accepts nothing but an id — no confirmation, no billing
+awareness — so it's disabled outright (`disableOrganizationDeletion: true`
+in `auth.ts`). `deleteOrganization` (`src/server/organizations/lifecycle.ts`)
+is the sole supported path, wired only through
+`deleteOrganizationAction` (owner-only, via `organization:delete`): it
+requires the organization's slug typed back exactly, cancels any live
+Stripe subscription *immediately* (not the self-service
+cancel-at-period-end `cancelSubscriptionForOrg` uses — there's no period
+left to honor once the tenant is gone), and only then deletes the
+`Organization` row, which cascades to every tenant-scoped model at the
+database level. A free-tier organization (no `stripeSubscriptionId`) never
+touches Stripe at all; if Stripe cancellation fails, nothing is deleted. A
+durable compliance record is written to the `DomainEvent` outbox
+afterward, deliberately *not* linked via that table's own `organizationId`
+foreign key (keyed `deletedOrganizationId` in the payload instead), so it
+survives independently of the organization it describes.
+
+**Cascade correctness.** `Company.createdBy`, `Contact.createdBy`,
+`Lead.createdBy`, `Task.createdBy`, `ContactNote.author`,
+`Conversation.user`, and `AgentRun.user` were all `onDelete: Cascade` —
+deleting a single user (e.g. via the `admin` plugin's `removeUser`) would
+have permanently destroyed every company, contact, lead, task, note, and
+conversation *that user ever created*, org-wide, bypassing the app's own
+`deletedAt` soft-delete convention entirely. All seven now match the
+`owner`/`assignee`-style pattern already used elsewhere: `onDelete: SetNull`,
+with the FK made nullable (migration
+`20260901153747_lifecycle_safety_setnull_createdby`, additive only — no
+data is touched). The record stays; only the creator/author/user reference
+goes null.
+
+**Account deletion.** Better Auth's `deleteUser` is now enabled, gated by a
+`beforeDelete` hook (`assertSafeToDeleteAccount`) that blocks deleting the
+sole owner of any organization. Since Better Auth allows the current owner
+to promote another member to "owner" via `updateMemberRole` (both then
+hold the role simultaneously), "promote a co-owner, then delete your
+account" is the supported ownership-transfer path — no new role-transfer
+mechanism was needed. A non-owner member can always delete their own
+account; thanks to the cascade fix above, doing so never touches the
+organization's shared CRM data.
 
 ### API keys
 
@@ -418,13 +473,15 @@ via `docker compose up -d postgres redis`, or any reachable instance your
 - `tests/planner.test.ts` — `createPlan` against a scripted `AIProvider` test double: valid plans, the direct-answer fallback, every validation-error path (malformed args, unknown tool, over the step cap), and the corrective-retry loop (succeeds after one bad response, still fails after two, sums usage across both attempts)
 - `tests/approval-policy.test.ts` — the risk classification table, including the secure-by-default fallback for unrecognized tools
 - `tests/agent-executor.test.ts` — the full agent run loop against the real Tool Engine: multi-step completion, halt-on-error (a genuine RBAC denial mid-run), pause/approve/resume, pause/reject/continue, and RBAC preserved on the approval decision itself
-- `tests/billing-subscription.test.ts` — default provisioning, checkout/portal session creation against a fake `PaymentProvider`, and webhook lifecycle application (`checkout.session.completed`, `customer.subscription.{updated,deleted}`) including idempotency on a redelivered event id
+- `tests/billing-subscription.test.ts` — default provisioning, checkout/portal session creation against a fake `PaymentProvider`, webhook lifecycle application (`checkout.session.completed`, `customer.subscription.{updated,deleted}`) including idempotency on a redelivered event id, a redelivered already-applied update never writing a second audit entry, and a mid-processing failure rolling back the idempotency insert so a Stripe retry is genuinely reprocessed rather than swallowed as a duplicate
 - `tests/billing-usage.test.ts` — the usage ledger, `checkUsageLimit`'s pass/throw boundary, `getUsageSummary`, billing-period rollover (advances free-tier subscriptions, leaves Stripe-managed ones alone), and subscription-status gating: a `past_due` pro subscription throws `SubscriptionInactiveError`, `active`/`trialing` pass, and the free plan is never blocked by status (including when it's `canceled`, the churned-back-down case)
 - `tests/billing-limit-enforcement.test.ts` — `runConversationTurn`, `streamConversationTurn`, and `startAgentRun` all refuse to start once a plan's limit is exhausted or its paid subscription is `past_due`, verified without needing a real AI provider key since both checks run before any of them ever resolves a provider
 - `tests/billing-seats.test.ts` — `assertSeatAvailable`'s pass/throw boundary (counting pending invitations, not just active members), Enterprise's `seatLimit: null` never blocking, a downgrade leaving existing members in place while blocking new invitations, and `withSeatLimitLock` actually serializing two concurrent invitations racing for the last seat on a real Postgres advisory lock — exactly one succeeds
 - `tests/api-keys.test.ts` — key creation (plaintext-once, hash-only persistence), listing, idempotent revocation, `verifyApiKey`'s unknown/revoked/expired rejection and scope filtering, the session-minting mechanism proven to track a key creator's *current* role (an owner's key can `aiConversation:create`, a demoted-to-viewer creator's key can't), and `POST /api/ai/chat`'s bearer-auth path end to end (401 for no/unknown/revoked key, 403 for a key missing the `ai:chat` scope, and a 502 past that point since no AI provider is configured in CI — the same documented boundary the rest of the AI suite hits)
 - `tests/audit-log-export.test.ts` — `exportAuditLogsCsv`'s CSV formatting (header row, comma/quote escaping in metadata) and action/targetType/date-range filtering, plus `GET /api/audit-log/export` end to end: 401 unauthenticated, 403 for a viewer (lacks the `export` permission), 200 with the right CSV headers and body for a permitted owner, the export itself landing back in the audit log, and the route's own query-string filters
 - `tests/conversation-history.test.ts` — `listConversations`'s title fallback (explicit title vs. a snippet of the first user message) and ordering/archived-exclusion, `getConversationMessages` filtering to user/assistant rows only and rejecting a conversation from another organization, and `archiveConversation` recording the audit entry and rejecting an already-archived or cross-organization conversation
+- `tests/organization-lifecycle.test.ts` — `deleteOrganization`'s confirmation-slug gate, skipping Stripe entirely for a free org, aborting (deleting nothing) when Stripe cancellation fails, cancelling a live subscription before deleting a paid org, the durable `organization.deleted` compliance record surviving the org it describes, `assertSafeToDeleteAccount`'s sole-owner block and the co-owner-promotion unblock, `auth.api.deleteUser` end to end (sole owner rejected, normal member and post-transfer owner both succeed), and the `createdBy`/`author`/`user` cascade fix — deleting a user leaves every company/contact/lead/task/note/conversation/agent-run they created intact with that one reference nulled
+- `tests/billing-webhook-config.test.ts` — `isWebhookVerificationConfigured()` across all three `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` combinations, and the webhook route's distinct 500 when only the secret key is set
 
 Each test creates its own users/organizations with random emails and slugs,
 so the suite is safe to run repeatedly against the same database.

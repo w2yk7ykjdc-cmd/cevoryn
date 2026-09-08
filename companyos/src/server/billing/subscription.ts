@@ -3,7 +3,7 @@ import { prisma } from "@/server/db/client";
 import { getPlanByTier } from "@/server/billing/plans";
 import { getPaymentProvider } from "@/server/billing/provider/registry";
 import type { PaymentProvider, WebhookEvent } from "@/server/billing/provider/types";
-import { recordAuditLog } from "@/server/audit/audit-log";
+import { recordAuditLog, publishAuditEvent } from "@/server/audit/audit-log";
 import { publishEvent } from "@/server/events/event-bus";
 import { env } from "@/env";
 import { logger } from "@/server/logger/logger";
@@ -130,16 +130,48 @@ const STRIPE_STATUS_MAP: Record<string, SubscriptionStatus> = {
   paused: "canceled",
 };
 
+type SubscriptionEventDescriptor = { organizationId: string; subscriptionId: string; status: string };
+type AuditEntry = Awaited<ReturnType<typeof recordAuditLog>>;
+type ApplyOutcome = { auditEntry: AuditEntry | null; subscriptionEvent: SubscriptionEventDescriptor | null };
+
 /**
- * Applies one inbound Stripe webhook event. Idempotent: the event's own
- * Stripe id is inserted into `BillingWebhookEvent` first, so a redelivery
- * of the same event is caught as a unique-constraint violation and safely
- * ignored rather than reapplied.
+ * Applies one inbound Stripe webhook event. Idempotent and retry-safe: the
+ * event's own Stripe id is inserted into `BillingWebhookEvent` in the same
+ * database transaction as the event's side effects (subscription
+ * update(s) + audit log). If applying the effects throws for any reason,
+ * the whole transaction — including the idempotency insert — rolls back,
+ * so a Stripe retry of the same event is genuinely retried rather than
+ * being mistaken for an already-processed duplicate. Only a transaction
+ * that fully committed is treated as "processed"; a concurrent redelivery
+ * of the very same event racing this one is caught as a unique-constraint
+ * violation and safely ignored. Redis-touching side effects (audit event
+ * fan-out, the `billing.subscription_updated` domain event) intentionally
+ * run *after* the transaction commits, so a slow/unavailable Redis never
+ * holds the database transaction open.
  */
 export async function applyWebhookEvent(event: WebhookEvent): Promise<{ applied: boolean }> {
+  let outcome: ApplyOutcome;
+
   try {
-    await prisma.billingWebhookEvent.create({
-      data: { id: event.id, type: event.type, payload: event.data as unknown as Prisma.InputJsonValue },
+    outcome = await prisma.$transaction(async (tx) => {
+      await tx.billingWebhookEvent.create({
+        data: { id: event.id, type: event.type, payload: event.data as unknown as Prisma.InputJsonValue },
+      });
+
+      switch (event.type) {
+        case "checkout.session.completed":
+          await applyCheckoutCompleted(event.data.object, tx);
+          return { auditEntry: null, subscriptionEvent: null };
+        case "customer.subscription.updated":
+        case "customer.subscription.created":
+          return applySubscriptionSync(event.data.object, tx);
+        case "customer.subscription.deleted":
+          return applySubscriptionDeleted(event.data.object, tx);
+        default:
+          // Every other Stripe event type is safely ignored — we only need
+          // the subscription lifecycle, not the full event catalog.
+          return { auditEntry: null, subscriptionEvent: null };
+      }
     });
   } catch (err) {
     if (isUniqueConstraintViolation(err)) {
@@ -149,27 +181,19 @@ export async function applyWebhookEvent(event: WebhookEvent): Promise<{ applied:
     throw err;
   }
 
-  switch (event.type) {
-    case "checkout.session.completed":
-      await applyCheckoutCompleted(event.data.object);
-      break;
-    case "customer.subscription.updated":
-    case "customer.subscription.created":
-      await applySubscriptionSync(event.data.object);
-      break;
-    case "customer.subscription.deleted":
-      await applySubscriptionDeleted(event.data.object);
-      break;
-    default:
-      // Every other Stripe event type is safely ignored — we only need the
-      // subscription lifecycle, not the full event catalog.
-      break;
+  if (outcome.auditEntry) {
+    await publishAuditEvent(outcome.auditEntry);
+  }
+  if (outcome.subscriptionEvent) {
+    await publishEvent("billing.subscription_updated", outcome.subscriptionEvent, {
+      organizationId: outcome.subscriptionEvent.organizationId,
+    });
   }
 
   return { applied: true };
 }
 
-async function applyCheckoutCompleted(raw: Record<string, unknown>): Promise<void> {
+async function applyCheckoutCompleted(raw: Record<string, unknown>, tx: Prisma.TransactionClient): Promise<void> {
   const organizationId = typeof raw.client_reference_id === "string" ? raw.client_reference_id : undefined;
   const customerId = typeof raw.customer === "string" ? raw.customer : undefined;
   const subscriptionId = typeof raw.subscription === "string" ? raw.subscription : undefined;
@@ -178,23 +202,23 @@ async function applyCheckoutCompleted(raw: Record<string, unknown>): Promise<voi
     return;
   }
 
-  await prisma.subscription.update({
+  await tx.subscription.update({
     where: { organizationId },
     data: { stripeCustomerId: customerId, stripeSubscriptionId: subscriptionId },
   });
 }
 
-async function applySubscriptionSync(raw: Record<string, unknown>): Promise<void> {
+async function applySubscriptionSync(raw: Record<string, unknown>, tx: Prisma.TransactionClient): Promise<ApplyOutcome> {
   const stripeSubscriptionId = typeof raw.id === "string" ? raw.id : undefined;
   const stripeCustomerId = typeof raw.customer === "string" ? raw.customer : undefined;
-  if (!stripeSubscriptionId && !stripeCustomerId) return;
+  if (!stripeSubscriptionId && !stripeCustomerId) return { auditEntry: null, subscriptionEvent: null };
 
-  const existing = await prisma.subscription.findFirst({
+  const existing = await tx.subscription.findFirst({
     where: { OR: [{ stripeSubscriptionId: stripeSubscriptionId ?? undefined }, { stripeCustomerId: stripeCustomerId ?? undefined }] },
   });
   if (!existing) {
     logger.warn({ stripeSubscriptionId, stripeCustomerId }, "subscription webhook for unknown organization");
-    return;
+    return { auditEntry: null, subscriptionEvent: null };
   }
 
   const rawStatus = typeof raw.status === "string" ? raw.status : undefined;
@@ -202,13 +226,13 @@ async function applySubscriptionSync(raw: Record<string, unknown>): Promise<void
 
   const items = raw.items as { data?: { price?: { id?: string } }[] } | undefined;
   const priceId = items?.data?.[0]?.price?.id;
-  const plan = priceId ? await prisma.plan.findFirst({ where: { stripePriceId: priceId } }) : null;
+  const plan = priceId ? await tx.plan.findFirst({ where: { stripePriceId: priceId } }) : null;
 
   const periodStartSec = typeof raw.current_period_start === "number" ? raw.current_period_start : undefined;
   const periodEndSec = typeof raw.current_period_end === "number" ? raw.current_period_end : undefined;
   const cancelAtPeriodEnd = raw.cancel_at_period_end === true;
 
-  await prisma.subscription.update({
+  await tx.subscription.update({
     where: { id: existing.id },
     data: {
       stripeCustomerId: stripeCustomerId ?? existing.stripeCustomerId,
@@ -221,32 +245,34 @@ async function applySubscriptionSync(raw: Record<string, unknown>): Promise<void
     },
   });
 
-  await recordAuditLog({
-    organizationId: existing.organizationId,
-    actorId: null,
-    actorType: "system",
-    action: "billing.subscription_updated",
-    targetType: "subscription",
-    targetId: existing.id,
-    metadata: { status, planId: plan?.id ?? existing.planId },
-  });
-
-  await publishEvent(
-    "billing.subscription_updated",
-    { organizationId: existing.organizationId, subscriptionId: existing.id, status },
-    { organizationId: existing.organizationId },
+  const auditEntry = await recordAuditLog(
+    {
+      organizationId: existing.organizationId,
+      actorId: null,
+      actorType: "system",
+      action: "billing.subscription_updated",
+      targetType: "subscription",
+      targetId: existing.id,
+      metadata: { status, planId: plan?.id ?? existing.planId },
+    },
+    tx,
   );
+
+  return {
+    auditEntry,
+    subscriptionEvent: { organizationId: existing.organizationId, subscriptionId: existing.id, status },
+  };
 }
 
-async function applySubscriptionDeleted(raw: Record<string, unknown>): Promise<void> {
+async function applySubscriptionDeleted(raw: Record<string, unknown>, tx: Prisma.TransactionClient): Promise<ApplyOutcome> {
   const stripeSubscriptionId = typeof raw.id === "string" ? raw.id : undefined;
-  if (!stripeSubscriptionId) return;
+  if (!stripeSubscriptionId) return { auditEntry: null, subscriptionEvent: null };
 
-  const existing = await prisma.subscription.findFirst({ where: { stripeSubscriptionId } });
-  if (!existing) return;
+  const existing = await tx.subscription.findFirst({ where: { stripeSubscriptionId } });
+  if (!existing) return { auditEntry: null, subscriptionEvent: null };
 
   const freePlan = await getPlanByTier("free");
-  await prisma.subscription.update({
+  await tx.subscription.update({
     where: { id: existing.id },
     data: {
       planId: freePlan.id,
@@ -256,21 +282,23 @@ async function applySubscriptionDeleted(raw: Record<string, unknown>): Promise<v
     },
   });
 
-  await recordAuditLog({
-    organizationId: existing.organizationId,
-    actorId: null,
-    actorType: "system",
-    action: "billing.subscription_updated",
-    targetType: "subscription",
-    targetId: existing.id,
-    metadata: { status: "canceled", planId: freePlan.id },
-  });
-
-  await publishEvent(
-    "billing.subscription_updated",
-    { organizationId: existing.organizationId, subscriptionId: existing.id, status: "canceled" },
-    { organizationId: existing.organizationId },
+  const auditEntry = await recordAuditLog(
+    {
+      organizationId: existing.organizationId,
+      actorId: null,
+      actorType: "system",
+      action: "billing.subscription_updated",
+      targetType: "subscription",
+      targetId: existing.id,
+      metadata: { status: "canceled", planId: freePlan.id },
+    },
+    tx,
   );
+
+  return {
+    auditEntry,
+    subscriptionEvent: { organizationId: existing.organizationId, subscriptionId: existing.id, status: "canceled" },
+  };
 }
 
 function addOneMonth(date: Date): Date {

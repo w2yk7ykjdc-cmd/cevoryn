@@ -1,9 +1,11 @@
 import { requireActiveOrganization } from "@/server/auth/session";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { OrganizationSettingsForm } from "@/app/(dashboard)/dashboard/settings/organization-settings-form";
+import { DangerZone } from "@/app/(dashboard)/dashboard/settings/danger-zone";
 
 export default async function SettingsPage() {
-  const { organization } = await requireActiveOrganization();
+  const { organization, member } = await requireActiveOrganization();
+  const isOwner = member.role.split(",").includes("owner");
 
   return (
     <div className="flex flex-col gap-6">
@@ -23,6 +25,8 @@ export default async function SettingsPage() {
           <OrganizationSettingsForm initialName={organization.name} />
         </CardContent>
       </Card>
+
+      <DangerZone organizationSlug={organization.slug} isOwner={isOwner} />
     </div>
   );
 }
