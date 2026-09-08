@@ -15,3 +15,4 @@ import "@/server/ai/tools/builtin/record-lead-activity";
 import "@/server/ai/tools/builtin/get-company-health";
 import "@/server/ai/tools/builtin/get-opportunities";
 import "@/server/ai/tools/builtin/get-risks";
+import "@/server/ai/tools/builtin/get-next-best-action";

@@ -10,6 +10,7 @@ import { recordHealthSnapshot } from "@/server/intelligence/health/service";
 import { applyWebhookEvent, getSubscriptionForOrg } from "@/server/billing/subscription";
 import { recordSignal } from "@/server/intelligence/signals/service";
 import { generateRisksForOrganization } from "@/server/intelligence/risk/service";
+import { generateDecisionForOrganization } from "@/server/intelligence/decision/service";
 import { prisma } from "@/server/db/client";
 import { addMemberDirect, authHeaders, closeTestConnections, createOrgForUser, signUpUser } from "./helpers";
 
@@ -266,6 +267,94 @@ describe("get_risks tool", () => {
 
     const entry = await prisma.auditLog.findFirst({
       where: { organizationId: organization.id, action: "risk.ai_viewed" },
+    });
+    expect(entry).not.toBeNull();
+  });
+});
+
+describe("get_next_best_action tool", () => {
+  afterAll(closeTestConnections);
+
+  it("returns hasDecision:false when there is nothing to recommend yet", async () => {
+    const { organization, conversation, caller } = await setup("owner");
+
+    const result = await executeToolCall(
+      { id: "call-14", name: "get_next_best_action", arguments: {} },
+      { organizationId: organization.id, userId: caller.userId, conversationId: conversation.id },
+      authHeaders(caller.token),
+    );
+
+    expect(result.status).toBe("success");
+    if (result.status === "success") {
+      const output = result.output as { hasDecision: boolean };
+      expect(output.hasDecision).toBe(false);
+    }
+  });
+
+  it("returns the organization's current top-priority recommendation once one exists", async () => {
+    const { organization, conversation, caller } = await setup("owner");
+    const customerId = `cus_${organization.id}`;
+    const stripeSubscriptionId = `sub_${organization.id}`;
+
+    await applyWebhookEvent({
+      id: `evt_checkout_${organization.id}`,
+      type: "checkout.session.completed",
+      data: { object: { client_reference_id: organization.id, customer: customerId, subscription: stripeSubscriptionId } },
+    });
+    const subscription = await getSubscriptionForOrg(organization.id);
+    await recordSignal({
+      organizationId: organization.id,
+      type: "billing.subscription_updated",
+      sourceType: "domain_event",
+      sourceId: subscription.id,
+      severity: "high",
+      confidence: 100,
+      ruleName: "billing.subscription_updated",
+      ruleVersion: "v1",
+      relatedEntityType: "Subscription",
+      relatedEntityId: subscription.id,
+      payload: { organizationId: organization.id, subscriptionId: subscription.id, status: "past_due" },
+    });
+    await generateRisksForOrganization(organization.id);
+    await generateDecisionForOrganization(organization.id);
+
+    const result = await executeToolCall(
+      { id: "call-15", name: "get_next_best_action", arguments: {} },
+      { organizationId: organization.id, userId: caller.userId, conversationId: conversation.id },
+      authHeaders(caller.token),
+    );
+
+    expect(result.status).toBe("success");
+    if (result.status === "success") {
+      const output = result.output as { hasDecision: boolean; sourceType?: string };
+      expect(output.hasDecision).toBe(true);
+      expect(output.sourceType).toBe("risk");
+    }
+  });
+
+  it("is readable by every role, including a read-only viewer", async () => {
+    const { organization, conversation, caller } = await setup("viewer");
+
+    const result = await executeToolCall(
+      { id: "call-16", name: "get_next_best_action", arguments: {} },
+      { organizationId: organization.id, userId: caller.userId, conversationId: conversation.id },
+      authHeaders(caller.token),
+    );
+
+    expect(result.status).toBe("success");
+  });
+
+  it("logs the AI read to the audit log", async () => {
+    const { organization, conversation, caller } = await setup("owner");
+
+    await executeToolCall(
+      { id: "call-17", name: "get_next_best_action", arguments: {} },
+      { organizationId: organization.id, userId: caller.userId, conversationId: conversation.id },
+      authHeaders(caller.token),
+    );
+
+    const entry = await prisma.auditLog.findFirst({
+      where: { organizationId: organization.id, action: "decision.ai_viewed" },
     });
     expect(entry).not.toBeNull();
   });
