@@ -18,9 +18,9 @@ import type {
  * exist just because it's new. See the sprint-12 spec's rule #9: historical
  * performance must never become truth.
  */
-const MIN_FACTOR = 0.5;
-const MAX_FACTOR = 1.0;
-const NEUTRAL_FACTOR = 0.75;
+export const MIN_FACTOR = 0.5;
+export const MAX_FACTOR = 1.0;
+export const NEUTRAL_FACTOR = 0.75;
 
 const round2 = (value: number): number => Math.round(value * 100) / 100;
 
@@ -28,7 +28,8 @@ function candidateRelatedEntityType(candidate: DecisionCandidate): CandidateRela
   return candidate.kind === "risk" ? "Risk" : "Opportunity";
 }
 
-function scaleToFactor(percent: number): number {
+/** Exported for reuse (Sprint 17's own `market-intelligence/ranking.ts` historical-performance adjustment reuses this exact bounded [0.5, 1.0] scaling, rather than reimplementing it). */
+export function scaleToFactor(percent: number): number {
   const clamped = Math.max(0, Math.min(100, percent));
   return MIN_FACTOR + (clamped / 100) * (MAX_FACTOR - MIN_FACTOR);
 }

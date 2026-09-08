@@ -1,6 +1,13 @@
 import { requirePermission } from "@/server/auth/session";
 import { getMarketIntelligenceRanking } from "@/server/intelligence/market-intelligence/service";
 import { getPaperTradingSnapshot } from "@/server/intelligence/paper-trading/service";
+import {
+  getPaperTradeConfidenceCalibration,
+  getRecentPaperTradeOutcomes,
+  getRegimePerformance,
+  getStrategyTypePerformance,
+} from "@/server/intelligence/strategy-performance/service";
+import type { StrategyPerformanceMetrics } from "@/server/intelligence/strategy-performance/types";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -15,6 +22,12 @@ function strategyBadgeVariant(strategyType: string): "default" | "secondary" | "
   return "default";
 }
 
+function outcomeBadgeVariant(outcomeResult: string | null): "default" | "secondary" | "destructive" {
+  if (outcomeResult === "success") return "default";
+  if (outcomeResult === "failure" || outcomeResult === "reversed") return "destructive";
+  return "secondary";
+}
+
 /**
  * Fully server-rendered and read-only -- there is nothing to mutate on
  * this page. Every number shown comes directly from
@@ -25,9 +38,13 @@ function strategyBadgeVariant(strategyType: string): "default" | "secondary" | "
  */
 export default async function MarketIntelligencePage() {
   const { organization } = await requirePermission({ marketIntelligence: ["read"], paperTrading: ["read"] });
-  const [snapshot, paperTrading] = await Promise.all([
+  const [snapshot, paperTrading, strategyTypePerformance, regimePerformance, confidenceCalibration, recentOutcomes] = await Promise.all([
     getMarketIntelligenceRanking(organization.id),
     getPaperTradingSnapshot(organization.id),
+    getStrategyTypePerformance(organization.id),
+    getRegimePerformance(organization.id),
+    getPaperTradeConfidenceCalibration(organization.id),
+    getRecentPaperTradeOutcomes(organization.id),
   ]);
 
   return (
@@ -253,6 +270,103 @@ export default async function MarketIntelligencePage() {
           )}
         </CardContent>
       </Card>
+
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight">Strategy Performance (Learning Feedback)</h2>
+        <p className="text-sm text-muted-foreground">
+          PAPER / SIMULATION ONLY. Deterministic measurement of how each strategy type has actually performed in
+          paper trading -- never a live LLM computation, never investment advice. Historical performance below
+          nudges ranking above only as a bounded supporting signal on top of current market evidence; it can never
+          change autonomy level, allowlist, risk limits, or replace current evidence.
+        </p>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Strategy type performance</CardTitle>
+          <CardDescription>Win rate, return, and outcome breakdown per deterministic strategy type.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {strategyTypePerformance.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No closed paper trades yet -- no strategy performance to measure.</p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {strategyTypePerformance.map(({ strategyType, performance }) => (
+                <PerformanceRow key={strategyType} label={strategyType} performance={performance} />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Regime performance</CardTitle>
+          <CardDescription>Same strategy, broken out by the market regime it traded under -- performance is never assumed identical across regimes.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {regimePerformance.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No closed paper trades yet -- no regime performance to measure.</p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {regimePerformance.map(({ strategyType, regime, performance }) => (
+                <PerformanceRow key={`${strategyType}::${regime}`} label={`${strategyType} in ${regime}`} performance={performance} />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Confidence calibration</CardTitle>
+          <CardDescription>When the strategy engine says confidence X, how often did the paper trade actually succeed?</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {confidenceCalibration.map((bucket) => (
+              <div key={bucket.label} className="rounded-md border p-3 text-xs">
+                <p className="font-medium">Confidence {bucket.label}</p>
+                <p className="mt-1 text-muted-foreground">
+                  {bucket.totalEvaluated === 0
+                    ? "insufficient evidence (n=0)"
+                    : `${bucket.observedSuccessRate}% success (n=${bucket.totalEvaluated})`}
+                </p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Paper trading outcomes</CardTitle>
+          <CardDescription>Most recent closed paper trades and their deterministic outcome result -- PAPER/SIMULATION ONLY.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {recentOutcomes.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No closed paper trades yet.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {recentOutcomes.map((trade) => (
+                <div key={trade.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{trade.symbol}</span>
+                    <Badge variant={trade.direction === "LONG" ? "default" : "secondary"}>{trade.direction}</Badge>
+                    <Badge variant="secondary">{trade.strategyType}</Badge>
+                    <span className="text-muted-foreground">{trade.regime ?? "unknown regime"}</span>
+                    <span className="text-muted-foreground">exit: {trade.closeReason.toLowerCase()}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">return {(trade.returnPct * 100).toFixed(2)}%</span>
+                    <Badge variant={outcomeBadgeVariant(trade.outcomeResult)}>{trade.outcomeResult ?? "pending evaluation"}</Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -262,6 +376,29 @@ function Stat({ label, value }: { label: string; value: number }) {
     <div>
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="font-medium">{value.toFixed(4)}</p>
+    </div>
+  );
+}
+
+function PerformanceRow({ label, performance }: { label: string; performance: StrategyPerformanceMetrics }) {
+  return (
+    <div className="rounded-lg border p-3 text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="font-semibold">{label}</span>
+        <span className="text-muted-foreground">
+          {performance.evaluatedTrades} evaluated / {performance.totalTrades} total trades
+        </span>
+      </div>
+      {performance.sampleSizeStatus === "insufficient_sample" ? (
+        <p className="mt-2 text-muted-foreground">Insufficient sample -- not yet statistically meaningful.</p>
+      ) : (
+        <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4">
+          <span>Win rate: {performance.winRate}%</span>
+          <span>Avg return: {performance.averageReturnPct}%</span>
+          <span>Realized P&L: {performance.totalRealizedPnl}</span>
+          <span>Liquidations: {performance.liquidationCount}</span>
+        </div>
+      )}
     </div>
   );
 }

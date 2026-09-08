@@ -1380,6 +1380,17 @@ model PaperPosition {
   strategyType          String
   strategySignalId      String?
   regime                String?
+  /// The Sprint 15 `StrategyCandidate.score`/`.confidence` snapshotted at
+  /// the MOMENT this position opened -- Sprint 17's own Phase 3 requirement.
+  /// Never re-read live from `strategySignalId` later: that `CompanySignal`
+  /// is upserted in place, so by evaluation time it may already reflect a
+  /// NEWER run's candidate for this symbol, silently answering a different
+  /// question (the exact trap `opportunity-state-progression.ts`'s own doc
+  /// comment already warns against for `Opportunity.potentialImpact`).
+  /// Nullable because a position opened before Sprint 17 existed never had
+  /// this captured -- `null` here means "unknown," never a fabricated 0.
+  candidateScore        Int?
+  candidateConfidence   Int?
   leverage              Int
   entryPrice            Decimal                @db.Decimal(18, 8)
   currentPrice          Decimal                @db.Decimal(18, 8)
@@ -1427,6 +1438,12 @@ model PaperTrade {
   strategyType          String
   strategySignalId      String?
   regime                String?
+  /// Carried through verbatim from `PaperPosition.candidateScore`/
+  /// `.candidateConfidence` at close time -- see that field's own doc
+  /// comment for why this must be the entry-time snapshot, never a live
+  /// re-read.
+  candidateScore        Int?
+  candidateConfidence   Int?
   leverage              Int
   entryPrice            Decimal                @db.Decimal(18, 8)
   exitPrice             Decimal                @db.Decimal(18, 8)
