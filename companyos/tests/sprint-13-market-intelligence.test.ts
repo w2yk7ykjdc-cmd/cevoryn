@@ -7,7 +7,8 @@ import { MAX_AUTONOMY_LEVEL_BY_DOMAIN } from "@/server/ai/autonomy/constants";
 import { listRegisteredTools } from "@/server/ai/tools/registry";
 import { createBinancePublicClient } from "@/server/market-data/binance-client";
 import { createMockMarketDataClient, buildSyntheticCandles } from "@/server/market-data/mock-client";
-import { CANDLE_INTERVAL, CANDLE_WINDOW, SUPPORTED_SYMBOLS } from "@/server/market-data/types";
+import { DAILY_INTERVAL as CANDLE_INTERVAL, DAILY_WINDOW as CANDLE_WINDOW } from "@/server/market-data/types";
+import { discoverMarketUniverse } from "@/server/market-data/universe";
 import { evaluateMarketPriceMomentum } from "@/server/intelligence/signals/rules/market-price-momentum";
 import { ingestMarketData } from "@/server/intelligence/signals/market-scanner";
 import * as signalsService from "@/server/intelligence/signals/service";
@@ -95,9 +96,11 @@ describe("A/B/C/E: Binance client -- response validation and normalization", () 
   });
 });
 
-describe("D: symbol scope stays fixed, small, and explicit", () => {
-  it("D: exactly the two documented symbols are supported -- no accidental scope creep", () => {
-    expect(SUPPORTED_SYMBOLS).toEqual(["BTCUSDT", "ETHUSDT"]);
+describe("D: symbol scope -- superseded by Sprint 14's dynamic universe discovery", () => {
+  it("D: the hardcoded 2-symbol list this test originally asserted was deliberately replaced by Sprint 14's discoverMarketUniverse (see tests/sprint-14-market-intelligence.test.ts) -- this test now proves the two-mock-symbol universe still resolves deterministically through that new discovery step, exercising the same underlying scope-boundedness intent without asserting a scheme that no longer exists", async () => {
+    const client = createMockMarketDataClient({ BTCUSDT: buildSyntheticCandles(CANDLE_WINDOW, 100, 110), ETHUSDT: buildSyntheticCandles(CANDLE_WINDOW, 100, 110) });
+    const universe = await discoverMarketUniverse(client);
+    expect(universe.sort()).toEqual(["BTCUSDT", "ETHUSDT"]);
   });
 });
 
@@ -279,14 +282,20 @@ describe("P/Q/R/S/T: CRITICAL SAFETY -- market ingestion can never touch autonom
     expect(versionCountAfter).toBe(versionCountBefore);
   });
 
-  it("Q: no tool is registered under the market domain, and no tool is autonomy-eligible for anything market-related", () => {
+  it("Q: no MUTATING or autonomy-eligible tool is registered under the market domain (Sprint 14 legitimately adds one read-only tool, get_market_intelligence -- read_only tools never touch AutonomyPolicy at all per resolveAutonomyDecision's own contract, so this is safe; the invariant this test protects is no market-domain MUTATION capability)", () => {
     const marketTools = listRegisteredTools().filter((tool) => tool.domain === "market");
-    expect(marketTools).toHaveLength(0);
+    for (const tool of marketTools) {
+      expect(tool.mutationCategory).toBe("read_only");
+      expect(tool.autonomyEligible).not.toBe(true);
+    }
   });
 
-  it("Q/T: the market data client exposes read-only candle access ONLY -- no order/account/withdrawal method exists at all", () => {
+  it("Q/T: the market data client exposes read-only public market-data access ONLY -- no order/account/withdrawal method exists at all", () => {
     const client = createBinancePublicClient();
-    expect(Object.keys(client)).toEqual(["getCandles"]);
+    // Sprint 14 legitimately adds getExchangeInfo/getTicker24hr (both public, read-only, no account scope)
+    // for dynamic universe discovery -- the invariant this test protects is "no execution/account method",
+    // not "exactly one method forever".
+    expect(Object.keys(client).sort()).toEqual(["getCandles", "getExchangeInfo", "getTicker24hr"]);
   });
 
   it("R/S: the market autonomy ceiling stays capped at L2, unchanged from every prior sprint", () => {
