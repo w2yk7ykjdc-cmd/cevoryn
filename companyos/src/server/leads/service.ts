@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db/client";
 import { getTenantScopedClient } from "@/server/db/tenant";
 import { recordAuditLog, publishAuditEvent } from "@/server/audit/audit-log";
+import { publishEvent } from "@/server/events/event-bus";
 import {
   LeadCompanyReferenceError,
   LeadContactReferenceError,
@@ -117,6 +118,17 @@ export async function createLead(input: CreateLeadInput) {
   });
 
   await publishAuditEvent(auditEntry);
+  await publishEvent(
+    "lead.created",
+    {
+      organizationId: input.organizationId,
+      leadId: lead.id,
+      stageId: lead.stageId,
+      value: Number(lead.value),
+      createdById: input.actorId,
+    },
+    { organizationId: input.organizationId },
+  );
   return lead;
 }
 
@@ -165,7 +177,7 @@ export async function changeLeadStage(
   leadId: string,
   newStageId: string,
 ) {
-  const { lead, auditEntry } = await prisma.$transaction(async (tx) => {
+  const { lead, auditEntry, activityId, previousStageId, newStage } = await prisma.$transaction(async (tx) => {
     const existing = await tx.lead.findFirst({
       where: { id: leadId, organizationId, deletedAt: null },
       include: { stage: true },
@@ -184,7 +196,7 @@ export async function changeLeadStage(
       },
     });
 
-    await tx.leadActivity.create({
+    const activity = await tx.leadActivity.create({
       data: {
         organizationId,
         leadId,
@@ -213,10 +225,23 @@ export async function changeLeadStage(
       tx,
     );
 
-    return { lead, auditEntry };
+    return { lead, auditEntry, activityId: activity.id, previousStageId: existing.stage.id, newStage };
   });
 
   await publishAuditEvent(auditEntry);
+  await publishEvent(
+    "lead.stage_changed",
+    {
+      organizationId,
+      leadId,
+      activityId,
+      previousStageId,
+      newStageId: newStage.id,
+      isWon: newStage.isWon,
+      isLost: newStage.isLost,
+    },
+    { organizationId },
+  );
   return lead;
 }
 

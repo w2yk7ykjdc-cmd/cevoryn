@@ -14,6 +14,9 @@ import { relayOutboxEventsProcessor } from "@/server/jobs/processors/relay-outbo
 import { generateMemoryEmbeddingProcessor } from "@/server/jobs/processors/generate-memory-embedding";
 import { sweepTaskRemindersProcessor } from "@/server/jobs/processors/sweep-task-reminders";
 import { rollBillingPeriodsProcessor } from "@/server/jobs/processors/roll-billing-periods";
+import { recordCompanySignalProcessor } from "@/server/jobs/processors/record-company-signal";
+import { scanCompanySignalsProcessor } from "@/server/jobs/processors/scan-company-signals";
+import { registerIntelligenceSubscribers } from "@/server/intelligence/signals/subscriber";
 
 /**
  * Background worker process. Runs as its own container/process (see
@@ -39,6 +42,10 @@ async function processJob(job: Job<JobMap[JobName], void, JobName>): Promise<voi
       return sweepTaskRemindersProcessor();
     case "roll-billing-periods":
       return rollBillingPeriodsProcessor();
+    case "record-company-signal":
+      return recordCompanySignalProcessor(job.data as JobMap["record-company-signal"]);
+    case "scan-company-signals":
+      return scanCompanySignalsProcessor();
     default:
       logger.warn({ jobName: job.name }, "no processor registered for job");
   }
@@ -52,6 +59,8 @@ function bridgeEventsToJobs() {
   subscribeEvent("ai.memory.upsert_requested", async (payload) => {
     await enqueue("generate-memory-embedding", payload);
   });
+
+  registerIntelligenceSubscribers();
 }
 
 async function main() {

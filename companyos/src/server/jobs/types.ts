@@ -1,4 +1,20 @@
 import type { MemoryKind } from "@/server/ai/memory/types";
+import type { EventMap } from "@/server/events/types";
+
+/**
+ * The domain events the Intelligence Signal Subscriber
+ * (`src/server/intelligence/signals/subscriber.ts`) bridges into
+ * `record-company-signal` jobs — every business event Sprint 5 introduces,
+ * plus the pre-existing `billing.subscription_updated` (reused as-is, see
+ * that module's doc comment).
+ */
+type IntelligenceEventName =
+  | "company.created"
+  | "contact.created"
+  | "lead.created"
+  | "lead.stage_changed"
+  | "task.created"
+  | "billing.subscription_updated";
 
 /**
  * Every background job the platform runs. Like `EventMap`, this is the
@@ -24,6 +40,10 @@ export type JobMap = {
   };
   "sweep-task-reminders": Record<string, never>;
   "roll-billing-periods": Record<string, never>;
+  "record-company-signal": {
+    [K in IntelligenceEventName]: { eventName: K; payload: EventMap[K] };
+  }[IntelligenceEventName];
+  "scan-company-signals": Record<string, never>;
 };
 
 export type JobName = keyof JobMap;

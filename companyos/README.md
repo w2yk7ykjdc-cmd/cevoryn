@@ -58,6 +58,9 @@ src/
       usage.ts               usage ledger, current-period aggregation, limit enforcement
       rollover.ts            advances free-tier billing periods once they've ended
     api-keys/                create/list/revoke/verify + short-lived session minting for programmatic auth
+    organizations/           safe organization/account deletion (lifecycle.ts)
+    intelligence/
+      signals/               CompanySignal ledger: recordSignal(), event subscriber, scanner, detection rules
 ```
 
 ### Multi-tenancy
@@ -379,6 +382,59 @@ mechanism was needed. A non-owner member can always delete their own
 account; thanks to the cascade fix above, doing so never touches the
 organization's shared CRM data.
 
+### Company Events & Signal Foundation (Sprint 5)
+
+The first layer of an Autonomous Intelligence system built entirely on top
+of existing infrastructure: the transactional-outbox event bus, BullMQ, and
+the tenant-scoping Prisma extension are all reused as-is — nothing about
+them changed this sprint.
+
+**Company Signal ledger.** `CompanySignal` (`prisma/schema.prisma`) is a
+durable, queryable normalization of business events — distinct from the
+`DomainEvent` outbox, which is a transport/replay mechanism, not meant for
+long-term analytical queries. Every signal carries `severity` (how bad, a
+property of the finding) separately from `confidence` (how sure the
+detection is, a property of the data), a `ruleName`/`ruleVersion` pair so
+future detection logic can evolve without reinterpreting historical rows,
+and a soft `relatedEntityType`/`relatedEntityId` reference — deliberately
+not a real Prisma relation, so no existing CRM model needed a back-relation
+added. `src/server/intelligence/signals/service.ts`'s `recordSignal()` is
+the single write path for both producers below, upserting on
+`[organizationId, sourceType, ruleName, ruleVersion, sourceId]` — a
+redelivered event or a re-run scan pass refreshes the existing row instead
+of duplicating it.
+
+**Event-driven signals.** Five new `EventMap` events
+(`company.created`, `contact.created`, `lead.created`, `lead.stage_changed`,
+`task.created`) are published from the existing CRM service functions
+(`createCompany`, `createContact`, `createLead`, `changeLeadStage`,
+`createTask`), right alongside their existing `publishAuditEvent` call —
+same transaction-then-commit ordering already established for billing
+webhooks. `billing.subscription_updated` (already published since Sprint 3)
+is reused as-is for revenue-relevant signals — no redundant event was
+added. `src/server/intelligence/signals/subscriber.ts` bridges these into
+`record-company-signal` BullMQ jobs, the exact pattern
+`bridgeEventsToJobs` already uses for invitation emails and memory
+embeddings — so a transient failure is retried by BullMQ's existing
+5-attempt backoff rather than silently dropped the way an unrewrapped
+`subscribeEvent` handler's own errors would be.
+
+**Derived signals.** Some patterns can't be detected at mutation time —
+`scan-company-signals` (hourly, alongside the existing recurring jobs) pages
+through every organization with a cursor (never loading them all into
+memory) and evaluates `high_value_stalled_lead` against each org's open
+leads. One organization's failure is caught and logged without aborting the
+rest of the batch. "Stalled" reuses `analyzeLead()`'s exact staleness
+definition; "high value" is relative to each organization's own median
+open-lead value (there was no existing absolute threshold to reuse, and a
+fixed dollar figure would be meaningless across organizations of very
+different sizes) — both fully deterministic, no LLM involved anywhere in
+this sprint.
+
+**Scope.** This is foundation only: no Opportunity/Risk/Decision engine, no
+autonomy levels above passive observation, no UI. `CompanySignal` is
+readable via `listSignals()` but nothing yet renders it.
+
 ### API keys
 
 The `ApiKey` model (and its `apiKey: ["create", "read", "revoke"]` RBAC
@@ -482,6 +538,9 @@ via `docker compose up -d postgres redis`, or any reachable instance your
 - `tests/conversation-history.test.ts` — `listConversations`'s title fallback (explicit title vs. a snippet of the first user message) and ordering/archived-exclusion, `getConversationMessages` filtering to user/assistant rows only and rejecting a conversation from another organization, and `archiveConversation` recording the audit entry and rejecting an already-archived or cross-organization conversation
 - `tests/organization-lifecycle.test.ts` — `deleteOrganization`'s confirmation-slug gate, skipping Stripe entirely for a free org, aborting (deleting nothing) when Stripe cancellation fails, cancelling a live subscription before deleting a paid org, the durable `organization.deleted` compliance record surviving the org it describes, `assertSafeToDeleteAccount`'s sole-owner block and the co-owner-promotion unblock, `auth.api.deleteUser` end to end (sole owner rejected, normal member and post-transfer owner both succeed), and the `createdBy`/`author`/`user` cascade fix — deleting a user leaves every company/contact/lead/task/note/conversation/agent-run they created intact with that one reference nulled
 - `tests/billing-webhook-config.test.ts` — `isWebhookVerificationConfigured()` across all three `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` combinations, and the webhook route's distinct 500 when only the secret key is set
+- `tests/company-signals.test.ts` — tenant isolation and cross-tenant rejection on `CompanySignal`, the malformed-payload runtime guard, real event-to-signal propagation for `company.created` and `lead.stage_changed` (published event → real BullMQ job → `recordSignal`, verified against the actual queue, not mocked), duplicate event delivery upserting instead of duplicating, `recordSignal`'s created/updated outcome transition, and that recording a signal never writes an `AuditLog` entry
+- `tests/company-signal-scanner.test.ts` — `high_value_stalled_lead` flags a stalled, above-its-org's-median-value lead while correctly skipping a below-median or recently-active one, never flags a won/lost lead, re-running the scan over an already-flagged lead upserts rather than duplicates, and one organization's scan failure (simulated) never stops the rest of the batch from completing
+- `tests/billing-subscription.test.ts` (extended) — `billing.subscription_updated` reaches the Intelligence Signal ledger through the same subscriber/queue path as the CRM events above, with `past_due` correctly classified as high severity
 
 Each test creates its own users/organizations with random emails and slugs,
 so the suite is safe to run repeatedly against the same database.

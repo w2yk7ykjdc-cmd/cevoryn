@@ -1,6 +1,7 @@
 import { prisma } from "@/server/db/client";
 import { getTenantScopedClient } from "@/server/db/tenant";
 import { recordAuditLog, publishAuditEvent } from "@/server/audit/audit-log";
+import { publishEvent } from "@/server/events/event-bus";
 import { CompanyNotFoundError } from "@/server/companies/types";
 import type {
   CreateCompanyInput,
@@ -39,6 +40,11 @@ export async function createCompany(input: CreateCompanyInput) {
   });
 
   await publishAuditEvent(auditEntry);
+  await publishEvent(
+    "company.created",
+    { organizationId: input.organizationId, companyId: company.id, name: company.name, createdById: input.actorId },
+    { organizationId: input.organizationId },
+  );
   return company;
 }
 

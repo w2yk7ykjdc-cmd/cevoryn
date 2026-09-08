@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db/client";
 import { getTenantScopedClient } from "@/server/db/tenant";
 import { recordAuditLog, publishAuditEvent } from "@/server/audit/audit-log";
+import { publishEvent } from "@/server/events/event-bus";
 import { ContactNotFoundError } from "@/server/contacts/types";
 import type {
   CreateContactInput,
@@ -66,6 +67,16 @@ export async function createContact(input: CreateContactInput) {
   });
 
   await publishAuditEvent(auditEntry);
+  await publishEvent(
+    "contact.created",
+    {
+      organizationId: input.organizationId,
+      contactId: contact.id,
+      companyId: contact.companyId,
+      createdById: input.actorId,
+    },
+    { organizationId: input.organizationId },
+  );
   return contact;
 }
 
