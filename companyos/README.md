@@ -61,6 +61,9 @@ src/
     organizations/           safe organization/account deletion (lifecycle.ts)
     intelligence/
       signals/               CompanySignal ledger: recordSignal(), event subscriber, scanner, detection rules
+      health/                Sales Health scoring: computeSalesHealthScore(), snapshot persistence
+      opportunity/           Opportunity Engine V1: signal -> opportunity generation, read path
+      compute.ts             recurring "compute intelligence" pass: health snapshot + opportunities per org
 ```
 
 ### Multi-tenancy
@@ -435,6 +438,70 @@ this sprint.
 autonomy levels above passive observation, no UI. `CompanySignal` is
 readable via `listSignals()` but nothing yet renders it.
 
+### Sales Health + Opportunity V1 (Sprint 6)
+
+The first two consumers of the Sprint 5 signal foundation: a deterministic
+org-level health score, and the first Opportunity Engine rule. Both are
+read-only from the AI's perspective (two new tools, no new mutating tool)
+and both are computed, not modeled — no LLM or ML anywhere in this sprint.
+
+**Sales Health scoring.** `computeSalesHealthScore()`
+(`src/server/intelligence/health/sales-health.ts`) is a pure function: it
+starts at 100 and subtracts a weighted penalty for the share of an
+organization's open leads that are high risk (70% weight) or medium risk
+(30% weight) — an org with no open leads scores a clean 100 rather than an
+undefined value. The risk classification itself isn't reinvented:
+`computeSalesHealthEvidence()` runs the same `analyzeLead()`
+(`src/server/leads/analysis.ts`) already used by the lead detail page's AI
+analysis over every open lead and aggregates the results, so "risky" means
+exactly one thing everywhere in the product. `CompanyHealthSnapshot`
+(`prisma/schema.prisma`) is an **append-only time series** — unlike
+`CompanySignal`'s upsert-based ledger, `recordHealthSnapshot()` always
+inserts a new row, so a score-over-time trend stays queryable later.
+
+**Opportunity Engine V1.** `Opportunity` (`prisma/schema.prisma`) is V1's
+only rule: "high-value + stalled lead."
+`generateOpportunitiesForOrganization()`
+(`src/server/intelligence/opportunity/service.ts`) deliberately does **not**
+re-derive staleness/value detection — it reads the already-active
+`high_value_stalled_lead` `CompanySignal` rows the Sprint 5 scanner
+produces and converts each into a scored, explained Opportunity. This keeps
+the signal ledger the single source of truth for "is this lead stalled";
+recomputing that a second time here would risk the two definitions
+drifting apart for no benefit. Upserted on the same
+`[organizationId, ruleName, ruleVersion, relatedEntityType,
+relatedEntityId]` shape `CompanySignal` uses, via the raw `prisma` client
+for the same reason `recordSignal` does (the tenant-scoping extension
+doesn't intercept `upsert` — see `src/server/db/tenant.ts`). Critically,
+re-detection **never overwrites `status`** once a human has moved an
+Opportunity off `new` (`reviewed`/`acted`/`dismissed`) — there's no UI for
+that yet this sprint, but the generator already respects it.
+
+**The recurring pass.** `computeCompanyIntelligence()`
+(`src/server/intelligence/compute.ts`) is a new hourly job
+(`compute-company-intelligence`) that pages through every organization once
+— mirroring `scanCompanySignals`'s cursor-paging and per-organization
+isolation — recording a health snapshot and refreshing opportunities for
+each. It runs independently of `scan-company-signals`; both are idempotent,
+so a lead newly flagged by one hourly scan is picked up by the next
+Opportunity-generation pass rather than requiring strict ordering between
+the two jobs.
+
+**Two new read-only AI tools**, both auto-executable (no approval gate,
+same tier as `get_lead`/`search_leads`): `get_company_health` returns the
+latest snapshot, computing one on demand (without persisting it) if the
+job hasn't run yet for a brand-new organization; `get_opportunities` lists
+current opportunities ordered by score, optionally filtered by status.
+Both are gated by new `companyHealth:["read"]`/`opportunity:["read"]`
+RBAC statements (`src/server/auth/permissions.ts`), granted to every
+role including `viewer`, matching the existing read-only pattern for
+`company`/`contact`/`lead`/`task`.
+
+**Scope.** Still no Decision Engine, no Risk Engine, no autonomy above
+passive read-only tools, no Outcome/Learning loop, no Self-Critique, no
+simulation, no ML, no Pulse UI — this sprint only adds the second and
+third consumers of the signal foundation Sprint 5 built.
+
 ### API keys
 
 The `ApiKey` model (and its `apiKey: ["create", "read", "revoke"]` RBAC
@@ -541,6 +608,9 @@ via `docker compose up -d postgres redis`, or any reachable instance your
 - `tests/company-signals.test.ts` — tenant isolation and cross-tenant rejection on `CompanySignal`, the malformed-payload runtime guard, real event-to-signal propagation for `company.created` and `lead.stage_changed` (published event → real BullMQ job → `recordSignal`, verified against the actual queue, not mocked), duplicate event delivery upserting instead of duplicating, `recordSignal`'s created/updated outcome transition, and that recording a signal never writes an `AuditLog` entry
 - `tests/company-signal-scanner.test.ts` — `high_value_stalled_lead` flags a stalled, above-its-org's-median-value lead while correctly skipping a below-median or recently-active one, never flags a won/lost lead, re-running the scan over an already-flagged lead upserts rather than duplicates, and one organization's scan failure (simulated) never stops the rest of the batch from completing
 - `tests/billing-subscription.test.ts` (extended) — `billing.subscription_updated` reaches the Intelligence Signal ledger through the same subscriber/queue path as the CRM events above, with `past_due` correctly classified as high severity
+- `tests/sales-health.test.ts` — `computeSalesHealthScore`'s pure scoring math (clean 100 with no open leads, high-risk leads penalized more than medium-risk, a mixed portfolio weighted proportionally, always clamped to 0-100), `computeSalesHealthEvidence` correctly aggregating `analyzeLead()`'s per-lead risk classification and excluding won/lost leads and other organizations' leads, and `recordHealthSnapshot`/`getLatestHealthSnapshot` proving snapshots are an append-only time series (two calls create two rows, not an upsert)
+- `tests/opportunity-generation.test.ts` — converting an active `high_value_stalled_lead` signal into an Opportunity end to end, no Opportunity created for a lead with no active signal, re-running generation upserts rather than duplicates, a human's triage `status` (e.g. `dismissed`) is never overwritten by re-detection, generation stops once the underlying signal is resolved, tenant isolation on both generation and `listOpportunities`, and `computeCompanyIntelligence` exercising the full recurring pass (health snapshot + opportunities) across organizations
+- `tests/company-intelligence-tools.test.ts` — `get_company_health` computing on demand before any snapshot exists vs. returning the latest persisted one, `get_opportunities` listing an organization's opportunities and rejecting an invalid status filter, both tools readable by every role including a read-only viewer, and both AI reads landing in the audit log
 
 Each test creates its own users/organizations with random emails and slugs,
 so the suite is safe to run repeatedly against the same database.

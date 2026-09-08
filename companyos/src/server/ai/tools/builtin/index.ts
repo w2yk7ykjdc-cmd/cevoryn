@@ -12,3 +12,5 @@ import "@/server/ai/tools/builtin/analyze-lead";
 import "@/server/ai/tools/builtin/search-leads";
 import "@/server/ai/tools/builtin/create-task";
 import "@/server/ai/tools/builtin/record-lead-activity";
+import "@/server/ai/tools/builtin/get-company-health";
+import "@/server/ai/tools/builtin/get-opportunities";

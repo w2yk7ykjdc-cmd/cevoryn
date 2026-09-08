@@ -16,6 +16,7 @@ import { sweepTaskRemindersProcessor } from "@/server/jobs/processors/sweep-task
 import { rollBillingPeriodsProcessor } from "@/server/jobs/processors/roll-billing-periods";
 import { recordCompanySignalProcessor } from "@/server/jobs/processors/record-company-signal";
 import { scanCompanySignalsProcessor } from "@/server/jobs/processors/scan-company-signals";
+import { computeCompanyIntelligenceProcessor } from "@/server/jobs/processors/compute-company-intelligence";
 import { registerIntelligenceSubscribers } from "@/server/intelligence/signals/subscriber";
 
 /**
@@ -46,6 +47,8 @@ async function processJob(job: Job<JobMap[JobName], void, JobName>): Promise<voi
       return recordCompanySignalProcessor(job.data as JobMap["record-company-signal"]);
     case "scan-company-signals":
       return scanCompanySignalsProcessor();
+    case "compute-company-intelligence":
+      return computeCompanyIntelligenceProcessor();
     default:
       logger.warn({ jobName: job.name }, "no processor registered for job");
   }
