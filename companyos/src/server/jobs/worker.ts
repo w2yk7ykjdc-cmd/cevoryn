@@ -17,6 +17,7 @@ import { rollBillingPeriodsProcessor } from "@/server/jobs/processors/roll-billi
 import { recordCompanySignalProcessor } from "@/server/jobs/processors/record-company-signal";
 import { scanCompanySignalsProcessor } from "@/server/jobs/processors/scan-company-signals";
 import { computeCompanyIntelligenceProcessor } from "@/server/jobs/processors/compute-company-intelligence";
+import { evaluatePendingOutcomesProcessor } from "@/server/jobs/processors/evaluate-pending-outcomes";
 import { registerIntelligenceSubscribers } from "@/server/intelligence/signals/subscriber";
 
 /**
@@ -49,6 +50,8 @@ async function processJob(job: Job<JobMap[JobName], void, JobName>): Promise<voi
       return scanCompanySignalsProcessor();
     case "compute-company-intelligence":
       return computeCompanyIntelligenceProcessor();
+    case "evaluate-pending-outcomes":
+      return evaluatePendingOutcomesProcessor();
     default:
       logger.warn({ jobName: job.name }, "no processor registered for job");
   }

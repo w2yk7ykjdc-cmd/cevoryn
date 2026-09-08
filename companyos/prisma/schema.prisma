@@ -127,6 +127,8 @@ model Organization {
   autonomyPolicyVersions   AutonomyPolicyVersion[]
   autonomyAllowlistEntries AutonomyAllowlistEntry[]
   autonomousActionLogs     AutonomousActionLog[]
+  outcomes                 Outcome[]
+  learningRecords          LearningRecord[]
 
   @@unique([slug])
   @@map("organization")
@@ -1134,4 +1136,145 @@ model AutonomousActionLog {
   @@index([organizationId, domain, createdAt])
   @@index([organizationId, outcome])
   @@map("autonomous_action_log")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Sprint 11: Outcome & Learning Loop
+// ─────────────────────────────────────────────────────────────────────────
+
+/// The classification a deterministic evaluation rule (or a human) assigns
+/// once evidence exists — deliberately NOT forced into a binary
+/// success/failure: `neutral` covers a human's own judgment call (e.g.
+/// dismissing an Opportunity) that isn't itself a verdict on whether the
+/// detection was right; `expired` covers a flag that aged out without ever
+/// being resolved either way; `reversed` covers evidence that a previously
+/// `success` (or otherwise settled) outcome no longer holds; `unknown` is
+/// reserved for a human's own explicit "can't tell" confirmation. This is a
+/// closed, stable set (like `RiskStatus`/`OpportunityStatus`), not an
+/// open per-rule vocabulary (like `CompanySignal.type`), so it's a proper
+/// enum rather than a String.
+enum OutcomeType {
+  success
+  failure
+  neutral
+  expired
+  reversed
+  unknown
+}
+
+/// The lifecycle of an `Outcome` row, independent of `OutcomeType` — an
+/// `Outcome` can exist long before enough evidence exists to classify it.
+/// `pending` (evidence expected but not due yet) and `insufficient_evidence`
+/// (evidence was checked for but the underlying data is gone/inconclusive)
+/// are deliberately distinct from any `OutcomeType` value: "no evidence yet"
+/// must never be conflatable with "it failed" (see `Outcome.outcomeType`,
+/// which stays null for both of these).
+enum OutcomeEvaluationStatus {
+  pending
+  evaluated
+  insufficient_evidence
+}
+
+/// Where the evidence backing an `Outcome` came from. Deliberately limited
+/// to what CompanyOS can actually produce today — no `customer`/
+/// `business_record`/`external` values, since no such integration exists
+/// yet and inventing the enum member without a real producer would be
+/// exactly the kind of fabrication Sprint 11 must avoid. `system` is a
+/// deterministic evaluation rule reading database state (see
+/// `src/server/intelligence/outcome/rules/`); `human` is an explicit,
+/// RBAC-gated confirmation (`outcome:confirm`) — never an AI tool call, so
+/// an LLM can never masquerade as ground truth (see `confirmOutcome` in
+/// `src/server/intelligence/outcome/service.ts`).
+enum OutcomeSource {
+  system
+  human
+}
+
+/// Durable record of what actually happened after a Decision, Opportunity,
+/// Risk, or autonomous action (`AutonomousActionLog`) — the "Action ->
+/// Outcome" half of the Decision -> Action -> Outcome -> Evaluation ->
+/// Learning loop. Follows the SAME polymorphic soft-reference pattern
+/// `CompanySignal`/`Opportunity`/`Risk`/`Decision` already use
+/// (`relatedEntityType`/`relatedEntityId`, no Prisma `@relation` to the
+/// subject) rather than inventing a new abstraction or a hard FK per
+/// subject type — `autonomousActionLogId`/`decisionId`/`signalId` are
+/// additional, optional soft cross-references for when a rule also needs
+/// to name a related record beyond its primary subject (e.g. which
+/// autonomous action caused this Opportunity's outcome).
+///
+/// One row per `[organizationId, ruleName, ruleVersion, relatedEntityType,
+/// relatedEntityId]` (identical idempotency shape to `Opportunity`/`Risk`)
+/// — re-running discovery/evaluation upserts the same row rather than
+/// duplicating it. The row is mutated in place as evidence accumulates
+/// (`pending` -> `evaluated`, or later `success` -> `reversed`); `AuditLog`
+/// (not a second history table) is the append-only trail of those
+/// transitions — every write here also writes an `outcome.*` `AuditLog`
+/// entry with the before/after state in `metadata`.
+///
+/// `outcomeType`/`source`/`confidence` are deliberately nullable: they stay
+/// null for as long as `evaluationStatus` is `pending` or
+/// `insufficient_evidence` — never fabricated, never defaulted to a
+/// guessed value.
+model Outcome {
+  id                    String                  @id @default(cuid())
+  organizationId        String
+  organization          Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  relatedEntityType     String
+  relatedEntityId       String
+  autonomousActionLogId String?
+  decisionId            String?
+  signalId              String?
+  ruleName              String
+  ruleVersion           String
+  evaluationStatus      OutcomeEvaluationStatus @default(pending)
+  outcomeType           OutcomeType?
+  source                OutcomeSource?
+  confidence            Int?
+  value                 Decimal?                @db.Decimal(14, 2)
+  currency              String?
+  evidence              Json                    @default("{}")
+  observationDueAt      DateTime?
+  observedAt            DateTime?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+
+  @@unique([organizationId, ruleName, ruleVersion, relatedEntityType, relatedEntityId])
+  @@index([organizationId, evaluationStatus])
+  @@index([organizationId, relatedEntityType, relatedEntityId])
+  @@index([organizationId, createdAt])
+  @@map("outcome")
+}
+
+/// A structured, durable performance-measurement snapshot derived from one
+/// evaluated `Outcome` — NOT a second copy of the outcome, and explicitly
+/// NOT AI conversational memory (never written to `MemoryRecord`; see
+/// `src/server/intelligence/learning/service.ts`). Exists because
+/// `expectedValue` must be captured AT THE MOMENT of evaluation: the
+/// Opportunity/Risk rows a `LearningRecord` derives from are live-mutable
+/// (e.g. `Opportunity.potentialImpact` is refreshed on every re-detection
+/// pass), so joining live at query time later would silently answer a
+/// different question than "what did we expect back when we learned this."
+/// One row per `Outcome` (`outcomeId` unique) — re-running the learning
+/// step on an already-recorded outcome is a no-op, not a duplicate.
+model LearningRecord {
+  id                    String       @id @default(cuid())
+  organizationId        String
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outcomeId             String       @unique
+  decisionId            String?
+  autonomousActionLogId String?
+  relatedEntityType     String
+  relatedEntityId       String
+  ruleName              String
+  ruleVersion           String
+  outcomeType           OutcomeType
+  expectedValue         Decimal?     @db.Decimal(14, 2)
+  observedValue         Decimal?     @db.Decimal(14, 2)
+  errorValue            Decimal?     @db.Decimal(14, 2)
+  evaluationConfidence  Int
+  createdAt             DateTime     @default(now())
+
+  @@index([organizationId, ruleName, ruleVersion])
+  @@index([organizationId, createdAt])
+  @@map("learning_record")
 }

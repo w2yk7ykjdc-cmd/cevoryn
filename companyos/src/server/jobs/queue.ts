@@ -58,6 +58,11 @@ export async function scheduleRecurringJobs(): Promise<void> {
     { every: 3_600_000 },
     { name: "compute-company-intelligence", data: {} },
   );
+  await getQueue().upsertJobScheduler(
+    "evaluate-pending-outcomes-scheduler",
+    { every: 3_600_000 },
+    { name: "evaluate-pending-outcomes", data: {} },
+  );
 }
 
 export { QUEUE_NAME };
