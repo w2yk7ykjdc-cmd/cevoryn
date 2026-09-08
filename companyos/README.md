@@ -71,6 +71,7 @@ src/
       decision-intelligence/ candidate-type/rule performance, sample-size shrinkage, deterministic ranking (Sprint 12)
       compute.ts             recurring "compute intelligence" pass: health, opportunities, risks, decision per org
       evaluate-outcomes.ts   recurring "Action -> Outcome" pass: discovery + evaluation per org (Sprint 11)
+    market-data/              Binance public candle client + types + test mock, no account/order capability (Sprint 13)
 ```
 
 ### Multi-tenancy
@@ -1089,6 +1090,93 @@ crypto content, no new event type, no new scheduler, no new dependency —
 everything here is existing Prisma aggregation plus one new deterministic
 scoring function.
 
+### Market Intelligence Foundation (Sprint 13)
+
+CompanyOS's first real, read-only connection to an external market: public
+Binance candle data feeding the exact same `CompanySignal` pipeline Sprint
+5 established for internal CRM events. No account, no credentials, no
+order execution — nothing in this sprint can move money or place a trade.
+
+**Zero new Prisma models, zero migration.** Two candidate models
+(`MarketSymbol`, `MarketCandle`) were considered and deliberately not
+built: the derived signal's `CompanySignal.payload` already snapshots the
+exact raw prices (as the original decimal *strings* Binance returns, never
+lossily converted to float for storage) used to compute it, which is
+sufficient for audit/reproducibility without a second, redundant
+persistence layer. `SUPPORTED_SYMBOLS` (`BTCUSDT`, `ETHUSDT`) is a fixed,
+hardcoded pair — not a DB table — since nothing in this sprint needs them
+to be dynamic.
+
+**`src/server/market-data/`** — `binance-client.ts` is a minimal public
+REST client (`GET /api/v3/klines`, no API key), deliberately not an SDK
+dependency, mirroring `src/server/jobs/email.ts`'s existing Resend-client
+precedent ("a single external GET doesn't need a package"). Validates
+every response defensively: non-array bodies, malformed kline rows,
+non-numeric price fields, and `closeTime <= openTime` are all rejected
+before anything reaches the signal rule. `MarketDataClient` is a narrow
+interface with exactly one method, `getCandles` — no account/order/
+withdrawal method exists on it at all, not disabled, genuinely absent.
+`mock-client.ts` is the test-only double every Sprint 13 test injects
+instead — no test ever makes a real network call or touches a real
+account (there is no account to touch).
+
+**`market_price_momentum.v1`** (`intelligence/signals/rules/`) — the one
+deterministic rule this sprint ships: 24-hour closing-price percent change
+(25×1h candles, most-recent close vs. the close 24 candles back — the same
+standard "24h change" every exchange ticker already surfaces). Fires only
+above a 3% move (quiet market is not itself a signal); severity scales to
+high/critical at 7%/15%. Requires the *full* candle window or produces
+`null` rather than a lower-confidence guess — "not enough evidence yet" is
+never conflated with a real, if smaller, measured move.
+
+**Fan-out, not a new signal type.** Market data is global (one BTCUSDT
+price, not one per organization), but `CompanySignal.organizationId` is
+required — so the rule evaluates once per symbol, then upserts the result
+as an organization-scoped `CompanySignal` row for every organization
+(cursor-paged, per-org isolated, mirrors `scanCompanySignals` exactly).
+`sourceId` is `"SYMBOL:INTERVAL"` (not just the symbol) so a future second
+interval can never collide with this one on the existing
+`[organizationId, sourceType, ruleName, ruleVersion, sourceId]` upsert key
+— no new idempotency mechanism needed.
+
+**Job: `ingest-market-data`** (hourly, matching every other intelligence
+job's cadence) — two layers of failure isolation: one symbol's fetch
+failure never blocks the other symbol, and one organization's signal-write
+failure never blocks another organization's. If *every* symbol fails in a
+run, the job throws (rather than silently "succeeding" empty) so BullMQ's
+existing `attempts: 5` / exponential backoff (`queue.ts`) retries sooner
+than waiting a full hour — reusing existing retry infrastructure rather
+than inventing a second one.
+
+**No Opportunity/Risk/Decision generation this sprint.** A momentum signal
+alone can't honestly produce a `potentialImpact`/`potentialLoss` dollar
+figure without inventing a position-sizing assumption that doesn't exist
+yet (no strategy layer). Explicitly deferred, not forgotten — the existing
+soft-reference pattern (`relatedEntityType: "MarketSymbol"`) already
+generalizes for whenever a future rule needs to point back to a market
+signal.
+
+**No new AI tool, no new RBAC resource, no new UI.** Matches the existing
+precedent exactly: raw `CompanySignal` rows were never directly AI-tool-
+exposed or RBAC-gated even for CRM data — only their downstream
+Opportunity/Risk/Decision projections are. Market signals sit at the same
+internal-pipeline layer for now.
+
+**The loop cannot add execution capability — proven, not just claimed.**
+No tool is registered under `domain: "market"` (verified: `listRegisteredTools()`
+returns zero). `MarketDataClient`'s only method is `getCandles`. No
+function named `placeOrder`/`createOrder`/`withdraw`/`transfer` exists
+anywhere in the tool registry. `MAX_AUTONOMY_LEVEL_BY_DOMAIN.market` stays
+`"L2"`, untouched. A dedicated regression test runs a full ingestion pass
+that genuinely detects a strong signal, then asserts
+`AutonomyPolicy`/`AutonomyAllowlistEntry`/`AutonomyPolicyVersion` are
+byte-for-byte unchanged.
+
+**Scope.** No account access, no balances, no positions, no trades, no P&L,
+no strategy engine, no order execution, no withdrawal/deposit/transfer
+capability, no credential requirement of any kind, no new event type, no
+new scheduler, no new dependency.
+
 ### API keys
 
 The `ApiKey` model (and its `apiKey: ["create", "read", "revoke"]` RBAC
@@ -1211,6 +1299,7 @@ via `docker compose up -d postgres redis`, or any reachable instance your
 - `tests/sprint-11-outcome-rules.test.ts` — all three evaluation rules against real fixtures: `stale_advisory_resolution.v1` discovering a pending outcome for a real executed `expire_stale_opportunity` action and evaluating it to `success` once the 24h window elapses (plus `insufficient_evidence` when the log's own input is missing the opportunity id), `risk_resolution.v1` evaluating to `success` when a resolved Risk's underlying signal stayed healthy and to `reversed` when it relapsed to `"high"` severity even though `Risk.status` itself never reverts (with the matching `LearningRecord` expected/observed/error values), and `opportunity_state_progression.v1`'s full state machine (`success` on the lead winning, `failure` on losing, `neutral` on aging out via expiry or human dismissal while the lead stays open, staying genuinely `pending` with no evidence yet, and `insufficient_evidence` once the lead is soft-deleted)
 - `tests/sprint-11-learning-and-safety.test.ts` — `recordLearningIfMissing` idempotent under a real concurrent race, `getAutonomousActionPerformance` proving execution success and business outcome are counted separately, `getConfidenceCalibration`'s bucketed observed-success-rate math against real evaluated evidence (with an empty bucket reporting `null`, never `0`), `getDecisionPerformance`'s honest all-empty state, `getOutcomePerformance`'s generic aggregation across mixed outcome types, the `evaluate-pending-outcomes` job's idempotency (a second run discovers nothing new) and per-organization failure isolation (one organization's simulated failure never stops another's outcomes from being processed), and the **critical safety regression**: a full learning pass — discovery, evaluation with both strongly positive and strongly negative evidence, a human confirmation, and the recurring job itself — leaves `AutonomyPolicy`/`AutonomyAllowlistEntry`/`AutonomyPolicyVersion` byte-for-byte unchanged and the market domain ceiling still capped at `L2`
 - `tests/sprint-12-decision-intelligence.test.ts` — tenant isolation and `CrossTenantAccessError` rejection for candidate-type/rule performance and ranking, correct success/failure/reversed counting and a genuinely-pending outcome never counted as evaluated, `ruleVersion` kept as its own dimension (a synthetic `v2` row never bleeds into `v1`'s track record), `shrinkSuccessRate`'s Laplace-shrinkage math (a 1-sample 100% observed rate shrinks well below 100%, converges toward the true rate as the sample grows) and `sampleSizeStatusFor`'s threshold, deterministic ranking (identical inputs -> identical output) with every candidate carrying a real `rankingReasons` explanation, a same-exposure Risk vs. Opportunity pair ranked apart purely by a strongly-different historical success rate (proving `historicalFactor` is doing real work) while `baseScore` alone still matches Sprint 8's own severity-weighted formula unchanged, both new AI tools' tenant isolation, RBAC (`decision: ["read"]`, held by every role) and read-only/no-audit-log-per-call behavior, and the **critical safety regression**: strongly favorable historical learning data measurably reorders the ranking while `AutonomyPolicy`/`AutonomyAllowlistEntry`/`AutonomyPolicyVersion` stay byte-for-byte unchanged and neither new tool is registered under the `market` domain
+- `tests/sprint-13-market-intelligence.test.ts` — the real Binance client's response validation against a mocked `fetch` (malformed body, malformed kline row, non-numeric price, `closeTime <= openTime` all rejected; a well-formed response normalizes correctly with prices preserved as exact strings), the fixed 2-symbol scope, `market_price_momentum.v1`'s deterministic severity/direction thresholds (no signal below 3%, medium/high/critical at 3%/7%/15%, a partial candle window returning `null` rather than a guess, identical input -> identical output), `CompanySignal` upsert idempotency under both sequential re-runs and concurrent execution, tenant isolation and `CrossTenantAccessError` rejection, one symbol's provider/rate-limit/timeout failure never blocking the other symbol, the job throwing (not silently succeeding) when every symbol fails so BullMQ's own retry engages, one organization's signal-write failure never blocking another's, and the **critical safety regression**: a real detected signal leaves `AutonomyPolicy`/`AutonomyAllowlistEntry`/`AutonomyPolicyVersion` byte-for-byte unchanged, zero tools registered under `domain: "market"`, the market data client exposing `getCandles` and nothing else, and no `placeOrder`/`createOrder`/`withdraw`/`transfer`-named function anywhere in the tool registry
 
 Each test creates its own users/organizations with random emails and slugs,
 so the suite is safe to run repeatedly against the same database.

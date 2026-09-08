@@ -46,6 +46,7 @@ export type JobMap = {
   "scan-company-signals": Record<string, never>;
   "compute-company-intelligence": Record<string, never>;
   "evaluate-pending-outcomes": Record<string, never>;
+  "ingest-market-data": Record<string, never>;
 };
 
 export type JobName = keyof JobMap;
