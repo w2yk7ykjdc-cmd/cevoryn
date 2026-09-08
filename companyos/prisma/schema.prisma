@@ -93,7 +93,7 @@ model Verification {
 }
 
 model Organization {
-  id                String             @id
+  id                String                  @id
   name              String
   slug              String
   logo              String?
@@ -119,6 +119,8 @@ model Organization {
   subscription      Subscription?
   usageRecords      UsageRecord[]
   companySignals    CompanySignal[]
+  healthSnapshots   CompanyHealthSnapshot[]
+  opportunities     Opportunity[]
 
   @@unique([slug])
   @@map("organization")
@@ -820,4 +822,82 @@ model CompanySignal {
   @@index([organizationId, relatedEntityType, relatedEntityId])
   @@index([organizationId, status])
   @@map("company_signal")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Sprint 6: Intelligence — Sales Health & Opportunity V1
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Append-only history of computed Sales Health scores — like `AuditLog`/
+/// `UsageRecord`, a new row per computation rather than an in-place update,
+/// so a future Company Pulse UI can show a trend ("what changed") instead of
+/// only the current value. `ruleVersion` mirrors `CompanySignal`'s pattern —
+/// the scoring formula can evolve without reinterpreting historical rows.
+model CompanyHealthSnapshot {
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  salesHealthScore Int
+  evidence         Json         @default("{}")
+  ruleVersion      String
+  computedAt       DateTime     @default(now())
+
+  @@index([organizationId, computedAt])
+  @@map("company_health_snapshot")
+}
+
+enum OpportunityStatus {
+  new
+  reviewed
+  acted
+  dismissed
+  expired
+}
+
+enum OpportunityEffort {
+  low
+  medium
+  high
+}
+
+/// A scored, explained, actionable business opportunity derived from one or
+/// more `CompanySignal` rows (`sourceSignalId`, a soft reference — see
+/// `CompanySignal`'s own doc comment for why these aren't real Prisma
+/// relations). `urgency`/`risk` reuse the `SignalSeverity` enum since both
+/// are genuinely severity-shaped; `effort` gets its own small enum since
+/// "critical effort" isn't a meaningful concept. Upserted like
+/// `CompanySignal` (same `[organizationId, ruleName, ruleVersion,
+/// relatedEntityType, relatedEntityId]` idempotency shape) — a re-detection
+/// refreshes evidence/score but the generator never overwrites `status`
+/// once a human has moved it off `new` (no UI exists to do that yet in this
+/// sprint, but the field is forward-compatible for when one does).
+model Opportunity {
+  id                String            @id @default(cuid())
+  organizationId    String
+  organization      Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  type              String
+  title             String
+  description       String
+  score             Int
+  confidence        Int
+  potentialImpact   Decimal           @db.Decimal(14, 2)
+  effort            OpportunityEffort
+  urgency           SignalSeverity
+  risk              SignalSeverity
+  evidence          Json              @default("{}")
+  explanation       String
+  relatedEntityType String?
+  relatedEntityId   String?
+  sourceSignalId    String?
+  status            OpportunityStatus @default(new)
+  ruleName          String
+  ruleVersion       String
+  detectedAt        DateTime          @default(now())
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@unique([organizationId, ruleName, ruleVersion, relatedEntityType, relatedEntityId])
+  @@index([organizationId, status])
+  @@index([organizationId, detectedAt])
+  @@map("opportunity")
 }

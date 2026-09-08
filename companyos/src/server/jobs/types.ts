@@ -44,6 +44,7 @@ export type JobMap = {
     [K in IntelligenceEventName]: { eventName: K; payload: EventMap[K] };
   }[IntelligenceEventName];
   "scan-company-signals": Record<string, never>;
+  "compute-company-intelligence": Record<string, never>;
 };
 
 export type JobName = keyof JobMap;
