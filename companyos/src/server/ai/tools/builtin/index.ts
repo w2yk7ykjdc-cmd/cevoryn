@@ -17,3 +17,4 @@ import "@/server/ai/tools/builtin/get-opportunities";
 import "@/server/ai/tools/builtin/get-risks";
 import "@/server/ai/tools/builtin/get-next-best-action";
 import "@/server/ai/tools/builtin/expire-stale-opportunity";
+import "@/server/ai/tools/builtin/get-outcomes";
