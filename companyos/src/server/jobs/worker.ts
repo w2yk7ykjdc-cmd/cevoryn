@@ -19,6 +19,7 @@ import { scanCompanySignalsProcessor } from "@/server/jobs/processors/scan-compa
 import { computeCompanyIntelligenceProcessor } from "@/server/jobs/processors/compute-company-intelligence";
 import { evaluatePendingOutcomesProcessor } from "@/server/jobs/processors/evaluate-pending-outcomes";
 import { ingestMarketDataProcessor } from "@/server/jobs/processors/ingest-market-data";
+import { generateMarketIntelligenceProcessor } from "@/server/jobs/processors/generate-market-intelligence";
 import { registerIntelligenceSubscribers } from "@/server/intelligence/signals/subscriber";
 
 /**
@@ -55,6 +56,8 @@ async function processJob(job: Job<JobMap[JobName], void, JobName>): Promise<voi
       return evaluatePendingOutcomesProcessor();
     case "ingest-market-data":
       return ingestMarketDataProcessor();
+    case "generate-market-intelligence":
+      return generateMarketIntelligenceProcessor();
     default:
       logger.warn({ jobName: job.name }, "no processor registered for job");
   }
