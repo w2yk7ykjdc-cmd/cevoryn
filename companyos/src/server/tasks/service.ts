@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db/client";
 import { getTenantScopedClient } from "@/server/db/tenant";
 import { recordAuditLog, publishAuditEvent } from "@/server/audit/audit-log";
+import { publishEvent } from "@/server/events/event-bus";
 import {
   TaskAssigneeReferenceError,
   TaskCompanyReferenceError,
@@ -127,6 +128,17 @@ export async function createTask(input: CreateTaskInput) {
   });
 
   await publishAuditEvent(auditEntry);
+  await publishEvent(
+    "task.created",
+    {
+      organizationId: input.organizationId,
+      taskId: task.id,
+      leadId: task.leadId,
+      assigneeId: task.assigneeId,
+      dueDate: task.dueDate ? task.dueDate.toISOString() : null,
+    },
+    { organizationId: input.organizationId },
+  );
   return task;
 }
 

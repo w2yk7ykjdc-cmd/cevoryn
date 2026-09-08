@@ -118,6 +118,7 @@ model Organization {
   agentApprovals    AgentApproval[]
   subscription      Subscription?
   usageRecords      UsageRecord[]
+  companySignals    CompanySignal[]
 
   @@unique([slug])
   @@map("organization")
@@ -760,4 +761,63 @@ model BillingWebhookEvent {
   processedAt DateTime @default(now())
 
   @@map("billing_webhook_event")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Sprint 5: Intelligence — Company Events & Signal Foundation
+// ─────────────────────────────────────────────────────────────────────────
+
+enum SignalSourceType {
+  domain_event
+  scanner
+}
+
+enum SignalSeverity {
+  low
+  medium
+  high
+  critical
+}
+
+enum SignalStatus {
+  active
+  resolved
+  expired
+}
+
+/// Durable, queryable ledger of normalized business signals — the landing
+/// point for both real-time domain events (`sourceType: domain_event`, via
+/// `src/server/intelligence/signals/subscriber.ts`) and periodic deterministic
+/// detection rules (`sourceType: scanner`, via
+/// `src/server/intelligence/signals/scanner.ts`). `type` is intentionally a
+/// free-form String (like `AuditLog.action`/`DomainEvent.type`), not an enum,
+/// since the signal vocabulary is expected to grow with every future
+/// Opportunity/Risk rule without needing a migration per addition.
+/// `relatedEntityType`/`relatedEntityId` are a deliberate soft reference
+/// (not a Prisma relation) so this model never requires a back-relation on
+/// Lead/Task/Contact/Company — those models are untouched by this sprint.
+model CompanySignal {
+  id                String           @id @default(cuid())
+  organizationId    String
+  organization      Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  type              String
+  sourceType        SignalSourceType
+  sourceId          String
+  payload           Json             @default("{}")
+  severity          SignalSeverity
+  confidence        Int
+  relatedEntityType String?
+  relatedEntityId   String?
+  detectedAt        DateTime         @default(now())
+  ruleName          String
+  ruleVersion       String
+  status            SignalStatus     @default(active)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@unique([organizationId, sourceType, ruleName, ruleVersion, sourceId])
+  @@index([organizationId, detectedAt])
+  @@index([organizationId, relatedEntityType, relatedEntityId])
+  @@index([organizationId, status])
+  @@map("company_signal")
 }

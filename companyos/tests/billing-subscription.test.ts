@@ -1,4 +1,5 @@
-import { afterAll, describe, expect, it } from "vitest";
+import { Queue } from "bullmq";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/server/db/client";
 import {
   cancelSubscriptionForOrg,
@@ -8,11 +9,35 @@ import {
   applyWebhookEvent,
 } from "@/server/billing/subscription";
 import type { WebhookEvent } from "@/server/billing/provider/types";
+import { createBullConnection } from "@/server/redis/client";
+import { QUEUE_NAME } from "@/server/jobs/queue";
+import { recordCompanySignalProcessor } from "@/server/jobs/processors/record-company-signal";
+import { registerIntelligenceSubscribers } from "@/server/intelligence/signals/subscriber";
 import { closeTestConnections, createOrgForUser, signUpUser } from "./helpers";
 import { createFakePaymentProvider } from "./fake-payment-provider";
 
+async function waitFor<T>(predicate: () => Promise<T | undefined>, timeoutMs = 3000, intervalMs = 50): Promise<T> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const result = await predicate();
+    if (result) return result;
+    if (Date.now() > deadline) throw new Error("waitFor timed out");
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+}
+
 describe("billing: subscription provisioning + Stripe lifecycle", () => {
-  afterAll(closeTestConnections);
+  let inspectorQueue: Queue;
+
+  beforeAll(() => {
+    registerIntelligenceSubscribers();
+    inspectorQueue = new Queue(QUEUE_NAME, { connection: createBullConnection() });
+  });
+
+  afterAll(async () => {
+    await inspectorQueue.close();
+    await closeTestConnections();
+  });
 
   it("provisions a free subscription automatically when an organization is created", async () => {
     const owner = await signUpUser();
@@ -240,5 +265,55 @@ describe("billing: subscription provisioning + Stripe lifecycle", () => {
     await expect(applyWebhookEvent(event)).rejects.toThrow();
     const afterRetry = await prisma.billingWebhookEvent.findUnique({ where: { id: event.id } });
     expect(afterRetry).toBeNull();
+  });
+
+  it("billing.subscription_updated reaches the Intelligence Signal ledger via the same subscriber/queue used for CRM events", async () => {
+    const owner = await signUpUser();
+    const organization = await createOrgForUser(owner);
+    const customerId = `cus_${organization.id}`;
+    const subscriptionId = `sub_${organization.id}`;
+    const proPlan = await prisma.plan.findUniqueOrThrow({ where: { tier: "pro" } });
+
+    await applyWebhookEvent({
+      id: `evt_checkout_${organization.id}`,
+      type: "checkout.session.completed",
+      data: { object: { client_reference_id: organization.id, customer: customerId, subscription: subscriptionId } },
+    });
+    await applyWebhookEvent({
+      id: `evt_past_due_${organization.id}`,
+      type: "customer.subscription.updated",
+      data: {
+        object: {
+          id: subscriptionId,
+          customer: customerId,
+          status: "past_due",
+          items: { data: [{ price: { id: proPlan.stripePriceId } }] },
+        },
+      },
+    });
+
+    // The event payload's `subscriptionId` is the internal `Subscription.id`
+    // (see `applySubscriptionSync`'s `subscriptionEvent` descriptor in
+    // `src/server/billing/subscription.ts`), not the Stripe subscription id
+    // used above — match on organization + status instead of re-deriving it.
+    const job = await waitFor(async () => {
+      const jobs = await inspectorQueue.getJobs(["waiting", "active", "completed", "delayed"]);
+      return jobs.find(
+        (j) =>
+          j.name === "record-company-signal" &&
+          j.data.eventName === "billing.subscription_updated" &&
+          j.data.payload.organizationId === organization.id &&
+          j.data.payload.status === "past_due",
+      );
+    });
+
+    await recordCompanySignalProcessor(job!.data);
+    await job!.remove();
+
+    const signal = await prisma.companySignal.findFirst({
+      where: { organizationId: organization.id, ruleName: "billing.subscription_updated" },
+    });
+    expect(signal).not.toBeNull();
+    expect(signal?.severity).toBe("high"); // past_due is an unhealthy status
   });
 });

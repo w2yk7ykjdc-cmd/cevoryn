@@ -88,6 +88,49 @@ export type EventMap = {
     slug: string;
     deletedByUserId: string;
   };
+
+  // ── Sprint 5: Company Events & Signal Foundation ────────────────────────
+  // Raw, synchronous domain events emitted at the moment of mutation. Each
+  // carries the mutation's own freshly-created id as a natural, already-
+  // unique identifier — the Intelligence Signal Subscriber
+  // (src/server/intelligence/signals/subscriber.ts) uses it as the
+  // idempotency key when normalizing the event into a `CompanySignal` row,
+  // rather than inventing a new event-delivery id.
+  "company.created": {
+    organizationId: string;
+    companyId: string;
+    name: string;
+    createdById: string;
+  };
+  "contact.created": {
+    organizationId: string;
+    contactId: string;
+    companyId: string | null;
+    createdById: string;
+  };
+  "lead.created": {
+    organizationId: string;
+    leadId: string;
+    stageId: string;
+    value: number;
+    createdById: string;
+  };
+  "lead.stage_changed": {
+    organizationId: string;
+    leadId: string;
+    activityId: string;
+    previousStageId: string;
+    newStageId: string;
+    isWon: boolean;
+    isLost: boolean;
+  };
+  "task.created": {
+    organizationId: string;
+    taskId: string;
+    leadId: string | null;
+    assigneeId: string | null;
+    dueDate: string | null;
+  };
 };
 
 export type EventName = keyof EventMap;
