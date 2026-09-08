@@ -15,6 +15,8 @@ registerTool({
     "specific lead or before deciding on a next action.",
   schema,
   requiredPermission: { lead: ["read"] },
+  domain: "crm",
+  mutationCategory: "read_only",
   async handler(input, ctx) {
     const lead = await getLead(ctx.organizationId, input.leadId);
     if (!lead) {

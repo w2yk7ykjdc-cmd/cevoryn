@@ -6,6 +6,8 @@ import { createContact } from "@/server/contacts/service";
 import { createLead } from "@/server/leads/service";
 import { createConversation } from "@/server/ai/runtime/conversations";
 import { executeToolCall } from "@/server/ai/tools/executor";
+import { decideApproval } from "@/server/ai/approval/service";
+import { continueAgentRun } from "@/server/ai/agent/executor";
 import { closeTestConnections, createOrgForUser, signUpUser, authHeaders } from "./helpers";
 
 /**
@@ -80,7 +82,13 @@ describe("Sprint 1 acceptance scenario", () => {
     expect(analysis.suggestedNextAction.length).toBeGreaterThan(0);
 
     // 5. The AI creates a follow-up task on the lead, informed by the
-    //    analysis it just ran.
+    //    analysis it just ran. `create_task` is a `mutating_gated` tool, so
+    //    at the organization's default autonomy level (L2) this call is
+    //    queued for approval rather than executing immediately (Sprint 9:
+    //    the same gate now applies uniformly whether the call came from an
+    //    agent run or, as here, directly through chat's tool-calling loop) —
+    //    it's implicitly wrapped in a one-step `AgentRun`, reusing the exact
+    //    approval infrastructure Sprint 2 built.
     const taskResult = await executeToolCall(
       {
         id: "call-create-task",
@@ -95,9 +103,27 @@ describe("Sprint 1 acceptance scenario", () => {
       toolCtx,
       headers,
     );
-    expect(taskResult.status).toBe("success");
-    if (taskResult.status !== "success") throw new Error("unreachable");
-    const { taskId } = taskResult.output as { taskId: string };
+    expect(taskResult.status).toBe("pending_approval");
+    if (taskResult.status !== "pending_approval") throw new Error("unreachable");
+
+    const decided = await decideApproval({
+      approvalId: taskResult.approvalId,
+      organizationId: organization.id,
+      decidedById: owner.userId,
+      decision: "approved",
+      requestHeaders: headers,
+    });
+    expect(decided.status).toBe("approved");
+
+    const resumedRun = await continueAgentRun({
+      agentRunId: taskResult.agentRunId,
+      organizationId: organization.id,
+      requestHeaders: headers,
+    });
+    expect(resumedRun.status).toBe("completed");
+    const createTaskStep = resumedRun.steps.find((s) => s.toolName === "create_task");
+    expect(createTaskStep?.status).toBe("succeeded");
+    const { taskId } = createTaskStep!.output as { taskId: string };
 
     // 6. The AI records its analysis on the lead's timeline so the team
     //    can see it without re-asking.

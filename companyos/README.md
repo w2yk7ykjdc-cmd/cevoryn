@@ -49,8 +49,9 @@ src/
       tools/                 tool registry, RBAC-checked executor, built-in tools
       memory/                short-term (conversation history) + long-term (pgvector) memory
       planner/               LLM-backed multi-step plan generation
-      approval/              risk policy + human-approval service for gated tool calls
+      approval/              risk policy (UX pre-check) + human-approval service for gated tool calls
       agent/                 multi-step run executor: plans, executes, halts, pauses, resumes
+      autonomy/              org/domain autonomy policy (L0-L5), the central resolveAutonomyDecision() gate, kill switch
     billing/
       provider/              PaymentProvider interface + Stripe adapter + registry
       plans.ts               plan catalog (free/pro/enterprise), seeded idempotently
@@ -603,6 +604,149 @@ UI, and no second Decision rule — and no attempt to close the
 interactive-chat approval gap noted above, since this sprint never
 exercises that path at all.
 
+### Policy & Controlled Autonomy (Sprint 9)
+
+Every sprint through Sprint 8 kept AI action strictly advisory or gated
+one-tool-deep behind the Sprint 2 `classifyToolRisk`/`AgentApproval` split.
+Sprint 9 replaces that fixed, binary split with a real, per-organization,
+per-domain **autonomy policy** — how much a tool is allowed to do on its
+own, not just whether it's allowed to run at all — while keeping the
+non-negotiable property this whole platform is built on: **the LLM is
+never the authority for RBAC, tenant isolation, billing limits, risk
+limits, or autonomy decisions.** Every one of those is still enforced by
+deterministic code the model has no path around.
+
+**The autonomy model: L0-L5.** A six-level scale, per organization and per
+domain (`AutonomyPolicy`, unique on `[organizationId, domain]` — today only
+`"crm"` is ever configured; the model already accommodates a future
+`"market"` domain, deliberately never populated in this sprint):
+
+| Level | Behavior |
+| --- | --- |
+| `L0` | Every mutating tool is hard-blocked — no approval queued. |
+| `L1` | Same as `L0` for mutations; reads are unaffected (autonomy never governs `read_only` tools at all). |
+| `L2` | **Today's real, pre-Sprint-9 default.** `auto_append` tools (e.g. `record_lead_activity`) execute automatically; `mutating_gated` + `additive` tools (e.g. `create_task`) reach the `AgentApproval` queue. |
+| `L3` | `L2`, plus `mutating_gated` + `destructive` tools also reach the approval queue (blocked outright below `L3`). |
+| `L4` | Bounded unattended execution: a tool executes with **no** human approval only if it is statically `autonomyEligible: true` in code *and* present in the organization's `AutonomyAllowlistEntry` for that domain *and* within its daily action/risk limits — any one of those failing falls back to `L3`'s approval behavior, never a silent loss. |
+| `L5` | Same execution rules as `L4`. Schema/enum only in this sprint — real scheduler/event-triggered (as opposed to session-triggered) execution is explicitly deferred to Sprint 10. |
+
+**Two separate, static, code-owned properties gate autonomy, independent of
+any database policy row** (`src/server/ai/tools/types.ts`,
+`ToolMutationCategory`/`ToolBlastRadius`/`autonomyEligible` on
+`RegisteredTool`, set on every built-in tool): a tool with no
+`mutationCategory` set at all (an unclassified, future tool) always
+resolves to `requires_approval`, bypassing level and kill-switch checks
+entirely — the fail-closed default `classifyToolRisk` already established
+in Sprint 2 for anything unrecognized. And no organization can ever make a
+tool autonomous that its own developer didn't opt in with
+`autonomyEligible: true` in code — an allowlist entry alone is not enough.
+None of the twelve existing built-in tools are `autonomyEligible` yet; a
+real L4/L5 allowlist is deliberately not populated in this sprint.
+
+**A hardcoded domain ceiling that no policy row can exceed.**
+`MAX_AUTONOMY_LEVEL_BY_DOMAIN` (`src/server/ai/autonomy/constants.ts`) is a
+plain in-code constant — `crm: "L5"`, `market: "L2"` — clamped onto the
+resolved level before any other check runs
+(`clampLevelForDomain`). This is the concrete mechanism behind the
+long-term plan named in this project's own goals: a future
+`market`/trading domain (signals → opportunity → risk → decision → paper
+trade → execution → outcome → learning) can never reach unattended `L4`/
+`L5` execution by having its `AutonomyPolicy` row configured a certain
+way — reaching real financial autonomy would require a code change to
+this constant, not a settings-page edit, so high-risk financial actions
+stay defaulted to manual approval by construction, not by convention.
+
+**`resolveAutonomyDecision()`** (`src/server/ai/autonomy/resolve.ts`) is
+the single deterministic decision point behind all of this, called for
+every non-`read_only` tool. It collapses the fine-grained outcome
+(`executed` / `blocked_policy` / `blocked_kill_switch` /
+`blocked_not_allowlisted` / `blocked_limit` / `requires_approval`) to
+exactly three shapes the caller acts on — `executed`, `requires_approval`,
+or `blocked` — but every one of those, including every `blocked_*`
+variant, still writes exactly one `AutonomousActionLog` row synchronously
+before returning, so no autonomy decision is ever left unaudited. Only
+`L0`/`L1` and the kill switch are true hard refusals with no approval
+queued; an `L4`/`L5` tool that isn't allowlisted, or that's over its daily
+limit, is never silently dropped — it falls back to `L3`'s approval queue
+instead, logging the specific reason first.
+
+**The gate lives inside `executeToolCall` itself — the one function both
+the chat runtime and the agent executor already funnel every tool call
+through.** This closes a real, pre-existing gap: before this sprint,
+`runConversationTurn`/`streamConversationTurn` (`ai/runtime/runtime.ts`)
+called `executeToolCall` with no risk classification involved at all, so a
+`requires_approval` tool executed immediately via chat while correctly
+pausing via `startAgentRun`'s own pre-check. The enforcement order inside
+`executeToolCall` is RBAC → autonomy → schema validation → handler; a call
+blocked or queued by the autonomy gate never reaches the handler, so it
+never produces a `ToolInvocation` row or an `ai.tool.invoked` event either
+— `AutonomousActionLog` is its audit trail instead. `ai/agent/executor.ts`
+keeps its own `classifyToolRisk` pre-check (now UX-only, for pausing a
+step in the run's own bookkeeping before even attempting it); if it ever
+disagrees with `resolveAutonomyDecision`, `executeToolCall`'s own gate
+still wins and queues an approval attached to that exact run/step, not a
+second parallel one.
+
+**A chat-triggered gated call reuses Sprint 2's exact `AgentRun`/
+`AgentStep`/`AgentApproval` infrastructure — no new executor.** When
+`executeToolCall` needs to queue approval for a call with no existing run
+context (an interactive chat message, not an agent run step), it
+implicitly wraps that single call in a minimal one-step `AgentRun`
+(`status: "waiting_approval"`, goal `"Chat-initiated tool call: <name>"`)
+and returns `{status: "pending_approval", approvalId, agentRunId}` instead
+of the tool's result. `decideApproval` + `continueAgentRun` — unchanged —
+resume it exactly as they would any other paused run.
+
+**Kill switch.** Per organization and domain, `killSwitchEngaged` forces
+the effective level to `L0` regardless of the configured level, and — like
+every other read in `resolveAutonomyDecision` — is read fresh from the
+database on every single call; nothing about it is cached. Engaging it
+only needs `autonomyPolicy:["kill_switch"]` (granted to `owner` and
+`admin`); disengaging needs the fuller `autonomyPolicy:["manage"]`
+(`owner` only) — an intentionally asymmetric permission split, since
+stopping autonomous action should be easy and resuming it should require
+more deliberation.
+
+**Limits.** `dailyActionLimit`, `dailyRiskLimit`, and `perActionRiskLimit`
+apply over a UTC calendar day, computed from today's `executed`
+`AutonomousActionLog` rows (`getDailyUsage`). Any limit breach is logged
+as `blocked_limit` and — per the fallback rule above — still reaches the
+approval queue rather than disappearing.
+
+**Policy versioning.** `AutonomyPolicy` is the fast-lookup current-state
+row; every write to it — a full policy update, a kill-switch toggle, or
+the very first lazy-default read for an org/domain that's never configured
+one — also appends an immutable `AutonomyPolicyVersion` row with a
+strictly monotonic `versionNumber`, inside the same transaction, using the
+exact `pg_advisory_xact_lock` pattern Sprint 3's `withSeatLimitLock`
+established for race-safe, once-only creation. A policy change also
+always writes a normal `AuditLog` entry (`autonomy.policy_changed` /
+`autonomy.kill_switch_engaged` / `autonomy.kill_switch_disengaged` /
+`autonomy.allowlist_entry_added` / `autonomy.allowlist_entry_removed`) —
+policy administration is human action, audited like any other. Separately,
+a genuine unattended `L4`/`L5` execution additionally writes
+`autonomy.action_executed` to `AuditLog` (only for those, not for routine
+`L2` `auto_append` writes, which already have their own tool-specific
+audit entries — a generic entry on every one of those would just be
+noise).
+
+**RBAC, not a new authority.** `autonomyPolicy: ["read", "manage",
+"kill_switch"]` is a new statement in the same `src/server/auth/permissions.ts`
+table every other resource lives in — `owner` gets all three, `admin` gets
+`["read", "kill_switch"]`, `member`/`viewer` get neither. No AI tool can
+ever read or write autonomy policy; it is human-and-RBAC-only, permanently.
+
+**UI.** `/dashboard/settings/autonomy` — a minimal settings-page editor
+(level select, three limit inputs, a kill-switch toggle), not a dashboard;
+`requirePermission({autonomyPolicy: ["read"]})` gates the page itself, and
+the mutating actions each re-check their own narrower permission.
+
+**Scope.** No market/crypto/stocks/trading tool, signal, or execution
+logic of any kind. No real L4/L5 allowlist entries. No scheduler/event
+triggering for L5 — that's Sprint 10. No changes to any prior sprint's
+architecture or behavior beyond the one deliberate fix described above
+(chat-triggered gated calls now pause, matching the agent-run path).
+
 ### API keys
 
 The `ApiKey` model (and its `apiKey: ["create", "read", "revoke"]` RBAC
@@ -692,8 +836,8 @@ via `docker compose up -d postgres redis`, or any reachable instance your
 - `tests/audit-log.test.ts` — the audit log service
 - `tests/companies.test.ts`, `tests/contacts.test.ts`, `tests/leads.test.ts`, `tests/tasks.test.ts` — CRM domain CRUD, soft delete, cross-tenant reference validation, audit logging, including reassigning a lead's owner to another member and rejecting one who isn't a member of the organization, and linking a task directly to a contact/company and rejecting ones from a different organization
 - `tests/lead-analysis.test.ts` — the deterministic `analyzeLead` risk/next-action rules (pure, no DB)
-- `tests/ai-sales-employee.test.ts` — the AI tools via `executeToolCall`, including a real RBAC denial (a viewer genuinely can't `create_task`)
-- `tests/e2e-scenario.test.ts` — the full acceptance scenario below, driven end to end
+- `tests/ai-sales-employee.test.ts` — the AI tools via `executeToolCall`, including a real RBAC denial (a viewer genuinely can't `create_task`) and, as of Sprint 9, `create_task` returning `pending_approval` at the org's default autonomy level and completing only once its implicit `AgentApproval` is approved and the run resumed
+- `tests/e2e-scenario.test.ts` — the full acceptance scenario below, driven end to end, including approving and resuming the now-`pending_approval` `create_task` step (Sprint 9)
 - `tests/planner.test.ts` — `createPlan` against a scripted `AIProvider` test double: valid plans, the direct-answer fallback, every validation-error path (malformed args, unknown tool, over the step cap), and the corrective-retry loop (succeeds after one bad response, still fails after two, sums usage across both attempts)
 - `tests/approval-policy.test.ts` — the risk classification table, including the secure-by-default fallback for unrecognized tools
 - `tests/agent-executor.test.ts` — the full agent run loop against the real Tool Engine: multi-step completion, halt-on-error (a genuine RBAC denial mid-run), pause/approve/resume, pause/reject/continue, and RBAC preserved on the approval decision itself
@@ -714,6 +858,12 @@ via `docker compose up -d postgres redis`, or any reachable instance your
 - `tests/company-intelligence-tools.test.ts` — `get_company_health` computing on demand before any snapshot exists vs. returning the latest persisted one, `get_opportunities`/`get_risks`/`get_next_best_action` listing/returning an organization's opportunities, risks, and top recommendation and rejecting an invalid status filter, all four tools readable by every role including a read-only viewer, and all AI reads landing in the audit log
 - `tests/risk-generation.test.ts` — converting an at-risk (`past_due`) subscription signal into a `Risk` with the real plan price as `potentialLoss`, no `Risk` created for a healthy signal, re-running generation upserts rather than duplicates, an open `Risk` auto-resolves once the subscription recovers, a human's `dismissed` status is never auto-overwritten, generation skips a signal whose subscription no longer exists, tenant isolation on both generation and `listRisks`, and `computeCompanyIntelligence` generating risks alongside health snapshots and opportunities in one pass
 - `tests/decision-engine.test.ts` — `pickTopPriorityItem`'s pure ranking math (higher severity-weighted exposure wins, a Risk beats an Opportunity on a tie, the most-stale candidate wins a same-kind tie, the rationale cites the runner-up's score), no Decision when there are no open Risks or active Opportunities, surfacing the sole Risk or sole Opportunity as the Decision, re-running upserts the same row rather than duplicating it, the Decision is deleted once its winning Risk auto-resolves and nothing else remains, tenant isolation, and `computeCompanyIntelligence` computing decisions for every organization after refreshing opportunities and risks
+- `tests/autonomy-policy.test.ts` — the full `resolveAutonomyDecision` decision matrix: read-only tools never entering autonomy resolution even with the kill switch engaged, the L2 default (`auto_append` executes, gated-additive requires approval), `L0`/`L1` hard-blocking every mutation with no approval queued, the kill switch overriding even `L5`, an unclassified tool always requiring approval regardless of level/kill-switch, the hardcoded domain ceiling clamping `market` to `L2` even when its policy is configured to `L5`, `L2` blocking destructive tools from the approval queue while `L3` allows them in, and the full `L4` matrix (executes when eligible+allowlisted+within limits; falls back to approval, never a hard block, when not allowlisted, over the daily limit, or not statically `autonomyEligible` in code)
+- `tests/autonomy-rbac.test.ts` — the `autonomyPolicy` RBAC boundary across all four roles: owner can manage policy, the allowlist, and both kill-switch directions; admin can engage but not disengage the kill switch and cannot manage the full policy or allowlist; member and viewer have no autonomy policy access at all; and `decideApproval`'s own pre-existing RBAC check (the underlying tool's `requiredPermission`) is untouched by Sprint 9 — a viewer still can't approve a `create_task` approval
+- `tests/autonomy-versioning.test.ts` — the lazy default creates version 1 attributed to a `"system"` actor, every subsequent update appends a new version without mutating any prior one, kill-switch toggles version distinctly from a full policy edit, versioning is independent per domain and per organization, and concurrent lazy-default reads for the same org/domain (via the same `pg_advisory_xact_lock` pattern as `withSeatLimitLock`) never create two version-1 rows
+- `tests/autonomy-audit.test.ts` — every decision outcome (`executed`, `requires_approval`, and all four `blocked_*` variants) writes exactly one `AutonomousActionLog` row, blocked and pending-approval calls never produce a `ToolInvocation` row or publish `ai.tool.invoked`, a routine `L2` `auto_append` execution does *not* write the generic `autonomy.action_executed` `AuditLog` entry (it already has its own tool-specific one), and a genuine `L4`/`L5` allowlisted execution does
+- `tests/chat-approval-gap.test.ts` — the specific bug this sprint fixes: a gated tool called with the exact `ToolContext` shape `runConversationTurn`/`streamConversationTurn` construct now pauses for approval instead of executing immediately, `resolveAutonomyDecision` reaches the identical outcome for the same tool/org/policy state regardless of whether `triggeredBy` is `interactive_chat` or `agent_run`, a chat-initiated gated call approves and resumes through the exact same `AgentApproval`/`AgentRun` machinery the agent-run path uses, and an `auto_append` tool still executes immediately via chat (the fix doesn't over-block)
+- `tests/autonomous-execution.test.ts` — an `L4`-allowlisted tool executes without ever creating an `AgentApproval` or `AgentRun`, the daily action limit blocks the N+1th attempt and falls back to approval, the daily risk budget blocks independently of the action-count limit, a single action over the per-action risk limit is blocked as the very first action of the day, the kill switch takes effect immediately mid-sequence with no caching of a prior policy read, and the `market` domain can never reach `L4`/`L5` execution regardless of what its policy is configured to
 
 Each test creates its own users/organizations with random emails and slugs,
 so the suite is safe to run repeatedly against the same database.

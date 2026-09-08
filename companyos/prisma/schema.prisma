@@ -93,36 +93,40 @@ model Verification {
 }
 
 model Organization {
-  id                String                  @id
-  name              String
-  slug              String
-  logo              String?
-  createdAt         DateTime
-  metadata          String?
-  organizationroles OrganizationRole[]
-  members           Member[]
-  invitations       Invitation[]
-  auditLogs         AuditLog[]
-  domainEvents      DomainEvent[]
-  apiKeys           ApiKey[]
-  conversations     Conversation[]
-  memoryRecords     MemoryRecord[]
-  companies         Company[]
-  contacts          Contact[]
-  tags              Tag[]
-  pipelineStages    PipelineStage[]
-  leads             Lead[]
-  leadActivities    LeadActivity[]
-  tasks             Task[]
-  agentRuns         AgentRun[]
-  agentApprovals    AgentApproval[]
-  subscription      Subscription?
-  usageRecords      UsageRecord[]
-  companySignals    CompanySignal[]
-  healthSnapshots   CompanyHealthSnapshot[]
-  opportunities     Opportunity[]
-  risks             Risk[]
-  decisions         Decision[]
+  id                       String                   @id
+  name                     String
+  slug                     String
+  logo                     String?
+  createdAt                DateTime
+  metadata                 String?
+  organizationroles        OrganizationRole[]
+  members                  Member[]
+  invitations              Invitation[]
+  auditLogs                AuditLog[]
+  domainEvents             DomainEvent[]
+  apiKeys                  ApiKey[]
+  conversations            Conversation[]
+  memoryRecords            MemoryRecord[]
+  companies                Company[]
+  contacts                 Contact[]
+  tags                     Tag[]
+  pipelineStages           PipelineStage[]
+  leads                    Lead[]
+  leadActivities           LeadActivity[]
+  tasks                    Task[]
+  agentRuns                AgentRun[]
+  agentApprovals           AgentApproval[]
+  subscription             Subscription?
+  usageRecords             UsageRecord[]
+  companySignals           CompanySignal[]
+  healthSnapshots          CompanyHealthSnapshot[]
+  opportunities            Opportunity[]
+  risks                    Risk[]
+  decisions                Decision[]
+  autonomyPolicies         AutonomyPolicy[]
+  autonomyPolicyVersions   AutonomyPolicyVersion[]
+  autonomyAllowlistEntries AutonomyAllowlistEntry[]
+  autonomousActionLogs     AutonomousActionLog[]
 
   @@unique([slug])
   @@map("organization")
@@ -991,4 +995,143 @@ model Decision {
   @@unique([organizationId, ruleName, ruleVersion])
   @@index([organizationId, detectedAt])
   @@map("decision")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Sprint 9: Policy & Controlled Autonomy
+// ─────────────────────────────────────────────────────────────────────────
+
+enum AutonomyLevel {
+  L0
+  L1
+  L2
+  L3
+  L4
+  L5
+}
+
+enum AutonomousActionOutcome {
+  executed
+  blocked_policy
+  blocked_limit
+  blocked_kill_switch
+  blocked_not_allowlisted
+  requires_approval
+}
+
+enum AutonomousActionTrigger {
+  interactive_chat
+  agent_run
+  scheduler
+  event
+}
+
+/// Current autonomy policy for one organization × domain (e.g. `"crm"`).
+/// The fast-lookup row `resolveAutonomyDecision`
+/// (`src/server/ai/autonomy/resolve.ts`) reads on every mutating tool call;
+/// `AutonomyPolicyVersion` below is the immutable history every write to
+/// this row also appends to. `level` is further clamped at read time by a
+/// hardcoded, non-DB-overridable per-domain ceiling
+/// (`MAX_AUTONOMY_LEVEL_BY_DOMAIN`) — this row can request L5, but a
+/// `market`-domain row can never actually reach it. All four limit/kill
+/// fields default to the safest possible values (see the policy service):
+/// `level: L2` (today's real, observed behavior — zero regression),
+/// every limit `0` (L4/L5 structurally inert until an owner deliberately
+/// raises them), `killSwitchEngaged: false`.
+model AutonomyPolicy {
+  id                 String        @id @default(cuid())
+  organizationId     String
+  organization       Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  domain             String
+  level              AutonomyLevel @default(L2)
+  dailyActionLimit   Int           @default(0)
+  dailyRiskLimit     Decimal       @default(0) @db.Decimal(14, 2)
+  perActionRiskLimit Decimal       @default(0) @db.Decimal(14, 2)
+  killSwitchEngaged  Boolean       @default(false)
+  updatedById        String
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@unique([organizationId, domain])
+  @@map("autonomy_policy")
+}
+
+/// Append-only, immutable history of every `AutonomyPolicy` change —
+/// like `AuditLog`, never updated or deleted. `versionNumber` is
+/// monotonically increasing per `[organizationId, domain]`, assigned inside
+/// the same transaction that updates `AutonomyPolicy`, so the two can never
+/// drift out of step.
+model AutonomyPolicyVersion {
+  id                 String        @id @default(cuid())
+  organizationId     String
+  organization       Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  domain             String
+  versionNumber      Int
+  level              AutonomyLevel
+  dailyActionLimit   Int
+  dailyRiskLimit     Decimal       @db.Decimal(14, 2)
+  perActionRiskLimit Decimal       @db.Decimal(14, 2)
+  killSwitchEngaged  Boolean
+  changedById        String
+  changeReason       String?
+  createdAt          DateTime      @default(now())
+
+  @@unique([organizationId, domain, versionNumber])
+  @@index([organizationId, domain, createdAt])
+  @@map("autonomy_policy_version")
+}
+
+/// The explicit, owner-curated set of (domain, tool) pairs an organization
+/// has opted into allowing at L4/L5 — necessary but not sufficient: a tool
+/// must ALSO be statically marked `autonomyEligible: true` in code
+/// (`RegisteredTool`, `src/server/ai/tools/types.ts`) before an allowlist
+/// entry has any effect. An org can never make a tool autonomous that its
+/// own developer never opted in.
+model AutonomyAllowlistEntry {
+  id               String        @id @default(cuid())
+  organizationId   String
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  domain           String
+  toolName         String
+  minLevelRequired AutonomyLevel
+  addedById        String
+  createdAt        DateTime      @default(now())
+
+  @@unique([organizationId, domain, toolName])
+  @@index([organizationId, domain])
+  @@map("autonomy_allowlist_entry")
+}
+
+/// The full decision trail for every mutating-tool autonomy resolution —
+/// written synchronously inside `resolveAutonomyDecision` for EVERY
+/// outcome, including every `blocked_*` one, not just successful
+/// executions. Deliberately written inline rather than via the event bus:
+/// a safety-decision record must never be skippable the way a best-effort
+/// event publish can be. `toolInvocationId` is a soft link (see
+/// `CompanySignal`'s own doc comment for why these aren't real Prisma
+/// relations) to the `ToolInvocation` row `executeToolCall` writes, present
+/// only once execution actually happened.
+model AutonomousActionLog {
+  id                         String                  @id @default(cuid())
+  organizationId             String
+  organization               Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  domain                     String
+  toolName                   String
+  level                      AutonomyLevel
+  outcome                    AutonomousActionOutcome
+  policyVersionId            String?
+  allowlistEntryId           String?
+  input                      Json
+  output                     Json?
+  errorMessage               String?
+  dailyActionCountAtDecision Int
+  dailyRiskUsedAtDecision    Decimal                 @db.Decimal(14, 2)
+  actionRiskValue            Decimal?                @db.Decimal(14, 2)
+  toolInvocationId           String?
+  triggeredBy                AutonomousActionTrigger
+  createdAt                  DateTime                @default(now())
+
+  @@index([organizationId, domain, createdAt])
+  @@index([organizationId, outcome])
+  @@map("autonomous_action_log")
 }

@@ -16,6 +16,8 @@ registerTool({
   // aiTool:execute grant every member has — demonstrates permission-scoped
   // tool access rather than all-or-nothing tool availability.
   requiredPermission: { auditLog: ["read"] },
+  domain: "crm",
+  mutationCategory: "read_only",
   async handler(input, ctx) {
     const { entries } = await listAuditLogs({
       organizationId: ctx.organizationId,

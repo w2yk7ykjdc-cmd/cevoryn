@@ -20,6 +20,8 @@ registerTool({
     "re-ask you — it does not create a task or change the lead's stage.",
   schema,
   requiredPermission: { lead: ["update"] },
+  domain: "crm",
+  mutationCategory: "auto_append",
   async handler(input, ctx) {
     try {
       const activity = await addLeadActivity({

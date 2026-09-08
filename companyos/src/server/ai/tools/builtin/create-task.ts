@@ -23,6 +23,10 @@ registerTool({
     "timeline.",
   schema,
   requiredPermission: { task: ["create"] },
+  domain: "crm",
+  mutationCategory: "mutating_gated",
+  blastRadius: "additive",
+  autonomyEligible: false,
   async handler(input, ctx) {
     try {
       const task = await createTask({

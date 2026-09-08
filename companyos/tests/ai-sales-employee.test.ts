@@ -1,6 +1,8 @@
 import { afterAll, describe, expect, it } from "vitest";
 import "@/server/ai/tools/builtin"; // registers get_lead, analyze_lead, search_leads, create_task, record_lead_activity
 import { executeToolCall } from "@/server/ai/tools/executor";
+import { decideApproval } from "@/server/ai/approval/service";
+import { continueAgentRun } from "@/server/ai/agent/executor";
 import { createConversation } from "@/server/ai/runtime/conversations";
 import { createLead } from "@/server/leads/service";
 import { prisma } from "@/server/db/client";
@@ -27,6 +29,30 @@ describe("AI Sales Employee tools", () => {
     });
     const conversation = await createConversation({ organizationId: organization.id, userId: owner.userId });
     return { owner, organization, lead, conversation };
+  }
+
+  /**
+   * `create_task` is `mutating_gated`, so at the organization's default
+   * autonomy level (L2) a direct `executeToolCall` for it now returns
+   * `pending_approval` (Sprint 9) rather than executing immediately — it's
+   * implicitly wrapped in a one-step `AgentRun`. This approves and resumes
+   * it, returning the completed step so tests can assert on its output.
+   */
+  async function approveAndResume(
+    pending: Extract<Awaited<ReturnType<typeof executeToolCall>>, { status: "pending_approval" }>,
+    organizationId: string,
+    decidedById: string,
+    requestHeaders: Headers,
+  ) {
+    await decideApproval({
+      approvalId: pending.approvalId,
+      organizationId,
+      decidedById,
+      decision: "approved",
+      requestHeaders,
+    });
+    const resumedRun = await continueAgentRun({ agentRunId: pending.agentRunId, organizationId, requestHeaders });
+    return resumedRun.steps.find((s) => s.approvalId === pending.approvalId)!;
   }
 
   it("get_lead returns the lead and audit-logs the AI's read", async () => {
@@ -116,6 +142,7 @@ describe("AI Sales Employee tools", () => {
 
   it("create_task creates a task linked to the lead, assigned to the caller, audited as ai", async () => {
     const { owner, organization, lead, conversation } = await setup();
+    const headers = authHeaders(owner.token);
 
     const result = await executeToolCall(
       {
@@ -124,18 +151,19 @@ describe("AI Sales Employee tools", () => {
         arguments: { title: "Follow up on AI Test Lead", leadId: lead.id, priority: "high" },
       },
       { organizationId: organization.id, userId: owner.userId, conversationId: conversation.id },
-      authHeaders(owner.token),
+      headers,
     );
 
-    expect(result.status).toBe("success");
-    let taskId: string | undefined;
-    if (result.status === "success") {
-      const output = result.output as { created: boolean; taskId: string };
-      expect(output.created).toBe(true);
-      taskId = output.taskId;
-    }
+    expect(result.status).toBe("pending_approval");
+    if (result.status !== "pending_approval") throw new Error("unreachable");
 
-    const task = await prisma.task.findUniqueOrThrow({ where: { id: taskId! } });
+    const step = await approveAndResume(result, organization.id, owner.userId, headers);
+    expect(step.status).toBe("succeeded");
+    const output = step.output as { created: boolean; taskId: string };
+    expect(output.created).toBe(true);
+    const taskId = output.taskId;
+
+    const task = await prisma.task.findUniqueOrThrow({ where: { id: taskId } });
     expect(task.assigneeId).toBe(owner.userId);
     expect(task.leadId).toBe(lead.id);
     expect(task.priority).toBe("high");
@@ -215,7 +243,10 @@ describe("AI Sales Employee tools", () => {
       ctx,
       headers,
     );
-    expect(taskResult.status).toBe("success");
+    expect(taskResult.status).toBe("pending_approval");
+    if (taskResult.status !== "pending_approval") throw new Error("unreachable");
+    const taskStep = await approveAndResume(taskResult, organization.id, owner.userId, headers);
+    expect(taskStep.status).toBe("succeeded");
 
     const activityResult = await executeToolCall(
       {
