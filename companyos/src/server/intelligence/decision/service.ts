@@ -14,6 +14,51 @@ export type GenerateDecisionResult = {
 };
 
 /**
+ * Every currently-live decision candidate (open `Risk`s + active
+ * `Opportunity`s) for one organization, in `DecisionCandidate` shape.
+ * Extracted from `generateDecisionForOrganization` so Sprint 12's
+ * `decision-intelligence/service.ts` can rank the SAME live candidate set
+ * `pickTopPriorityItem` picks its single winner from, without duplicating
+ * this query or risking the two ever silently diverging. Behavior of
+ * `generateDecisionForOrganization` itself is unchanged by this extraction.
+ */
+export async function getDecisionCandidatesForOrganization(organizationId: string): Promise<DecisionCandidate[]> {
+  const scoped = getTenantScopedClient(organizationId);
+
+  const [openRisks, activeOpportunities] = await Promise.all([
+    scoped.risk.findMany({ where: { status: "open" } }),
+    scoped.opportunity.findMany({ where: { status: { in: ["new", "reviewed"] } } }),
+  ]);
+
+  return [
+    ...openRisks.map(
+      (risk): DecisionCandidate => ({
+        kind: "risk",
+        id: risk.id,
+        title: risk.title,
+        explanation: risk.explanation,
+        severity: risk.severity,
+        potentialLoss: Number(risk.potentialLoss),
+        detectedAt: risk.detectedAt,
+        confidence: risk.confidence,
+      }),
+    ),
+    ...activeOpportunities.map(
+      (opportunity): DecisionCandidate => ({
+        kind: "opportunity",
+        id: opportunity.id,
+        title: opportunity.title,
+        explanation: opportunity.explanation,
+        urgency: opportunity.urgency,
+        potentialImpact: Number(opportunity.potentialImpact),
+        detectedAt: opportunity.detectedAt,
+        confidence: opportunity.confidence,
+      }),
+    ),
+  ];
+}
+
+/**
  * Recomputes the organization's single top-priority `Decision` from its
  * currently open `Risk`s and active `Opportunity`s. Deliberately reads
  * those two models directly (not the `CompanySignal` ledger) — by this
@@ -29,38 +74,7 @@ export type GenerateDecisionResult = {
  * underlying `Risk`/`Opportunity` itself.
  */
 export async function generateDecisionForOrganization(organizationId: string): Promise<GenerateDecisionResult> {
-  const scoped = getTenantScopedClient(organizationId);
-
-  const [openRisks, activeOpportunities] = await Promise.all([
-    scoped.risk.findMany({ where: { status: "open" } }),
-    scoped.opportunity.findMany({ where: { status: { in: ["new", "reviewed"] } } }),
-  ]);
-
-  const candidates: DecisionCandidate[] = [
-    ...openRisks.map(
-      (risk): DecisionCandidate => ({
-        kind: "risk",
-        id: risk.id,
-        title: risk.title,
-        explanation: risk.explanation,
-        severity: risk.severity,
-        potentialLoss: Number(risk.potentialLoss),
-        detectedAt: risk.detectedAt,
-      }),
-    ),
-    ...activeOpportunities.map(
-      (opportunity): DecisionCandidate => ({
-        kind: "opportunity",
-        id: opportunity.id,
-        title: opportunity.title,
-        explanation: opportunity.explanation,
-        urgency: opportunity.urgency,
-        potentialImpact: Number(opportunity.potentialImpact),
-        detectedAt: opportunity.detectedAt,
-      }),
-    ),
-  ];
-
+  const candidates = await getDecisionCandidatesForOrganization(organizationId);
   const picked = pickTopPriorityItem(candidates);
 
   if (!picked) {

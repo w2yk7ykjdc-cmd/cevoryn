@@ -1242,6 +1242,7 @@ model Outcome {
   @@index([organizationId, evaluationStatus])
   @@index([organizationId, relatedEntityType, relatedEntityId])
   @@index([organizationId, createdAt])
+  @@index([organizationId, ruleName, ruleVersion])
   @@map("outcome")
 }
 

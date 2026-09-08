@@ -9,7 +9,7 @@ export const RULE_VERSION = "v1";
  * `SignalSeverity` enum both already reuse (see `Risk.severity` and
  * `Opportunity.urgency`), just given a numeric scale here.
  */
-const SEVERITY_WEIGHT: Record<SignalSeverity, number> = { low: 1, medium: 2, high: 3, critical: 4 };
+export const SEVERITY_WEIGHT: Record<SignalSeverity, number> = { low: 1, medium: 2, high: 3, critical: 4 };
 
 export type RiskCandidate = {
   kind: "risk";
@@ -19,6 +19,14 @@ export type RiskCandidate = {
   severity: SignalSeverity;
   potentialLoss: number;
   detectedAt: Date;
+  /**
+   * The underlying `Risk.confidence` DB field, threaded through for Sprint
+   * 12's ranking layer (`decision-intelligence/ranking.ts`). Optional so
+   * existing callers/tests that construct a candidate without it (this
+   * field didn't exist before Sprint 12) keep compiling unchanged --
+   * `pickTopPriorityItem`'s own scoring never reads it.
+   */
+  confidence?: number;
 };
 
 export type OpportunityCandidate = {
@@ -29,6 +37,8 @@ export type OpportunityCandidate = {
   urgency: SignalSeverity;
   potentialImpact: number;
   detectedAt: Date;
+  /** See `RiskCandidate.confidence` -- the underlying `Opportunity.confidence` DB field. */
+  confidence?: number;
 };
 
 export type DecisionCandidate = RiskCandidate | OpportunityCandidate;
@@ -42,7 +52,13 @@ export type GeneratedDecision = {
   evidence: Record<string, unknown>;
 };
 
-function priorityScoreFor(candidate: DecisionCandidate): number {
+/**
+ * Exported for reuse by Sprint 12's `decision-intelligence/ranking.ts`,
+ * which layers a historical-performance multiplier on top of this exact
+ * same base score rather than inventing a second, competing scoring
+ * formula -- see that module's doc comment.
+ */
+export function priorityScoreFor(candidate: DecisionCandidate): number {
   return candidate.kind === "risk"
     ? SEVERITY_WEIGHT[candidate.severity] * candidate.potentialLoss
     : SEVERITY_WEIGHT[candidate.urgency] * candidate.potentialImpact;

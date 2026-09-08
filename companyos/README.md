@@ -68,6 +68,7 @@ src/
       decision/              Decision Engine V1: ranks open Risks + Opportunities into one recommendation
       outcome/               Outcome model + evaluation rules (Sprint 11): stale-advisory-resolution, risk-resolution, opportunity-state-progression
       learning/              LearningRecord snapshots + performance/confidence-calibration metrics (Sprint 11)
+      decision-intelligence/ candidate-type/rule performance, sample-size shrinkage, deterministic ranking (Sprint 12)
       compute.ts             recurring "compute intelligence" pass: health, opportunities, risks, decision per org
       evaluate-outcomes.ts   recurring "Action -> Outcome" pass: discovery + evaluation per org (Sprint 11)
 ```
@@ -993,6 +994,101 @@ would be unused ceremony), no financial/market/crypto content, and no new
 dependency — everything here is existing Prisma aggregation, the existing
 BullMQ job pattern, and the existing `AuditLog`.
 
+### Decision Intelligence & Learning-Guided Prioritization (Sprint 12)
+
+Sprint 11 closed the loop Decision -> Action -> Outcome -> Evaluation ->
+Learning, but nothing yet *used* that history. Sprint 12 adds a read-only
+Decision Intelligence layer (`src/server/intelligence/decision-intelligence/`)
+that turns evaluated `Outcome`/`LearningRecord` data into an evidence-based
+ranking signal for the live Risk/Opportunity candidates Sprint 8's Decision
+Engine already considers — without becoming a second decision engine.
+
+**Audit finding that shaped the design: `Decision` has no `type` or
+`confidence` field, and no historical identity.** It's a fully-recomputed,
+non-historical singleton per organization (overwritten/deleted on every
+pass — see Sprint 8's own doc comment), and no rule populates
+`Outcome.decisionId` (Sprint 11's `getDecisionPerformance` already honestly
+returns all-null for this reason, still true). So "decision type
+performance" as commonly imagined doesn't map onto anything real here.
+What Sprint 12 measures instead are the two dimensions that genuinely
+exist: **candidate type** (`Outcome.relatedEntityType`, "Opportunity" vs
+"Risk" — the real, non-fabricated stand-in for "decision type," since those
+are exactly the two kinds `DecisionCandidate` already is), and **evaluation
+rule** (`Outcome.ruleName`/`ruleVersion` — Sprint 11's 3 rules,
+`stale_advisory_resolution`, `risk_resolution`, `opportunity_state_progression`).
+These are kept as two deliberately distinct functions
+(`getCandidateTypePerformance`, `getRulePerformance` in
+`decision-intelligence/performance.ts`) even though today there happens to
+be exactly one generation rule per candidate type — the two concepts are
+not silently coupled.
+
+**Sample-size safety (`decision-intelligence/sample-safety.ts`).** A
+candidate type with 1 success out of 1 evaluated outcome is not "100%
+reliable." `shrinkSuccessRate` applies one line of deterministic Laplace
+shrinkage toward a neutral 50% prior (`(successCount + 5*0.5) / (totalEvaluated + 5)`,
+in percent) — no statistics library, no ML. As real evidence accumulates
+the shrunk rate converges on the true observed rate; with zero evaluated
+outcomes it returns exactly 50 (neutral, not 0 and not 100).
+`sampleSizeStatusFor` additionally flags anything below `MIN_SAMPLE_SIZE`
+(5) as `insufficient_sample` for the ranking explanation, distinct from the
+shrinkage math itself.
+
+**Ranking (`decision-intelligence/ranking.ts`).** `rankDecisionCandidates`
+does NOT replace `pickTopPriorityItem` — `generateDecisionForOrganization`
+(Sprint 8) is completely untouched and keeps writing the exact same
+`Decision` row it always has. Ranking instead reuses that same function's
+exported `priorityScoreFor` (severity-weighted dollar exposure) as
+`baseScore`, then layers two bounded [0.5, 1.0] multipliers on top —
+`confidenceFactor` (the candidate's own real `Opportunity.confidence`/
+`Risk.confidence` DB field, newly threaded through `DecisionCandidate` as
+an optional field so the 2 existing Sprint 8 test fixtures keep compiling
+unchanged) and `historicalFactor` (the candidate type's shrinkage-adjusted
+success rate). Both factors floor at 0.5, never 0 — historical/confidence
+signals can nudge the ranking, never veto a real severity-weighted risk out
+of consideration. Every ranked candidate carries `rankingReasons: string[]`
+explaining the score in plain language, entirely derived from real
+database aggregates — never an LLM judgment, never randomness; the same
+inputs always produce the same ranked output.
+
+**Reuse, not rewrite.** `decision/service.ts`'s candidate-fetching query
+was extracted into `getDecisionCandidatesForOrganization` (behavior of
+`generateDecisionForOrganization` itself is unchanged) so ranking operates
+on the exact same live candidate set the Decision Engine picks its single
+winner from. `getOutcomePerformance` (Sprint 11) is called as-is, extended
+with one new optional `ruleVersion` filter field so a future `v2` of any
+rule gets its own independent track record. One purely additive migration
+adds `Outcome(@@index([organizationId, ruleName, ruleVersion]))` — no
+existing column touched.
+
+**Read-only AI surface and UI.** Two new tools mirror the existing
+read-only pattern: `get_decision_performance` (candidate-type + rule
+performance + confidence calibration) and `rank_decision_candidates` (the
+full ranked list + Sprint 8's current Decision for comparison), both
+`requiredPermission: { decision: ["read"] }`, both `mutationCategory:
+"read_only"`. Unlike `get_outcomes`, neither writes an `AuditLog` entry per
+call — Sprint 12's own spec calls out that read-only ranking/presentation
+views should not generate audit noise, reserving `AuditLog` for
+state-changing actions (there are none in this sprint). A minimal
+`/dashboard/decisions` page (fully server-rendered, no client component —
+there is nothing to mutate) shows the current Decision, ranked candidates
+with their reasons, rule performance, and confidence calibration.
+
+**The loop cannot modify its own permissions — proven, not just claimed.**
+Nothing in `decision-intelligence/` imports or calls anything in
+`src/server/ai/autonomy/policy-service.ts`; `MAX_AUTONOMY_LEVEL_BY_DOMAIN`
+(`market: "L2"`) is untouched, and neither new tool is registered under the
+`market` domain. A dedicated regression test seeds strongly favorable
+historical learning data for autonomous Risk resolution, runs the full
+ranking snapshot (confirming the ranking DID reorder as expected), then
+asserts `AutonomyPolicy`/`AutonomyAllowlistEntry`/`AutonomyPolicyVersion`
+are byte-for-byte unchanged.
+
+**Scope.** No ML, no statistics library, no online learning, no automatic
+policy/allowlist/autonomy-level change of any kind, no financial/market/
+crypto content, no new event type, no new scheduler, no new dependency —
+everything here is existing Prisma aggregation plus one new deterministic
+scoring function.
+
 ### API keys
 
 The `ApiKey` model (and its `apiKey: ["create", "read", "revoke"]` RBAC
@@ -1114,6 +1210,7 @@ via `docker compose up -d postgres redis`, or any reachable instance your
 - `tests/sprint-11-outcome-service.test.ts` — tenant isolation and cross-tenant rejection for `Outcome`, a Decision-linked outcome (soft reference, ready for a future rule), duplicate-outcome prevention and independent rule versioning both via the same upsert-key shape `Opportunity`/`Risk` use, a not-yet-due pending outcome never returned by `findDueOutcomes`, a full evaluate → re-evaluate (`success` → `reversed`) cycle with both transitions preserved in `AuditLog`, `insufficient_evidence` recorded distinctly from any verdict, human confirmation RBAC (owner allowed and audit-logged with `source: "human"`/confidence 100, viewer denied, confirming a nonexistent id rejected), a human-confirmed outcome permanently excluded from automatic re-evaluation, and the `get_outcomes` AI tool's own registration/RBAC/read-only behavior with no `confirm_outcome` tool existing at all
 - `tests/sprint-11-outcome-rules.test.ts` — all three evaluation rules against real fixtures: `stale_advisory_resolution.v1` discovering a pending outcome for a real executed `expire_stale_opportunity` action and evaluating it to `success` once the 24h window elapses (plus `insufficient_evidence` when the log's own input is missing the opportunity id), `risk_resolution.v1` evaluating to `success` when a resolved Risk's underlying signal stayed healthy and to `reversed` when it relapsed to `"high"` severity even though `Risk.status` itself never reverts (with the matching `LearningRecord` expected/observed/error values), and `opportunity_state_progression.v1`'s full state machine (`success` on the lead winning, `failure` on losing, `neutral` on aging out via expiry or human dismissal while the lead stays open, staying genuinely `pending` with no evidence yet, and `insufficient_evidence` once the lead is soft-deleted)
 - `tests/sprint-11-learning-and-safety.test.ts` — `recordLearningIfMissing` idempotent under a real concurrent race, `getAutonomousActionPerformance` proving execution success and business outcome are counted separately, `getConfidenceCalibration`'s bucketed observed-success-rate math against real evaluated evidence (with an empty bucket reporting `null`, never `0`), `getDecisionPerformance`'s honest all-empty state, `getOutcomePerformance`'s generic aggregation across mixed outcome types, the `evaluate-pending-outcomes` job's idempotency (a second run discovers nothing new) and per-organization failure isolation (one organization's simulated failure never stops another's outcomes from being processed), and the **critical safety regression**: a full learning pass — discovery, evaluation with both strongly positive and strongly negative evidence, a human confirmation, and the recurring job itself — leaves `AutonomyPolicy`/`AutonomyAllowlistEntry`/`AutonomyPolicyVersion` byte-for-byte unchanged and the market domain ceiling still capped at `L2`
+- `tests/sprint-12-decision-intelligence.test.ts` — tenant isolation and `CrossTenantAccessError` rejection for candidate-type/rule performance and ranking, correct success/failure/reversed counting and a genuinely-pending outcome never counted as evaluated, `ruleVersion` kept as its own dimension (a synthetic `v2` row never bleeds into `v1`'s track record), `shrinkSuccessRate`'s Laplace-shrinkage math (a 1-sample 100% observed rate shrinks well below 100%, converges toward the true rate as the sample grows) and `sampleSizeStatusFor`'s threshold, deterministic ranking (identical inputs -> identical output) with every candidate carrying a real `rankingReasons` explanation, a same-exposure Risk vs. Opportunity pair ranked apart purely by a strongly-different historical success rate (proving `historicalFactor` is doing real work) while `baseScore` alone still matches Sprint 8's own severity-weighted formula unchanged, both new AI tools' tenant isolation, RBAC (`decision: ["read"]`, held by every role) and read-only/no-audit-log-per-call behavior, and the **critical safety regression**: strongly favorable historical learning data measurably reorders the ranking while `AutonomyPolicy`/`AutonomyAllowlistEntry`/`AutonomyPolicyVersion` stay byte-for-byte unchanged and neither new tool is registered under the `market` domain
 
 Each test creates its own users/organizations with random emails and slugs,
 so the suite is safe to run repeatedly against the same database.
