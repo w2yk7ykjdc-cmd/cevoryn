@@ -14,7 +14,16 @@ import type {
   SymbolPerformance,
 } from "@/server/intelligence/strategy-performance/types";
 
-type TradeRow = {
+/**
+ * Exported (Sprint 18) so `strategy-evaluation/service.ts` can build on
+ * exactly this same shape rather than re-declaring an overlapping one --
+ * `candidateConfidence` was added for Sprint 18's per-strategy confidence
+ * calibration, which needs to join it against `outcomeType` in memory
+ * (the generic `Outcome` model has no `strategyType` column of its own to
+ * filter on directly, so this join has to happen here, not in `learning/
+ * service.ts`).
+ */
+export type TradeRow = {
   id: string;
   strategyType: string;
   regime: string | null;
@@ -26,6 +35,7 @@ type TradeRow = {
   feesPaid: number;
   fundingPaid: number;
   closeReason: string;
+  candidateConfidence: number | null;
   openedAt: Date;
   closedAt: Date;
 };
@@ -131,7 +141,7 @@ function computeMetrics(trades: TradeRow[], outcomeByTradeId: Map<string, Outcom
  * therefore never a `PaperTrade`) for a `NO_TRADE` candidate, so there is
  * nothing to filter out -- it is structurally absent, not excluded.
  */
-async function loadTradesAndOutcomes(organizationId: string): Promise<{ trades: TradeRow[]; outcomeByTradeId: Map<string, OutcomeType | null> }> {
+export async function loadTradesAndOutcomes(organizationId: string): Promise<{ trades: TradeRow[]; outcomeByTradeId: Map<string, OutcomeType | null> }> {
   const scoped = getTenantScopedClient(organizationId);
   const [tradeRows, outcomeRows] = await Promise.all([
     scoped.paperTrade.findMany({
@@ -147,6 +157,7 @@ async function loadTradesAndOutcomes(organizationId: string): Promise<{ trades: 
         feesPaid: true,
         fundingPaid: true,
         closeReason: true,
+        candidateConfidence: true,
         openedAt: true,
         closedAt: true,
       },
@@ -169,6 +180,7 @@ async function loadTradesAndOutcomes(organizationId: string): Promise<{ trades: 
     feesPaid: Number(t.feesPaid),
     fundingPaid: Number(t.fundingPaid),
     closeReason: t.closeReason,
+    candidateConfidence: t.candidateConfidence,
     openedAt: t.openedAt,
     closedAt: t.closedAt,
   }));

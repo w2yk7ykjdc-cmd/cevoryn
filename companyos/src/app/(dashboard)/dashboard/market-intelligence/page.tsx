@@ -8,6 +8,8 @@ import {
   getStrategyTypePerformance,
 } from "@/server/intelligence/strategy-performance/service";
 import type { StrategyPerformanceMetrics } from "@/server/intelligence/strategy-performance/types";
+import { getStrategyEvaluations } from "@/server/intelligence/strategy-evaluation/service";
+import type { EvidenceQuality, StrategyEvaluation } from "@/server/intelligence/strategy-evaluation/types";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -28,6 +30,12 @@ function outcomeBadgeVariant(outcomeResult: string | null): "default" | "seconda
   return "secondary";
 }
 
+function evidenceQualityBadgeVariant(quality: EvidenceQuality): "default" | "secondary" | "destructive" {
+  if (quality === "strong" || quality === "moderate") return "default";
+  if (quality === "insufficient") return "destructive";
+  return "secondary";
+}
+
 /**
  * Fully server-rendered and read-only -- there is nothing to mutate on
  * this page. Every number shown comes directly from
@@ -38,13 +46,14 @@ function outcomeBadgeVariant(outcomeResult: string | null): "default" | "seconda
  */
 export default async function MarketIntelligencePage() {
   const { organization } = await requirePermission({ marketIntelligence: ["read"], paperTrading: ["read"] });
-  const [snapshot, paperTrading, strategyTypePerformance, regimePerformance, confidenceCalibration, recentOutcomes] = await Promise.all([
+  const [snapshot, paperTrading, strategyTypePerformance, regimePerformance, confidenceCalibration, recentOutcomes, strategyEvaluations] = await Promise.all([
     getMarketIntelligenceRanking(organization.id),
     getPaperTradingSnapshot(organization.id),
     getStrategyTypePerformance(organization.id),
     getRegimePerformance(organization.id),
     getPaperTradeConfidenceCalibration(organization.id),
     getRecentPaperTradeOutcomes(organization.id),
+    getStrategyEvaluations(organization.id),
   ]);
 
   return (
@@ -299,6 +308,25 @@ export default async function MarketIntelligencePage() {
         </CardContent>
       </Card>
 
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight">Strategy Evaluation</h2>
+        <p className="text-sm text-muted-foreground">
+          PAPER / SIMULATION ONLY. How much can we trust each strategy&apos;s performance, and under what conditions
+          does it actually work -- never a guarantee of future results, never real-money performance. A strategy
+          with too few evaluated trades is reported as insufficient evidence, never a fabricated score.
+        </p>
+      </div>
+
+      {strategyEvaluations.length === 0 ? (
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground">No closed paper trades yet -- no strategy evaluation to show.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        strategyEvaluations.map((evaluation) => <EvaluationCard key={evaluation.strategyType} evaluation={evaluation} />)
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Regime performance</CardTitle>
@@ -377,6 +405,139 @@ function Stat({ label, value }: { label: string; value: number }) {
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="font-medium">{value.toFixed(4)}</p>
     </div>
+  );
+}
+
+function EvaluationCard({ evaluation }: { evaluation: StrategyEvaluation }) {
+  if (evaluation.status === "insufficient_evidence") {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            {evaluation.strategyType}
+            <Badge variant="destructive">insufficient evidence</Badge>
+          </CardTitle>
+          <CardDescription>
+            Only {evaluation.evaluatedTrades} evaluated paper trade{evaluation.evaluatedTrades === 1 ? "" : "s"} -- at least{" "}
+            {evaluation.minimumRequired} are required before this strategy can be evaluated. Not &quot;proven,&quot; not &quot;failed&quot; -- simply not
+            enough evidence yet.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  const e = evaluation;
+  const drawdownText = e.maxDrawdown.status === "computed" ? `${e.maxDrawdown.maxDrawdownPnl} (${e.maxDrawdown.maxDrawdownPct ?? "n/a"}%)` : "no data";
+  const riskAdjustedText = e.riskAdjustedReturn.status === "computed" ? `${e.riskAdjustedReturn.value}${e.riskAdjustedReturn.cappedAtBound ? " (capped)" : ""}` : "insufficient evidence";
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex flex-wrap items-center gap-2">
+          {e.strategyType}
+          <Badge variant={evidenceQualityBadgeVariant(e.evidenceQuality)}>{e.evidenceQuality} evidence</Badge>
+          <span className="text-sm font-normal text-muted-foreground">Evaluation Score: {e.evaluationScore}/100</span>
+        </CardTitle>
+        <CardDescription>
+          Sample size: {e.sampleSize} closed trades ({e.evaluatedTrades} evaluated). PAPER/SIMULATION ONLY.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4 text-xs">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4">
+          <span>Win rate: {e.winRate}%</span>
+          <span>Avg return: {e.averageReturnPct}%</span>
+          <span>Max drawdown: {drawdownText}</span>
+          <span>Liquidation rate: {e.liquidationRate}%</span>
+          <span>Risk-adjusted return: {riskAdjustedText}</span>
+          <span>Fee impact: {e.feeImpact}</span>
+          <span>Funding impact: {e.fundingImpact}</span>
+          <span>Realized P&L: {e.totalRealizedPnl}</span>
+        </div>
+
+        <div>
+          <p className="font-medium">Regime robustness</p>
+          <div className="mt-1 flex flex-wrap gap-2">
+            {e.regimeRobustness.map((r) => (
+              <Badge key={r.regime} variant={r.label === "strong" ? "default" : r.label === "insufficient" ? "destructive" : "secondary"}>
+                {r.regime}: {r.label} ({r.shrunkWinRate}%, n={r.evaluatedTrades})
+              </Badge>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="font-medium">Symbol robustness</p>
+          <p className="mt-1 text-muted-foreground">
+            {e.symbolRobustness.uniqueSymbols} symbols traded -- {e.symbolRobustness.profitableSymbols} profitable, {e.symbolRobustness.losingSymbols} losing.
+            {e.symbolRobustness.concentrationIndex !== null && ` Concentration index: ${e.symbolRobustness.concentrationIndex} (1.0 = single-symbol dependent).`}
+            {e.symbolRobustness.bestSymbol && ` Best: ${e.symbolRobustness.bestSymbol.symbol} (${e.symbolRobustness.bestSymbol.netPnl}).`}
+            {e.symbolRobustness.worstSymbol && ` Worst: ${e.symbolRobustness.worstSymbol.symbol} (${e.symbolRobustness.worstSymbol.netPnl}).`}
+          </p>
+        </div>
+
+        <div>
+          <p className="font-medium">Long / Short balance</p>
+          <div className="mt-1 flex flex-wrap gap-2">
+            {e.directionRobustness.map((d) => (
+              <Badge key={d.direction} variant="secondary">
+                {d.direction}: n={d.sampleSize}, win rate {d.winRate ?? "n/a"}%, avg return {d.averageReturnPct ?? "n/a"}%
+              </Badge>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="font-medium">Leverage behavior</p>
+          <div className="mt-1 flex flex-wrap gap-2">
+            {e.leverageRobustness.map((l) => (
+              <Badge key={l.leverage} variant="secondary">
+                {l.leverage}x: avg return {l.averageReturnPct ?? "n/a"}%, liquidation {l.liquidationRate ?? "n/a"}%
+              </Badge>
+            ))}
+          </div>
+          <p className="mt-1 text-muted-foreground">Higher leverage is never treated as automatically better -- see risk-adjusted return per tier above.</p>
+        </div>
+
+        <div>
+          <p className="font-medium">Confidence calibration</p>
+          <div className="mt-1 flex flex-wrap gap-2">
+            {e.confidenceCalibration.map((b) => (
+              <Badge key={b.label} variant="secondary">
+                {b.label}: {b.totalEvaluated === 0 ? "n=0" : `${b.observedSuccessRate}% (n=${b.totalEvaluated})`}
+              </Badge>
+            ))}
+          </div>
+        </div>
+
+        {e.failureAnalysis.totalFailingTrades > 0 && (
+          <div>
+            <p className="font-medium">Failure analysis ({e.failureAnalysis.totalFailingTrades} failing trades)</p>
+            <div className="mt-1 flex flex-wrap gap-2">
+              {e.failureAnalysis.byReason.map((f) => (
+                <Badge key={f.reason} variant="destructive">
+                  {f.reason.replace(/_/g, " ")}: {f.count}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <details>
+          <summary className="cursor-pointer font-medium">Why this score?</summary>
+          <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-muted-foreground sm:grid-cols-4">
+            <span>+ Performance: {e.scoreBreakdown.performanceComponent}</span>
+            <span>+ Consistency: {e.scoreBreakdown.consistencyComponent}</span>
+            <span>+ Regime robustness: {e.scoreBreakdown.regimeRobustnessComponent}</span>
+            <span>+ Symbol robustness: {e.scoreBreakdown.symbolRobustnessComponent}</span>
+            <span>+ Confidence calibration: {e.scoreBreakdown.confidenceCalibrationComponent}</span>
+            <span>- Drawdown penalty: {e.scoreBreakdown.drawdownPenalty}</span>
+            <span>- Liquidation penalty: {e.scoreBreakdown.liquidationPenalty}</span>
+            <span className="font-medium text-foreground">= {e.evaluationScore}/100</span>
+          </div>
+        </details>
+      </CardContent>
+    </Card>
   );
 }
 

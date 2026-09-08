@@ -191,7 +191,8 @@ export async function getDecisionPerformance(organizationId: string): Promise<Ou
   return getOutcomePerformance({ organizationId, requireDecisionLink: true });
 }
 
-const CONFIDENCE_BUCKETS: { label: string; min: number; max: number }[] = [
+/** Exported (Sprint 18) so `strategy-evaluation/service.ts` can bucket an in-memory, per-strategy-type confidence join using the exact same four boundaries, rather than inventing a second bucket scheme. */
+export const CONFIDENCE_BUCKETS: { label: string; min: number; max: number }[] = [
   { label: "0-59", min: 0, max: 59 },
   { label: "60-79", min: 60, max: 79 },
   { label: "80-89", min: 80, max: 89 },
