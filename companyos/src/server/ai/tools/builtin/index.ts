@@ -18,3 +18,5 @@ import "@/server/ai/tools/builtin/get-risks";
 import "@/server/ai/tools/builtin/get-next-best-action";
 import "@/server/ai/tools/builtin/expire-stale-opportunity";
 import "@/server/ai/tools/builtin/get-outcomes";
+import "@/server/ai/tools/builtin/get-decision-performance";
+import "@/server/ai/tools/builtin/rank-decision-candidates";

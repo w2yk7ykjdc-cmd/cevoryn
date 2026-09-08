@@ -18,6 +18,8 @@ export type RecordLearningInput = {
 export type PerformanceFilter = {
   organizationId: string;
   ruleName?: string;
+  /** Only meaningful together with `ruleName` -- narrows to one rule version, e.g. "v1". */
+  ruleVersion?: string;
   relatedEntityType?: string;
   requireDecisionLink?: boolean;
 };

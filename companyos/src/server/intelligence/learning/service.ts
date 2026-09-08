@@ -71,6 +71,7 @@ export async function getOutcomePerformance(filter: PerformanceFilter): Promise<
   const scoped = getTenantScopedClient(filter.organizationId);
   const where = {
     ruleName: filter.ruleName,
+    ruleVersion: filter.ruleVersion,
     relatedEntityType: filter.relatedEntityType,
     decisionId: filter.requireDecisionLink ? { not: null } : undefined,
   };
