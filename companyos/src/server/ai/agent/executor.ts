@@ -179,6 +179,18 @@ type RunCtx = {
  * `waiting_approval` — never partially applying more than one halting
  * condition per call.
  */
+/**
+ * `classifyToolRisk` below is a UX pre-check only, kept for the run-loop's
+ * own bookkeeping (pausing a step in the UI before it's even attempted) —
+ * as of Sprint 9, the real, authoritative enforcement is
+ * `resolveAutonomyDecision`, called from inside `executeToolCall` itself.
+ * If the two ever disagree (this pre-check lets a call through that the
+ * real gate still wants to block), `executeToolCall` still creates the
+ * approval — attached to this exact run/step via the `agentRunId`/
+ * `agentStepId` passed below, not a second, parallel approval — and this
+ * loop just reflects the resulting pause. See `executeToolCall`'s own doc
+ * comment (`ai/tools/executor.ts`) for the full picture.
+ */
 async function runFromPendingSteps(ctx: RunCtx): Promise<AgentRunWithSteps> {
   await prisma.agentRun.update({ where: { id: ctx.agentRunId }, data: { status: "running" } });
 
@@ -228,9 +240,26 @@ async function runFromPendingSteps(ctx: RunCtx): Promise<AgentRunWithSteps> {
 
     const result = await executeToolCall(
       { id: step.id, name: step.toolName, arguments: step.input as Record<string, unknown> },
-      { organizationId: ctx.organizationId, userId: ctx.userId, conversationId: ctx.conversationId },
+      {
+        organizationId: ctx.organizationId,
+        userId: ctx.userId,
+        conversationId: ctx.conversationId,
+        triggeredBy: "agent_run",
+        agentRunId: ctx.agentRunId,
+        agentStepId: step.id,
+        preApprovedApprovalId: step.approval?.status === "approved" ? step.approval.id : undefined,
+      },
       ctx.requestHeaders,
     );
+
+    if (result.status === "pending_approval") {
+      // executeToolCall's own autonomy gate disagreed with the pre-check above and queued
+      // approval itself, attached to this exact step -- undo the premature "running" mark
+      // set above so a future resume picks this step back up as pending.
+      await prisma.agentStep.update({ where: { id: step.id }, data: { status: "pending", startedAt: null } });
+      await prisma.agentRun.update({ where: { id: ctx.agentRunId }, data: { status: "waiting_approval" } });
+      return loadRun(ctx.agentRunId, ctx.organizationId);
+    }
 
     if (result.status === "success") {
       await prisma.agentStep.update({

@@ -12,6 +12,8 @@ registerTool({
   description: "Search previously remembered facts, preferences, and summaries relevant to a query.",
   schema,
   requiredPermission: { aiTool: ["execute"] },
+  domain: "crm",
+  mutationCategory: "read_only",
   async handler(input, ctx) {
     const results = await searchMemory({
       organizationId: ctx.organizationId,

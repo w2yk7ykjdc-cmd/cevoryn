@@ -34,6 +34,10 @@ const TENANT_SCOPED_MODELS = new Set([
   "Opportunity",
   "Risk",
   "Decision",
+  "AutonomyPolicy",
+  "AutonomyPolicyVersion",
+  "AutonomyAllowlistEntry",
+  "AutonomousActionLog",
 ]);
 
 const DIRECTLY_SCOPED_MODELS = new Set([
@@ -58,6 +62,10 @@ const DIRECTLY_SCOPED_MODELS = new Set([
   "Opportunity",
   "Risk",
   "Decision",
+  "AutonomyPolicy",
+  "AutonomyPolicyVersion",
+  "AutonomyAllowlistEntry",
+  "AutonomousActionLog",
 ]);
 
 export class CrossTenantAccessError extends Error {

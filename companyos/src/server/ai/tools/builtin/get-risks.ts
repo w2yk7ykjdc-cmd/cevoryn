@@ -20,6 +20,8 @@ registerTool({
     "questions about what could hurt the business if left unaddressed.",
   schema,
   requiredPermission: { risk: ["read"] },
+  domain: "crm",
+  mutationCategory: "read_only",
   async handler(input, ctx) {
     await recordAuditLog({
       organizationId: ctx.organizationId,

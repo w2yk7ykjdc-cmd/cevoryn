@@ -13,6 +13,8 @@ registerTool({
     "Store a fact or user preference in long-term memory so it can be recalled in future conversations.",
   schema,
   requiredPermission: { aiTool: ["execute"] },
+  domain: "crm",
+  mutationCategory: "auto_append",
   async handler(input, ctx) {
     const id = await upsertMemory({
       organizationId: ctx.organizationId,

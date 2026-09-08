@@ -19,6 +19,8 @@ registerTool({
     "dollar impact, urgency, and the entity it relates to. Use this to answer questions about what to act on next.",
   schema,
   requiredPermission: { opportunity: ["read"] },
+  domain: "crm",
+  mutationCategory: "read_only",
   async handler(input, ctx) {
     await recordAuditLog({
       organizationId: ctx.organizationId,

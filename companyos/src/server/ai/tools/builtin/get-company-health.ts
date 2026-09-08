@@ -18,6 +18,8 @@ registerTool({
     "answer questions about overall pipeline health rather than one specific lead.",
   schema,
   requiredPermission: { companyHealth: ["read"] },
+  domain: "crm",
+  mutationCategory: "read_only",
   async handler(_input, ctx) {
     await recordAuditLog({
       organizationId: ctx.organizationId,

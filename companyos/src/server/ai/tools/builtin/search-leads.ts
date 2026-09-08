@@ -17,6 +17,8 @@ registerTool({
     "before calling get_lead or analyze_lead.",
   schema,
   requiredPermission: { lead: ["read"] },
+  domain: "crm",
+  mutationCategory: "read_only",
   async handler(input, ctx) {
     const { leads } = await listLeads({
       organizationId: ctx.organizationId,

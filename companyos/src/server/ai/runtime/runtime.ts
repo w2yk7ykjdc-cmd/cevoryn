@@ -108,10 +108,7 @@ export async function runConversationTurn(
       );
       toolRounds.push({ toolName: call.name, input: call.arguments, result: toolResult });
 
-      const content =
-        toolResult.status === "success"
-          ? JSON.stringify(toolResult.output)
-          : JSON.stringify({ error: toolResult.error });
+      const content = toolResultToContent(toolResult);
 
       messages.push({ role: "tool", toolCallId: call.id, toolName: call.name, content });
       await appendMessage({
@@ -188,8 +185,7 @@ export async function* streamConversationTurn(
         { organizationId: input.organizationId, userId: input.userId, conversationId: input.conversationId },
         input.requestHeaders,
       );
-      const content =
-        toolResult.status === "success" ? JSON.stringify(toolResult.output) : JSON.stringify({ error: toolResult.error });
+      const content = toolResultToContent(toolResult);
       messages.push({ role: "tool", toolCallId: call.id, toolName: call.name, content });
       await appendMessage({
         conversationId: input.conversationId,
@@ -249,6 +245,24 @@ async function assembleContext(input: RunConversationInput): Promise<ChatMessage
   ];
 
   return trimToTokenBudget(messages, input.maxContextTokens ?? DEFAULT_MAX_CONTEXT_TOKENS);
+}
+
+/**
+ * Renders a tool call's result as the `content` fed back to the model.
+ * `pending_approval` (Sprint 9) is reported distinctly from `error` — the
+ * call was not refused, it was queued for a human decision — so the model
+ * can tell the user it's waiting on approval rather than that it failed,
+ * and critically does not retry or loop on it.
+ */
+function toolResultToContent(toolResult: Awaited<ReturnType<typeof executeToolCall>>): string {
+  if (toolResult.status === "success") return JSON.stringify(toolResult.output);
+  if (toolResult.status === "pending_approval") {
+    return JSON.stringify({
+      status: "pending_approval",
+      message: "This action requires approval from someone with the right permission before it can run. It has been queued and will run once approved.",
+    });
+  }
+  return JSON.stringify({ error: toolResult.error });
 }
 
 async function notifyMessageCreated(input: RunConversationInput, role: "user" | "assistant") {

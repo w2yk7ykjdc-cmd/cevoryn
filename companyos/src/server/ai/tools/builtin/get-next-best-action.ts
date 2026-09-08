@@ -13,6 +13,8 @@ registerTool({
     "and why, it does not take any action itself. Use this when asked what to focus on or do next.",
   schema,
   requiredPermission: { decision: ["read"] },
+  domain: "crm",
+  mutationCategory: "read_only",
   async handler(_input, ctx) {
     await recordAuditLog({
       organizationId: ctx.organizationId,

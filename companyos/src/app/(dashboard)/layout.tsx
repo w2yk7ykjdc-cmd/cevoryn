@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/settings", label: "Settings" },
   { href: "/dashboard/settings/billing", label: "Billing" },
   { href: "/dashboard/settings/api-keys", label: "API Keys" },
+  { href: "/dashboard/settings/autonomy", label: "Autonomy" },
 ];
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {

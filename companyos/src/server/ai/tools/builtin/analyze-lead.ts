@@ -18,6 +18,8 @@ registerTool({
     "record_lead_activity.",
   schema,
   requiredPermission: { lead: ["read"] },
+  domain: "crm",
+  mutationCategory: "read_only",
   async handler(input, ctx) {
     const lead = await getLead(ctx.organizationId, input.leadId);
     if (!lead) {
