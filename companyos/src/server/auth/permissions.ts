@@ -22,6 +22,7 @@ export const statement = {
   companyHealth: ["read"],
   opportunity: ["read"],
   risk: ["read"],
+  decision: ["read"],
 } as const;
 
 export const accessControl = createAccessControl(statement);
@@ -45,6 +46,7 @@ export const ownerRole = accessControl.newRole({
   companyHealth: ["read"],
   opportunity: ["read"],
   risk: ["read"],
+  decision: ["read"],
 });
 
 /** Runs day-to-day operations: manages people and settings, not billing. */
@@ -66,6 +68,7 @@ export const adminRole = accessControl.newRole({
   companyHealth: ["read"],
   opportunity: ["read"],
   risk: ["read"],
+  decision: ["read"],
 });
 
 /** Standard seat: full use of the product, no org administration. */
@@ -87,6 +90,7 @@ export const memberRole = accessControl.newRole({
   companyHealth: ["read"],
   opportunity: ["read"],
   risk: ["read"],
+  decision: ["read"],
 });
 
 /** Read-only seat: can look around, cannot create or mutate anything. */
@@ -108,6 +112,7 @@ export const viewerRole = accessControl.newRole({
   companyHealth: ["read"],
   opportunity: ["read"],
   risk: ["read"],
+  decision: ["read"],
 });
 
 export const roles = {

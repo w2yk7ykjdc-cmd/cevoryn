@@ -64,7 +64,8 @@ src/
       health/                Sales Health scoring: computeSalesHealthScore(), snapshot persistence
       opportunity/           Opportunity Engine V1: signal -> opportunity generation, read path
       risk/                  Risk Engine V1: signal -> risk generation (with auto-resolution), read path
-      compute.ts             recurring "compute intelligence" pass: health snapshot + opportunities + risks per org
+      decision/              Decision Engine V1: ranks open Risks + Opportunities into one recommendation
+      compute.ts             recurring "compute intelligence" pass: health, opportunities, risks, decision per org
 ```
 
 ### Multi-tenancy
@@ -547,6 +548,61 @@ tools, no Outcome/Learning loop, no Self-Critique, no simulation, no ML, no
 Pulse UI, and no second Risk rule — this sprint is deliberately as narrow
 as Sprint 6 was for Opportunity.
 
+### Decision Engine V1 (Sprint 8)
+
+The fifth consumer of the Sprint 5 signal foundation, and the next pipeline
+stage after `Opportunity + Risk`: a Decision Engine that ranks the outputs
+of Sprints 6 and 7 against each other and surfaces the single thing that
+matters most right now. Deliberately advisory-only — it recommends, it
+never executes — so it stays clear of a pre-existing gap noted in this
+project's very first audit (the interactive chat path never runs tool
+calls through the approval-policy check `startAgentRun` does); a Decision
+Engine that could trigger actions would need that gap closed first, so V1
+doesn't touch tool execution at all.
+
+**One V1 rule: "top priority item."** `generateDecisionForOrganization()`
+(`src/server/intelligence/decision/service.ts`) reads the organization's
+open `Risk`s and active `Opportunity`s directly — not the raw
+`CompanySignal` ledger — because by this stage those are already the
+ranked, explained output of the Sprint 6/7 engines; re-deriving from
+signals here would just risk a second, diverging notion of "what matters."
+Every candidate is scored on one comparable scale, severity-weighted
+dollar exposure (`{low:1, medium:2, high:3, critical:4} * potentialLoss`
+or `potentialImpact`), and only the single highest-ranked item is
+surfaced — this is a recommendation, not a queue, so returning a ranked
+list would just hand the same prioritization problem back to a human. On
+a tie, a `Risk` outranks an `Opportunity` (protecting revenue already held
+beats pursuing revenue not yet won); a further tie falls back to whichever
+has waited longest.
+
+**`Decision` has no status — it's fully recomputed every pass**, the one
+structural difference from `Opportunity`/`Risk`. It's an
+organization-level singleton (`prisma/schema.prisma`, unique on
+`[organizationId, ruleName, ruleVersion]`, no `relatedEntityId`) rather
+than one row per candidate, and it's genuinely read-only advisory
+synthesis, not an action item — there is nothing here for a human to
+triage that isn't already tracked on the underlying `Risk`/`Opportunity`
+itself. The row is deleted entirely once no open Risk or active
+Opportunity remains, rather than left pointing at something already
+resolved.
+
+**The recurring pass.** `computeCompanyIntelligence()`
+(`src/server/intelligence/compute.ts`) now recomputes the Decision last,
+after health/opportunities/risks are current within the same
+per-organization pass — order matters here, since Decision reads the
+other two.
+
+**One new read-only AI tool.** `get_next_best_action`, auto-executable at
+the same tier as the other Sprint 6/7 tools, gated by a new
+`decision:["read"]` RBAC statement granted to every role including
+`viewer`.
+
+**Scope.** No autonomy, no execution, no Policy/Autonomy-level gating, no
+Outcome/Learning loop, no Self-Critique, no simulation, no ML, no Pulse
+UI, and no second Decision rule — and no attempt to close the
+interactive-chat approval gap noted above, since this sprint never
+exercises that path at all.
+
 ### API keys
 
 The `ApiKey` model (and its `apiKey: ["create", "read", "revoke"]` RBAC
@@ -655,8 +711,9 @@ via `docker compose up -d postgres redis`, or any reachable instance your
 - `tests/billing-subscription.test.ts` (extended) — `billing.subscription_updated` reaches the Intelligence Signal ledger through the same subscriber/queue path as the CRM events above, with `past_due` correctly classified as high severity
 - `tests/sales-health.test.ts` — `computeSalesHealthScore`'s pure scoring math (clean 100 with no open leads, high-risk leads penalized more than medium-risk, a mixed portfolio weighted proportionally, always clamped to 0-100), `computeSalesHealthEvidence` correctly aggregating `analyzeLead()`'s per-lead risk classification and excluding won/lost leads and other organizations' leads, and `recordHealthSnapshot`/`getLatestHealthSnapshot` proving snapshots are an append-only time series (two calls create two rows, not an upsert)
 - `tests/opportunity-generation.test.ts` — converting an active `high_value_stalled_lead` signal into an Opportunity end to end, no Opportunity created for a lead with no active signal, re-running generation upserts rather than duplicates, a human's triage `status` (e.g. `dismissed`) is never overwritten by re-detection, generation stops once the underlying signal is resolved, tenant isolation on both generation and `listOpportunities`, and `computeCompanyIntelligence` exercising the full recurring pass (health snapshot + opportunities) across organizations
-- `tests/company-intelligence-tools.test.ts` — `get_company_health` computing on demand before any snapshot exists vs. returning the latest persisted one, `get_opportunities`/`get_risks` listing an organization's opportunities/risks and rejecting an invalid status filter, all three tools readable by every role including a read-only viewer, and all AI reads landing in the audit log
+- `tests/company-intelligence-tools.test.ts` — `get_company_health` computing on demand before any snapshot exists vs. returning the latest persisted one, `get_opportunities`/`get_risks`/`get_next_best_action` listing/returning an organization's opportunities, risks, and top recommendation and rejecting an invalid status filter, all four tools readable by every role including a read-only viewer, and all AI reads landing in the audit log
 - `tests/risk-generation.test.ts` — converting an at-risk (`past_due`) subscription signal into a `Risk` with the real plan price as `potentialLoss`, no `Risk` created for a healthy signal, re-running generation upserts rather than duplicates, an open `Risk` auto-resolves once the subscription recovers, a human's `dismissed` status is never auto-overwritten, generation skips a signal whose subscription no longer exists, tenant isolation on both generation and `listRisks`, and `computeCompanyIntelligence` generating risks alongside health snapshots and opportunities in one pass
+- `tests/decision-engine.test.ts` — `pickTopPriorityItem`'s pure ranking math (higher severity-weighted exposure wins, a Risk beats an Opportunity on a tie, the most-stale candidate wins a same-kind tie, the rationale cites the runner-up's score), no Decision when there are no open Risks or active Opportunities, surfacing the sole Risk or sole Opportunity as the Decision, re-running upserts the same row rather than duplicating it, the Decision is deleted once its winning Risk auto-resolves and nothing else remains, tenant isolation, and `computeCompanyIntelligence` computing decisions for every organization after refreshing opportunities and risks
 
 Each test creates its own users/organizations with random emails and slugs,
 so the suite is safe to run repeatedly against the same database.

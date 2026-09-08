@@ -122,6 +122,7 @@ model Organization {
   healthSnapshots   CompanyHealthSnapshot[]
   opportunities     Opportunity[]
   risks             Risk[]
+  decisions         Decision[]
 
   @@unique([slug])
   @@map("organization")
@@ -952,4 +953,42 @@ model Risk {
   @@index([organizationId, status])
   @@index([organizationId, detectedAt])
   @@map("risk")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Sprint 8: Intelligence — Decision Engine V1
+// ─────────────────────────────────────────────────────────────────────────
+
+/// An organization-level singleton (one row per `[organizationId, ruleName,
+/// ruleVersion]` — no `relatedEntityId`, unlike `Opportunity`/`Risk`) holding
+/// the single current "what matters most right now" recommendation, ranked
+/// across the organization's open `Risk`s and active `Opportunity`s
+/// (`sourceType`/`sourceId` point at whichever one won — a soft reference,
+/// same reasoning as `CompanySignal`'s). Fully recomputed on every pass
+/// (`src/server/intelligence/decision/service.ts`) rather than carrying a
+/// human-editable `status`: this is read-only advisory synthesis, not a
+/// discrete action item, so there is nothing for a human to triage here —
+/// only `Opportunity`/`Risk` themselves are ever actioned. The row is
+/// deleted entirely once no open Risk or active Opportunity remains, so a
+/// stale recommendation never lingers pointing at something already
+/// resolved elsewhere.
+model Decision {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ruleName       String
+  ruleVersion    String
+  recommendation String
+  rationale      String
+  sourceType     String
+  sourceId       String
+  priorityScore  Decimal      @db.Decimal(14, 2)
+  evidence       Json         @default("{}")
+  detectedAt     DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, ruleName, ruleVersion])
+  @@index([organizationId, detectedAt])
+  @@map("decision")
 }
