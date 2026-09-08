@@ -28,6 +28,14 @@ import { DAILY_WINDOW, MEDIUM_WINDOW, SHORT_WINDOW, type Candle } from "@/server
  * - `relativeStrength` is NOT computed here -- it needs a second symbol's
  *   `dailyPercentChange` (the benchmark's), so it's computed by the caller
  *   (`market-scanner.ts`) once both symbols' metrics exist.
+ * - `lastClose` (Sprint 16): the raw, most-recent daily-candle closing
+ *   price. Every other field here is a derived percentage/ratio -- this is
+ *   the one raw price the Paper Trading Engine needs (entry/current price
+ *   for P&L, stop/take-profit/liquidation levels) and is added here rather
+ *   than making a second Binance call: it's the exact same close already
+ *   fetched and validated for `dailyPercentChange` above, just carried
+ *   through unrounded so downstream price math isn't compounding rounding
+ *   error.
  */
 export type MarketMetrics = {
   symbol: string;
@@ -38,6 +46,7 @@ export type MarketMetrics = {
   volumeRatio: number;
   volatilityPct: number;
   observedAt: string;
+  lastClose: number;
 };
 
 function percentChange(fromClose: number, toClose: number): number {
@@ -103,5 +112,6 @@ export function computeMarketMetrics(symbol: string, dailyCandles: Candle[], sho
     volumeRatio: Math.round(volumeRatio * 100) / 100,
     volatilityPct: Math.round(volatilityPct * 100) / 100,
     observedAt: dailyCandles[dailyCandles.length - 1]!.closeTime.toISOString(),
+    lastClose: dailyLast,
   };
 }

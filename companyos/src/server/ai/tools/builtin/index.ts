@@ -21,3 +21,4 @@ import "@/server/ai/tools/builtin/get-outcomes";
 import "@/server/ai/tools/builtin/get-decision-performance";
 import "@/server/ai/tools/builtin/rank-decision-candidates";
 import "@/server/ai/tools/builtin/get-market-intelligence";
+import "@/server/ai/tools/builtin/get-paper-trading";

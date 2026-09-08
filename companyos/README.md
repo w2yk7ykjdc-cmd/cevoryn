@@ -73,6 +73,7 @@ src/
       evaluate-outcomes.ts   recurring "Action -> Outcome" pass: discovery + evaluation per org (Sprint 11)
       market-intelligence/   scoring, ranking, generate + read service for market Opportunity/Risk (Sprint 14)
       strategy/               deterministic Strategy Engine: selection, scoring, generate (Sprint 15)
+      paper-trading/          Leveraged Paper Trading Engine: sizing, P&L, evaluate, entry, generate, account, service (Sprint 16, SIMULATION ONLY)
     market-data/              Binance public candle + exchangeInfo + 24hr ticker client, dynamic universe discovery (Sprint 13/14)
 ```
 
@@ -1417,6 +1418,184 @@ every other Outcome rule already uses — nothing fabricated ahead of that).
 No new Prisma model, no new migration, no new dependency. Not a
 recommendation to trade, and never claims to be.
 
+### Leveraged Paper Trading Engine (Sprint 16)
+
+> **PAPER / SIMULATION ONLY.** Every number in this section — every
+> position, every price, every dollar of P&L, every "account" — is a
+> simulation. No Binance credential, private endpoint, account balance,
+> real position, or real order exists anywhere in this codebase. Nothing
+> described below was, or can be, sent to a real exchange.
+
+Turns Sprint 15's deterministic Strategy Candidates into a full simulated
+trading lifecycle: market data → strategy → **paper order intent → virtual
+position → price updates → fees/funding → stop/TP/liquidation → P&L →
+close → Outcome-ready record**. This is stage 4 of the pipeline
+(observation → opportunity → risk → strategy → **paper trading**);
+real execution is a separately-controlled future phase this sprint does
+not build toward by accident — see Security below for how that's proven,
+not just claimed.
+
+**No new Binance client, no new candle fetch.** `MarketMetrics` gained one
+additive field, `lastClose` (the raw daily-candle closing price already
+fetched and validated for `dailyPercentChange` — never a second API call),
+carried through `market_metrics_snapshot.v1` exactly like every other
+field. The paper engine reads this and the `market_strategy_candidate.v1`
+signal for a symbol — both already fresh from stages 1–3 — and never talks
+to Binance itself.
+
+**Persistence: three new, minimal, organization-scoped Prisma models** —
+`PaperAccount` (one lazily-created virtual account per organization,
+mirroring `AutonomyPolicy`'s own lazy-default pattern), `PaperPosition`
+(one row per simulated position, full lifecycle), and `PaperTrade`
+(append-only, one row per CLOSED position — the "Outcome-ready record").
+`CompanySignal` was deliberately NOT reused here: unlike a Strategy
+Candidate (a fresh conclusion each run, correctly modeled as an upserted
+signal), a position's state genuinely *evolves* over its lifetime and
+needs real historical rows once closed — storing that as an
+upsert-in-place signal would be the wrong shape. A future `Outcome` can
+soft-reference a `PaperTrade` via the exact same generic
+`relatedEntityType: "PaperTrade"` / `relatedEntityId` pattern `Outcome`
+already supports — no `Outcome` schema change needed.
+
+**Position lifecycle:** `PENDING` (reserved for a future limit-style entry
+— never actually produced this sprint, entry is synchronous) → `OPEN` →
+one of `CLOSED` / `STOPPED` / `TAKE_PROFIT` / `LIQUIDATED` / `INVALIDATED`.
+Every position and account field is either explicitly `PAPER_ONLY`-scoped
+by this section's own warning or literally named `simulated`/`paper`.
+
+**Modes and direction.** `direction` (`LONG`/`SHORT`) comes directly from
+the Strategy Candidate's own `direction` (`up`→LONG, `down`→SHORT) — never
+inverted, never invented. `RANGE_MEAN_REVERSION` candidates carry no
+direction by design (Sprint 15's own thesis is "reversion toward the
+mean," not a directional call) and are correctly never paper-traded rather
+than fabricating one. `mode` (`SPOT` vs. `PERPETUAL_SIMULATION`) is
+entirely determined by the deterministically-selected leverage: `1x` →
+`SPOT` (no liquidation, no funding, matching real spot); `>1x` →
+`PERPETUAL_SIMULATION` (liquidation and funding both apply).
+
+**Leverage — deterministic tiers, never hardcoded to one value**
+(`paper-trading/constants.ts#LEVERAGE_TIERS`): selected from the
+candidate's own `confidence` (90+→10x, 80+→5x, 70+→3x, 60+→2x, else 1x),
+capped at `MAX_SIMULATION_LEVERAGE` (10x, matching the spec's own worked
+example range) — never random, never LLM-chosen. Before committing to a
+tier, the engine requires the stop distance to sit safely inside the
+`SIMULATED_LIQUIDATION` distance by a documented `LIQUIDATION_SAFETY_MARGIN`
+(20%) buffer; if it doesn't, the engine steps DOWN through the tiers
+(never skips the trade) until it does, falling back to 1x/SPOT — which has
+no liquidation at all — as the always-safe floor.
+
+**Position sizing** (`sizing.ts#computePositionSizing`), risk-based and
+leverage-independent by design:
+
+```
+riskCapital = equity × RISK_PER_TRADE_PCT        (1% of current equity)
+notional     = riskCapital / stopDistancePct
+quantity     = notional / entryPrice
+initialMargin = notional / leverage
+```
+
+Because `notional` doesn't depend on leverage, two positions with
+identical risk and stop distance but different leverage have the *same*
+notional exposure — leverage only changes how much margin holds it, never
+how much is risked when the stop correctly fires. No real account/balance
+data is ever used or assumed; `equity` is always the simulated
+`PaperAccount.currentEquity`.
+
+**Stop-loss / take-profit** (`sizing.ts#deriveStopDistancePct`): Sprint
+15's `invalidationConditions` are plain-language, never numeric, so a
+stop distance is deterministically derived from the same volatility
+evidence the strategy itself was built on —
+`stopDistancePct = clamp(volatilityPct × 1.5%, 1%, 10%)` — and take-profit
+sits at `2× that distance` (a documented, labeled 2:1 reward:risk
+simulation parameter, never a predicted or guaranteed profit).
+
+**SIMULATED_LIQUIDATION** (`sizing.ts#computeSimulatedLiquidationPrice`):
+an approximate, explicitly-labeled isolated-margin formula —
+`entryPrice × (1 ∓ (1/leverage − maintenanceMarginRate))` — deliberately
+**not** a reproduction of Binance's real tiered maintenance-margin
+schedule (documented assumption: a flat 0.5% maintenance rate, no
+fee/funding drag folded into the threshold itself). Always `null` for
+`SPOT` (1x) positions — spot is never liquidated, matching real spot.
+
+**Fees and funding**, both configurable, deterministic, and always
+visible in P&L, never hidden:
+
+- `PAPER_FEE_RATE` (0.04%) charged on notional at both open and close —
+  a documented magnitude, explicitly not the user's real Binance fee
+  tier.
+- `PAPER_FUNDING_RATE_PER_8H` (0.01%), `PERPETUAL_SIMULATION` positions
+  only, prorated by elapsed hours since the position (or its last funding
+  charge) was last evaluated — an explicit simulation input, never live
+  Binance funding data. Long/short funding asymmetry is not modeled, a
+  documented simplification.
+
+**P&L** (`pnl.ts`), symmetric by construction:
+
+```
+grossPnl = (currentPrice − entryPrice) × quantity      (LONG)
+grossPnl = (entryPrice − currentPrice) × quantity       (SHORT)
+netPnl   = grossPnl − feesPaid − fundingPaid
+returnPct = netPnl / initialMargin                       (return on MARGIN, not notional)
+```
+
+Account-level `drawdownPct` is derived at read time from `peakEquity` vs.
+`currentEquity` — never stored separately, so it can never drift out of
+sync with the two values it comes from.
+
+**Deterministic close priority** (`evaluate.ts#detectCloseStatus`, checked
+in this fixed order every evaluation): `LIQUIDATED` (most margin-critical)
+→ `STOPPED` → `TAKE_PROFIT` → `INVALIDATED` (this run's own strategy
+candidate for the symbol has become `NO_TRADE`) → else stays `OPEN`.
+
+**Entry gate** (`entry.ts#decideEntry`) — every condition explicit,
+explainable, and checked in order; a `NO_TRADE` strategy, a missing
+direction, stale data (reusing Sprint 15's own `STALE_DATA_MAX_AGE_MS`), an
+already-open position on the symbol, `MAX_SIMULTANEOUS_POSITIONS` (5),
+insufficient available margin, or `MAX_TOTAL_EXPOSURE_MULTIPLE` (5× equity)
+each produce their own named skip reason — entry is never silent, never
+random, never LLM-decided.
+
+**Pipeline.** `evaluate-paper-trading` (new, stage 4) runs hourly on the
+existing BullMQ scheduler, after `generate-market-strategies` — no new
+queue, no new scheduler. Reads back already-persisted signals only; never
+refetches Binance. Idempotent by construction: entries check for an
+already-open position on the same symbol before opening another, and
+updates/closes only ever operate on `status: OPEN` rows, so a position can
+never be double-closed or double-P&L'd by a rerun. Every CLOSE (and every
+entry) runs inside a `prisma.$transaction` so the account's running totals
+can never drift out of sync with the position/trade rows that produced
+them. A symbol with no fresh metrics this run (dropped out of the
+discovered universe, or its ingestion failed) leaves its open position
+completely untouched rather than guessing a price.
+
+**RBAC / AI tool / UI.** A new `paperTrading: ["read"]` permission (all
+four roles, including viewer — deliberately distinct from
+`marketIntelligence: ["read"]` so the two capabilities stay independently
+grantable). A new `get_paper_trading` AI tool (`domain: "market"`,
+`read_only`, not autonomy-eligible) surfaces the same read path. The
+`/dashboard/market-intelligence` page (extended, not replaced) gained a
+clearly-labeled "Paper Trading / Simulation" section showing the account,
+every open position (entry/current/stop/take-profit/simulated liquidation/
+unrealized P&L/fees/funding), and recent closes with their realized P&L
+and close reason.
+
+**The loop still cannot add real execution capability — proven, not just
+claimed.** No `placeOrder`/`createOrder`/`executeOrder`/`withdraw`/
+`transfer`-named function or tool exists anywhere in the paper-trading
+module or the tool registry (tested directly); the Binance client used
+still exposes exactly `getCandles`/`getExchangeInfo`/`getTicker24hr`; every
+`market`-domain tool stays `read_only` and non-autonomy-eligible;
+`MAX_AUTONOMY_LEVEL_BY_DOMAIN.market` is untouched at `"L2"`. A dedicated
+regression test runs a full simulation pass that genuinely opens real
+paper positions, then asserts `AutonomyPolicy`/`AutonomyAllowlistEntry`/
+`AutonomyPolicyVersion` are byte-for-byte unchanged.
+
+**Scope.** No real Binance execution, no API key/secret, no private
+endpoint, no real account/balance/position access, no withdrawal, no
+transfer. Learning stays purely observational — no outcome automatically
+rewrites a strategy threshold this sprint. Not a guarantee of profit, not
+investment advice, and never claims to be.
+
 ### API keys
 
 The `ApiKey` model (and its `apiKey: ["create", "read", "revoke"]` RBAC
@@ -1542,6 +1721,7 @@ via `docker compose up -d postgres redis`, or any reachable instance your
 - `tests/sprint-13-market-intelligence.test.ts` — the real Binance client's response validation against a mocked `fetch` (malformed body, malformed kline row, non-numeric price, `closeTime <= openTime` all rejected; a well-formed response normalizes correctly with prices preserved as exact strings), universe discovery resolving to the expected symbols against a mocked 2-symbol exchange (updated in Sprint 14 to exercise `discoverMarketUniverse` in place of the retired hardcoded-symbol-list assertion it originally made), `market_price_momentum.v1`'s deterministic severity/direction thresholds (no signal below 3%, medium/high/critical at 3%/7%/15%, a partial candle window returning `null` rather than a guess, identical input -> identical output), `CompanySignal` upsert idempotency under both sequential re-runs and concurrent execution, tenant isolation and `CrossTenantAccessError` rejection, one symbol's provider/rate-limit/timeout failure never blocking the other symbol, the job throwing (not silently succeeding) when every symbol fails so BullMQ's own retry engages, one organization's signal-write failure never blocking another's, and the **critical safety regression**: a real detected signal leaves `AutonomyPolicy`/`AutonomyAllowlistEntry`/`AutonomyPolicyVersion` byte-for-byte unchanged, every tool registered under `domain: "market"` is `read_only` and never autonomy-eligible (updated in Sprint 14 now that `get_market_intelligence` exists), the market data client exposing exactly `getCandles`/`getExchangeInfo`/`getTicker24hr` and nothing else, and no `placeOrder`/`createOrder`/`withdraw`/`transfer`-named function anywhere in the tool registry
 - `tests/sprint-14-market-intelligence.test.ts` — dynamic universe discovery excluding delisted/non-`TRADING` symbols and stablecoin-pair base assets while always force-including `BENCHMARK_SYMBOL`, `computeMarketMetrics`'s deterministic short/medium/daily percent-change and consistency math (including its `null` return on an insufficient candle window), each of the five signal families' (`market_trend.v1`, `market_volume_anomaly.v1`, `market_volatility.v1`, `market_relative_strength.v1`, `market_price_momentum.v1`) independent threshold behavior plus `market_regime.v1`'s classification against BTC's own metrics, the unconditional `market_metrics_snapshot.v1` signal being written every run regardless of whether any named signal actually fired, opportunity eligibility requiring all five conditions simultaneously and risk eligibility firing on any single qualifying condition, the composite scoring formula's additive/capped/clamped behavior and deterministic ranking with its score -> confidence -> symbol tie-break chain, `Opportunity.potentialImpact`/`Risk.potentialLoss` both persisted as exactly `0` with the fabrication-avoidance rationale carried in `evidence`, idempotent re-runs never duplicating a ranked candidate, tenant isolation and `CrossTenantAccessError` rejection (including a forced `getTenantScopedClient` failure via a namespace spy), RBAC for the new `marketIntelligence: ["read"]` resource across all four roles, the `get_market_intelligence` AI tool's `domain: "market"`/`read_only` registration, bounded concurrency never exceeding `SYMBOL_CONCURRENCY` in-flight symbol fetches, and the **critical safety regression**: a real volume-confirmed price move producing a genuine ranked opportunity still leaves `AutonomyPolicy`/`AutonomyAllowlistEntry`/`AutonomyPolicyVersion` byte-for-byte unchanged, no `AutonomousActionLog` row is ever created from market data, and no mutating market tool or execution-shaped function exists anywhere in the tool registry
 - `tests/sprint-15-strategy-engine.test.ts` — `RANGE_MEAN_REVERSION` firing only when the global regime is ranging even with otherwise-qualifying metrics, `TREND_FOLLOWING` requiring a real+consistent medium trend with agreeing daily momentum (and NOT firing on a large-but-inconsistent spike), `MOMENTUM_CONTINUATION` requiring a still-moving short-term window plus supportive relative strength, `NO_TRADE` on Sprint 14's own reused `conflicting_signals` risk condition, `NO_TRADE` on a high/critical-severity open Risk overriding even strong opportunity-shaped evidence (a medium-severity Risk instead recorded as a contradicting signal, not a veto), `NO_TRADE` on stale market data (older than `STALE_DATA_MAX_AGE_MS`) and on genuinely insufficient evidence, deterministic bounded scoring that reuses `Opportunity.score`/`.confidence` directly when one exists, identical-input-produces-identical-candidate across repeated calls, deterministic non-empty invalidation conditions, the thesis always referencing its own supporting evidence, no dollar amount/ROI/profit figure or account-balance/equity/leverage field ever appearing in a candidate, tenant isolation and `CrossTenantAccessError` rejection plus per-organization failure isolation, idempotent re-runs never duplicating the `market_strategy_candidate.v1` signal, a real Risk row correctly vetoing a strategy end-to-end, `getMarketIntelligenceRanking` surfacing `NO_TRADE` symbols that never had an Opportunity at all, the `get_market_intelligence` tool's response including the strategy list while staying `read_only`, and the **critical safety regression**: a full strategy-generation pass leaves `AutonomyPolicy`/`AutonomyAllowlistEntry`/`AutonomyPolicyVersion` byte-for-byte unchanged, the market autonomy ceiling stays `L2`, every market-domain tool stays `read_only` and non-autonomy-eligible, and no `placeOrder`/`createOrder`/`executeOrder`/`withdraw`/`transfer`-named function exists anywhere in the strategy module or the tool registry
+- `tests/sprint-16-paper-trading.test.ts` — paper account lazy initialization at the documented default starting equity, LONG entry from an `up` candidate and SHORT entry from a `down` candidate at the fresh `lastClose` price, SPOT (1x, no liquidation price) vs. `PERPETUAL_SIMULATION` (leverage > 1, computed liquidation price) mode selection, required margin = notional / leverage exactly and leverage-independent position sizing (identical notional at 1x vs. 5x, margin scaling inversely), risk-based position sizing's full risk-capital → stop-distance → quantity → notional chain, LONG/SHORT P&L as exact mirror images of each other, `PAPER_FEE_RATE`/simulated funding both strictly reducing net P&L and funding prorated by elapsed time, deterministic close-priority ordering (`LIQUIDATED` > `STOPPED` > `TAKE_PROFIT` > `INVALIDATED`, a SPOT position never liquidated), deterministic replay (identical inputs -> identical `evaluatePositionUpdate` result), leverage never exceeding `MAX_SIMULATION_LEVERAGE` and stepping DOWN to a safe tier rather than skipping a trade when the stop is too wide, exposure/position-count/margin/staleness entry gates each producing their own explicit skip reason, `NO_TRADE` candidates never opening a position, multiple simultaneous positions across symbols, account-level drawdown derived from peak vs. current equity, idempotent re-runs (no duplicate position, a symbol missing this run's metrics left completely unchanged), tenant isolation and `CrossTenantAccessError` rejection plus per-organization failure isolation, a closed position producing a fully-populated `PaperTrade` "Outcome-ready record" via the existing generic soft-reference pattern with zero `Outcome` fabricated, and the **critical safety regression**: no `placeOrder`/`createOrder`/`executeOrder`/`withdraw`/`transfer`-named function anywhere in the paper-trading module or the tool registry, the Binance client still exposing exactly its 3 public methods, the market autonomy ceiling still `L2`, a full simulation pass leaving `AutonomyPolicy`/`AutonomyAllowlistEntry`/`AutonomyPolicyVersion` byte-for-byte unchanged, and `get_paper_trading` staying `read_only`/non-autonomy-eligible while returning real simulation data to a viewer
 
 Each test creates its own users/organizations with random emails and slugs,
 so the suite is safe to run repeatedly against the same database.

@@ -129,6 +129,9 @@ model Organization {
   autonomousActionLogs     AutonomousActionLog[]
   outcomes                 Outcome[]
   learningRecords          LearningRecord[]
+  paperAccount             PaperAccount?
+  paperPositions           PaperPosition[]
+  paperTrades              PaperTrade[]
 
   @@unique([slug])
   @@map("organization")
@@ -1278,4 +1281,172 @@ model LearningRecord {
   @@index([organizationId, ruleName, ruleVersion])
   @@index([organizationId, createdAt])
   @@map("learning_record")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Sprint 16: Leveraged Paper Trading Engine (SIMULATION ONLY)
+//
+// Every model below represents a SIMULATED position against a SIMULATED
+// virtual account. None of it is connected to a real Binance account, a
+// real balance, a real order, or real money in any way -- there is no
+// credential anywhere in this codebase that could make that true. See
+// `src/server/intelligence/paper-trading/README` doc comment (and the
+// project README's own "Leveraged Paper Trading Engine" section) for the
+// full architecture, formulas, and explicit PAPER ONLY warning.
+// ─────────────────────────────────────────────────────────────────────────
+
+enum PaperPositionDirection {
+  LONG
+  SHORT
+}
+
+/// SPOT: leverage is always 1, never liquidated (matches real spot -- you
+/// can hold at a loss but nothing forces a close). PERPETUAL_SIMULATION:
+/// leverage may exceed 1, funding accrues, and a `liquidationPrice` is
+/// computed. This is the ONLY axis that determines whether leverage/
+/// liquidation/funding apply -- never a separate, independently-settable
+/// flag that could drift out of sync with `leverage`.
+enum PaperPositionMode {
+  SPOT
+  PERPETUAL_SIMULATION
+}
+
+/// `PENDING` exists for forward-compatibility (e.g. a future limit-style
+/// paper entry that waits for a price condition) but Sprint 16's own entry
+/// logic is fully synchronous/deterministic given already-fresh data, so a
+/// position is created directly as `OPEN` -- `PENDING` is never actually
+/// produced this sprint. `CLOSED` is the generic terminal state for a close
+/// not covered by one of the four specific reasons below (e.g. a future
+/// manual/administrative close); `STOPPED`/`TAKE_PROFIT`/`LIQUIDATED`/
+/// `INVALIDATED` are each a specific, deterministic close reason recorded
+/// as its own status rather than a separate free-text field.
+enum PaperPositionStatus {
+  PENDING
+  OPEN
+  CLOSED
+  STOPPED
+  TAKE_PROFIT
+  LIQUIDATED
+  INVALIDATED
+}
+
+/// One PAPER/SIMULATION-ONLY virtual account per organization (lazily
+/// created on first use, mirroring `AutonomyPolicy`'s own lazy-default
+/// pattern). Never represents a real Binance account or real balance --
+/// `startingEquity` is an explicitly-configured simulation input (default
+/// 10,000 USDT, see `paper-trading/constants.ts`), never inferred from
+/// anything real. `peakEquity` is tracked so drawdown can be computed at
+/// read time (`(peakEquity - currentEquity) / peakEquity`) without storing
+/// a redundant derived percentage that could drift out of sync.
+model PaperAccount {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  startingEquity Decimal      @db.Decimal(18, 8)
+  currentEquity  Decimal      @db.Decimal(18, 8)
+  peakEquity     Decimal      @db.Decimal(18, 8)
+  usedMargin     Decimal      @db.Decimal(18, 8)
+  unrealizedPnl  Decimal      @db.Decimal(18, 8)
+  realizedPnl    Decimal      @db.Decimal(18, 8)
+  totalFees      Decimal      @db.Decimal(18, 8)
+  totalFunding   Decimal      @db.Decimal(18, 8)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@map("paper_account")
+}
+
+/// A single simulated position, opened from a Sprint 15 `StrategyCandidate`
+/// (soft-referenced via `strategySignalId` -- the originating
+/// `CompanySignal.id`, the same soft-reference convention `Opportunity`/
+/// `Risk`/`Outcome` already use; see `CompanySignal`'s own doc comment).
+/// Every price/quantity/P&L field is SIMULATED -- see the project README's
+/// Paper Trading section for the exact, documented formulas behind each
+/// one. Idempotency for "don't open a second position on a symbol that
+/// already has one open" is enforced in application code (a
+/// `findFirst`-then-branch check, mirroring `Risk`'s own auto-transition
+/// pattern in `market-intelligence/generate.ts`) rather than a DB
+/// constraint, since `CLOSED` history for the same symbol must remain
+/// queryable and unique.
+model PaperPosition {
+  id                    String                 @id @default(cuid())
+  organizationId        String
+  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  accountId             String
+  symbol                String
+  direction             PaperPositionDirection
+  mode                  PaperPositionMode
+  status                PaperPositionStatus    @default(OPEN)
+  strategyType          String
+  strategySignalId      String?
+  regime                String?
+  leverage              Int
+  entryPrice            Decimal                @db.Decimal(18, 8)
+  currentPrice          Decimal                @db.Decimal(18, 8)
+  exitPrice             Decimal?               @db.Decimal(18, 8)
+  quantity              Decimal                @db.Decimal(28, 12)
+  notional              Decimal                @db.Decimal(18, 8)
+  initialMargin         Decimal                @db.Decimal(18, 8)
+  stopLossPrice         Decimal                @db.Decimal(18, 8)
+  takeProfitPrice       Decimal                @db.Decimal(18, 8)
+  liquidationPrice      Decimal?               @db.Decimal(18, 8)
+  riskUnit              Decimal                @db.Decimal(18, 8)
+  unrealizedPnl         Decimal                @db.Decimal(18, 8)
+  realizedPnl           Decimal?               @db.Decimal(18, 8)
+  feesPaid              Decimal                @db.Decimal(18, 8)
+  fundingPaid           Decimal                @db.Decimal(18, 8)
+  maxFavorableExcursion Decimal                @db.Decimal(18, 8)
+  maxAdverseExcursion   Decimal                @db.Decimal(18, 8)
+  lastFundingAt         DateTime?
+  openedAt              DateTime               @default(now())
+  closedAt              DateTime?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+
+  @@index([organizationId, symbol, status])
+  @@index([organizationId, status])
+  @@index([organizationId, closedAt])
+  @@map("paper_position")
+}
+
+/// Append-only, immutable record of one CLOSED paper position's final
+/// outcome -- created exactly once when a `PaperPosition` transitions to a
+/// terminal status. This is the "Outcome-ready record" Sprint 16 Phase 24
+/// calls for: a future `Outcome` row can soft-reference it via the
+/// existing generic `relatedEntityType: "PaperTrade"` /
+/// `relatedEntityId: <this row's id>` pattern `Outcome` already supports
+/// (see `Outcome`'s own doc comment) -- no `Outcome` schema change needed.
+model PaperTrade {
+  id                    String                 @id @default(cuid())
+  organizationId        String
+  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  positionId            String                 @unique
+  symbol                String
+  direction             PaperPositionDirection
+  mode                  PaperPositionMode
+  strategyType          String
+  strategySignalId      String?
+  regime                String?
+  leverage              Int
+  entryPrice            Decimal                @db.Decimal(18, 8)
+  exitPrice             Decimal                @db.Decimal(18, 8)
+  quantity              Decimal                @db.Decimal(28, 12)
+  notional              Decimal                @db.Decimal(18, 8)
+  initialMargin         Decimal                @db.Decimal(18, 8)
+  grossPnl              Decimal                @db.Decimal(18, 8)
+  feesPaid              Decimal                @db.Decimal(18, 8)
+  fundingPaid           Decimal                @db.Decimal(18, 8)
+  netPnl                Decimal                @db.Decimal(18, 8)
+  returnPct             Decimal                @db.Decimal(10, 4)
+  maxFavorableExcursion Decimal                @db.Decimal(18, 8)
+  maxAdverseExcursion   Decimal                @db.Decimal(18, 8)
+  closeReason           PaperPositionStatus
+  openedAt              DateTime
+  closedAt              DateTime               @default(now())
+  createdAt             DateTime               @default(now())
+
+  @@index([organizationId, symbol])
+  @@index([organizationId, closedAt])
+  @@index([organizationId, strategyType])
+  @@map("paper_trade")
 }

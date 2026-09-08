@@ -1,5 +1,6 @@
 import { requirePermission } from "@/server/auth/session";
 import { getMarketIntelligenceRanking } from "@/server/intelligence/market-intelligence/service";
+import { getPaperTradingSnapshot } from "@/server/intelligence/paper-trading/service";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -23,8 +24,11 @@ function strategyBadgeVariant(strategyType: string): "default" | "secondary" | "
  * money. This is intelligence, not a trading terminal.
  */
 export default async function MarketIntelligencePage() {
-  const { organization } = await requirePermission({ marketIntelligence: ["read"] });
-  const snapshot = await getMarketIntelligenceRanking(organization.id);
+  const { organization } = await requirePermission({ marketIntelligence: ["read"], paperTrading: ["read"] });
+  const [snapshot, paperTrading] = await Promise.all([
+    getMarketIntelligenceRanking(organization.id),
+    getPaperTradingSnapshot(organization.id),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -155,6 +159,109 @@ export default async function MarketIntelligencePage() {
           )}
         </CardContent>
       </Card>
+
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight">Paper Trading / Simulation</h2>
+        <p className="text-sm text-muted-foreground">
+          Every figure below is PAPER / SIMULATION ONLY. No real Binance account, credential, balance, or order
+          exists anywhere in this pipeline -- nothing here was or can be sent to a real exchange.
+        </p>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Paper account</CardTitle>
+          <CardDescription>Simulated virtual account -- not a real Binance balance.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
+            <Stat label="Starting equity" value={paperTrading.account.startingEquity} />
+            <Stat label="Current equity" value={paperTrading.account.currentEquity} />
+            <Stat label="Available margin" value={paperTrading.account.availableMargin} />
+            <Stat label="Used margin" value={paperTrading.account.usedMargin} />
+            <Stat label="Unrealized P&L" value={paperTrading.account.unrealizedPnl} />
+            <Stat label="Realized P&L" value={paperTrading.account.realizedPnl} />
+            <Stat label="Total fees" value={paperTrading.account.totalFees} />
+            <Stat label="Total funding" value={paperTrading.account.totalFunding} />
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Drawdown: {(paperTrading.account.drawdownPct * 100).toFixed(2)}% from peak equity{" "}
+            {paperTrading.account.peakEquity.toFixed(2)}
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Open paper positions</CardTitle>
+          <CardDescription>Simulated positions only -- PAPER_ONLY, never a real order.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {paperTrading.openPositions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No open paper positions.</p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {paperTrading.openPositions.map((p) => (
+                <div key={p.id} className="rounded-lg border p-3 text-xs">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-semibold">{p.symbol}</span>
+                    <Badge variant={p.direction === "LONG" ? "default" : "secondary"}>{p.direction}</Badge>
+                    <Badge variant="secondary">{p.mode}</Badge>
+                    <span className="text-muted-foreground">{p.leverage}x simulated leverage</span>
+                    <span className="text-muted-foreground">strategy: {p.strategyType}</span>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4">
+                    <span>Entry: {p.entryPrice}</span>
+                    <span>Current: {p.currentPrice}</span>
+                    <span>Stop: {p.stopLossPrice}</span>
+                    <span>Take profit: {p.takeProfitPrice}</span>
+                    <span>Simulated liquidation: {p.liquidationPrice ?? "n/a (SPOT)"}</span>
+                    <span>Unrealized P&L: {p.unrealizedPnl.toFixed(4)}</span>
+                    <span>Fees: {p.feesPaid.toFixed(4)}</span>
+                    <span>Funding: {p.fundingPaid.toFixed(4)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Closed paper positions</CardTitle>
+          <CardDescription>Most recent simulated closes, with the deterministic reason they closed.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {paperTrading.closedPositions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No closed paper positions yet.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {paperTrading.closedPositions.map((p) => (
+                <div key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{p.symbol}</span>
+                    <Badge variant={p.direction === "LONG" ? "default" : "secondary"}>{p.direction}</Badge>
+                    <Badge variant="secondary">{p.status}</Badge>
+                  </div>
+                  <span className="text-muted-foreground">
+                    realized P&L {p.realizedPnl?.toFixed(4) ?? "n/a"} (fees {p.feesPaid.toFixed(4)}, funding {p.fundingPaid.toFixed(4)})
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="font-medium">{value.toFixed(4)}</p>
     </div>
   );
 }
