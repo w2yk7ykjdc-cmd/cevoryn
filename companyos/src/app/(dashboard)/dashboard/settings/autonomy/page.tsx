@@ -1,12 +1,17 @@
 import { requirePermission } from "@/server/auth/session";
-import { getOrCreatePolicy } from "@/server/ai/autonomy/policy-service";
+import { getOrCreatePolicy, isToolAllowlisted } from "@/server/ai/autonomy/policy-service";
 import { AutonomyClient } from "@/app/(dashboard)/dashboard/settings/autonomy/autonomy-client";
 
 const DOMAIN = "crm";
+/** Sprint 10's pilot tool — see `actions.ts`'s own doc comment. */
+const PILOT_TOOL_NAME = "expire_stale_opportunity";
 
 export default async function AutonomyPage() {
   const { organization } = await requirePermission({ autonomyPolicy: ["read"] });
-  const policy = await getOrCreatePolicy(organization.id, DOMAIN);
+  const [policy, allowlistEntry] = await Promise.all([
+    getOrCreatePolicy(organization.id, DOMAIN),
+    isToolAllowlisted(organization.id, DOMAIN, PILOT_TOOL_NAME),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -19,6 +24,7 @@ export default async function AutonomyPage() {
       </div>
       <AutonomyClient
         domain={DOMAIN}
+        pilotToolName={PILOT_TOOL_NAME}
         initialPolicy={{
           level: policy.level,
           dailyActionLimit: policy.dailyActionLimit,
@@ -26,6 +32,7 @@ export default async function AutonomyPage() {
           perActionRiskLimit: Number(policy.perActionRiskLimit),
           killSwitchEngaged: policy.killSwitchEngaged,
         }}
+        initialPilotAllowlisted={allowlistEntry !== null}
       />
     </div>
   );

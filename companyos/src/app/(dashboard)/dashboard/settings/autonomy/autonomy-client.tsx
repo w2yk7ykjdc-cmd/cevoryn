@@ -11,7 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
+  disablePilotAllowlistAction,
   disengageKillSwitchAction,
+  enablePilotAllowlistAction,
   engageKillSwitchAction,
   updateAutonomyPolicyAction,
 } from "@/app/(dashboard)/dashboard/settings/autonomy/actions";
@@ -33,12 +35,24 @@ type PolicyState = {
   killSwitchEngaged: boolean;
 };
 
-export function AutonomyClient({ domain, initialPolicy }: { domain: string; initialPolicy: PolicyState }) {
+export function AutonomyClient({
+  domain,
+  pilotToolName,
+  initialPolicy,
+  initialPilotAllowlisted,
+}: {
+  domain: string;
+  pilotToolName: string;
+  initialPolicy: PolicyState;
+  initialPilotAllowlisted: boolean;
+}) {
   const router = useRouter();
   const [policy, setPolicy] = useState(initialPolicy);
   const [form, setForm] = useState(initialPolicy);
   const [isSaving, setIsSaving] = useState(false);
   const [isTogglingKillSwitch, setIsTogglingKillSwitch] = useState(false);
+  const [pilotAllowlisted, setPilotAllowlisted] = useState(initialPilotAllowlisted);
+  const [isTogglingAllowlist, setIsTogglingAllowlist] = useState(false);
 
   async function handleSave(event: React.FormEvent) {
     event.preventDefault();
@@ -74,6 +88,20 @@ export function AutonomyClient({ domain, initialPolicy }: { domain: string; init
     router.refresh();
   }
 
+  async function handleAllowlistToggle() {
+    setIsTogglingAllowlist(true);
+    const result = pilotAllowlisted ? await disablePilotAllowlistAction() : await enablePilotAllowlistAction();
+    setIsTogglingAllowlist(false);
+
+    if (!result.success) {
+      toast.error(result.error);
+      return;
+    }
+    setPilotAllowlisted((prev) => !prev);
+    toast.success(pilotAllowlisted ? "Pilot tool removed from the allowlist" : "Pilot tool allowlisted for L4/L5");
+    router.refresh();
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <Card className={policy.killSwitchEngaged ? "border-destructive" : undefined}>
@@ -99,6 +127,34 @@ export function AutonomyClient({ domain, initialPolicy }: { domain: string; init
             onClick={handleKillSwitchToggle}
           >
             {isTogglingKillSwitch ? "Working…" : policy.killSwitchEngaged ? "Disengage kill switch" : "Engage kill switch"}
+          </Button>
+        </CardFooter>
+      </Card>
+
+      <Card className="max-w-xl">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base">L4/L5 allowlist — {domain}</CardTitle>
+              <CardDescription>
+                {pilotToolName} is the only tool eligible for unattended execution. Allowlisting it here is
+                necessary but not sufficient — the level above must also be L4 or L5, and the daily action limit
+                raised above zero, or it will still route to human approval.
+              </CardDescription>
+            </div>
+            <Badge variant={pilotAllowlisted ? "default" : "secondary"}>
+              {pilotAllowlisted ? "Allowlisted" : "Not allowlisted"}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardFooter>
+          <Button
+            type="button"
+            variant={pilotAllowlisted ? "outline" : "default"}
+            disabled={isTogglingAllowlist}
+            onClick={handleAllowlistToggle}
+          >
+            {isTogglingAllowlist ? "Working…" : pilotAllowlisted ? "Remove from allowlist" : "Allowlist pilot tool"}
           </Button>
         </CardFooter>
       </Card>

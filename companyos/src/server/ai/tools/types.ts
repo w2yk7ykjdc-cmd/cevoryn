@@ -77,6 +77,19 @@ export type RegisteredTool<TInput = unknown> = {
    * autonomous.
    */
   autonomyEligible?: boolean;
+  /**
+   * The fixed dollar risk this tool's execution represents, for
+   * `resolveAutonomyDecision`'s daily/per-action risk-budget arithmetic —
+   * static and code-owned, like `mutationCategory`/`blastRadius`, never
+   * something the LLM's call arguments can influence. Omit for a tool with
+   * no monetary dimension at all (the default: the risk-budget checks are
+   * skipped rather than treated as zero exposure). Pass an explicit `0` for
+   * a tool that is genuinely risk-free but should still exercise the
+   * daily-limit machinery (e.g. Sprint 10's CRM housekeeping pilot) —
+   * omitting it and passing `0` are deliberately different: only the
+   * latter has the risk-budget arithmetic actually run against real numbers.
+   */
+  actionRiskValue?: number;
   handler: (input: TInput, ctx: ToolContext) => Promise<unknown>;
 };
 

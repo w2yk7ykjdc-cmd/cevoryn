@@ -66,6 +66,7 @@ export async function executeToolCall(
       mutationCategory: tool.mutationCategory,
       blastRadius: tool.blastRadius,
       autonomyEligible: tool.autonomyEligible,
+      actionRiskValue: tool.actionRiskValue,
       input: call.arguments,
       triggeredBy: ctx.triggeredBy ?? "interactive_chat",
     });
