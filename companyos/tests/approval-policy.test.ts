@@ -12,6 +12,7 @@ describe("approval policy", () => {
     expect(classifyToolRisk("record_lead_activity")).toBe("auto");
     expect(classifyToolRisk("get_company_health")).toBe("auto");
     expect(classifyToolRisk("get_opportunities")).toBe("auto");
+    expect(classifyToolRisk("get_risks")).toBe("auto");
   });
 
   it("classifies create_task, which assigns real work to a person, as requiring approval", () => {

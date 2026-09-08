@@ -63,7 +63,8 @@ src/
       signals/               CompanySignal ledger: recordSignal(), event subscriber, scanner, detection rules
       health/                Sales Health scoring: computeSalesHealthScore(), snapshot persistence
       opportunity/           Opportunity Engine V1: signal -> opportunity generation, read path
-      compute.ts             recurring "compute intelligence" pass: health snapshot + opportunities per org
+      risk/                  Risk Engine V1: signal -> risk generation (with auto-resolution), read path
+      compute.ts             recurring "compute intelligence" pass: health snapshot + opportunities + risks per org
 ```
 
 ### Multi-tenancy
@@ -502,6 +503,50 @@ passive read-only tools, no Outcome/Learning loop, no Self-Critique, no
 simulation, no ML, no Pulse UI — this sprint only adds the second and
 third consumers of the signal foundation Sprint 5 built.
 
+### Risk Engine V1 (Sprint 7)
+
+The fourth consumer of the Sprint 5 signal foundation, and the "Risk" half
+of the already-approved `Opportunity + Risk` pipeline stage — Sprint 6
+built Opportunity Engine V1; this sprint builds its symmetric counterpart.
+Same discipline as Sprint 6: no LLM or ML, one deterministic V1 rule, a
+new read-only auto-executable tool, reuse over reinvention.
+
+**One V1 rule: "at-risk subscription."** `generateRisksForOrganization()`
+(`src/server/intelligence/risk/service.ts`) reads the organization's
+`billing.subscription_updated` `CompanySignal` rows — already recorded by
+the Sprint 5 subscriber, with `severity: "high"` whenever the mapped Stripe
+status is unhealthy (`UNHEALTHY_SUBSCRIPTION_STATUSES` in
+`src/server/jobs/processors/record-company-signal.ts`) — rather than
+re-deriving which Stripe statuses count as unhealthy a second time. A
+`Risk` (`prisma/schema.prisma`) is generated with `potentialLoss` set to
+the organization's real `Plan.monthlyPriceCents` (via its `Subscription`),
+never an invented figure.
+
+**Risks auto-resolve; Opportunities don't.** This is the one deliberate
+behavioral difference from Sprint 6's model: a `Risk` describes an ongoing
+state, not a discrete action item, so `open` -> `resolved` happens
+automatically once the underlying signal's severity drops (the subscription
+recovered — `recordSignal` already upserts the same row per subscription,
+so a healthy update refreshes severity down for free). A human's
+`dismissed` is never touched by this auto-resolution either way. This was
+flagged explicitly in Sprint 5's own subscriber code as "a reconciliation
+concern for the future Risk Engine, deliberately out of scope for this
+foundation" — this sprint is that future consumer picking it up.
+
+**The recurring pass.** `computeCompanyIntelligence()`
+(`src/server/intelligence/compute.ts`) now generates risks alongside health
+snapshots and opportunities, in the same single per-organization pass
+(still one cursor-paged loop over all organizations, not three).
+
+**One new read-only AI tool.** `get_risks`, auto-executable at the same
+tier as `get_opportunities`/`get_company_health`, gated by a new
+`risk:["read"]` RBAC statement granted to every role including `viewer`.
+
+**Scope.** Still no Decision Engine, no autonomy above passive read-only
+tools, no Outcome/Learning loop, no Self-Critique, no simulation, no ML, no
+Pulse UI, and no second Risk rule — this sprint is deliberately as narrow
+as Sprint 6 was for Opportunity.
+
 ### API keys
 
 The `ApiKey` model (and its `apiKey: ["create", "read", "revoke"]` RBAC
@@ -610,7 +655,8 @@ via `docker compose up -d postgres redis`, or any reachable instance your
 - `tests/billing-subscription.test.ts` (extended) — `billing.subscription_updated` reaches the Intelligence Signal ledger through the same subscriber/queue path as the CRM events above, with `past_due` correctly classified as high severity
 - `tests/sales-health.test.ts` — `computeSalesHealthScore`'s pure scoring math (clean 100 with no open leads, high-risk leads penalized more than medium-risk, a mixed portfolio weighted proportionally, always clamped to 0-100), `computeSalesHealthEvidence` correctly aggregating `analyzeLead()`'s per-lead risk classification and excluding won/lost leads and other organizations' leads, and `recordHealthSnapshot`/`getLatestHealthSnapshot` proving snapshots are an append-only time series (two calls create two rows, not an upsert)
 - `tests/opportunity-generation.test.ts` — converting an active `high_value_stalled_lead` signal into an Opportunity end to end, no Opportunity created for a lead with no active signal, re-running generation upserts rather than duplicates, a human's triage `status` (e.g. `dismissed`) is never overwritten by re-detection, generation stops once the underlying signal is resolved, tenant isolation on both generation and `listOpportunities`, and `computeCompanyIntelligence` exercising the full recurring pass (health snapshot + opportunities) across organizations
-- `tests/company-intelligence-tools.test.ts` — `get_company_health` computing on demand before any snapshot exists vs. returning the latest persisted one, `get_opportunities` listing an organization's opportunities and rejecting an invalid status filter, both tools readable by every role including a read-only viewer, and both AI reads landing in the audit log
+- `tests/company-intelligence-tools.test.ts` — `get_company_health` computing on demand before any snapshot exists vs. returning the latest persisted one, `get_opportunities`/`get_risks` listing an organization's opportunities/risks and rejecting an invalid status filter, all three tools readable by every role including a read-only viewer, and all AI reads landing in the audit log
+- `tests/risk-generation.test.ts` — converting an at-risk (`past_due`) subscription signal into a `Risk` with the real plan price as `potentialLoss`, no `Risk` created for a healthy signal, re-running generation upserts rather than duplicates, an open `Risk` auto-resolves once the subscription recovers, a human's `dismissed` status is never auto-overwritten, generation skips a signal whose subscription no longer exists, tenant isolation on both generation and `listRisks`, and `computeCompanyIntelligence` generating risks alongside health snapshots and opportunities in one pass
 
 Each test creates its own users/organizations with random emails and slugs,
 so the suite is safe to run repeatedly against the same database.
