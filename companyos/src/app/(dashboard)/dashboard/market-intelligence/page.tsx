@@ -9,6 +9,11 @@ function riskBadgeVariant(severity: string): "default" | "secondary" | "destruct
   return "default";
 }
 
+function strategyBadgeVariant(strategyType: string): "default" | "secondary" | "destructive" {
+  if (strategyType === "NO_TRADE") return "secondary";
+  return "default";
+}
+
 /**
  * Fully server-rendered and read-only -- there is nothing to mutate on
  * this page. Every number shown comes directly from
@@ -83,6 +88,67 @@ export default async function MarketIntelligencePage() {
                     ))}
                   </ul>
                   <p className="mt-2 text-xs text-muted-foreground">Updated {new Date(candidate.updatedAt).toLocaleString()}</p>
+
+                  {candidate.strategy && (
+                    <div className="mt-3 rounded-md border bg-muted/30 p-3">
+                      <div className="flex items-center gap-2">
+                        <Badge variant={strategyBadgeVariant(candidate.strategy.strategyType)}>{candidate.strategy.strategyType}</Badge>
+                        <span className="text-xs text-muted-foreground">strategy score {candidate.strategy.score} / confidence {candidate.strategy.confidence}</span>
+                      </div>
+                      <p className="mt-1 text-xs">{candidate.strategy.thesis}</p>
+                      {candidate.strategy.entryConditions.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-xs font-medium">Entry conditions</p>
+                          <ul className="list-disc pl-4 text-xs text-muted-foreground">
+                            {candidate.strategy.entryConditions.map((c, i) => (
+                              <li key={i}>{c}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {candidate.strategy.invalidationConditions.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-xs font-medium">Invalidation conditions</p>
+                          <ul className="list-disc pl-4 text-xs text-muted-foreground">
+                            {candidate.strategy.invalidationConditions.map((c, i) => (
+                              <li key={i}>{c}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      <p className="mt-2 text-xs italic text-muted-foreground">{candidate.strategy.expectedScenario}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Strategy engine</CardTitle>
+          <CardDescription>
+            Every symbol the strategy engine evaluated this run, including an explicit NO_TRADE conclusion when no
+            deterministic pattern qualifies. Hypothetical only -- no order can ever be placed from this data.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {snapshot.strategies.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No strategy data yet -- the strategy engine has not run.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {snapshot.strategies.map((strategy) => (
+                <div key={strategy.symbol} className="flex items-center justify-between rounded-md border p-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{strategy.symbol}</span>
+                    <Badge variant={strategyBadgeVariant(strategy.strategyType)}>{strategy.strategyType}</Badge>
+                    {strategy.noTradeReason && <span className="text-muted-foreground">({strategy.noTradeReason.replace(/_/g, " ")})</span>}
+                  </div>
+                  <span className="text-muted-foreground">
+                    score {strategy.score} / confidence {strategy.confidence}
+                  </span>
                 </div>
               ))}
             </div>

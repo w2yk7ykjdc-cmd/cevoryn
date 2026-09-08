@@ -3,25 +3,29 @@ import { rankMarketCandidates } from "@/server/intelligence/market-intelligence/
 import { RULE_NAME as OPPORTUNITY_RULE_NAME, RULE_VERSION as OPPORTUNITY_RULE_VERSION } from "@/server/intelligence/opportunity/rules/market-multi-signal";
 import { RULE_NAME as RISK_RULE_NAME, RULE_VERSION as RISK_RULE_VERSION } from "@/server/intelligence/risk/rules/market-multi-signal";
 import { RULE_NAME as REGIME_RULE_NAME, RULE_VERSION as REGIME_RULE_VERSION } from "@/server/intelligence/signals/rules/market-regime";
-import type { RankedMarketCandidate } from "@/server/intelligence/market-intelligence/types";
+import { STRATEGY_CANDIDATE_RULE_NAME, STRATEGY_CANDIDATE_RULE_VERSION } from "@/server/intelligence/strategy/generate";
+import type { RankedMarketCandidate, StrategyCandidate } from "@/server/intelligence/market-intelligence/types";
 
 export type MarketIntelligenceSnapshot = {
   regime: string | null;
   regimeObservedAt: string | null;
   ranked: RankedMarketCandidate[];
+  /** Sprint 15: every deterministic strategy candidate this organization currently has, including `NO_TRADE` conclusions for symbols with no qualifying pattern -- sorted score desc, confidence desc, symbol asc (same tie-break style as `ranked`). Empty until `generate-market-strategies` has run at least once. */
+  strategies: StrategyCandidate[];
 };
 
 /**
  * The single read-only entry point Sprint 14's AI tool and UI page both
- * call. Reads only what `generateMarketIntelligence` (stage 2) already
- * persisted through the existing `Opportunity`/`Risk` models plus the
- * regime `CompanySignal` stage 1 writes — never recomputes anything,
- * never calls Binance, never calls an LLM.
+ * call. Reads only what `generateMarketIntelligence` (stage 2) and, as of
+ * Sprint 15, `generateMarketStrategies` (stage 3) already persisted through
+ * the existing `Opportunity`/`Risk` models plus the `CompanySignal` rows
+ * stages 1 and 3 write — never recomputes anything, never calls Binance,
+ * never calls an LLM.
  */
 export async function getMarketIntelligenceRanking(organizationId: string): Promise<MarketIntelligenceSnapshot> {
   const scoped = getTenantScopedClient(organizationId);
 
-  const [opportunities, risks, regimeSignal] = await Promise.all([
+  const [opportunities, risks, regimeSignal, strategySignals] = await Promise.all([
     scoped.opportunity.findMany({
       where: { ruleName: OPPORTUNITY_RULE_NAME, ruleVersion: OPPORTUNITY_RULE_VERSION, status: { in: ["new", "reviewed"] } },
       select: { relatedEntityId: true, score: true, confidence: true, evidence: true, updatedAt: true },
@@ -34,6 +38,10 @@ export async function getMarketIntelligenceRanking(organizationId: string): Prom
       where: { ruleName: REGIME_RULE_NAME, ruleVersion: REGIME_RULE_VERSION, relatedEntityId: "GLOBAL" },
       select: { payload: true, detectedAt: true },
     }),
+    scoped.companySignal.findMany({
+      where: { ruleName: STRATEGY_CANDIDATE_RULE_NAME, ruleVersion: STRATEGY_CANDIDATE_RULE_VERSION, status: "active" },
+      select: { payload: true },
+    }),
   ]);
 
   const validOpportunities = opportunities.filter((o): o is typeof o & { relatedEntityId: string } => o.relatedEntityId !== null);
@@ -43,9 +51,20 @@ export async function getMarketIntelligenceRanking(organizationId: string): Prom
 
   const regimePayload = regimeSignal?.payload as { regime?: string } | undefined;
 
+  const strategies = strategySignals.map((s) => s.payload as unknown as StrategyCandidate);
+  const strategiesBySymbol = new Map(strategies.map((s) => [s.symbol, s]));
+  const sortedStrategies = [...strategies].sort((a, b) => {
+    const scoreDiff = b.score - a.score;
+    if (scoreDiff !== 0) return scoreDiff;
+    const confidenceDiff = b.confidence - a.confidence;
+    if (confidenceDiff !== 0) return confidenceDiff;
+    return a.symbol.localeCompare(b.symbol);
+  });
+
   return {
     regime: regimePayload?.regime ?? null,
     regimeObservedAt: regimeSignal?.detectedAt.toISOString() ?? null,
-    ranked: rankMarketCandidates(validOpportunities, validRisks, regimePayload?.regime ?? null),
+    ranked: rankMarketCandidates(validOpportunities, validRisks, regimePayload?.regime ?? null, strategiesBySymbol),
+    strategies: sortedStrategies,
   };
 }

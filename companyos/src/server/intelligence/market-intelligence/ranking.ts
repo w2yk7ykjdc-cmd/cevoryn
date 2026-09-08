@@ -1,4 +1,4 @@
-import type { RankedMarketCandidate } from "@/server/intelligence/market-intelligence/types";
+import type { RankedMarketCandidate, StrategyCandidate } from "@/server/intelligence/market-intelligence/types";
 
 type OpportunityRow = {
   relatedEntityId: string;
@@ -52,7 +52,12 @@ function buildRiskReasons(evidence: unknown): string[] {
  * descending, then confidence descending, then symbol ascending
  * (alphabetical) as the final, always-decisive fallback.
  */
-export function rankMarketCandidates(opportunities: OpportunityRow[], risks: RiskRow[], regime: string | null): RankedMarketCandidate[] {
+export function rankMarketCandidates(
+  opportunities: OpportunityRow[],
+  risks: RiskRow[],
+  regime: string | null,
+  strategiesBySymbol: Map<string, StrategyCandidate> = new Map(),
+): RankedMarketCandidate[] {
   const riskBySymbol = new Map(risks.map((r) => [r.relatedEntityId, r]));
 
   const ranked = opportunities.map((opportunity): RankedMarketCandidate => {
@@ -66,6 +71,7 @@ export function rankMarketCandidates(opportunities: OpportunityRow[], risks: Ris
       reasons: buildOpportunityReasons(opportunity.evidence),
       riskReasons: risk ? buildRiskReasons(risk.evidence) : [],
       updatedAt: opportunity.updatedAt.toISOString(),
+      strategy: strategiesBySymbol.get(opportunity.relatedEntityId) ?? null,
     };
   });
 

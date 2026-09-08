@@ -72,6 +72,7 @@ src/
       compute.ts             recurring "compute intelligence" pass: health, opportunities, risks, decision per org
       evaluate-outcomes.ts   recurring "Action -> Outcome" pass: discovery + evaluation per org (Sprint 11)
       market-intelligence/   scoring, ranking, generate + read service for market Opportunity/Risk (Sprint 14)
+      strategy/               deterministic Strategy Engine: selection, scoring, generate (Sprint 15)
     market-data/              Binance public candle + exchangeInfo + 24hr ticker client, dynamic universe discovery (Sprint 13/14)
 ```
 
@@ -1295,6 +1296,127 @@ evaluate — the existing soft-reference pattern already generalizes for
 when a future rule needs it), no new Prisma model, no new migration, no
 new dependency. Not a guarantee of profit, and never claims to be.
 
+### Deterministic Strategy Engine (Sprint 15)
+
+Turns Sprint 14's Market Intelligence (Opportunity/Risk/regime/signals)
+into an explainable, deterministic **strategy candidate** per symbol —
+never a trade, never an execution instruction. Separates the pipeline
+into 5 explicit stages (observation -> opportunity -> risk -> **strategy**
+-> execution) and implements only the fourth; execution remains completely
+absent, exactly as every prior market sprint's own scope section already
+promised.
+
+**Reuse over reinvention.** No new Prisma model. A strategy candidate is
+persisted as its own `market_strategy_candidate.v1` `CompanySignal` row —
+the SAME bridge-signal pattern Sprint 14's own `market_metrics_snapshot.v1`
+already established (an unconditional signal per symbol per run, carrying
+a full computed object as its JSON `payload`), not a new pipeline. Where
+an active market `Opportunity` already exists for a symbol, its `score`/
+`confidence` are reused directly rather than recomputed under a different
+name; a genuinely new, minimal, additive, capped score/confidence formula
+only exists for the cases an `Opportunity` doesn't cover (see below).
+
+**Strategy vocabulary (`src/server/intelligence/strategy/scoring.ts`).**
+Four deterministic types, `NO_TRADE` a first-class member, not an absence
+of a record — the engine is exactly as confident concluding "no valid
+pattern" as it is naming one:
+
+- `TREND_FOLLOWING` — the most demanding thesis: the medium-window move is
+  both large enough AND consistent enough (reusing Sprint 14's own
+  `TREND_MIN_PCT`/`TREND_MIN_CONSISTENCY`), the 24h move agrees in
+  direction and magnitude (`MOMENTUM_MIN_PCT`), volatility is acceptable
+  (`VOLATILITY_MAX_PCT`), and the short-term window hasn't already reversed
+  against it. Checked first.
+- `MOMENTUM_CONTINUATION` — a lighter-weight, shorter-horizon thesis:
+  strong daily momentum, the very recent (~2h) window still moving the
+  same direction, and relative strength vs. BTC actually supporting it.
+  Checked second, so a `TREND_FOLLOWING` candidate is never
+  double-classified here.
+- `RANGE_MEAN_REVERSION` — the only type gated on the GLOBAL market regime
+  (`market_regime.v1`, read back, never recomputed): only considered when
+  the overall market is itself classified `ranging`, combined with this
+  symbol's own weak directional trend and contained volatility. Checked
+  last.
+- `NO_TRADE` — the deterministic fallback, always with one of four explicit
+  reasons: `stale_data` (the underlying `market_metrics_snapshot` is older
+  than `STALE_DATA_MAX_AGE_MS`, 3x the hourly ingestion cadence),
+  `unacceptable_risk` (an open `high`/`critical`-severity market `Risk`
+  vetoes ANY thesis regardless of how strong the opportunity evidence looks
+  — the spec's own worked example, "opportunity score high + risk
+  unacceptable = NO_TRADE"), `conflicting_signals` (the symbol's open Risk
+  already carries Sprint 14's own computed `conflicting_signals` condition,
+  reused rather than re-derived), or `insufficient_evidence` (none of the
+  three directional/range patterns above qualified).
+
+Every threshold is a named, documented constant, most of them directly
+reused from Sprint 14 (`market-intelligence/scoring.ts`,
+`market-volatility.ts`) rather than invented fresh — "use thresholds
+derived from the existing Sprint 14 signal semantics wherever possible" is
+followed literally, not just in spirit.
+
+**Scoring (`computeStrategyScore`/`computeStrategyConfidence`).** Reuses
+`Opportunity.score`/`.confidence` directly when a live Opportunity exists
+for the symbol. Otherwise (every `RANGE_MEAN_REVERSION` candidate, by
+design — an Opportunity can never exist for a symbol whose whole thesis is
+"weak directional trend"; and some `TREND_FOLLOWING`/`MOMENTUM_CONTINUATION`
+candidates too, since their eligibility bars are independently evaluated
+from Sprint 14's own 5-condition Opportunity gate) computes its own
+transparent, additive, capped formula from the same underlying metrics —
+never an unbounded or hidden-weight number. `NO_TRADE` always scores `0`.
+
+**Pipeline.** `generate-market-strategies` (new, stage 3) runs hourly on
+the existing BullMQ scheduler after `generate-market-intelligence` (stage
+2) — no new queue, no new scheduler. Reads back, per organization, every
+active `market_metrics_snapshot.v1` signal plus the GLOBAL `market_regime`
+signal plus this symbol's own `Opportunity`/`Risk` rows if any exist —
+**never** calls Binance again, never recomputes a metric. Mirrors stage
+2's exact cursor-paged, per-organization-isolated shape and one-bad-
+organization-never-blocks-another isolation.
+
+**Output — fully explainable, never fabricated.** Every candidate carries
+`thesis`, `supportingSignals`/`contradictingSignals`, `entryConditions`,
+`invalidationConditions`, `riskConditions`, and an explicitly-labeled-
+hypothetical `expectedScenario` — plain language, always traceable back to
+the real metrics that produced it. `riskUnit` is a normalized,
+dimensionless sizing placeholder (`1` for a real strategy, `0` for
+`NO_TRADE`) — never a real position size; there is no account balance,
+equity, or leverage anywhere in this pipeline, and nothing in a
+candidate's own fields ever carries one. No dollar amount, ROI, or
+"expected profit" figure is ever computed or implied.
+
+**Read surface.** `getMarketIntelligenceRanking` (extended, additively —
+existing callers/shape untouched) now also returns every strategy
+candidate this organization has, `NO_TRADE` conclusions included, and
+attaches each ranked Opportunity's own matching strategy by symbol. The
+existing `get_market_intelligence` AI tool (`domain: "market"`,
+`read_only`, unchanged RBAC) surfaces it automatically since it already
+calls this same read path — no new tool, no new RBAC resource. The
+`/dashboard/market-intelligence` page (extended, not replaced) shows each
+candidate's strategy type, thesis, entry/invalidation conditions, and a
+full "strategy engine" list covering every evaluated symbol including
+`NO_TRADE` ones, so the answer "why NO_TRADE?" is always visible, not
+hidden.
+
+**The loop still cannot add execution capability — proven, not just
+claimed.** No `placeOrder`/`createOrder`/`executeOrder`/`withdraw`/
+`transfer`-named function or tool exists anywhere in the strategy module
+or the tool registry; every `market`-domain tool stays `read_only` and
+non-autonomy-eligible; `MAX_AUTONOMY_LEVEL_BY_DOMAIN.market` is untouched
+at `"L2"`. A dedicated regression test runs a full strategy-generation
+pass that genuinely produces real candidates, then asserts
+`AutonomyPolicy`/`AutonomyAllowlistEntry`/`AutonomyPolicyVersion` are
+byte-for-byte unchanged.
+
+**Scope.** No moving-average crossover, no RSI, no grid/DCA, no leverage,
+no futures, no order placement, no withdrawal/transfer/deposit/margin — no
+exceptions, exactly as this sprint's own spec required. No real Outcome/
+Learning wiring yet (the strategy candidate's `sourceOpportunityId`/
+`sourceRiskId` fields and its own `CompanySignal` id are the forward-
+compatible hooks a future rule can soft-reference, via the same pattern
+every other Outcome rule already uses — nothing fabricated ahead of that).
+No new Prisma model, no new migration, no new dependency. Not a
+recommendation to trade, and never claims to be.
+
 ### API keys
 
 The `ApiKey` model (and its `apiKey: ["create", "read", "revoke"]` RBAC
@@ -1419,6 +1541,7 @@ via `docker compose up -d postgres redis`, or any reachable instance your
 - `tests/sprint-12-decision-intelligence.test.ts` — tenant isolation and `CrossTenantAccessError` rejection for candidate-type/rule performance and ranking, correct success/failure/reversed counting and a genuinely-pending outcome never counted as evaluated, `ruleVersion` kept as its own dimension (a synthetic `v2` row never bleeds into `v1`'s track record), `shrinkSuccessRate`'s Laplace-shrinkage math (a 1-sample 100% observed rate shrinks well below 100%, converges toward the true rate as the sample grows) and `sampleSizeStatusFor`'s threshold, deterministic ranking (identical inputs -> identical output) with every candidate carrying a real `rankingReasons` explanation, a same-exposure Risk vs. Opportunity pair ranked apart purely by a strongly-different historical success rate (proving `historicalFactor` is doing real work) while `baseScore` alone still matches Sprint 8's own severity-weighted formula unchanged, both new AI tools' tenant isolation, RBAC (`decision: ["read"]`, held by every role) and read-only/no-audit-log-per-call behavior, and the **critical safety regression**: strongly favorable historical learning data measurably reorders the ranking while `AutonomyPolicy`/`AutonomyAllowlistEntry`/`AutonomyPolicyVersion` stay byte-for-byte unchanged and neither new tool is registered under the `market` domain
 - `tests/sprint-13-market-intelligence.test.ts` — the real Binance client's response validation against a mocked `fetch` (malformed body, malformed kline row, non-numeric price, `closeTime <= openTime` all rejected; a well-formed response normalizes correctly with prices preserved as exact strings), universe discovery resolving to the expected symbols against a mocked 2-symbol exchange (updated in Sprint 14 to exercise `discoverMarketUniverse` in place of the retired hardcoded-symbol-list assertion it originally made), `market_price_momentum.v1`'s deterministic severity/direction thresholds (no signal below 3%, medium/high/critical at 3%/7%/15%, a partial candle window returning `null` rather than a guess, identical input -> identical output), `CompanySignal` upsert idempotency under both sequential re-runs and concurrent execution, tenant isolation and `CrossTenantAccessError` rejection, one symbol's provider/rate-limit/timeout failure never blocking the other symbol, the job throwing (not silently succeeding) when every symbol fails so BullMQ's own retry engages, one organization's signal-write failure never blocking another's, and the **critical safety regression**: a real detected signal leaves `AutonomyPolicy`/`AutonomyAllowlistEntry`/`AutonomyPolicyVersion` byte-for-byte unchanged, every tool registered under `domain: "market"` is `read_only` and never autonomy-eligible (updated in Sprint 14 now that `get_market_intelligence` exists), the market data client exposing exactly `getCandles`/`getExchangeInfo`/`getTicker24hr` and nothing else, and no `placeOrder`/`createOrder`/`withdraw`/`transfer`-named function anywhere in the tool registry
 - `tests/sprint-14-market-intelligence.test.ts` — dynamic universe discovery excluding delisted/non-`TRADING` symbols and stablecoin-pair base assets while always force-including `BENCHMARK_SYMBOL`, `computeMarketMetrics`'s deterministic short/medium/daily percent-change and consistency math (including its `null` return on an insufficient candle window), each of the five signal families' (`market_trend.v1`, `market_volume_anomaly.v1`, `market_volatility.v1`, `market_relative_strength.v1`, `market_price_momentum.v1`) independent threshold behavior plus `market_regime.v1`'s classification against BTC's own metrics, the unconditional `market_metrics_snapshot.v1` signal being written every run regardless of whether any named signal actually fired, opportunity eligibility requiring all five conditions simultaneously and risk eligibility firing on any single qualifying condition, the composite scoring formula's additive/capped/clamped behavior and deterministic ranking with its score -> confidence -> symbol tie-break chain, `Opportunity.potentialImpact`/`Risk.potentialLoss` both persisted as exactly `0` with the fabrication-avoidance rationale carried in `evidence`, idempotent re-runs never duplicating a ranked candidate, tenant isolation and `CrossTenantAccessError` rejection (including a forced `getTenantScopedClient` failure via a namespace spy), RBAC for the new `marketIntelligence: ["read"]` resource across all four roles, the `get_market_intelligence` AI tool's `domain: "market"`/`read_only` registration, bounded concurrency never exceeding `SYMBOL_CONCURRENCY` in-flight symbol fetches, and the **critical safety regression**: a real volume-confirmed price move producing a genuine ranked opportunity still leaves `AutonomyPolicy`/`AutonomyAllowlistEntry`/`AutonomyPolicyVersion` byte-for-byte unchanged, no `AutonomousActionLog` row is ever created from market data, and no mutating market tool or execution-shaped function exists anywhere in the tool registry
+- `tests/sprint-15-strategy-engine.test.ts` — `RANGE_MEAN_REVERSION` firing only when the global regime is ranging even with otherwise-qualifying metrics, `TREND_FOLLOWING` requiring a real+consistent medium trend with agreeing daily momentum (and NOT firing on a large-but-inconsistent spike), `MOMENTUM_CONTINUATION` requiring a still-moving short-term window plus supportive relative strength, `NO_TRADE` on Sprint 14's own reused `conflicting_signals` risk condition, `NO_TRADE` on a high/critical-severity open Risk overriding even strong opportunity-shaped evidence (a medium-severity Risk instead recorded as a contradicting signal, not a veto), `NO_TRADE` on stale market data (older than `STALE_DATA_MAX_AGE_MS`) and on genuinely insufficient evidence, deterministic bounded scoring that reuses `Opportunity.score`/`.confidence` directly when one exists, identical-input-produces-identical-candidate across repeated calls, deterministic non-empty invalidation conditions, the thesis always referencing its own supporting evidence, no dollar amount/ROI/profit figure or account-balance/equity/leverage field ever appearing in a candidate, tenant isolation and `CrossTenantAccessError` rejection plus per-organization failure isolation, idempotent re-runs never duplicating the `market_strategy_candidate.v1` signal, a real Risk row correctly vetoing a strategy end-to-end, `getMarketIntelligenceRanking` surfacing `NO_TRADE` symbols that never had an Opportunity at all, the `get_market_intelligence` tool's response including the strategy list while staying `read_only`, and the **critical safety regression**: a full strategy-generation pass leaves `AutonomyPolicy`/`AutonomyAllowlistEntry`/`AutonomyPolicyVersion` byte-for-byte unchanged, the market autonomy ceiling stays `L2`, every market-domain tool stays `read_only` and non-autonomy-eligible, and no `placeOrder`/`createOrder`/`executeOrder`/`withdraw`/`transfer`-named function exists anywhere in the strategy module or the tool registry
 
 Each test creates its own users/organizations with random emails and slugs,
 so the suite is safe to run repeatedly against the same database.
