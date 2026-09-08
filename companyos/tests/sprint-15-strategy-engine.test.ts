@@ -27,6 +27,7 @@ const BASE_METRICS: MarketMetricsSnapshotPayload = {
   volatilityPct: 2,
   relativeStrength: 0,
   observedAt: new Date().toISOString(),
+  lastClose: 100,
 };
 
 const TREND_FOLLOWING_METRICS: MarketMetricsSnapshotPayload = {

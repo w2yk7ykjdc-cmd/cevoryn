@@ -41,6 +41,7 @@ const NEUTRAL_METRICS: MarketMetricsSnapshotPayload = {
   volatilityPct: 2,
   relativeStrength: 0,
   observedAt: new Date().toISOString(),
+  lastClose: 100,
 };
 
 const ELIGIBLE_OPPORTUNITY_METRICS: MarketMetricsSnapshotPayload = {

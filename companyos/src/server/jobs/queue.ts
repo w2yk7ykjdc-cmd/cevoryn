@@ -78,6 +78,11 @@ export async function scheduleRecurringJobs(): Promise<void> {
     { every: 3_600_000 },
     { name: "generate-market-strategies", data: {} },
   );
+  await getQueue().upsertJobScheduler(
+    "evaluate-paper-trading-scheduler",
+    { every: 3_600_000 },
+    { name: "evaluate-paper-trading", data: {} },
+  );
 }
 
 export { QUEUE_NAME };
