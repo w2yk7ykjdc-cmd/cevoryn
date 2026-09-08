@@ -32,6 +32,7 @@ const TENANT_SCOPED_MODELS = new Set([
   "CompanySignal",
   "CompanyHealthSnapshot",
   "Opportunity",
+  "Risk",
 ]);
 
 const DIRECTLY_SCOPED_MODELS = new Set([
@@ -54,6 +55,7 @@ const DIRECTLY_SCOPED_MODELS = new Set([
   "CompanySignal",
   "CompanyHealthSnapshot",
   "Opportunity",
+  "Risk",
 ]);
 
 export class CrossTenantAccessError extends Error {

@@ -121,6 +121,7 @@ model Organization {
   companySignals    CompanySignal[]
   healthSnapshots   CompanyHealthSnapshot[]
   opportunities     Opportunity[]
+  risks             Risk[]
 
   @@unique([slug])
   @@map("organization")
@@ -900,4 +901,55 @@ model Opportunity {
   @@index([organizationId, status])
   @@index([organizationId, detectedAt])
   @@map("opportunity")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Sprint 7: Intelligence — Risk Engine V1
+// ─────────────────────────────────────────────────────────────────────────
+
+enum RiskStatus {
+  open
+  resolved
+  dismissed
+}
+
+/// A scored, explained business risk derived from a `CompanySignal` row
+/// (`sourceSignalId`, a soft reference — see `CompanySignal`'s own doc
+/// comment for why these aren't real Prisma relations), mirroring
+/// `Opportunity`'s shape and upsert idempotency
+/// (`[organizationId, ruleName, ruleVersion, relatedEntityType,
+/// relatedEntityId]`). Unlike `Opportunity`, whose `status` a human must
+/// change, a `Risk`'s `status` auto-transitions `open` -> `resolved` when
+/// its underlying condition clears (see
+/// `src/server/intelligence/risk/service.ts`) — a risk describes an
+/// ongoing state, not a discrete action item, so it should auto-clear the
+/// way a monitoring alert does. A human's `dismissed` is never
+/// auto-overwritten either way.
+model Risk {
+  id                String         @id @default(cuid())
+  organizationId    String
+  organization      Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  type              String
+  title             String
+  description       String
+  severity          SignalSeverity
+  confidence        Int
+  potentialLoss     Decimal        @db.Decimal(14, 2)
+  evidence          Json           @default("{}")
+  explanation       String
+  relatedEntityType String?
+  relatedEntityId   String?
+  sourceSignalId    String?
+  status            RiskStatus     @default(open)
+  ruleName          String
+  ruleVersion       String
+  detectedAt        DateTime       @default(now())
+  resolvedAt        DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@unique([organizationId, ruleName, ruleVersion, relatedEntityType, relatedEntityId])
+  @@index([organizationId, status])
+  @@index([organizationId, detectedAt])
+  @@map("risk")
 }

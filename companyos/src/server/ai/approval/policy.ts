@@ -3,10 +3,10 @@ export type ToolRiskLevel = "auto" | "requires_approval";
 /**
  * Tools the agent may run without a human approval gate: strictly read-only
  * lookups (`get_lead`, `search_leads`, `search_audit_log`, `search_memory`,
- * `get_company_health`, `get_opportunities`), a deterministic analysis
- * (`analyze_lead`), and append-only annotations (`record_lead_activity`,
- * `remember_fact`) that add information without creating actionable work or
- * reaching outside the conversation.
+ * `get_company_health`, `get_opportunities`, `get_risks`), a deterministic
+ * analysis (`analyze_lead`), and append-only annotations
+ * (`record_lead_activity`, `remember_fact`) that add information without
+ * creating actionable work or reaching outside the conversation.
  *
  * Every other tool — including `create_task`, which assigns real work to a
  * person and can trigger reminder notifications, and any tool a future
@@ -23,6 +23,7 @@ const AUTO_TOOLS = new Set([
   "record_lead_activity",
   "get_company_health",
   "get_opportunities",
+  "get_risks",
 ]);
 
 export function classifyToolRisk(toolName: string): ToolRiskLevel {

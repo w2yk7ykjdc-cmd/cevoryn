@@ -7,6 +7,9 @@ import { listPipelineStages } from "@/server/leads/pipeline";
 import { scanCompanySignals } from "@/server/intelligence/signals/scanner";
 import { generateOpportunitiesForOrganization } from "@/server/intelligence/opportunity/service";
 import { recordHealthSnapshot } from "@/server/intelligence/health/service";
+import { applyWebhookEvent, getSubscriptionForOrg } from "@/server/billing/subscription";
+import { recordSignal } from "@/server/intelligence/signals/service";
+import { generateRisksForOrganization } from "@/server/intelligence/risk/service";
 import { prisma } from "@/server/db/client";
 import { addMemberDirect, authHeaders, closeTestConnections, createOrgForUser, signUpUser } from "./helpers";
 
@@ -162,5 +165,108 @@ describe("get_opportunities tool", () => {
     );
 
     expect(result.status).toBe("success");
+  });
+});
+
+describe("get_risks tool", () => {
+  afterAll(closeTestConnections);
+
+  it("returns the organization's open risks ordered by severity", async () => {
+    const { organization, conversation, caller } = await setup("owner");
+    const customerId = `cus_${organization.id}`;
+    const stripeSubscriptionId = `sub_${organization.id}`;
+
+    await applyWebhookEvent({
+      id: `evt_checkout_${organization.id}`,
+      type: "checkout.session.completed",
+      data: { object: { client_reference_id: organization.id, customer: customerId, subscription: stripeSubscriptionId } },
+    });
+    const subscription = await getSubscriptionForOrg(organization.id);
+    await recordSignal({
+      organizationId: organization.id,
+      type: "billing.subscription_updated",
+      sourceType: "domain_event",
+      sourceId: subscription.id,
+      severity: "high",
+      confidence: 100,
+      ruleName: "billing.subscription_updated",
+      ruleVersion: "v1",
+      relatedEntityType: "Subscription",
+      relatedEntityId: subscription.id,
+      payload: { organizationId: organization.id, subscriptionId: subscription.id, status: "past_due" },
+    });
+    await generateRisksForOrganization(organization.id);
+
+    const result = await executeToolCall(
+      { id: "call-9", name: "get_risks", arguments: {} },
+      { organizationId: organization.id, userId: caller.userId, conversationId: conversation.id },
+      authHeaders(caller.token),
+    );
+
+    expect(result.status).toBe("success");
+    if (result.status === "success") {
+      const output = result.output as { risks: { relatedEntityId: string; status: string }[] };
+      expect(output.risks).toHaveLength(1);
+      expect(output.risks[0]?.relatedEntityId).toBe(subscription.id);
+      expect(output.risks[0]?.status).toBe("open");
+    }
+  });
+
+  it("returns an empty list for an organization with no risks", async () => {
+    const { organization, conversation, caller } = await setup("owner");
+
+    const result = await executeToolCall(
+      { id: "call-10", name: "get_risks", arguments: {} },
+      { organizationId: organization.id, userId: caller.userId, conversationId: conversation.id },
+      authHeaders(caller.token),
+    );
+
+    expect(result.status).toBe("success");
+    if (result.status === "success") {
+      const output = result.output as { risks: unknown[] };
+      expect(output.risks).toHaveLength(0);
+    }
+  });
+
+  it("rejects an invalid status filter", async () => {
+    const { organization, conversation, caller } = await setup("owner");
+
+    const result = await executeToolCall(
+      { id: "call-11", name: "get_risks", arguments: { status: "not-a-real-status" } },
+      { organizationId: organization.id, userId: caller.userId, conversationId: conversation.id },
+      authHeaders(caller.token),
+    );
+
+    expect(result.status).toBe("error");
+    if (result.status === "error") {
+      expect(result.error).toMatch(/invalid arguments/i);
+    }
+  });
+
+  it("is readable by every role, including a read-only viewer", async () => {
+    const { organization, conversation, caller } = await setup("viewer");
+
+    const result = await executeToolCall(
+      { id: "call-12", name: "get_risks", arguments: {} },
+      { organizationId: organization.id, userId: caller.userId, conversationId: conversation.id },
+      authHeaders(caller.token),
+    );
+
+    expect(result.status).toBe("success");
+  });
+
+  it("logs the AI read to the audit log", async () => {
+    const { organization, conversation, caller } = await setup("owner");
+
+    await executeToolCall(
+      { id: "call-13", name: "get_risks", arguments: {} },
+      { organizationId: organization.id, userId: caller.userId, conversationId: conversation.id },
+      authHeaders(caller.token),
+    );
+
+    const entry = await prisma.auditLog.findFirst({
+      where: { organizationId: organization.id, action: "risk.ai_viewed" },
+    });
+    expect(entry).not.toBeNull();
   });
 });
