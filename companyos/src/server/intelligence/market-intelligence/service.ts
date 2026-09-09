@@ -4,7 +4,9 @@ import { RULE_NAME as OPPORTUNITY_RULE_NAME, RULE_VERSION as OPPORTUNITY_RULE_VE
 import { RULE_NAME as RISK_RULE_NAME, RULE_VERSION as RISK_RULE_VERSION } from "@/server/intelligence/risk/rules/market-multi-signal";
 import { RULE_NAME as REGIME_RULE_NAME, RULE_VERSION as REGIME_RULE_VERSION } from "@/server/intelligence/signals/rules/market-regime";
 import { STRATEGY_CANDIDATE_RULE_NAME, STRATEGY_CANDIDATE_RULE_VERSION } from "@/server/intelligence/strategy/generate";
-import type { RankedMarketCandidate, StrategyCandidate } from "@/server/intelligence/market-intelligence/types";
+import { getStrategyTypePerformance } from "@/server/intelligence/strategy-performance/service";
+import { getStrategyEvaluations } from "@/server/intelligence/strategy-evaluation/service";
+import type { RankedMarketCandidate, StrategyCandidate, StrategyEvaluationSummary, StrategyHistoricalPerformance } from "@/server/intelligence/market-intelligence/types";
 
 export type MarketIntelligenceSnapshot = {
   regime: string | null;
@@ -25,7 +27,7 @@ export type MarketIntelligenceSnapshot = {
 export async function getMarketIntelligenceRanking(organizationId: string): Promise<MarketIntelligenceSnapshot> {
   const scoped = getTenantScopedClient(organizationId);
 
-  const [opportunities, risks, regimeSignal, strategySignals] = await Promise.all([
+  const [opportunities, risks, regimeSignal, strategySignals, strategyTypePerformance, strategyEvaluations] = await Promise.all([
     scoped.opportunity.findMany({
       where: { ruleName: OPPORTUNITY_RULE_NAME, ruleVersion: OPPORTUNITY_RULE_VERSION, status: { in: ["new", "reviewed"] } },
       select: { relatedEntityId: true, score: true, confidence: true, evidence: true, updatedAt: true },
@@ -42,7 +44,26 @@ export async function getMarketIntelligenceRanking(organizationId: string): Prom
       where: { ruleName: STRATEGY_CANDIDATE_RULE_NAME, ruleVersion: STRATEGY_CANDIDATE_RULE_VERSION, status: "active" },
       select: { payload: true },
     }),
+    getStrategyTypePerformance(organizationId),
+    getStrategyEvaluations(organizationId),
   ]);
+
+  const performanceByStrategyType = new Map<string, StrategyHistoricalPerformance>(
+    strategyTypePerformance.map(({ strategyType, performance }) => [
+      strategyType,
+      {
+        shrunkWinRate: performance.shrunkWinRate,
+        evaluatedTrades: performance.evaluatedTrades,
+        sampleSizeStatus: performance.sampleSizeStatus,
+      },
+    ]),
+  );
+
+  const evaluationByStrategyType = new Map<string, StrategyEvaluationSummary>(
+    strategyEvaluations
+      .filter((e) => e.status === "evaluated")
+      .map((e) => [e.strategyType, { evidenceQuality: e.evidenceQuality, evaluationScore: e.evaluationScore }]),
+  );
 
   const validOpportunities = opportunities.filter((o): o is typeof o & { relatedEntityId: string } => o.relatedEntityId !== null);
   const validRisks = risks
@@ -64,7 +85,7 @@ export async function getMarketIntelligenceRanking(organizationId: string): Prom
   return {
     regime: regimePayload?.regime ?? null,
     regimeObservedAt: regimeSignal?.detectedAt.toISOString() ?? null,
-    ranked: rankMarketCandidates(validOpportunities, validRisks, regimePayload?.regime ?? null, strategiesBySymbol),
+    ranked: rankMarketCandidates(validOpportunities, validRisks, regimePayload?.regime ?? null, strategiesBySymbol, performanceByStrategyType, evaluationByStrategyType),
     strategies: sortedStrategies,
   };
 }

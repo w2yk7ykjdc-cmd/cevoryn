@@ -78,3 +78,89 @@ export async function addMemberDirect(
 export async function closeTestConnections(): Promise<void> {
   await Promise.all([prisma.$disconnect(), shutdownEventBus()]);
 }
+
+type PaperPositionStatus = "PENDING" | "OPEN" | "CLOSED" | "STOPPED" | "TAKE_PROFIT" | "LIQUIDATED" | "INVALIDATED";
+type PaperPositionDirection = "LONG" | "SHORT";
+type PaperPositionMode = "SPOT" | "PERPETUAL_SIMULATION";
+
+let tradeCounter = 0;
+
+/**
+ * Directly creates a fully-formed, already-closed `PaperTrade` row --
+ * bypassing the full Sprint 16 simulation pipeline (whose price movements
+ * are hard to control precisely enough to hit exact `returnPct`/
+ * `closeReason` combinations deterministically). Shared between the
+ * Sprint 17 and Sprint 18 test suites (both need the same precise control
+ * over closed-trade fixtures) -- introduced in Sprint 17, promoted here in
+ * Sprint 18 rather than duplicated a second time. `positionId` carries no
+ * foreign key to a real `PaperPosition` row (confirmed against the Sprint
+ * 16 migration SQL -- only `organizationId` is a real FK), so a synthetic
+ * unique value is sufficient.
+ */
+export async function createClosedPaperTrade(
+  organizationId: string,
+  overrides: Partial<{
+    symbol: string;
+    strategyType: string;
+    direction: PaperPositionDirection;
+    mode: PaperPositionMode;
+    strategySignalId: string | null;
+    regime: string | null;
+    candidateScore: number | null;
+    candidateConfidence: number | null;
+    leverage: number;
+    entryPrice: number;
+    exitPrice: number;
+    quantity: number;
+    notional: number;
+    initialMargin: number;
+    feesPaid: number;
+    fundingPaid: number;
+    netPnl: number;
+    returnPct: number;
+    maxFavorableExcursion: number;
+    maxAdverseExcursion: number;
+    closeReason: PaperPositionStatus;
+    openedAt: Date;
+    closedAt: Date;
+  }> = {},
+) {
+  tradeCounter += 1;
+  const entryPrice = overrides.entryPrice ?? 100;
+  const initialMargin = overrides.initialMargin ?? 1000;
+  const returnPct = overrides.returnPct ?? 0;
+  const netPnl = overrides.netPnl ?? returnPct * initialMargin;
+  const openedAt = overrides.openedAt ?? new Date(Date.now() - 60 * 60 * 1000);
+  const closedAt = overrides.closedAt ?? new Date();
+
+  return prisma.paperTrade.create({
+    data: {
+      organizationId,
+      positionId: `test-position-${tradeCounter}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      symbol: overrides.symbol ?? "BTCUSDT",
+      direction: overrides.direction ?? "LONG",
+      mode: overrides.mode ?? "PERPETUAL_SIMULATION",
+      strategyType: overrides.strategyType ?? "TREND_FOLLOWING",
+      strategySignalId: overrides.strategySignalId ?? null,
+      regime: overrides.regime === undefined ? "trending" : overrides.regime,
+      candidateScore: overrides.candidateScore === undefined ? 80 : overrides.candidateScore,
+      candidateConfidence: overrides.candidateConfidence === undefined ? 90 : overrides.candidateConfidence,
+      leverage: overrides.leverage ?? 1,
+      entryPrice,
+      exitPrice: overrides.exitPrice ?? entryPrice,
+      quantity: overrides.quantity ?? 10,
+      notional: overrides.notional ?? 1000,
+      initialMargin,
+      grossPnl: netPnl,
+      feesPaid: overrides.feesPaid ?? 0,
+      fundingPaid: overrides.fundingPaid ?? 0,
+      netPnl,
+      returnPct,
+      maxFavorableExcursion: overrides.maxFavorableExcursion ?? Math.max(0, netPnl),
+      maxAdverseExcursion: overrides.maxAdverseExcursion ?? Math.min(0, netPnl),
+      closeReason: overrides.closeReason ?? "CLOSED",
+      openedAt,
+      closedAt,
+    },
+  });
+}

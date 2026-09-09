@@ -2,6 +2,7 @@ import { prisma } from "@/server/db/client";
 import { runStaleAdvisoryResolution } from "@/server/intelligence/outcome/rules/stale-advisory-resolution";
 import { runRiskResolution } from "@/server/intelligence/outcome/rules/risk-resolution";
 import { runOpportunityStateProgression } from "@/server/intelligence/outcome/rules/opportunity-state-progression";
+import { runPaperTradeResult } from "@/server/intelligence/outcome/rules/paper-trade-result";
 import { logger } from "@/server/logger/logger";
 
 const ORG_BATCH_SIZE = 50;
@@ -25,8 +26,10 @@ export type EvaluatePendingOutcomesResult = {
  * aborting the run for the rest — deliberately reusing that pattern rather
  * than inventing a new orchestration shape.
  *
- * Adding a fourth rule later means adding one more `run*` call to the array
- * below; no other wiring changes.
+ * Adding another rule later means adding one more `run*` call to the array
+ * below; no other wiring changes -- Sprint 17's `runPaperTradeResult` (the
+ * paper-trading -> Outcome bridge) is itself a proof of this: it needed no
+ * new job, no new queue, no new scheduler entry, only this one line.
  */
 export async function evaluatePendingOutcomes(): Promise<EvaluatePendingOutcomesResult> {
   const start = Date.now();
@@ -37,7 +40,7 @@ export async function evaluatePendingOutcomes(): Promise<EvaluatePendingOutcomes
   let insufficientEvidence = 0;
   let errors = 0;
 
-  const rules = [runStaleAdvisoryResolution, runRiskResolution, runOpportunityStateProgression];
+  const rules = [runStaleAdvisoryResolution, runRiskResolution, runOpportunityStateProgression, runPaperTradeResult];
 
   for (;;) {
     const organizations = await prisma.organization.findMany({

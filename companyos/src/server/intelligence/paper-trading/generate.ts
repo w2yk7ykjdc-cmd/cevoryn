@@ -233,7 +233,7 @@ async function syncAccountAggregates(organizationId: string, unrealizedPnlSum: n
 
 async function closePosition(
   organizationId: string,
-  position: { id: string; symbol: string; direction: "LONG" | "SHORT"; mode: "SPOT" | "PERPETUAL_SIMULATION"; strategyType: string; strategySignalId: string | null; regime: string | null; leverage: number; entryPrice: Prisma.Decimal; quantity: Prisma.Decimal; notional: Prisma.Decimal; initialMargin: Prisma.Decimal; openedAt: Date },
+  position: { id: string; symbol: string; direction: "LONG" | "SHORT"; mode: "SPOT" | "PERPETUAL_SIMULATION"; strategyType: string; strategySignalId: string | null; regime: string | null; leverage: number; entryPrice: Prisma.Decimal; quantity: Prisma.Decimal; notional: Prisma.Decimal; initialMargin: Prisma.Decimal; openedAt: Date; candidateScore: number | null; candidateConfidence: number | null },
   update: ReturnType<typeof evaluatePositionUpdate>,
   now: Date,
 ): Promise<void> {
@@ -264,6 +264,8 @@ async function closePosition(
         strategyType: position.strategyType,
         strategySignalId: position.strategySignalId,
         regime: position.regime,
+        candidateScore: position.candidateScore,
+        candidateConfidence: position.candidateConfidence,
         leverage: position.leverage,
         entryPrice: position.entryPrice,
         exitPrice: update.currentPrice,
@@ -317,6 +319,8 @@ async function openPosition(
         strategyType: candidate.strategyType,
         strategySignalId,
         regime: candidate.marketRegime,
+        candidateScore: candidate.score,
+        candidateConfidence: candidate.confidence,
         leverage: plan.leverage,
         entryPrice: plan.entryPrice,
         currentPrice: plan.entryPrice,

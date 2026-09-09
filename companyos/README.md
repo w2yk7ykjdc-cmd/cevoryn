@@ -66,14 +66,16 @@ src/
       opportunity/           Opportunity Engine V1: signal -> opportunity generation, read path; expireStaleOpportunity (Sprint 10 pilot)
       risk/                  Risk Engine V1: signal -> risk generation (with auto-resolution), read path
       decision/              Decision Engine V1: ranks open Risks + Opportunities into one recommendation
-      outcome/               Outcome model + evaluation rules (Sprint 11): stale-advisory-resolution, risk-resolution, opportunity-state-progression
-      learning/              LearningRecord snapshots + performance/confidence-calibration metrics (Sprint 11)
+      outcome/               Outcome model + evaluation rules (Sprint 11, +paper-trade-result in Sprint 17): stale-advisory-resolution, risk-resolution, opportunity-state-progression, paper-trade-result
+      learning/              LearningRecord snapshots + performance/confidence-calibration metrics (Sprint 11, +relatedEntityType filter in Sprint 17)
       decision-intelligence/ candidate-type/rule performance, sample-size shrinkage, deterministic ranking (Sprint 12)
       compute.ts             recurring "compute intelligence" pass: health, opportunities, risks, decision per org
       evaluate-outcomes.ts   recurring "Action -> Outcome" pass: discovery + evaluation per org (Sprint 11)
-      market-intelligence/   scoring, ranking, generate + read service for market Opportunity/Risk (Sprint 14)
+      market-intelligence/   scoring, ranking (+historical-performance adjustment, Sprint 17), generate + read service for market Opportunity/Risk (Sprint 14)
       strategy/               deterministic Strategy Engine: selection, scoring, generate (Sprint 15)
       paper-trading/          Leveraged Paper Trading Engine: sizing, P&L, evaluate, entry, generate, account, service (Sprint 16, SIMULATION ONLY)
+      strategy-performance/   deterministic strategy/regime/confidence performance aggregation over closed paper trades (Sprint 17, SIMULATION ONLY)
+      strategy-evaluation/    evidence quality, drawdown, risk-adjusted return, regime/symbol/direction/leverage/temporal robustness, evaluation score (Sprint 18, SIMULATION ONLY)
     market-data/              Binance public candle + exchangeInfo + 24hr ticker client, dynamic universe discovery (Sprint 13/14)
 ```
 
@@ -1595,6 +1597,369 @@ endpoint, no real account/balance/position access, no withdrawal, no
 transfer. Learning stays purely observational — no outcome automatically
 rewrites a strategy threshold this sprint. Not a guarantee of profit, not
 investment advice, and never claims to be.
+
+### Paper Trading Outcome + Learning Feedback Engine (Sprint 17)
+
+> **PAPER / SIMULATION ONLY.** Every figure in this section — every
+> outcome, every learning record, every performance number, every ranking
+> adjustment — is derived from Sprint 16's simulated paper trading. No real
+> Binance account, credential, private endpoint, order, withdrawal, or
+> transfer exists anywhere in this codebase, before or after this sprint.
+
+Closes the loop Sprint 13–16 built: **market data → signals → market
+intelligence → strategy candidate → paper trade → position lifecycle →
+realized/unrealized P&L → outcome → evaluation → learning record →
+strategy performance → ranking feedback.** This sprint adds no new trading
+strategy and no new execution capability — it answers, at the code level,
+whether CompanyOS can measure whether the strategies it already runs
+actually work.
+
+**Phase 0 audit result: almost everything needed already existed.** The
+existing `Outcome` model's generic `relatedEntityType`/`relatedEntityId`
+soft-reference (the same pattern already used for `Opportunity`/`Risk`/
+`Decision`/`CompanySignal`) needed zero schema change to also describe a
+`PaperTrade`. `OutcomeType` already contained exactly the six values Phase
+2 needed (`success`/`failure`/`neutral`/`expired`/`reversed`/`unknown`).
+`evaluate-outcomes.ts`'s own doc comment already invited a fourth rule to
+be pushed onto its `rules` array — so this sprint needed **zero new
+BullMQ job, zero new queue, zero new scheduler entry**: the bridge below
+piggybacks on the existing hourly `evaluate-pending-outcomes` job.
+
+**The one migration actually needed** (Phase 3's own justification bar):
+two nullable columns, `candidateScore`/`candidateConfidence`, added to both
+`PaperPosition` and `PaperTrade`, captured once at entry time from the
+Sprint 15 `StrategyCandidate` that opened the position. This is a snapshot,
+never a live re-read: the `CompanySignal` a candidate lives on is upserted
+in place, so reading it again at evaluation time would silently score a
+LATER run's candidate instead of the one that actually opened the trade —
+the exact trap `opportunity-state-progression.ts` already documents for
+`Opportunity.potentialImpact`.
+
+**Phase 1 — the bridge** (`outcome/rules/paper-trade-result.ts`, `RULE_NAME:
+"paper_trade_result"`). Unlike a CRM outcome, a paper trade's result is
+fully known the instant it closes (`PaperTrade.netPnl`/`.returnPct` are
+already final) — there is no observation window to wait out, so
+`observationDueAt` is set to `closedAt` itself, and discovery + evaluation
+happen in the same pass. An `OPEN` position produces no `PaperTrade` row at
+all, so it structurally cannot have a pending Outcome — "open = pending,
+closed = evaluatable" is enforced by the data model, not a runtime check.
+
+**Phase 2 — deterministic classification, never keyed off `closeReason`
+alone.** Every close is measured by its actual `returnPct` (return on
+margin):
+
+```
+returnPct ≥ +1%              → success
+returnPct ≤ −1%               → failure
+was up ≥1% at some point,
+  closed at ≤ −1%             → reversed  (gave back a real gain)
+closeReason INVALIDATED,
+  |returnPct| < 1%             → expired
+otherwise                      → neutral
+closeReason LIQUIDATED         → ALWAYS failure, plus evidence.wasLiquidated: true
+```
+
+A stop-loss close is never automatically "strategy failed" and a
+take-profit close is never automatically "strategy proven" — both are
+graded purely on the realized return, exactly like every other close
+reason except the one deliberate exception (liquidation, which is by
+construction always a real, severe loss and is additionally flagged so it
+can always be reported separately from an ordinary loss).
+
+**Phase 3 — expected vs. observed, on one dimensionless scale.** When a
+trade closes with a snapshotted `candidateScore`, `expectedValue` is that
+score (0–100) and `observedValue` is a deterministic, documented mapping
+of the realized return onto the *same* scale
+(`50 + returnPct × 100 × 5`, clamped to [0, 100]) — never a fabricated
+dollar expectation from a normalized score. `errorValue = observed −
+expected`, reusing `LearningRecord`'s existing column exactly as Sprint 11
+defined it. A trade with no snapshot (pre-Sprint-17 data) produces no
+`LearningRecord` at all, rather than a guessed one.
+
+**Phase 4/5 — Strategy Performance Engine** (`strategy-performance/
+service.ts`), pure two-query, in-memory aggregation — one `paperTrade.
+findMany`, one `outcome.findMany`, joined via a `Map`, then grouped every
+way the spec asks for (overall, by strategy type, by strategy-type ×
+regime, by symbol, by direction, by leverage tier): total/evaluated/
+winning/losing/neutral trades, win/loss rate, average and median return,
+total and average P&L, best/worst trade, average holding duration,
+liquidation/stop-loss/take-profit/invalidation counts, total fees, total
+funding, plus a Laplace-shrunk win rate and sample-size status (both reused
+verbatim from Sprint 12's `decision-intelligence/sample-safety.ts` —
+`MIN_SAMPLE_SIZE = 5`). Win/loss/neutral is derived from the trade's own
+`paper_trade_result.v1` `Outcome.outcomeType` — never a second, competing
+threshold — and a trade with no evaluated Outcome yet contributes to
+`totalTrades` but never to `evaluatedTrades`/win-loss: "no verdict yet" is
+never silently a loss. `NO_TRADE` can never appear in this data at all —
+Sprint 16's own entry gate never opens a position for one, so there is
+nothing to filter out. Regime values are the real, existing
+`market_regime.v1` vocabulary (`trending`/`ranging`/`high_volatility`/
+`low_volatility`/`uncertain`) — a trade whose regime was never captured
+groups under `"unknown"`, never silently dropped.
+
+**Phase 8 — confidence calibration.** `learning/service.ts#
+getConfidenceCalibration` gained one additive, optional
+`relatedEntityType` parameter — omitted, every existing caller's behavior
+is byte-for-byte unchanged; passed as `"PaperTrade"`, it answers "when this
+strategy predicted confidence 90+, how often did the paper trade actually
+succeed," reusing the exact same four fixed buckets (0-59/60-79/80-89/
+90-100) Sprint 11 already established, never a second bucket scheme. This
+only works because `paper_trade_result.v1` writes the trade's own
+**strategy-predicted** confidence (`candidateConfidence`) into
+`Outcome.confidence` — not a fixed system value — otherwise every paper
+trade would land in one bucket and calibration would be meaningless. A
+bucket with zero evaluated outcomes reports `null`, never a fabricated 0%
+or 100%.
+
+**Phase 7 — ranking integration, bounded and current-evidence-first.**
+`decision-intelligence/ranking.ts`'s `scaleToFactor` (the existing
+`[0.5, 1.0]` bounded curve) is now exported and reused verbatim — not
+reimplemented — by `market-intelligence/ranking.ts`. `rankMarketCandidates`
+gained one additive, optional 5th parameter,
+`performanceByStrategyType: Map<string, StrategyHistoricalPerformance>`:
+omitted, ranking is byte-for-byte identical to pre-Sprint-17 behavior
+(verified directly against Sprint 14's own ranking tests). When a
+strategy type has fewer than `MIN_SAMPLE_SIZE` evaluated trades, its
+`historicalFactor` is exactly `1.0` — a deliberate, documented divergence
+from Sprint 12's `NEUTRAL_FACTOR = 0.75` default, chosen specifically so
+ranking output never changes at all until real measured history exists.
+Once sufficient, `priorityScore = clamp(opportunityScore × historicalFactor,
+0, 100)` — since `historicalFactor` is bounded to at most `1.0`, historical
+performance can only ever pull a candidate's rank DOWN from its current
+opportunity score, never above it: a strategy with a strong historical win
+rate but very bad current market evidence can never outrank a strategy
+with excellent current evidence purely on history. `getMarketIntelligence
+Ranking` now fetches `getStrategyTypePerformance` alongside its existing
+reads and passes the resulting map through — the wiring is live end to
+end, not just available.
+
+**Phase 9 — idempotency.** Reprocessing the same trade never duplicates
+an `Outcome` (the existing `[organizationId, ruleName, ruleVersion,
+relatedEntityType, relatedEntityId]` upsert key) or a `LearningRecord`
+(unique on `outcomeId`, with the existing `P2002`-catch race guard). One
+organization's evaluation failure never touches another's, matching every
+prior sprint's per-organization isolation.
+
+**Phase 11 — AI tool.** `get_strategy_performance` (`domain: "market"`,
+`read_only`, not autonomy-eligible) reuses the existing `paperTrading:
+["read"]` permission — no new RBAC resource, since this reads the same
+data domain `get_paper_trading` already does, just aggregated over
+history. Returns overall/by-strategy-type/by-regime/by-symbol/by-direction/
+by-leverage-tier performance plus paper-trading-scoped confidence
+calibration — every figure a deterministic database aggregation the LLM
+can relay but never compute itself.
+
+**Phase 12 — UI.** `/dashboard/market-intelligence` (extended, not
+replaced) gained three sections, all under the page's existing PAPER/
+SIMULATION labeling: **Strategy type performance**, **Regime performance**
+(strategy × regime, proving performance is measured per-condition, never
+assumed uniform), and **Paper trading outcomes** (the most recent closed
+trades with their symbol, direction, strategy, regime, exit reason,
+return, and evaluated result — `"pending evaluation"` rather than a
+fabricated result for a trade the hourly job hasn't reached yet), plus a
+confidence-calibration bucket display.
+
+**Phase 6/13 — learning cannot escape control.** Nothing in this sprint
+writes to `AutonomyPolicy`, `AutonomyAllowlistEntry`, `AutonomyPolicy
+Version`, or a `StrategyCandidate`'s own score — a dedicated regression
+test runs a full evaluation pass over several trades and asserts all three
+autonomy tables are byte-for-byte unchanged. `MAX_AUTONOMY_LEVEL_BY_DOMAIN.
+market` stays capped at `"L2"`. Historical performance is read-only input
+to a ranking multiplier, never a write path to policy, risk limits,
+leverage limits, or a new strategy.
+
+**The loop still cannot add real execution capability — proven, not just
+claimed.** No `placeOrder`/`createOrder`/`executeOrder`/`withdraw`/
+`transfer`-named function or tool exists anywhere in the tool registry,
+including the new one; the Binance client used still exposes exactly
+`getCandles`/`getExchangeInfo`/`getTicker24hr`; every `market`-domain tool
+(now three) stays `read_only` and non-autonomy-eligible. Cross-tenant
+isolation is enforced identically to every prior sprint: a scoped client
+for one organization throws `CrossTenantAccessError` against another's
+`PaperTrade`/`Outcome` rows, and a dedicated test proves one organization's
+evaluation pass never creates an `Outcome` or `LearningRecord` for another.
+
+**Tests.** `tests/sprint-17-paper-trade-learning.test.ts` (42 tests)
+covers the bridge, all six classification outcomes (including liquidation,
+reversal, and the stop/take-profit-doesn't-decide-the-verdict cases),
+expected-vs-observed learning, idempotent re-evaluation, strategy/regime/
+direction/leverage-tier aggregation, confidence calibration (including the
+zero-sample and sufficient-sample cases), bounded ranking integration
+(including the "history can only pull down, never up" property and the
+"bad-history-can't-beat-good-current-evidence" scenario), no-data/edge
+cases (empty organization, missing related trade, unknown regime), the AI
+tool's RBAC and read-only classification, and tenant isolation/
+cross-tenant rejection.
+
+### Strategy Evaluation & Robustness Engine (Sprint 18)
+
+> **PAPER / SIMULATION ONLY.** Every figure in this section is derived
+> from Sprint 16's simulated paper trading. No real Binance account,
+> credential, order, withdrawal, or transfer exists anywhere in this
+> codebase, before or after this sprint.
+
+Sprint 17 answered "what did this strategy actually do in the past?" This
+sprint answers the next question: **"how much can we trust that
+performance, and under what conditions does it actually work?"** Not a new
+trading strategy, not a backtesting engine (explicitly out of scope --
+see below) -- a deterministic evaluation layer over the exact same
+already-persisted `PaperTrade`/`Outcome` data Sprint 17 already produces.
+
+**Zero new Prisma models, zero new migrations.** The entire
+`strategy-evaluation/` module is computed, in-memory arithmetic over
+Sprint 17's `strategy-performance/service.ts#loadTradesAndOutcomes` (now
+exported for reuse, with one additive field, `candidateConfidence`, added
+to its row shape) -- there is nothing to persist, and therefore nothing to
+duplicate on a re-run.
+
+**A 4-level Evidence Quality** (`insufficient`/`limited`/`moderate`/
+`strong`) refines, rather than replaces, the existing binary
+`sample-safety.ts#MIN_SAMPLE_SIZE` (5) gate: `insufficient` is pinned to
+that exact same boundary, and `limited`/`moderate`/`strong` further
+subdivide what the old model only ever called "sufficient," at 5/20/50
+evaluated trades. A strategy with 2 evaluated trades can never be reported
+`strong`, regardless of its win rate -- checked directly in tests.
+
+**Risk-adjusted (Sharpe-like) return**: mean return-on-margin divided by
+its sample standard deviation, gated at the same `MIN_SAMPLE_SIZE`, and
+capped at a documented magnitude (`3`) rather than ever producing
+`Infinity`/`NaN` when every trade in a sample closed at the exact same
+return (zero variance).
+
+**Max drawdown** is the peak-to-trough of a RECONSTRUCTED cumulative-P&L
+sequence for one slice of closed trades (a strategy type, a direction, a
+leverage tier) -- explicitly never the account-level `PaperAccount`
+drawdown, which is a different, already-existing figure. The running peak
+starts at exactly 0, so an all-losses sequence still shows a real, honest
+dollar drawdown from that implicit baseline; its percentage is `null`
+(never a fabricated number) only when the sequence never produced a
+positive peak to divide by.
+
+**Symbol robustness** measures concentration via a Herfindahl-style index
+over each symbol's ABSOLUTE realized P&L share, bounded `(1/N, 1]` -- a
+strategy profitable on 8 of 10 symbols is never scored the same as one
+profitable on only 1 of 10 (a dedicated regression test asserts the first
+strictly outscores the second).
+
+**Regime, direction, and leverage robustness** all reuse the real,
+existing vocabularies already established by prior sprints (the actual
+`market_regime.v1` regime strings, the real `LONG`/`SHORT` direction, the
+real leverage tiers a strategy actually used) -- never the spec's own
+illustrative `TRENDING`/`RANGING`/`VOLATILE`/`QUIET` labels. Leverage
+robustness deliberately never treats a higher raw return as automatically
+better: it reports return, drawdown, liquidation rate, and risk-adjusted
+return side by side per tier, so a 10x tier's larger swings show up as a
+worse risk-adjusted number even when its raw average return is higher.
+
+**Temporal robustness** splits already-closed trades into three
+chronologically-ordered, non-overlapping slices (`older`/`previous`/
+`recent`) via plain integer division on trade COUNT, never a calendar
+window (which would be empty for a low-volume organization). Any
+remainder falls into `recent` by construction, so that bucket can only
+ever be larger than the other two -- never smaller, which would otherwise
+shrink exactly the bucket most relevant to "is it still working now."
+Every bucket carries its own Evidence Quality independently. No candle
+data and no simulated trade is ever introduced here -- only real,
+already-closed `PaperTrade` rows in their real close order, so there is no
+look-ahead bias beyond ordinary chronological sorting to guard against.
+
+**Confidence calibration**, per strategy type, reuses the exact same four
+buckets `learning/service.ts#CONFIDENCE_BUCKETS` already established
+(exported for this reuse) -- computed via an in-memory join against the
+already-loaded trade/outcome data, since the generic `Outcome` model has
+no `strategyType` column of its own to filter on directly.
+
+**Failure analysis is deliberately incomplete, on purpose.** Only
+categories DETERMINISTICALLY derivable from fields already persisted on a
+closed `PaperTrade` are reported: `liquidation`/`stop_loss`/`invalidated`
+(from `closeReason`), `regime_mismatch` (compared against this same
+strategy's own best-performing regime, computed from real data),
+`low_confidence_entry` (the entry-snapshotted `candidateConfidence` below
+the existing bucket scheme's own `60` floor), and an honest
+`unclassified` catch-all. The spec's own illustrative list also named
+categories like "excessive volatility" and "wrong direction" -- these are
+NOT included, because a closed `PaperTrade` never snapshotted volatility
+or trend-strength data, and re-reading the original `CompanySignal` at
+evaluation time would reintroduce the exact live-mutation trap Sprint 17
+already fixed by snapshotting `candidateScore`/`candidateConfidence` in
+the first place. Fabricating an unverifiable reason was rejected in favor
+of an honest `unclassified`.
+
+**Strategy Evaluation Score** -- bounded [0,100], deterministic, additive,
+every coefficient a named constant in `strategy-evaluation/service.ts`,
+never LLM-assigned:
+
+```
+score = performanceComponent        (0-40,  shrunkWinRate-based)
+      + consistencyComponent        (0-20,  from risk-adjusted return)
+      + regimeRobustnessComponent   (0-15,  from the WORST sufficiently-evidenced regime)
+      + symbolRobustnessComponent   (0-10,  1 - concentrationIndex)
+      + confidenceCalibrationComponent (0-15, how well-calibrated confidence actually is)
+      - drawdownPenalty             (0-20,  scaled by maxDrawdownPct)
+      - liquidationPenalty          (0-15,  scaled by liquidation rate)
+```
+
+Positive components sum to exactly 100 at their individual maximums; the
+result is clamped to [0,100]. "Concentration penalty" from the spec is
+expressed as a POSITIVE reward for diversification rather than a second,
+overlapping penalty term, to avoid double-counting the same signal twice
+in one additive formula.
+
+**Ranking integration** (`market-intelligence/ranking.ts`) adds a SECOND,
+independent bounded [0.5,1.0] `evaluationQualityFactor` alongside Sprint
+17's existing win-rate-only `historicalFactor` -- they measure materially
+different things (raw win rate vs. the full evaluation score) and are
+deliberately not folded into one. `1.0` (true no-op) whenever evidence is
+`insufficient`, so an unproven strategy can never be ranked as if it were
+proven by a good score alone; bounded to at most `1.0`, so historical
+evaluation quality can only ever pull `priorityScore` DOWN from
+`opportunityScore`, never above it -- a strategy with a strong historical
+evaluation but very bad current market evidence can never outrank one
+with excellent current evidence (a dedicated regression test proves this
+directly). The tie-break chain gained Evidence Quality as its 2nd key
+(after priority score, before confidence) -- existing callers that never
+populate the new map are unaffected, since every candidate then shares the
+same `"insufficient"` quality and the new key never actually discriminates
+anything for them (verified against Sprint 14's own ranking tests).
+
+**AI tool and UI, extended, not duplicated.** `get_strategy_performance`
+(Sprint 17) now additionally returns each strategy type's full
+`StrategyEvaluation` -- no new tool, per Phase 14's own explicit
+"gereksiz yeni tool oluşturma." `/dashboard/market-intelligence` gained a
+"Strategy Evaluation" section per strategy type: Evaluation Score,
+Evidence Quality, sample size, win rate, max drawdown, liquidation rate,
+regime/symbol/direction/leverage robustness, confidence calibration,
+failure analysis, and an expandable "Why this score?" breakdown of every
+additive/subtractive component -- all under the page's existing PAPER/
+SIMULATION labeling.
+
+**Explicitly NOT built this sprint** (per its own Phase 20/21): no
+historical backtesting engine, no replay against historical Binance
+candles, no fabricated trades, no look-ahead bias, no real execution
+capability of any kind. Historical Replay/Backtesting remains a
+separately-scoped future sprint.
+
+**Security invariants, re-verified unchanged.** No real Binance
+account/credential/order/withdrawal/transfer anywhere; every
+`market`-domain tool (still 3 -- extended, not added to) stays
+`read_only`/non-autonomy-eligible; `MAX_AUTONOMY_LEVEL_BY_DOMAIN.market`
+stays `"L2"`; a full evaluation pass over several strategies leaves
+`AutonomyPolicy`/`AutonomyPolicyVersion`/`AutonomyAllowlistEntry`
+byte-for-byte unchanged (a dedicated regression test proves it); tenant
+isolation and `CrossTenantAccessError` are enforced identically to every
+prior sprint.
+
+**Tests.** `tests/sprint-18-strategy-evaluation.test.ts` (51 tests) covers
+evidence-quality boundaries, drawdown (no data/single trade/all-wins/
+all-losses/peak-trough-recovery/same-timestamp ordering), risk-adjusted
+return (insufficient/zero-variance-positive/zero-variance-zero/
+zero-variance-negative/bounded-mixed), regime/symbol/direction/leverage/
+temporal robustness, confidence calibration, the evaluation score's
+boundedness and reproducibility, ranking integration (including the
+"can't outrank good current evidence" and tie-break scenarios), failure
+classification, the no-data case, liquidation reporting, tenant isolation/
+cross-tenant rejection, idempotency, and every unchanged security
+invariant.
 
 ### API keys
 

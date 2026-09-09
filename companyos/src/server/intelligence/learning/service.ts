@@ -191,7 +191,8 @@ export async function getDecisionPerformance(organizationId: string): Promise<Ou
   return getOutcomePerformance({ organizationId, requireDecisionLink: true });
 }
 
-const CONFIDENCE_BUCKETS: { label: string; min: number; max: number }[] = [
+/** Exported (Sprint 18) so `strategy-evaluation/service.ts` can bucket an in-memory, per-strategy-type confidence join using the exact same four boundaries, rather than inventing a second bucket scheme. */
+export const CONFIDENCE_BUCKETS: { label: string; min: number; max: number }[] = [
   { label: "0-59", min: 0, max: 59 },
   { label: "60-79", min: 60, max: 79 },
   { label: "80-89", min: 80, max: 89 },
@@ -204,18 +205,26 @@ const CONFIDENCE_BUCKETS: { label: string; min: number; max: number }[] = [
  * bucketed into four fixed, deterministic ranges. `observedSuccessRate` is
  * `null` for a bucket with zero evaluated outcomes, never `0`, so an
  * unpopulated bucket is never misread as "calibrated to 0% success."
+ *
+ * `relatedEntityType` is an optional, additive narrowing filter (Sprint 17):
+ * omitted, this is byte-for-byte the same call every existing caller
+ * already makes, mixing every domain's outcomes into one calibration.
+ * Passed as `"PaperTrade"`, it answers the identical question scoped to
+ * paper-trading confidence specifically — reusing these SAME four bucket
+ * boundaries rather than inventing a second bucket scheme (Sprint 17 Phase
+ * 8's own explicit "mevcut bucket yapısını bozma").
  */
-export async function getConfidenceCalibration(organizationId: string): Promise<ConfidenceBucket[]> {
+export async function getConfidenceCalibration(organizationId: string, relatedEntityType?: string): Promise<ConfidenceBucket[]> {
   const scoped = getTenantScopedClient(organizationId);
 
   const buckets: ConfidenceBucket[] = [];
   for (const bucket of CONFIDENCE_BUCKETS) {
     const [totalEvaluated, successCount] = await Promise.all([
       scoped.outcome.count({
-        where: { evaluationStatus: "evaluated", confidence: { gte: bucket.min, lte: bucket.max } },
+        where: { evaluationStatus: "evaluated", confidence: { gte: bucket.min, lte: bucket.max }, relatedEntityType },
       }),
       scoped.outcome.count({
-        where: { evaluationStatus: "evaluated", confidence: { gte: bucket.min, lte: bucket.max }, outcomeType: "success" },
+        where: { evaluationStatus: "evaluated", confidence: { gte: bucket.min, lte: bucket.max }, outcomeType: "success", relatedEntityType },
       }),
     ]);
 
