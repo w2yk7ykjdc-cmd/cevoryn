@@ -32,7 +32,8 @@ function isRawKline(value: unknown): value is RawKline {
   );
 }
 
-function parseKlinesResponse(body: unknown, symbol: string): Candle[] {
+/** Exported (Sprint 20) so the historical backtest data loader (`backtest/historical-binance-fetcher.ts`) can parse a paged, time-ranged `/api/v3/klines` response with the exact same validated parsing this live client already uses -- never a second, re-derived kline parser. */
+export function parseKlinesResponse(body: unknown, symbol: string): Candle[] {
   if (!Array.isArray(body)) {
     throw new MarketDataMalformedResponseError(`expected an array of klines for ${symbol}, got ${typeof body}`);
   }
@@ -87,7 +88,8 @@ function isTicker24hr(value: unknown): value is Ticker24hr {
   return typeof row === "object" && row !== null && typeof row.symbol === "string" && typeof row.quoteVolume === "string";
 }
 
-async function fetchJson(path: string, label: string): Promise<unknown> {
+/** Exported (Sprint 20) so the historical backtest data loader can reuse the exact same timeout/error-mapping behavior (`MarketDataRateLimitError`/`MarketDataAuthError`/`MarketDataProviderError`/`MarketDataTimeoutError`/`MarketDataMalformedResponseError`) against a DIFFERENT, time-ranged public endpoint path -- never a second, re-derived HTTP/error-handling layer. Still public-endpoints-only: the caller controls the path, but this function itself has no account/order/credential concept to misuse. */
+export async function fetchJson(path: string, label: string): Promise<unknown> {
   const url = `${BASE_URL}${path}`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);

@@ -77,6 +77,7 @@ src/
       strategy-performance/   deterministic strategy/regime/confidence performance aggregation over closed paper trades (Sprint 17, SIMULATION ONLY)
       strategy-evaluation/    evidence quality, drawdown, risk-adjusted return, regime/symbol/direction/leverage/temporal robustness, evaluation score (Sprint 18, SIMULATION ONLY)
       market-decision/        deterministic BUY/SELL/HOLD/NO_TRADE Decision Engine, execution-level Risk Engine, Order Validation, ProposedOrder (Sprint 19, PAPER/NOT REAL EXECUTION)
+      backtest/               Historical Market Replay & Backtest Engine: no-look-ahead replay, output metrics, robustness, walk-forward, quality score (Sprint 20, BACKTEST/HISTORICAL SIMULATION ONLY)
     market-data/              Binance public candle + exchangeInfo + 24hr ticker client, dynamic universe discovery (Sprint 13/14)
 ```
 
@@ -2100,6 +2101,120 @@ updating" and "a brand-new symbol's entry is blocked"), that
 `generateMarketDecisions` never writes anything (checked by exact-equality
 snapshots of `PaperAccount`/counts before and after), tenant isolation,
 cross-tenant rejection, and every unchanged security invariant.
+
+### Historical Market Replay & Backtest Engine (Sprint 20)
+
+> **BACKTEST / HISTORICAL SIMULATION — NOT REAL TRADING.** Every number in
+> this section is computed by replaying REAL past market data through the
+> real Sprints 13-19 deterministic pipeline logic against an isolated,
+> in-memory paper account. It is never real trading, never a prediction of
+> future performance, and never written to any real `PaperAccount`/
+> `PaperPosition`/`PaperTrade`/`CompanySignal`/`Opportunity`/`Risk` row.
+
+Sprints 13-19 built and validated the live pipeline (Market Data →
+Intelligence → Strategy → Decision → Risk → Paper Execution). This sprint
+adds a way to honestly ask "how would this system have behaved in the
+past" — without ever letting the system see its own future while answering
+that question.
+
+**Zero new Prisma models, zero new migrations.** The entire `backtest/`
+module is a pure, in-memory computation: it takes historical candle data
+and configuration in, and returns a computed report out. There is no
+database table to duplicate, and nothing here ever mutates production
+state — confirmed by `tests/sprint-20-backtest.test.ts` running and passing
+with no Postgres/Redis connection opened at all.
+
+**Look-ahead bias is prevented structurally, not by convention.** The
+historical data client (`historical-data.ts#createHistoricalMarketDataClient`)
+holds a single mutable "as of" cursor; every `getCandles` call is answered
+strictly from that cursor backward (`sliceCandlesAsOf`), regardless of how
+much more data the underlying dataset actually contains. The replay engine
+(`engine.ts#runReplay`) advances this cursor forward one real historical
+step at a time and recomputes every input fresh at each step — there is no
+code path by which a later candle, a later regime, or a later trade outcome
+can reach an earlier decision. Five dedicated tests prove this directly:
+appending future candles, changing a future close, spiking future volume,
+shifting a future regime, and crashing a future trade outcome each leave
+every earlier decision byte-for-byte unchanged.
+
+**Reuse, not a parallel copy.** The replay loop calls the exact same
+deterministic functions the live pipeline already uses at every stage:
+`computeMarketMetrics`/`classifyMarketRegime`/`evaluateMarketOpportunityEligibility`/
+`computeOpportunityScore`/`computeMarketConfidence`/`evaluateMarketRiskConditions`
+(Sprint 14), `selectStrategy` (Sprint 15), `decideEntry`/`buildEntryPlan`/
+`evaluatePositionUpdate`/the fee-funding-P&L formulas (Sprint 16), and
+`buildMarketDecision`/`validateProposedOrder` (Sprint 19) for an
+execution-readiness trace alongside every step. The 5 standalone alert
+signal rules (momentum/trend/volume-anomaly/volatility/relative-strength)
+are deliberately NOT replayed — direct audit confirmed neither the strategy
+engine nor the decision engine ever reads their output; they only exist in
+production to write human-facing `CompanySignal` alert rows.
+
+**Two decision layers, kept deliberately separate — because that's how
+they already relate in production.** `decideEntry` (Sprint 16) is the exact
+function `evaluatePaperTradingForOrganization` itself calls to actually
+open a live paper position, and it has no evidence-quality gate at all —
+this is what decides and sizes every simulated backtest trade.
+`buildMarketDecision`/`validateProposedOrder` (Sprint 19) is a separate,
+stricter, read-only "real execution readiness" preview that in production
+was likewise never wired into the real paper-trading entry path — reused
+here purely to populate a per-step `decisionTrace` for auditability, never
+to gate whether a backtest trade opens. It is normal, not a bug, for the
+readiness trace to show `insufficient_evidence` in the same step a real
+backtest trade opens via `decideEntry`.
+
+**A fixed, explicit universe — never `discoverMarketUniverse`.** A backtest
+run always trades exactly the symbols the caller names. Sprint 14's dynamic
+"today's most liquid symbols" universe discovery has no historical mode
+(`ticker/24hr` is a live-only endpoint) and would silently misrepresent
+what a scanner could have discovered on each replayed date — a fixed
+universe is honest about what it is, a dynamic one would not be.
+
+**Historical data provider, kept separate from the live Binance client**
+(`historical-binance-fetcher.ts`) — pages Binance's PUBLIC `/api/v3/klines`
+endpoint across a real `[start, end)` time range (still no API key, no
+account scope, no private endpoint of any kind), reusing the live client's
+own `fetchJson`/`parseKlinesResponse` (now exported for this purpose)
+rather than a second HTTP/parsing layer.
+
+**Output metrics, robustness, walk-forward, and an optional quality score**
+(`metrics.ts`/`walk-forward.ts`/`quality-score.ts`) are all zero-division-
+safe (`null`, never `NaN`/`Infinity`, when there's nothing to compute) and
+reuse Sprint 18's own `computeMaxDrawdown`/`computeRiskAdjustedReturn`/
+`evidenceQualityFor` verbatim. The optional Backtest Quality Score is named
+and scoped distinctly from Sprint 18's `StrategyEvaluation.evaluationScore`
+so the two (a backtest-only measure vs. a live/paper measure) are never
+confused, and returns `insufficient_evidence` below the same
+`MIN_SAMPLE_SIZE` gate every other score in this codebase already uses. The
+walk-forward split partitions one completed run's own trade log by time
+rather than re-running the engine twice — valid precisely because the
+engine is already look-ahead-safe at every single step.
+
+**Determinism.** Running the identical configuration twice always produces
+a byte-identical result — no wall-clock read, no randomness, no database
+read/write anywhere in the call graph (`tests/sprint-20-backtest.test.ts`
+Group K).
+
+**UI.** `/dashboard/backtest` runs one fixed-window (10-day, BTCUSDT +
+ETHUSDT) replay against real historical data and renders it under the same
+explicit BACKTEST / HISTORICAL SIMULATION / NOT REAL TRADING labeling as
+this section — symbol/date selection is not yet configurable from the page
+(a known, disclosed limitation, not a hidden one).
+
+**No AI tool extension.** Unlike Sprint 19's `get_market_intelligence`
+extension, no existing tool was extended and no new tool was registered —
+a backtest is a heavy, parameterized, potentially slow computation, a poor
+fit for a quick read-only chat tool, and the spec's own "extend only if
+needed" instruction is explicit that this is a valid, honest choice rather
+than a gap.
+
+**Tests.** `tests/sprint-20-backtest.test.ts` (49 tests, groups A-M) covers
+the as-of data slicing, warmup, config validation, real trade lifecycle
+(entries/updates/closes/fees/funding), account bookkeeping, zero-division-
+safe output metrics, robustness breakdowns, the walk-forward split, the
+quality score, isolation from production state, security invariants, and —
+as the sprint's own most critical requirement — five dedicated look-ahead
+bias tests (Group J) plus full determinism (Group K).
 
 ### API keys
 
