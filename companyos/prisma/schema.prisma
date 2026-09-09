@@ -136,6 +136,7 @@ model Organization {
   liveOrders               LiveOrder[]
   executionCredential      OrganizationExecutionCredential?
   riskPolicy               OrganizationRiskPolicy?
+  executionAutonomyPolicy  OrganizationExecutionAutonomyPolicy?
 
   @@unique([slug])
   @@map("organization")
@@ -1693,4 +1694,33 @@ model OrganizationRiskPolicy {
   updatedAt                 DateTime     @updatedAt
 
   @@map("organization_risk_policy")
+}
+
+/// Sprint 25: the explicit, per-organization autonomy GATE for CONTROLLED
+/// AUTONOMOUS EXECUTION -- separate from, and layered strictly ON TOP of,
+/// two things this row can never loosen or replace: `env.LIVE_EXECUTION_ENABLED`
+/// (the deployment-wide master switch, unchanged since Sprint 22, an
+/// operator-only env var with no app-level write path) and
+/// `AutonomyPolicy.killSwitchEngaged` for the "market" domain (the kill
+/// switch, checked unconditionally inside `validateForLiveExecution`
+/// regardless of what this row says -- the kill switch is always supreme).
+/// This row answers exactly one narrow question: has a human at THIS
+/// organization explicitly opted in to the autonomous-execution background
+/// job (`autonomous-execution.ts`) ever attempting a submission for it at
+/// all? No row, or `enabled: false`, means the orchestrator skips this
+/// organization entirely -- the same safe-default-off precedent every
+/// other execution/risk model in this codebase already follows.
+model OrganizationExecutionAutonomyPolicy {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  enabled        Boolean      @default(false)
+  enabledById    String?
+  enabledAt      DateTime?
+  disabledById   String?
+  disabledAt     DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@map("organization_execution_autonomy_policy")
 }

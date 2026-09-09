@@ -41,7 +41,17 @@ export type ExecutionAuditAction =
   // Sprint 24 Phase 5: circuit breaker state transitions.
   | "execution.circuit_breaker_triggered"
   // Sprint 24 Phase 7: real fill tracking.
-  | "execution.fill_recorded";
+  | "execution.fill_recorded"
+  // Sprint 25: the explicit, per-organization autonomous-execution gate --
+  // enabling/disabling is the human-override path for the autonomous
+  // orchestrator specifically (distinct from the kill switch, which blocks
+  // ALL new live submissions regardless of source).
+  | "execution.autonomy_enabled"
+  | "execution.autonomy_disabled"
+  // Sprint 25: a decision the autonomous orchestrator generated but the
+  // capital-allocation pre-check rejected BEFORE `submitDecision` was ever
+  // called -- reused verbatim from Sprint 24's own `evaluateCapitalAllocation`.
+  | "execution.autonomous_decision_skipped";
 
 export async function recordExecutionAudit(params: {
   organizationId: string;
@@ -64,7 +74,9 @@ export async function recordExecutionAudit(params: {
     ? "OrganizationExecutionCredential"
     : action.startsWith("execution.risk_policy_")
       ? "OrganizationRiskPolicy"
-      : "LiveOrder";
+      : action.startsWith("execution.autonomy_")
+        ? "OrganizationExecutionAutonomyPolicy"
+        : "LiveOrder";
   await prisma.auditLog.create({
     data: {
       organizationId,
