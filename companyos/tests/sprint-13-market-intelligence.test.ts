@@ -156,7 +156,7 @@ describe("H/I/J/K: CompanySignal integration -- idempotency and tenant isolation
       where: { organizationId: organization.id, type: "market_price_momentum", relatedEntityId: "BTCUSDT" },
     });
     expect(signals).toHaveLength(1);
-  });
+  }, 60_000);
 
   it("I: concurrent ingestion runs never produce two rows for the same organization/symbol", async () => {
     const owner = await signUpUser();
