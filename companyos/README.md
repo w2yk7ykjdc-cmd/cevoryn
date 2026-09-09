@@ -76,6 +76,7 @@ src/
       paper-trading/          Leveraged Paper Trading Engine: sizing, P&L, evaluate, entry, generate, account, service (Sprint 16, SIMULATION ONLY)
       strategy-performance/   deterministic strategy/regime/confidence performance aggregation over closed paper trades (Sprint 17, SIMULATION ONLY)
       strategy-evaluation/    evidence quality, drawdown, risk-adjusted return, regime/symbol/direction/leverage/temporal robustness, evaluation score (Sprint 18, SIMULATION ONLY)
+      market-decision/        deterministic BUY/SELL/HOLD/NO_TRADE Decision Engine, execution-level Risk Engine, Order Validation, ProposedOrder (Sprint 19, PAPER/NOT REAL EXECUTION)
     market-data/              Binance public candle + exchangeInfo + 24hr ticker client, dynamic universe discovery (Sprint 13/14)
 ```
 
@@ -1960,6 +1961,145 @@ boundedness and reproducibility, ranking integration (including the
 classification, the no-data case, liquidation reporting, tenant isolation/
 cross-tenant rejection, idempotency, and every unchanged security
 invariant.
+
+### Market Autonomy & Execution Readiness (Sprint 19)
+
+> **PAPER / SIMULATION / NOT REAL EXECUTION.** Every decision, proposed
+> order, and validation result in this section is a deterministic
+> computation over already-persisted SIMULATED data. No real Binance
+> account, credential, order, withdrawal, or transfer exists anywhere in
+> this codebase, before or after this sprint. Nothing here sends an order
+> anywhere.
+
+Sprints 13-18 built the full observation → strategy → paper trade →
+outcome → evaluation loop. This sprint adds the layer CompanyOS will need
+*before* it could ever be trusted with real execution: a deterministic
+Decision Engine, a stricter execution-level Risk Engine, an Execution
+Readiness abstraction (a fully-specified proposed order, never sent
+anywhere), and an actual kill switch wired into the real paper-trading
+entry path — while making genuine real-money execution not one line
+closer than before.
+
+**Zero new Prisma models, zero new migrations.** The entire
+`market-decision/` module is computed, in-memory arithmetic over data
+Sprints 13-18 already persist — `getMarketIntelligenceRanking` (Opportunity/
+Risk/regime/strategy), `getStrategyEvaluations` (Sprint 18's evidence
+quality/evaluation score), and the `PaperAccount`/open `PaperPosition`
+state Sprint 16 already maintains. There is nothing to persist and
+therefore nothing to duplicate on a re-run.
+
+**Decision Engine** (`market-decision/service.ts#buildMarketDecision`) —
+purely deterministic, no LLM: a strategy candidate's own `direction`
+(`up`→`BUY`, `down`→`SELL`, non-directional/`NO_TRADE`→`NO_TRADE`) becomes
+`HOLD` instead of `BUY`/`SELL` when a paper position is already open for
+that symbol. `NO_TRADE` never fabricates a direction — matching Sprint 18's
+own "direction icat etme" rule.
+
+**A stricter execution-level Risk Engine, not a second strategy engine.**
+Auditing the codebase first (this sprint's own explicit "önce audit"
+mandate) turned up a major reuse win: the Sprint 15 strategy engine
+(`strategy/scoring.ts#selectStrategy`) ALREADY vetoes `stale_data`,
+`unacceptable_risk` (severity high/critical), `conflicting_signals`, and
+`insufficient_evidence` before a directional candidate can even exist —
+recorded on `StrategyCandidate.noTradeReason`. A candidate that reaches
+the Decision Engine at all has therefore ALREADY cleared those checks once,
+at the strategy layer's own (more lenient) bar. Sprint 19's Order
+Validation (`validateProposedOrder`) applies a genuinely STRICTER,
+execution-specific bar on top — `medium`-severity risk (which the strategy
+layer only treats as a confidence drag) is `unacceptable_risk` here;
+`critical` severity is a direct `conflicting_signal`; and a strategy type
+whose current opportunity score is high (≥70) while its OWN measured
+historical evaluation score is low (≤30) is flagged `conflicting_signal`
+too — a genuine, measured disagreement between current and historical
+evidence, never fabricated.
+
+**Every proposed-order field reuses Sprint 16's own deterministic sizing**
+(`paper-trading/sizing.ts#buildEntryPlan` — the identical function real
+paper-trading entry uses) — never a second, competing pricing/sizing
+formula. Margin, exposure, and max-simultaneous-position checks reuse
+Sprint 16's own constants (`MAX_TOTAL_EXPOSURE_MULTIPLE`,
+`MAX_SIMULTANEOUS_POSITIONS`) verbatim. `liquidation_risk` is a defensive,
+independently-testable re-verification of the exact safety invariant
+`selectSafeLeverage` already guarantees, not a new rule. `drawdown_limit`
+is new — a documented 25% `PaperAccount.drawdownPct` ceiling on opening
+NEW risk (existing positions are never affected), the same "risk
+management stops new risk, never freezes existing risk" principle the kill
+switch itself applies.
+
+**Order Validation reason vocabulary** (`stale_data`/`insufficient_evidence`/
+`unacceptable_risk`/`exposure_limit`/`drawdown_limit`/`liquidation_risk`/
+`insufficient_margin`/`conflicting_signal`/`no_trade`/`invalid_quantity`/
+`invalid_price`/`invalid_stop`/`expired_decision`), checked in a fixed
+order (first failure wins, matching `paper-trading/entry.ts#decideEntry`'s
+own established style) so identical inputs always produce an identical
+verdict. A `HOLD` decision (a directional candidate with an already-open
+position) still constructs its hypothetical order and marks it `REJECTED`
+with reason `no_trade` — explaining exactly what would have been proposed
+and why it isn't actionable, rather than silently omitting it.
+
+**Kill switch — real, not decorative.** Two independent switches, both
+read-only from the paper-trading engine's perspective (never written by
+it): the existing per-organization `AutonomyPolicy.killSwitchEngaged` for
+the `"market"` domain (Sprint 9, reused verbatim — this sprint adds no new
+kill-switch storage), and a new system-wide `MARKET_EXECUTION_KILL_SWITCH`
+environment variable for an operator-level, cross-organization fail-safe.
+Checked via a new `isKillSwitchEngaged` read — deliberately NOT
+`getOrCreatePolicy`, which lazily creates a policy row (and a new
+`AutonomyPolicyVersion`) as a side effect that would otherwise make a
+background job silently write autonomy rows for organizations that have
+never touched their market policy. When engaged, `paper-trading/
+generate.ts`'s entry loop is skipped entirely for that pass — every
+already-open position still updates its price, checks its stop/take-profit/
+liquidation, and closes exactly as before; only NEW entries stop. The
+Decision Engine mirrors this at the read layer: decisions are still
+computed and shown, but no `proposedOrder` is generated at all while the
+kill switch is engaged (Phase 7's own "execution proposal üretme" — don't
+even generate a proposal, not just reject one).
+
+**Auditability** is achieved the same way Sprints 14-18 already achieve it
+— a `reasons: string[]` trace built directly from the real signals/
+strategy/evidence/risk inputs that shaped the decision, present on every
+`MarketDecision` — never a second, separately-persisted decision-log model.
+
+**AI tool and UI, extended, not duplicated.** `get_market_intelligence`
+now additionally returns `decisions: MarketDecision[]` — no new tool, per
+Phase 12's own explicit "gereksiz yeni tool oluşturma." Its
+`requiredPermission` grew from `{marketIntelligence:["read"]}` to also
+include `{paperTrading:["read"]}` (a decision's proposed order draws on
+`PaperAccount` state) — every organization role already holds both
+permissions together, so this is a documented capability extension, never
+a narrowing; the two pre-existing Sprint 14/15 tests asserting the old,
+narrower permission object were updated accordingly, with the reasoning
+recorded directly in the test file. `/dashboard/market-intelligence`
+gained a "Market Decisions & Execution Readiness" section: one card per
+symbol showing the decision, evidence quality, the full reasons trace,
+and (when one exists) the proposed order's every field plus its VALID/
+REJECTED status and reason — all under explicit PAPER/SIMULATION/NOT REAL
+EXECUTION labeling.
+
+**Security invariants, re-verified unchanged.** No real Binance account/
+credential/order/withdrawal/transfer anywhere; the market data client
+still exposes exactly `getCandles`/`getExchangeInfo`/`getTicker24hr`; every
+`market`-domain tool (still 3) stays `read_only`/non-autonomy-eligible;
+`MAX_AUTONOMY_LEVEL_BY_DOMAIN.market` stays `"L2"`; generating decisions
+and running paper trading together leave `AutonomyPolicy`/
+`AutonomyPolicyVersion`/`AutonomyAllowlistEntry` byte-for-byte unchanged,
+including for an organization that had never touched its market policy
+before this sprint (proving the read-only kill-switch check truly never
+lazily creates anything); tenant isolation and `CrossTenantAccessError`
+are enforced identically to every prior sprint. No historical backtesting,
+no candle replay, no fabricated trade was introduced.
+
+**Tests.** `tests/sprint-19-market-decision.test.ts` (44 tests) covers
+decision generation, BUY/SELL/HOLD/NO_TRADE, every Order Validation reason
+(including liquidation-distance and expired-decision edge cases hand-
+crafted to bypass the normally-safe sizing path, proving each check is a
+real, independent guard), the kill switch (both the pure decision layer
+and the real paper-trading entry path, including "existing positions keep
+updating" and "a brand-new symbol's entry is blocked"), that
+`generateMarketDecisions` never writes anything (checked by exact-equality
+snapshots of `PaperAccount`/counts before and after), tenant isolation,
+cross-tenant rejection, and every unchanged security invariant.
 
 ### API keys
 

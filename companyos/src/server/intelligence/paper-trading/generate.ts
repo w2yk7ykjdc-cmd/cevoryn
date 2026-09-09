@@ -4,6 +4,8 @@ import { getTenantScopedClient } from "@/server/db/tenant";
 import { logger } from "@/server/logger/logger";
 import { METRICS_SNAPSHOT_RULE_NAME, METRICS_SNAPSHOT_RULE_VERSION } from "@/server/intelligence/signals/market-scanner";
 import { STRATEGY_CANDIDATE_RULE_NAME, STRATEGY_CANDIDATE_RULE_VERSION } from "@/server/intelligence/strategy/generate";
+import { env } from "@/env";
+import { isKillSwitchEngaged } from "@/server/ai/autonomy/policy-service";
 import { getOrCreatePaperAccount } from "@/server/intelligence/paper-trading/account";
 import { decideEntry } from "@/server/intelligence/paper-trading/entry";
 import { evaluatePositionUpdate, type OpenPositionState } from "@/server/intelligence/paper-trading/evaluate";
@@ -183,11 +185,27 @@ async function evaluatePaperTradingForOrganization(
   const account = await getOrCreatePaperAccount(organizationId);
 
   // 3) Attempt entry for every non-NO_TRADE, directional candidate that
-  // doesn't already have an open position.
+  // doesn't already have an open position -- UNLESS the kill switch (this
+  // organization's own `AutonomyPolicy.killSwitchEngaged` for the "market"
+  // domain, OR the system-wide `MARKET_EXECUTION_KILL_SWITCH`) is engaged
+  // (Sprint 19 Phase 7). Everything above this point (updating/closing
+  // already-open positions) has already run unconditionally: a kill switch
+  // stops NEW positions from opening, it never freezes or hides existing
+  // ones -- their price updates, stop/take-profit/liquidation checks, and
+  // closes all continue exactly as before. This is a pure READ of the
+  // existing kill switch flag (`isKillSwitchEngaged`, never
+  // `getOrCreatePolicy`), so it can never itself create or modify an
+  // `AutonomyPolicy`/`AutonomyPolicyVersion` row.
   let positionsOpened = 0;
   let runningUsedMargin = usedMarginSum;
   let runningNotional = notionalSum;
   let runningPositionCount = currentOpenPositions.length;
+
+  const killSwitchEngaged = env.MARKET_EXECUTION_KILL_SWITCH || (await isKillSwitchEngaged(organizationId, "market"));
+  if (killSwitchEngaged) {
+    logger.warn({ organizationId }, "paper trading: kill switch engaged, skipping new entries this pass");
+    return { positionsOpened, positionsUpdated, positionsClosed };
+  }
 
   for (const [symbol, { candidate, signalId }] of candidatesBySymbol) {
     const metrics = metricsBySymbol.get(symbol);

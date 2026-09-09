@@ -54,6 +54,18 @@ export const env = createEnv({
       .default("info"),
 
     JOB_QUEUE_PREFIX: z.string().default("companyos"),
+
+    /**
+     * Sprint 19: a system-wide (not per-organization) fail-safe, distinct
+     * from `AutonomyPolicy.killSwitchEngaged` (which is per-organization,
+     * per-domain). When true, the paper-trading engine opens NO new
+     * position for ANY organization -- open positions still update/close
+     * normally. Defaults to false (not engaged); an operator sets it in
+     * the deployment environment, never through the app itself, since
+     * there is deliberately no UI/API path that could flip a system-wide
+     * switch on behalf of one organization.
+     */
+    MARKET_EXECUTION_KILL_SWITCH: z.coerce.boolean().default(false),
   },
   client: {
     NEXT_PUBLIC_APP_URL: z.url().default("http://localhost:3000"),

@@ -10,6 +10,8 @@ import {
 import type { StrategyPerformanceMetrics } from "@/server/intelligence/strategy-performance/types";
 import { getStrategyEvaluations } from "@/server/intelligence/strategy-evaluation/service";
 import type { EvidenceQuality, StrategyEvaluation } from "@/server/intelligence/strategy-evaluation/types";
+import { generateMarketDecisions } from "@/server/intelligence/market-decision/service";
+import type { MarketDecision, MarketDecisionAction } from "@/server/intelligence/market-decision/types";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -36,6 +38,12 @@ function evidenceQualityBadgeVariant(quality: EvidenceQuality): "default" | "sec
   return "secondary";
 }
 
+function actionBadgeVariant(action: MarketDecisionAction): "default" | "secondary" | "destructive" {
+  if (action === "BUY" || action === "SELL") return "default";
+  if (action === "NO_TRADE") return "secondary";
+  return "secondary";
+}
+
 /**
  * Fully server-rendered and read-only -- there is nothing to mutate on
  * this page. Every number shown comes directly from
@@ -46,7 +54,7 @@ function evidenceQualityBadgeVariant(quality: EvidenceQuality): "default" | "sec
  */
 export default async function MarketIntelligencePage() {
   const { organization } = await requirePermission({ marketIntelligence: ["read"], paperTrading: ["read"] });
-  const [snapshot, paperTrading, strategyTypePerformance, regimePerformance, confidenceCalibration, recentOutcomes, strategyEvaluations] = await Promise.all([
+  const [snapshot, paperTrading, strategyTypePerformance, regimePerformance, confidenceCalibration, recentOutcomes, strategyEvaluations, decisions] = await Promise.all([
     getMarketIntelligenceRanking(organization.id),
     getPaperTradingSnapshot(organization.id),
     getStrategyTypePerformance(organization.id),
@@ -54,6 +62,7 @@ export default async function MarketIntelligencePage() {
     getPaperTradeConfidenceCalibration(organization.id),
     getRecentPaperTradeOutcomes(organization.id),
     getStrategyEvaluations(organization.id),
+    generateMarketDecisions(organization.id),
   ]);
 
   return (
@@ -66,6 +75,26 @@ export default async function MarketIntelligencePage() {
           access, no financial capability exists anywhere in this pipeline. Not a guarantee of profit.
         </p>
       </div>
+
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight">Market Decisions &amp; Execution Readiness</h2>
+        <p className="text-sm text-muted-foreground">
+          PAPER / SIMULATION / NOT REAL EXECUTION. A deterministic BUY/SELL/HOLD/NO_TRADE call per symbol, combining
+          current market evidence, the strategy candidate, its historical Strategy Evaluation, and risk -- with a
+          proposed order (never sent anywhere) marked VALID or REJECTED with a specific reason. No LLM decides
+          anything here; nothing here can place a real order.
+        </p>
+      </div>
+
+      {decisions.length === 0 ? (
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground">No strategy candidates yet -- no decisions to show.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        decisions.map((decision) => <DecisionCard key={decision.symbol} decision={decision} />)
+      )}
 
       <Card>
         <CardHeader>
@@ -405,6 +434,64 @@ function Stat({ label, value }: { label: string; value: number }) {
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="font-medium">{value.toFixed(4)}</p>
     </div>
+  );
+}
+
+function DecisionCard({ decision }: { decision: MarketDecision }) {
+  const order = decision.proposedOrder;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex flex-wrap items-center gap-2">
+          {decision.symbol}
+          <Badge variant={actionBadgeVariant(decision.action)}>{decision.action}</Badge>
+          <Badge variant={evidenceQualityBadgeVariant(decision.evidenceQuality)}>{decision.evidenceQuality} evidence</Badge>
+          {decision.killSwitchEngaged && <Badge variant="destructive">kill switch engaged</Badge>}
+        </CardTitle>
+        <CardDescription>
+          {decision.strategyType} -- strategy score {decision.strategyScore}, confidence {decision.strategyConfidence}
+          {decision.evaluationScore !== null ? `, evaluation score ${decision.evaluationScore}/100` : ""}
+          {decision.regime ? ` -- regime: ${decision.regime}` : ""}
+          {decision.riskSeverity !== "none" ? ` -- risk: ${decision.riskSeverity}` : ""}. PAPER/SIMULATION ONLY.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3 text-xs">
+        <ul className="list-disc pl-4 text-muted-foreground">
+          {decision.reasons.map((reason, i) => (
+            <li key={i}>{reason}</li>
+          ))}
+        </ul>
+
+        {order ? (
+          <div className="rounded-md border bg-muted/30 p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium">Proposed order (NOT REAL EXECUTION)</span>
+              <Badge variant={order.validationStatus === "VALID" ? "default" : "destructive"}>{order.validationStatus}</Badge>
+              {order.rejectReason && <span className="text-muted-foreground">reason: {order.rejectReason}</span>}
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4">
+              <span>Direction: {order.direction}</span>
+              <span>Mode: {order.mode}</span>
+              <span>Entry: {order.entryPrice}</span>
+              <span>Quantity: {order.quantity.toFixed(6)}</span>
+              <span>Leverage: {order.leverage}x</span>
+              <span>Stop: {order.stopLossPrice}</span>
+              <span>Take profit: {order.takeProfitPrice}</span>
+              <span>Liquidation: {order.liquidationPrice ?? "n/a (SPOT)"}</span>
+              <span>Risk: {order.risk.toFixed(2)}</span>
+              <span>Exposure: {order.notional.toFixed(2)}</span>
+            </div>
+            <p className="mt-2 text-muted-foreground">
+              Decided {new Date(order.decisionTimestamp).toLocaleString()}, expires {new Date(order.expiresAt).toLocaleString()}.
+            </p>
+          </div>
+        ) : (
+          <p className="text-muted-foreground">
+            No proposed order{decision.killSwitchEngaged ? " -- kill switch engaged." : " for this decision."}
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
