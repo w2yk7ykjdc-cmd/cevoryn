@@ -1,7 +1,7 @@
 import { getTenantScopedClient } from "@/server/db/tenant";
 import { recordExecutionAudit } from "@/server/execution/audit";
 import { reconcile, isSafeToOpenNewOrders, type LocalOrderSnapshot, type ReconciliationResult } from "@/server/execution/reconciliation";
-import type { ExecutionGateway } from "@/server/execution/types";
+import type { ExecutionGateway, ExecutionOrderStatus } from "@/server/execution/types";
 
 /**
  * Sprint 23 Phase 4: kill-switch-safe management of ALREADY-OPEN live
@@ -76,16 +76,14 @@ export async function cancelExistingLiveOrder(params: { organizationId: string; 
  * THIS organization's own non-terminal rows in a tenant-scoped way and
  * shaping them into `LocalOrderSnapshot`s.
  *
- * Known limitation, honestly documented rather than silently glossed over:
- * `LiveOrder` does not yet persist a running `filledQuantity` (no live
- * order has ever actually been filled -- `LIVE_EXECUTION_ENABLED` stays
- * `false` this sprint too), so every local snapshot reports `filledQuantity:
- * 0`. This means a `partial_fill` mismatch will correctly fire whenever the
- * PROVIDER reports any fill at all, which is the right, safe direction to
- * err in (never silently missing a real fill), but it cannot yet
- * distinguish "no fill happened" from "a fill happened and we haven't
- * caught up" -- a future sprint should add a persisted `filledQuantity`
- * column once real fills exist to reconcile against.
+ * Sprint 24 Phase 7 closes the gap Sprint 23 honestly documented here: the
+ * REAL, persisted `LiveOrder.filledQuantity` is now used (previously always
+ * `0`). Detecting drift is unchanged (still `reconcile()`, read-only); the
+ * NEW additive capability is `syncOrderFillFromProvider` below, which a
+ * caller invokes explicitly to correct local state after a detected
+ * `partial_fill`/`unexpected_close` mismatch -- reconciliation ITSELF still
+ * never mutates anything on its own, preserving Sprint 22's own "detect,
+ * never self-heal by guessing" discipline.
  */
 export async function reconcileOrganizationLiveState(params: { organizationId: string; gateway: ExecutionGateway }): Promise<ReconciliationResult> {
   const { organizationId, gateway } = params;
@@ -102,7 +100,7 @@ export async function reconcileOrganizationLiveState(params: { organizationId: s
     quantity: Number(o.quantity),
     price: o.price !== null ? Number(o.price) : null,
     status: o.status,
-    filledQuantity: 0,
+    filledQuantity: Number(o.filledQuantity),
     requestedAt: o.requestedAt,
   }));
 
@@ -124,6 +122,77 @@ export async function reconcileOrganizationLiveState(params: { organizationId: s
   }
 
   return result;
+}
+
+/**
+ * Sprint 24 Phase 7: applies an absolute (never incremental) fill update to
+ * a `LiveOrder` row -- idempotent by construction: calling this twice with
+ * the SAME `filledQuantity`/`averageFillPrice`/`status` produces the exact
+ * same row state both times and only audits once (Phase 11's own "partial
+ * fill duplicate event oluşturmuyor" requirement). `filledAt` is set only
+ * on the transition INTO `FILLED`, never overwritten on a subsequent
+ * idempotent re-application. Tenant-scoped; never gated by the kill switch
+ * for the same reason cancellation/reconciliation aren't -- recording what
+ * has ALREADY happened at the provider is not new exposure.
+ */
+export async function applyFillUpdate(params: {
+  organizationId: string;
+  clientOrderId: string;
+  filledQuantity: number;
+  averageFillPrice: number | null;
+  status: ExecutionOrderStatus;
+}): Promise<{ changed: boolean }> {
+  const { organizationId, clientOrderId, filledQuantity, averageFillPrice, status } = params;
+  const scoped = getTenantScopedClient(organizationId);
+
+  const existing = await scoped.liveOrder.findUnique({ where: { organizationId_clientOrderId: { organizationId, clientOrderId } } });
+  if (!existing) throw new LiveOrderNotFoundError(clientOrderId);
+
+  const noChange =
+    Number(existing.filledQuantity) === filledQuantity &&
+    (existing.averageFillPrice === null ? null : Number(existing.averageFillPrice)) === averageFillPrice &&
+    existing.status === status;
+  if (noChange) return { changed: false };
+
+  await scoped.liveOrder.update({
+    where: { organizationId_clientOrderId: { organizationId, clientOrderId } },
+    data: {
+      filledQuantity,
+      averageFillPrice,
+      status,
+      filledAt: status === "FILLED" && existing.filledAt === null ? new Date() : existing.filledAt,
+    },
+  });
+  await recordExecutionAudit({
+    organizationId,
+    action: "execution.fill_recorded",
+    clientOrderId,
+    symbol: existing.symbol,
+    executionResult: status,
+    metadata: { filledQuantity, averageFillPrice },
+  });
+  return { changed: true };
+}
+
+/**
+ * Looks up this order's CURRENT state directly from the provider
+ * (`gateway.getOrder`) and applies it via `applyFillUpdate` -- the
+ * explicit, caller-invoked correction step for a `partial_fill`/
+ * `unexpected_close` mismatch `reconcile()` detected. If the provider
+ * genuinely has no record (`null`), local state is left untouched rather
+ * than guessed at -- matches `reconciliation.ts`'s own "never self-heal by
+ * guessing" discipline.
+ */
+export async function syncOrderFillFromProvider(params: { organizationId: string; gateway: ExecutionGateway; clientOrderId: string }): Promise<{ changed: boolean }> {
+  const { organizationId, gateway, clientOrderId } = params;
+  const scoped = getTenantScopedClient(organizationId);
+  const existing = await scoped.liveOrder.findUnique({ where: { organizationId_clientOrderId: { organizationId, clientOrderId } } });
+  if (!existing) throw new LiveOrderNotFoundError(clientOrderId);
+
+  const remote = await gateway.getOrder(clientOrderId, existing.symbol);
+  if (!remote) return { changed: false };
+
+  return applyFillUpdate({ organizationId, clientOrderId, filledQuantity: remote.filledQuantity, averageFillPrice: remote.averageFillPrice, status: remote.status });
 }
 
 /**

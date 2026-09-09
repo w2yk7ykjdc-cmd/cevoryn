@@ -80,6 +80,36 @@ export type RiskLimitViolation =
   | "max_consecutive_losses"
   | "emergency_stop";
 
+/**
+ * Sprint 24 Phase 2/3: the same 8 hard-limit fields `checkRiskLimits` has
+ * always checked, now expressible as a plain value object rather than
+ * always reading the module-level constants directly -- this is the seam
+ * `risk-policy.ts#RiskPolicyLimits` (a superset, with 2 more fields) is
+ * narrowed down to for this function specifically.
+ */
+export type RiskLimits = {
+  maxLeverage: number;
+  maxOrderNotionalPct: number;
+  maxTotalExposureMultiple: number;
+  maxSimultaneousPositions: number;
+  maxSymbolExposurePct: number;
+  maxStrategyExposurePct: number;
+  maxDailyLossPct: number;
+  maxConsecutiveLosses: number;
+};
+
+/** Built directly from this module's own Sprint 22 constants -- `checkRiskLimits`'s default when no organization-specific limits are supplied, so every EXISTING call site (never passing a second argument) behaves byte-for-byte identically to before this sprint. */
+export const DEFAULT_HARD_LIMITS: RiskLimits = {
+  maxLeverage: MAX_LIVE_LEVERAGE,
+  maxOrderNotionalPct: MAX_ORDER_NOTIONAL_PCT_OF_EQUITY,
+  maxTotalExposureMultiple: MAX_LIVE_TOTAL_EXPOSURE_MULTIPLE,
+  maxSimultaneousPositions: MAX_LIVE_SIMULTANEOUS_POSITIONS,
+  maxSymbolExposurePct: MAX_SYMBOL_EXPOSURE_PCT_OF_EQUITY,
+  maxStrategyExposurePct: MAX_STRATEGY_EXPOSURE_PCT_OF_EQUITY,
+  maxDailyLossPct: MAX_DAILY_LOSS_PCT,
+  maxConsecutiveLosses: MAX_CONSECUTIVE_LOSSES,
+};
+
 export type RiskLimitCheckInput = {
   orderNotional: number;
   leverage: number;
@@ -102,15 +132,15 @@ export type RiskLimitCheckInput = {
  * impossible for an LLM to influence at runtime (it only ever sees
  * already-computed numbers, never a prompt-controllable threshold).
  */
-export function checkRiskLimits(input: RiskLimitCheckInput): RiskLimitViolation | null {
+export function checkRiskLimits(input: RiskLimitCheckInput, limits: RiskLimits = DEFAULT_HARD_LIMITS): RiskLimitViolation | null {
   if (input.emergencyStopEngaged) return "emergency_stop";
-  if (input.consecutiveLosses >= MAX_CONSECUTIVE_LOSSES) return "max_consecutive_losses";
-  if (input.todaysRealizedLossPct >= MAX_DAILY_LOSS_PCT) return "max_daily_loss";
-  if (input.leverage > MAX_LIVE_LEVERAGE) return "max_leverage";
-  if (input.accountEquity > 0 && input.orderNotional / input.accountEquity > MAX_ORDER_NOTIONAL_PCT_OF_EQUITY) return "max_order_notional";
-  if (input.existingOpenPositionCount >= MAX_LIVE_SIMULTANEOUS_POSITIONS) return "max_open_positions";
-  if (input.accountEquity > 0 && (input.existingTotalExposure + input.orderNotional) / input.accountEquity > MAX_LIVE_TOTAL_EXPOSURE_MULTIPLE) return "max_total_exposure";
-  if (input.accountEquity > 0 && (input.existingSymbolExposure + input.orderNotional) / input.accountEquity > MAX_SYMBOL_EXPOSURE_PCT_OF_EQUITY) return "max_symbol_exposure";
-  if (input.accountEquity > 0 && (input.existingStrategyExposure + input.orderNotional) / input.accountEquity > MAX_STRATEGY_EXPOSURE_PCT_OF_EQUITY) return "max_strategy_exposure";
+  if (input.consecutiveLosses >= limits.maxConsecutiveLosses) return "max_consecutive_losses";
+  if (input.todaysRealizedLossPct >= limits.maxDailyLossPct) return "max_daily_loss";
+  if (input.leverage > limits.maxLeverage) return "max_leverage";
+  if (input.accountEquity > 0 && input.orderNotional / input.accountEquity > limits.maxOrderNotionalPct) return "max_order_notional";
+  if (input.existingOpenPositionCount >= limits.maxSimultaneousPositions) return "max_open_positions";
+  if (input.accountEquity > 0 && (input.existingTotalExposure + input.orderNotional) / input.accountEquity > limits.maxTotalExposureMultiple) return "max_total_exposure";
+  if (input.accountEquity > 0 && (input.existingSymbolExposure + input.orderNotional) / input.accountEquity > limits.maxSymbolExposurePct) return "max_symbol_exposure";
+  if (input.accountEquity > 0 && (input.existingStrategyExposure + input.orderNotional) / input.accountEquity > limits.maxStrategyExposurePct) return "max_strategy_exposure";
   return null;
 }

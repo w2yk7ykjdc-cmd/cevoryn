@@ -46,6 +46,7 @@ const TENANT_SCOPED_MODELS = new Set([
   "BacktestRun",
   "LiveOrder",
   "OrganizationExecutionCredential",
+  "OrganizationRiskPolicy",
 ]);
 
 const DIRECTLY_SCOPED_MODELS = new Set([
@@ -82,6 +83,7 @@ const DIRECTLY_SCOPED_MODELS = new Set([
   "BacktestRun",
   "LiveOrder",
   "OrganizationExecutionCredential",
+  "OrganizationRiskPolicy",
 ]);
 
 export class CrossTenantAccessError extends Error {

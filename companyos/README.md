@@ -2620,6 +2620,141 @@ never leaves the old secret decryptable from the row. Every test uses
 `createMockExecutionGateway` or a small ad-hoc fake — never a real Binance
 credential, never a real network call.
 
+### Advanced Risk & Capital Management (Sprint 24)
+
+> **STILL ARCHITECTURE ONLY — REAL-MONEY EXECUTION IS NOT ACTIVATED.**
+> `LIVE_EXECUTION_ENABLED` still defaults to `false`. This sprint takes the
+> risk layer to production-grade portfolio/capital-risk-engine depth; it
+> does not turn anything on.
+
+Sprint 22 shipped hardcoded, global risk limits. Sprint 24 makes them
+organization-configurable, adds a real capital-allocation accounting layer,
+real portfolio metrics computed from actual persisted data, drawdown/
+circuit breakers, and closes the two carry-forward gaps Sprint 23 left
+open: `LiveOrder.filledQuantity` was never persisted, and risk limits were
+global-only.
+
+**Organization risk policy** (`execution/risk-policy.ts`, new Prisma model
+`OrganizationRiskPolicy`). Ten configurable limits: the 8 Sprint 22 already
+had (leverage, order notional %, total exposure multiple, simultaneous
+positions, symbol exposure %, strategy exposure %, daily loss %,
+consecutive losses) plus 2 genuinely new ones (portfolio drawdown %,
+emergency-stop threshold %). `DEFAULT_RISK_POLICY` is built directly from
+Sprint 22's own constants for the 8 carried-forward fields — a brand-new
+organization's effective limits are identical to Sprint 22's, never
+looser. A hardcoded `ABSOLUTE_MAX_RISK_CEILING` clamps every configured
+value regardless of what's written to the database — the same
+"a DB row can raise a value but a code-level clamp still bounds what it's
+actually allowed to DO" discipline `ai/autonomy/constants.ts#clampLevelForDomain`
+already established for autonomy levels. Fully tenant-isolated; changes
+audited via the existing `AuditLog` reuse (Sprint 23's own precedent, not a
+new version-history table).
+
+**`checkRiskLimits`** (`execution/risk-limits.ts`) gained an optional
+second parameter (`limits: RiskLimits = DEFAULT_HARD_LIMITS`) — every
+EXISTING call site across Sprints 22/23 that never passed one keeps
+behaving byte-for-byte identically; `validation.ts#validateForLiveExecution`
+now resolves and passes each organization's own effective policy.
+
+**Capital allocation** (`execution/capital-allocation.ts`) implements the
+spec's own named chain — AVAILABLE CAPITAL → RISK BUDGET → EXPOSURE LIMIT →
+MARGIN → FINAL ORDER SIZE → EXECUTION VALIDATION — as a NEW accounting/
+validation layer around an ALREADY-computed order size (Sprint 16's
+`buildEntryPlan`/`computePositionSizing`, via Sprint 19's `ProposedOrder`).
+It never re-derives quantity or price; "execution validation" reuses
+`checkRiskLimits`/`evaluateCircuitBreakers` verbatim, so a decision this
+module approves and one `validateForLiveExecution` would separately
+approve can never disagree.
+
+**Portfolio risk** (`execution/portfolio-risk.ts#computePortfolioSnapshot`)
+reads real, already-persisted `PaperPosition`/`PaperTrade`/`PaperAccount`
+rows — this is also the canonical "build the risk-context state" function
+`checkRiskLimits`'s own inputs always required but that no prior sprint's
+production code actually computed (every earlier test built it by hand).
+Computes total/gross/net exposure, margin utilization, per-symbol/
+per-strategy exposure breakdowns, today's realized-loss %, and consecutive
+losses — all from real data, no fabrication.
+
+**Concentration vs. correlation** (`execution/concentration.ts`):
+concentration (a Herfindahl-style index over real open-position notional)
+is genuinely computable and computed. Cross-symbol correlation is NOT —
+direct audit confirmed no historical price time series is persisted
+anywhere in this codebase for a live/paper symbol (`MarketMetricsSnapshot`-
+equivalent data is latest-only; Sprint 20/21's backtest candle data is
+loaded on-demand and never persisted). `computeCorrelationRisk()` always
+honestly returns `insufficient_evidence` rather than fabricating a number —
+exactly the "fake precision yasak" the spec itself calls for.
+
+**Drawdown & circuit breakers** (`execution/circuit-breakers.ts`):
+daily-loss, consecutive-loss, portfolio-drawdown, and emergency-stop
+breakers, each producing a real, auditable reason string. Deliberately
+never auto-closes or auto-liquidates anything — a tripped breaker has
+IDENTICAL externally-visible effect to an engaged kill switch (no new
+exposure), but existing-position management
+(`position-management.ts#cancelExistingLiveOrder`/`reconcileOrganizationLiveState`,
+unchanged since Sprint 23) remains completely unaffected by breaker state,
+for the same reason it's unaffected by the kill switch.
+
+**Real fill persistence** (Phase 7 — closes Sprint 23's own documented
+gap). `LiveOrder` gained real `filledQuantity`/`averageFillPrice` columns
+(`remainingQuantity` stays derived, never stored, matching
+`PaperAccountView.drawdownPct`'s own "derive at read time" precedent).
+`service.ts#submitDecision` now persists the gateway's own returned fill
+state at submission time; the new `position-management.ts#applyFillUpdate`
+(idempotent, absolute-set, one audit row per real change) and
+`syncOrderFillFromProvider` (explicit, caller-invoked correction from a
+real `gateway.getOrder()` lookup) close the loop —
+`reconcileOrganizationLiveState` now compares against the REAL local
+`filledQuantity`, not an assumed `0`.
+
+**A real bug found and fixed along the way (carried through from the
+Sprint 23 pattern of catching these during hardening, not fabricating a
+clean report):** none this sprint at the architecture level, but the
+audit confirmed `checkRiskLimits`'s fixed check order (leverage → order
+notional → position count → total exposure → symbol exposure → strategy
+exposure) means an order that breaches BOTH order-notional and
+total-exposure limits is rejected for order-notional first — worth
+knowing when writing a test that intends to isolate one specific limit.
+
+**RBAC.** New `riskPolicy: ["manage", "read"]` resource — owner gets full
+control, admin/member/viewer get read-only (risk limits aren't secret,
+only mutating them is sensitive) — deliberately more open than
+`executionCredential`'s read-gating, since a configured leverage ceiling
+is not itself dangerous to see.
+
+**Deliberately NOT done this sprint.** No settings-page UI for risk-policy
+configuration (architecture only, matching Sprint 23's own credential
+precedent). Cross-symbol correlation stays `insufficient_evidence` — real
+support would require persisting a historical price time series, a
+genuinely larger, separate piece of infrastructure this sprint's own
+"don't fabricate precision" rule explicitly ruled out building just to
+fill in a number. Live positions are still entirely out of scope for
+`computePortfolioSnapshot` (PAPER-only) since no live position has ever
+existed.
+
+**Tests.** `tests/sprint-24-risk-capital-management.test.ts` (56 tests,
+groups A-AI) covers default/custom/clamped/invalid risk policy, cross-tenant
+policy rejection, every one of the 8 hard limits enforced with
+organization-configured values (leverage, notional, total/symbol/strategy
+exposure, position count, daily loss, consecutive losses), capital
+allocation approval/rejection with a full stage trace, remaining risk
+budget, margin utilization, a real multi-position/multi-strategy portfolio
+snapshot, concentration (single-symbol and even-split cases), the honest
+`insufficient_evidence` correlation gap, all four circuit breakers
+(including emergency-stop's interaction with the portfolio-drawdown
+breaker), kill-switch vs. breaker interaction, real partial-fill
+persistence and average-fill-price tracking, restart recovery, unknown-
+result safety (carried forward, re-verified unmodified), idempotency
+(fill updates, duplicate submission, reconciliation), tenant isolation
+for policy/orders/portfolio snapshots, `AutonomyPolicy` immutability, AI
+tool restrictions (checked structurally, by name and declared permission),
+the L2 autonomy ceiling, a direct assertion no `fetch` call targets
+`binance.com`, audit/redaction, and a dedicated regression group
+confirming Sprint 16's sizing formulas and Sprint 22's `DEFAULT_HARD_LIMITS`
+are byte-for-byte unmodified. Every test uses `createMockExecutionGateway`
+or a small ad-hoc fake — never a real Binance credential, never a real
+network call.
+
 ### API keys
 
 The `ApiKey` model (and its `apiKey: ["create", "read", "revoke"]` RBAC

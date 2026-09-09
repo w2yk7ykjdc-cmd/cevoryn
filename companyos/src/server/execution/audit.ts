@@ -35,7 +35,13 @@ export type ExecutionAuditAction =
   | "execution.credentials_revoked"
   // Sprint 23 Phase 4: existing-position management under the kill switch.
   | "execution.order_cancel_requested"
-  | "execution.position_reconciled";
+  | "execution.position_reconciled"
+  // Sprint 24 Phase 2: organization risk policy lifecycle.
+  | "execution.risk_policy_updated"
+  // Sprint 24 Phase 5: circuit breaker state transitions.
+  | "execution.circuit_breaker_triggered"
+  // Sprint 24 Phase 7: real fill tracking.
+  | "execution.fill_recorded";
 
 export async function recordExecutionAudit(params: {
   organizationId: string;
@@ -54,7 +60,11 @@ export async function recordExecutionAudit(params: {
   metadata?: Record<string, unknown> | null;
 }): Promise<void> {
   const { organizationId, action, clientOrderId, ...rest } = params;
-  const targetType = action.startsWith("execution.credentials_") ? "OrganizationExecutionCredential" : "LiveOrder";
+  const targetType = action.startsWith("execution.credentials_")
+    ? "OrganizationExecutionCredential"
+    : action.startsWith("execution.risk_policy_")
+      ? "OrganizationRiskPolicy"
+      : "LiveOrder";
   await prisma.auditLog.create({
     data: {
       organizationId,
