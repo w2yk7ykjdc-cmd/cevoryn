@@ -134,7 +134,9 @@ model Organization {
   paperTrades              PaperTrade[]
   backtestRuns             BacktestRun[]
   liveOrders               LiveOrder[]
-  executionCredential      OrganizationExecutionCredential?
+  /// Sprint 27: one row per provider (`@@unique([organizationId, provider])`
+  /// on the child) -- was a strict one-to-one before this sprint.
+  executionCredentials     OrganizationExecutionCredential[]
   riskPolicy               OrganizationRiskPolicy?
   executionAutonomyPolicy  OrganizationExecutionAutonomyPolicy?
   strategyHealthStates     StrategyHealthState[]
@@ -1579,6 +1581,13 @@ model LiveOrder {
   organizationId   String
   organization     Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   clientOrderId    String
+  /// Sprint 27: which `execution/providers.ts` provider this order was
+  /// (or would be) submitted through -- `"binance"` for every existing row
+  /// and every order this codebase can actually submit today. Purely
+  /// descriptive metadata (mirrors `ExecutionGateway.providerName`'s own
+  /// "never branches execution-critical logic" rule) -- audit/reconciliation
+  /// only, never itself a routing decision.
+  provider         String          @default("binance")
   symbol           String
   side             String
   type             String
@@ -1647,8 +1656,16 @@ model LiveOrder {
 /// credential, exactly as intended.
 model OrganizationExecutionCredential {
   id                 String       @id @default(cuid())
-  organizationId     String       @unique
+  organizationId     String
   organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// Sprint 27: was a plain default-valued column with `organizationId`
+  /// alone unique (one credential per organization, period). Now part of
+  /// the row's own identity (`@@unique([organizationId, provider])`) --
+  /// an organization can hold one credential PER `execution/providers.ts`
+  /// provider (`binance` today; a future provider would get its own row,
+  /// never overwrite this one). Every Sprint 23-26 call site that never
+  /// passes a provider keeps defaulting to `"binance"`, so existing rows
+  /// and behavior are completely unaffected.
   provider           String       @default("binance")
   encryptedApiKey    String
   encryptedApiSecret String
@@ -1660,6 +1677,7 @@ model OrganizationExecutionCredential {
   revokedAt          DateTime?
   revokedById        String?
 
+  @@unique([organizationId, provider])
   @@map("organization_execution_credential")
 }
 

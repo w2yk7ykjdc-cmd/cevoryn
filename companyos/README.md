@@ -2941,6 +2941,60 @@ every prior Sprint 22-25 credential/policy precedent); no
 all — quarantine is currently a paper/decision-engine-only signal (the
 production-execution wiring for Sprint 29/30 will read it the same way).
 
+### Multi-Market Provider Isolation (Sprint 27)
+
+**Audit finding:** `ExecutionGateway` (Sprint 22) and `MarketDataClient`
+(Sprint 13/14) were ALREADY provider-agnostic interfaces before this
+sprint — `ExecutionMode` is just `"PAPER" | "LIVE"`, `Symbol` is a plain
+runtime-validated string (not a Binance-specific literal union), and
+neither interface carries a Binance-specific field. Sprint 27 does not
+rewrite either interface; it closes the two places that were still
+implicitly, structurally Binance-only: credential storage and gateway
+construction.
+
+**Credential storage.** `OrganizationExecutionCredential` moves from
+`organizationId @unique` (one credential per organization, full stop) to
+`@@unique([organizationId, provider])` — an organization can now hold one
+credential PER provider. Every Sprint 23-26 function in
+`execution/org-credentials.ts` gained an optional `provider` parameter
+defaulting to `"binance"`, so every existing call site that never mentions
+a provider reads/writes the exact same row it always has. The env-var
+fallback (`BINANCE_API_KEY`/`BINANCE_API_SECRET`) is deliberately scoped
+to the `"binance"` provider only — it is inherently Binance-specific and
+is never returned for any other provider name.
+
+**Provider registry** (`execution/providers.ts`):
+`SUPPORTED_EXECUTION_PROVIDERS` honestly lists only `"binance"` — the only
+provider with a real, working `ExecutionGateway` implementation.
+`createExecutionGatewayForProvider` throws `UnsupportedExecutionProviderError`
+for anything else, rather than silently falling back to Binance or
+pretending an unimplemented provider is ready. Adding a genuinely new
+provider means adding both a real adapter AND a registry entry in the same
+change — never one without the other, so nothing here can ever claim a
+capability this codebase doesn't actually have.
+
+**`LiveOrder.provider`** — a new, purely descriptive column (defaults to
+`"binance"` for every existing row) recording which provider a given order
+went through, for audit/reconciliation. Never itself a routing decision.
+
+**Deliberately NOT done this sprint:** no second real exchange
+integration (no Coinbase/Kraken adapter — `SUPPORTED_EXECUTION_PROVIDERS`
+says so explicitly); no change to risk-limit formulas or symbol
+conventions (Sprint 22-24's crypto-perpetual-appropriate constants are
+untouched); `generateMarketDecisions` (Sprint 19) still has no concept of
+"which market a decision targets" — `autonomous-execution.ts`'s gateway
+resolution still defaults to `"binance"` for that reason, a documented
+seam for a future sprint that teaches decisions their own market, not
+something this sprint fakes.
+
+**Tests** (`tests/sprint-27-multi-market.test.ts`, 14 tests, groups A-F):
+provider registry (only "binance" supported, unsupported providers throw),
+multi-provider credential storage (two providers coexist, rotating/
+revoking one never touches another), backward compatibility (every
+no-provider-argument call site unchanged), tenant isolation (per-provider,
+and two organizations configuring the same provider name don't collide),
+the env fallback staying Binance-only, and AI-tool restriction.
+
 ### API keys
 
 The `ApiKey` model (and its `apiKey: ["create", "read", "revoke"]` RBAC
