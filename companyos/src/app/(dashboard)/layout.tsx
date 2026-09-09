@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/settings/billing", label: "Billing" },
   { href: "/dashboard/settings/api-keys", label: "API Keys" },
   { href: "/dashboard/settings/autonomy", label: "Autonomy" },
+  { href: "/dashboard/settings/trading", label: "Trading Controls" },
   { href: "/dashboard/outcomes", label: "Outcomes" },
   { href: "/dashboard/decisions", label: "Decisions" },
   { href: "/dashboard/market-intelligence", label: "Market Intelligence" },
