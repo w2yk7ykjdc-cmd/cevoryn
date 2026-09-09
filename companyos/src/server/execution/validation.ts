@@ -2,7 +2,7 @@ import { env } from "@/env";
 import { isKillSwitchEngaged } from "@/server/ai/autonomy/policy-service";
 import type { MarketDecision } from "@/server/intelligence/market-decision/types";
 import { checkRiskLimits, type RiskLimitCheckInput, type RiskLimitViolation } from "@/server/execution/risk-limits";
-import { hasLiveCredentials } from "@/server/execution/credentials";
+import { hasLiveCredentialsFor } from "@/server/execution/org-credentials";
 import type { ExecutionGateway } from "@/server/execution/types";
 
 /**
@@ -44,12 +44,22 @@ export async function validateForLiveExecution(params: {
   riskContext: Omit<RiskLimitCheckInput, "orderNotional" | "leverage">;
   /** Injectable for tests (mirrors every other "inject the real dependency, default to the production one" seam in this codebase -- `env.LIVE_EXECUTION_ENABLED` cannot be flipped at runtime once the process has booted, since `env.ts` validates it once at module load). */
   liveExecutionEnabled?: boolean;
-  /** Injectable for tests -- same rationale as `liveExecutionEnabled`: `hasLiveCredentials()` reads real, boot-time env vars this test environment never sets, so exercising any check that sits BEHIND the credential gate needs a way to simulate "credentials configured" without a real Binance API key ever existing. Defaults to the real, production `hasLiveCredentials`. */
-  hasLiveCredentials?: () => boolean;
+  /**
+   * Injectable for tests -- same rationale as `liveExecutionEnabled`:
+   * `hasLiveCredentialsFor` reads real database state (and, as a
+   * fallback, real boot-time env vars) this test environment never sets,
+   * so exercising any check that sits BEHIND the credential gate needs a
+   * way to simulate "credentials configured" without a real Binance API
+   * key ever existing. Defaults to the real, production,
+   * organization-scoped `hasLiveCredentialsFor` (Sprint 23 Phase 2) --
+   * NEVER the old deployment-wide-only check, so this gate is tenant-scoped
+   * by construction.
+   */
+  hasLiveCredentials?: (organizationId: string) => boolean | Promise<boolean>;
 }): Promise<LiveValidationResult> {
   const { organizationId, decision, gateway, riskContext } = params;
   const liveExecutionEnabled = params.liveExecutionEnabled ?? env.LIVE_EXECUTION_ENABLED;
-  const hasCredentials = params.hasLiveCredentials ?? hasLiveCredentials;
+  const hasCredentials = params.hasLiveCredentials ?? hasLiveCredentialsFor;
   const reject = (reason: LiveValidationReason): LiveValidationResult => ({ status: "NO_EXECUTION", reason });
 
   // Phase 13: LIVE mode itself, and credentials, checked FIRST, before
@@ -61,7 +71,7 @@ export async function validateForLiveExecution(params: {
   // sprint existed.
   if (gateway.mode === "LIVE") {
     if (!liveExecutionEnabled) return reject("live_execution_disabled");
-    if (!hasCredentials()) return reject("no_live_credentials");
+    if (!(await hasCredentials(organizationId))) return reject("no_live_credentials");
   }
 
   // Phase 9: both kill switches, real and unconditional -- applied

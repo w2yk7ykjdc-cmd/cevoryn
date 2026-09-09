@@ -1,6 +1,6 @@
 import { logger } from "@/server/logger/logger";
-import { getCredentials, type BinanceCredentials } from "@/server/execution/credentials";
-import { binancePrivateDelete, binancePrivateGet, binancePrivatePost } from "@/server/execution/binance-private-client";
+import type { BinanceCredentials } from "@/server/execution/credentials";
+import { binancePrivateDelete, binancePrivateGet, binancePrivatePost, binancePrivateTestOrder } from "@/server/execution/binance-private-client";
 import { ExecutionProviderError } from "@/server/execution/errors";
 import { env } from "@/env";
 import type {
@@ -11,6 +11,7 @@ import type {
   ExecutionOrderStatus,
   ExecutionPosition,
   OrderIntent,
+  TestOrderResult,
 } from "@/server/execution/types";
 
 /**
@@ -93,7 +94,18 @@ function toExecutionOrder(raw: RawOrder): ExecutionOrder {
   };
 }
 
-export function createBinanceExecutionAdapter(credentials: BinanceCredentials = getCredentials()): ExecutionGateway {
+/**
+ * Sprint 23: `credentials` is now REQUIRED, no env-fallback default --
+ * organization-scoped credential resolution (`org-credentials.ts#resolveExecutionCredentials`)
+ * happens at the CALL SITE, before this adapter is ever constructed, so the
+ * adapter itself never has to know or guess which organization it is
+ * acting for. This is a deliberate tightening: the previous
+ * `= getCredentials()` default silently read the deployment-wide env vars
+ * if a caller forgot to pass credentials, which is exactly the kind of
+ * implicit cross-organization behavior Sprint 23's own isolation
+ * requirement rules out.
+ */
+export function createBinanceExecutionAdapter(credentials: BinanceCredentials): ExecutionGateway {
   return {
     providerName: "binance",
     mode: "LIVE",
@@ -137,20 +149,7 @@ export function createBinanceExecutionAdapter(credentials: BinanceCredentials = 
       assertLiveExecutionEnabled(`submit order ${intent.clientOrderId}`);
       logger.warn({ clientOrderId: intent.clientOrderId, symbol: intent.symbol }, "binance-adapter: submitting a REAL live order");
 
-      const params: Record<string, string | number> = {
-        symbol: intent.symbol,
-        side: intent.side,
-        type: intent.type,
-        quantity: intent.quantity,
-        newClientOrderId: intent.clientOrderId,
-      };
-      if (intent.type === "LIMIT") {
-        if (!intent.price) throw new Error("LIMIT order requires a price");
-        params.price = intent.price;
-        params.timeInForce = "GTC";
-      }
-
-      const raw = (await binancePrivatePost("/api/v3/order", params, credentials)) as RawOrder;
+      const raw = (await binancePrivatePost("/api/v3/order", buildOrderParams(intent), credentials)) as RawOrder;
       return toExecutionOrder(raw);
     },
 
@@ -158,5 +157,41 @@ export function createBinanceExecutionAdapter(credentials: BinanceCredentials = 
       assertLiveExecutionEnabled(`cancel order ${clientOrderId}`);
       await binancePrivateDelete("/api/v3/order", { origClientOrderId: clientOrderId, symbol }, credentials);
     },
+
+    /**
+     * Sprint 23 Phase 3: Binance's own `/api/v3/order/test` endpoint --
+     * validates signature/params/symbol/filters against the real matching
+     * engine's own rules but NEVER creates an order or moves a balance
+     * (documented Binance behavior, not an assumption this codebase makes).
+     * Deliberately NOT gated by `assertLiveExecutionEnabled`: gating it
+     * would make it impossible to verify the test-order pathway as part of
+     * `checkLiveModeReadiness` BEFORE live execution is ever enabled,
+     * defeating the entire point of a pre-activation readiness check.
+     */
+    async testOrder(intent: OrderIntent): Promise<TestOrderResult> {
+      try {
+        await binancePrivateTestOrder("/api/v3/order/test", buildOrderParams(intent), credentials);
+        return { valid: true };
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        return { valid: false, reason };
+      }
+    },
   };
+}
+
+function buildOrderParams(intent: OrderIntent): Record<string, string | number> {
+  const params: Record<string, string | number> = {
+    symbol: intent.symbol,
+    side: intent.side,
+    type: intent.type,
+    quantity: intent.quantity,
+    newClientOrderId: intent.clientOrderId,
+  };
+  if (intent.type === "LIMIT") {
+    if (!intent.price) throw new Error("LIMIT order requires a price");
+    params.price = intent.price;
+    params.timeInForce = "GTC";
+  }
+  return params;
 }

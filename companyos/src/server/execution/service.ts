@@ -65,7 +65,7 @@ export async function submitDecision(params: {
   riskContext: Omit<RiskLimitCheckInput, "orderNotional" | "leverage">;
   liveExecutionEnabled?: boolean;
   /** Injectable for tests -- see `validation.ts#validateForLiveExecution`'s own identical seam and doc comment. */
-  hasLiveCredentials?: () => boolean;
+  hasLiveCredentials?: (organizationId: string) => boolean | Promise<boolean>;
 }): Promise<SubmitDecisionResult> {
   const { organizationId, decision, gateway, riskContext, liveExecutionEnabled, hasLiveCredentials } = params;
 

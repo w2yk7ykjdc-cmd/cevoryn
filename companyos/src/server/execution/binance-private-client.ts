@@ -116,3 +116,19 @@ export async function binancePrivateDelete(path: string, params: Record<string, 
   logger.debug({ path, params: redactForLogging(params) }, "binance private DELETE (write)");
   return signedRequest("DELETE", path, params, credentials, true);
 }
+
+/**
+ * Sprint 23: a POST that is NOT a "write" in the `isWrite` classification
+ * sense -- used exclusively for Binance's `/api/v3/order/test` endpoint,
+ * which is a POST at the HTTP level but never creates an order or moves a
+ * balance (documented Binance behavior). A timeout/network failure calling
+ * it has zero unknown side effect on the provider, so it is safe to
+ * classify exactly like a read (`ExecutionTimeoutError`/`ExecutionProviderError`),
+ * never `ExecutionUnknownResultError` -- using `binancePrivatePost` here
+ * would incorrectly imply "an order may have been placed," which is never
+ * true for this endpoint.
+ */
+export async function binancePrivateTestOrder(path: string, params: Record<string, string | number>, credentials: BinanceCredentials): Promise<unknown> {
+  logger.debug({ path, params: redactForLogging(params) }, "binance private POST (test-order, non-mutating)");
+  return signedRequest("POST", path, params, credentials, false);
+}

@@ -134,6 +134,7 @@ model Organization {
   paperTrades              PaperTrade[]
   backtestRuns             BacktestRun[]
   liveOrders               LiveOrder[]
+  executionCredential      OrganizationExecutionCredential?
 
   @@unique([slug])
   @@map("organization")
@@ -1601,4 +1602,47 @@ model LiveOrder {
   @@index([organizationId, status])
   @@index([organizationId, symbol])
   @@map("live_order")
+}
+
+/// Sprint 23 Phase 2: organization-scoped live-execution credentials --
+/// replaces this deployment's previous single, deployment-wide
+/// `BINANCE_API_KEY`/`BINANCE_API_SECRET` env vars as the PRIMARY credential
+/// source (the env vars remain as a deployment-level fallback ONLY for an
+/// organization that has never configured its own, never as a way to mix
+/// or override an organization's own configured credential -- see
+/// `execution/org-credentials.ts#resolveExecutionCredentials`).
+///
+/// `encryptedApiKey`/`encryptedApiSecret` are AES-256-GCM ciphertext
+/// (`execution/credential-crypto.ts`), never plaintext -- there is no
+/// column anywhere on this model that could round-trip to a raw secret
+/// without going through that module's `decryptSecret`. `apiKeyFingerprint`
+/// is a non-reversible last-4-characters display value only (mirrors
+/// `ApiKey.keyPrefix`'s own "enough to recognize, not enough to
+/// reconstruct" precedent) -- safe to show in a UI or include in an
+/// `AuditLog` row, unlike the encrypted columns themselves (which are never
+/// logged or returned from any API response).
+///
+/// `revokedAt` is a soft revoke: the row is kept (audit history of when
+/// credentials existed and were revoked), but every read path
+/// (`hasOrganizationCredentials`/`getOrganizationCredentials`) treats a
+/// revoked row as absent. Rotating (setting new credentials while a row
+/// already exists) clears `revokedAt` and bumps `rotatedAt` -- a previously
+/// revoked organization can re-enable live execution by configuring a new
+/// credential, exactly as intended.
+model OrganizationExecutionCredential {
+  id                 String       @id @default(cuid())
+  organizationId     String       @unique
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  provider           String       @default("binance")
+  encryptedApiKey    String
+  encryptedApiSecret String
+  apiKeyFingerprint  String
+  createdById        String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  rotatedAt          DateTime?
+  revokedAt          DateTime?
+  revokedById        String?
+
+  @@map("organization_execution_credential")
 }

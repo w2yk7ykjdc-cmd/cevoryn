@@ -160,6 +160,25 @@ export interface OrderWriteCapability {
   cancelOrder(clientOrderId: string, symbol: string): Promise<void>;
 }
 
+export type TestOrderResult = { valid: boolean; reason?: string };
+
+/**
+ * Sprint 23 Phase 3: validates an order WITHOUT ever placing it -- for
+ * Binance, this is the provider's own real `/api/v3/order/test` endpoint
+ * (a genuinely separate, documented Binance capability that checks
+ * signature/params/symbol/filters against the live matching engine's own
+ * rules but never creates a real order or moves any balance). This is
+ * exactly what `checkLiveModeReadiness`'s "test order pathway validated"
+ * check (Phase 13's own 8th named check, missing until this sprint) needs:
+ * end-to-end proof the full signed-request path works, with zero execution
+ * risk. Separated from `OrderWriteCapability` because it is, deliberately,
+ * NOT a write in the sense that matters here (no state changes on the
+ * provider), even though it is a signed POST.
+ */
+export interface OrderTestCapability {
+  testOrder(intent: OrderIntent): Promise<TestOrderResult>;
+}
+
 /**
  * The full provider-agnostic gateway (Phase 2). `providerName`/`mode` are
  * plain, inspectable metadata -- never used to branch execution-critical
@@ -167,7 +186,7 @@ export interface OrderWriteCapability {
  * logs/audit rows can record which concrete provider handled a given
  * intent.
  */
-export interface ExecutionGateway extends AccountReadCapability, PositionReadCapability, OrderReadCapability, OrderWriteCapability {
+export interface ExecutionGateway extends AccountReadCapability, PositionReadCapability, OrderReadCapability, OrderWriteCapability, OrderTestCapability {
   readonly providerName: string;
   readonly mode: ExecutionMode;
 }

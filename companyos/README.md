@@ -2493,6 +2493,133 @@ Every test uses `execution/mock-gateway.ts#createMockExecutionGateway` (or a
 small ad-hoc fake for one specific scenario) — never a real Binance
 credential, never a real network call.
 
+### Live Execution Hardening & Organization Credentials (Sprint 23)
+
+> **STILL ARCHITECTURE ONLY — REAL-MONEY EXECUTION IS NOT ACTIVATED.**
+> `LIVE_EXECUTION_ENABLED` still defaults to `false` and still ships `false`.
+> This sprint hardens Sprint 22's foundation and closes its three carry-forward
+> gaps; it does not turn anything on.
+
+Sprint 22 shipped the live-execution architecture with three explicit,
+honestly-reported gaps: kill-switch-safe management of already-open live
+positions, two missing named readiness checks, and deployment-wide (rather
+than per-organization) credentials. This sprint closes all three.
+
+**Organization-scoped credentials** (`execution/org-credentials.ts` +
+`execution/credential-crypto.ts`, new Prisma model
+`OrganizationExecutionCredential`). Binance API key/secret are now
+encrypted at rest with AES-256-GCM — the encryption key is derived (via
+`scrypt`, never used directly) from the existing, already-required
+`BETTER_AUTH_SECRET`, so no new secret needed configuring. No new
+dependency was added; Node's built-in `crypto` module (already used by
+`binance-private-client.ts` and `api-keys/service.ts`) was sufficient.
+`resolveExecutionCredentials(organizationId)` is the one function every
+execution-readiness/validation call site now uses: this organization's own
+credential if configured and not revoked, otherwise Sprint 22's original
+deployment-wide env fallback (preserved, never removed), otherwise `null`.
+The env-only functions in `execution/credentials.ts` are untouched and
+remain that fallback layer. Tenant isolation is enforced identically to
+every other model — `OrganizationExecutionCredential` is fully
+`tenant.ts`-scoped, and reading or writing another organization's row
+throws `CrossTenantAccessError`. Rotation overwrites the encrypted values
+and clears any prior revocation; revocation is soft (the row stays, for
+audit history) and idempotent. Every configure/rotate/revoke event is
+audited via the existing `AuditLog` reuse, recording only a non-reversible
+last-4-characters fingerprint — never a plaintext or encrypted value.
+`createBinanceExecutionAdapter` no longer defaults to reading env vars
+directly; credentials are now always resolved by the caller first and
+passed in explicitly, removing the one place Sprint 22 could have silently
+mixed a deployment-wide fallback into an organization-specific flow.
+
+**The two missing live-mode-readiness checks** (`execution/live-mode-gate.ts`).
+`risk_limits_configured` is a structural sanity check
+(`risk-limits.ts#areRiskLimitsConfigured`) verifying every hard risk-limit
+constant is a positive, finite number — catches a future code change that
+accidentally breaks a limit, before `checkLiveModeReadiness` would ever
+report ready. `test_order_pathway_validated` exercises the real, full
+signed-request path via Binance's own genuinely non-mutating
+`/api/v3/order/test` endpoint (`types.ts#OrderTestCapability`,
+`binance-adapter.ts#testOrder`, a dedicated `binancePrivateTestOrder` in
+the private client whose failures classify like a read — never
+`ExecutionUnknownResultError`, since this endpoint never creates an order
+regardless of the outcome). No fabricated default order is ever
+constructed for this check — omitting a representative `testOrderIntent`
+fails the check honestly rather than assuming it passes. While hardening
+this gate, a real, pre-existing correctness bug was found and fixed: an
+account that was reachable but reported `canTrade: false` previously
+caused the `account_readable` check to be silently omitted rather than
+failed (a missing check doesn't fail `checks.every(passed)`), which could
+have let overall readiness pass despite an unreadable account.
+
+**Kill-switch-safe existing-position management** (new module
+`execution/position-management.ts`). Sprint 22's kill-switch check (both
+organization and system-wide, unconditional) is untouched and still the
+only gate `submitDecision` goes through — it continues to block every NEW
+submission. This module is deliberately separate: `cancelExistingLiveOrder`
+(cancels an already-open `LiveOrder`) and `reconcileOrganizationLiveState`
+(re-runs Sprint 22's own `reconcile()` against this organization's
+currently-open orders) are NEVER gated by the kill switch, because
+reducing or monitoring existing risk is never itself new exposure — exactly
+the spec's own requirement that existing-position state/reconciliation/exit
+management keep working normally while new entries stay blocked. Just as
+deliberately, neither function auto-closes anything when the kill switch
+engages — that decision is explicitly left to a human (or a future,
+separately-authorized automation); this module only makes acting on it
+safe and auditable. A known, honestly-documented limitation: `LiveOrder`
+does not yet persist a running `filledQuantity` (no live order has ever
+actually been filled), so reconciliation's `partial_fill` comparison
+currently treats the local side as always `0` — correct in the safe
+direction (a real remote fill is never missed) but not yet a true running
+comparison; a future sprint should add that column once real fills exist.
+
+**RBAC.** New `executionCredential: ["manage", "read", "revoke"]` resource
+— owner gets full control, admin gets `read` only (cannot configure or
+revoke real-money credentials), member/viewer get none, deliberately
+stricter than `apiKey`'s admin-can-manage precedent given what these
+credentials can do once live execution is ever activated.
+
+**Security invariants, re-verified.** Private Binance endpoints (both
+`/api/v3/order/test` and every existing signed endpoint) are reachable only
+through `binance-private-client.ts`; no real credential exists anywhere in
+source control; `submitOrder`/`cancelOrder` stay gated by
+`LIVE_EXECUTION_ENABLED` (deliberately, `testOrder` is not — it never
+mutates provider state regardless); zero references to
+`placeOrder`/`createOrder`/`executeOrder`/`withdraw`/`transfer` anywhere
+under `src/server/ai/`; `AutonomyPolicy`/`AutonomyPolicyVersion`/
+`AutonomyAllowlistEntry` remain byte-for-byte unchanged across a full
+credential-configure + submit + cancel + reconcile flow;
+`MAX_AUTONOMY_LEVEL_BY_DOMAIN.market` stays `"L2"`.
+
+**Deliberately NOT done this sprint.** No settings-page UI for
+credential configuration was built — the spec's own Phase 2 asked for
+architecture, not a UI, and a rushed UI for real-money credentials felt
+like the wrong tradeoff against the review this deserves; the RBAC
+resource and full service layer are ready for one. `LiveOrder.filledQuantity`
+is not yet persisted (noted above). Per-organization risk limits (still
+global constants, matching Sprint 22) were explicitly out of this sprint's
+carry-forward scope and were not touched.
+
+**Tests.** `tests/sprint-23-live-execution-hardening.test.ts` (36 tests,
+groups A-X) covers organization credential isolation, credential absence,
+rotation/revocation, secret redaction and non-reversible fingerprinting,
+cross-tenant credential rejection, readiness with missing/invalid
+credentials, readiness with risk limits verified missing (via a pure,
+directly-testable core function, since the real deployed constants are
+always valid), readiness with the test-order pathway both missing and
+provider-rejected, a fully-ready injected state, the `LIVE_EXECUTION_ENABLED`
+hard gate, the kill switch blocking new orders while cancellation and
+reconciliation of existing orders proceed normally, idempotency and
+unknown-result safety (carried forward, re-verified unmodified), tenant
+isolation, policy immutability, the L2 autonomy ceiling, AI tool
+restrictions (checked structurally — by tool name and declared permission,
+not loose description-text matching, after an initial version of this test
+false-flagged two tools whose descriptions merely reassure "no credential
+exists here"), a direct assertion that no `fetch` call in this file's own
+gateway usage ever targets `binance.com`, and that credential rotation
+never leaves the old secret decryptable from the row. Every test uses
+`createMockExecutionGateway` or a small ad-hoc fake — never a real Binance
+credential, never a real network call.
+
 ### API keys
 
 The `ApiKey` model (and its `apiKey: ["create", "read", "revoke"]` RBAC
