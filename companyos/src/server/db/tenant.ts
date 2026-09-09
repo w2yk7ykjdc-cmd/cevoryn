@@ -44,6 +44,7 @@ const TENANT_SCOPED_MODELS = new Set([
   "PaperPosition",
   "PaperTrade",
   "BacktestRun",
+  "LiveOrder",
 ]);
 
 const DIRECTLY_SCOPED_MODELS = new Set([
@@ -78,6 +79,7 @@ const DIRECTLY_SCOPED_MODELS = new Set([
   "PaperPosition",
   "PaperTrade",
   "BacktestRun",
+  "LiveOrder",
 ]);
 
 export class CrossTenantAccessError extends Error {

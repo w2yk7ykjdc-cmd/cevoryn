@@ -2308,6 +2308,191 @@ cases), policy immutability, multi-run comparison, backtest-vs-live
 comparison (including the "not found"/"strategy type not covered" honest
 edge cases), RBAC, the extended AI tool, and full end-to-end determinism.
 
+### Live Execution Foundation (Sprint 22)
+
+> **ARCHITECTURE ONLY — REAL-MONEY EXECUTION IS NOT ACTIVATED.**
+> `LIVE_EXECUTION_ENABLED` defaults to `false` and ships `false` in this
+> sprint. No test in this codebase sends a request to a real Binance
+> account, and no code path can reach `BinanceExecutionAdapter.submitOrder`
+> without that flag explicitly being turned on by a human, with real
+> credentials configured, for a decision that has already passed every
+> existing PAPER-trading validation gate plus this sprint's own new,
+> stricter live-only risk limits.
+
+Sprints 13-21 built the full deterministic chain — Market Data → Market
+Intelligence → Strategy → Paper Trading → Outcome → Learning → Strategy
+Performance → Strategy Evaluation → Market Decision → Backtest → Persisted
+Backtest — entirely in PAPER/SIMULATION. This sprint builds the
+**foundation** real execution would need (a provider-agnostic gateway, a
+private Binance client, credential handling, order lifecycle, idempotency,
+risk limits, kill-switch wiring, reconciliation, audit trail) without
+turning any of it on. The order is deliberate: PAPER → VALIDATED DECISION →
+EXECUTION GATE → LIVE PROVIDER → RECONCILIATION → AUDIT → controlled
+activation (a later sprint's decision, not this one's).
+
+**`ExecutionGateway` abstraction** (`execution/types.ts`): a provider-agnostic
+interface composed from four capabilities —
+`AccountReadCapability`/`PositionReadCapability`/`OrderReadCapability`/
+`OrderWriteCapability` — so a narrower future provider could implement just
+one slice without being forced into the rest. Two real implementations ship
+this sprint: `PaperExecutionAdapter` (`mode: "PAPER"`, reuses Sprint 16's
+own `getOrCreatePaperAccount`/`computeSimulatedLiquidationPrice`/`computeFee`
+verbatim — never a second, parallel paper-trading system) and
+`BinanceExecutionAdapter` (`mode: "LIVE"`, SPOT-account-only,
+`api.binance.com/api/v3/*`). The two modes are never conflated: `submitDecision`'s
+shared pipeline branches only on which gateway instance it was handed.
+
+**Private Binance client** (`execution/binance-private-client.ts`) is a
+completely separate module from Sprint 13's public `market-data/binance-client.ts`,
+which is untouched. Every signed request follows Binance's own convention
+(HMAC-SHA256 over the full query string including `timestamp`/`recvWindow`,
+API key in the `X-MBX-APIKEY` header, never the URL or body). A write
+request (submit/cancel) that times out or hits a network error or a 5xx is
+classified as `ExecutionUnknownResultError`, never silently treated as
+failed — the caller must reconcile before doing anything else. A read
+request that fails the same way is `ExecutionTimeoutError`/`ExecutionProviderError`
+instead, safe to retry.
+
+**Credential handling** (`execution/credentials.ts`): `BINANCE_API_KEY`/
+`BINANCE_API_SECRET` live in `env.ts` (environment variables only) — there is
+deliberately no database table, no API route, and no UI form anywhere in
+this codebase that can read, write, or display a raw credential value.
+`hasLiveCredentials()`/`getCredentials()` are the only sanctioned way any
+other module touches them. `redactSecret`/`redactForLogging` mask any
+credential-shaped value (matched by KEY name, never by content) before it
+can reach a log line or an `AuditLog` row, applied at every log call site in
+the private client and every audit-record call.
+
+**Order lifecycle & idempotency.** New Prisma model `LiveOrder` persists the
+`INTENT → VALIDATING → SUBMITTING → SUBMITTED → PARTIALLY_FILLED → FILLED →
+CANCEL_REQUESTED → CANCELLED → REJECTED → FAILED` state machine — LIVE
+submissions only; PAPER continues to rely entirely on Sprint 16's own
+`PaperPosition` persistence, never a duplicate copy of paper state. Every
+`clientOrderId` is deterministic (`execution/idempotency.ts#buildClientOrderId`,
+a SHA-256 hash of `organizationId:symbol:strategyType:decisionTimestamp`,
+using the decision's own timestamp, never `Date.now()`), so re-submitting
+the identical decision — a retried job, a duplicated event, a process
+restart mid-flight — always resolves to the same id. `submitDecision`
+checks for an existing `LiveOrder` row BEFORE ever calling the gateway; an
+order still `SUBMITTING` (an unresolved unknown-result case) routes to
+`PENDING_RECONCILIATION` rather than a second submission attempt, so a
+process restart can never place a second real order for the same decision.
+
+**Execution validation** (`execution/validation.ts#validateForLiveExecution`)
+is layered strictly on top of Sprint 19's own `validateProposedOrder`:
+`decision.proposedOrder.validationStatus === "VALID"` is reused wholesale as
+one check (covering strategy validity, confidence/evidence quality,
+stop-loss validity, staleness, and Sprint 19's execution-readiness risk
+bar), never re-derived a second way. What this sprint adds on top is what is
+genuinely new for real capital: LIVE-mode/credential availability (checked
+first, scoped to `gateway.mode === "LIVE"` only — PAPER submissions are
+never gated by the live-execution switch), both kill switches, hard risk
+limits, and a live account-balance sufficiency check read directly from the
+gateway.
+
+**Hard risk limits** (`execution/risk-limits.ts#checkRiskLimits`), reusing
+Sprint 16/19's `MAX_TOTAL_EXPOSURE_MULTIPLE`/`MAX_SIMULTANEOUS_POSITIONS` as
+a floor and adding several genuinely new, stricter live-only limits: max
+leverage (3x), max single-order notional (10% of equity), max total
+exposure, max simultaneous positions, max per-symbol exposure (30% of
+equity), max per-strategy exposure (50% of equity), max daily realized loss
+(5%), max consecutive losses (3, a real circuit breaker), and an emergency
+stop. Every constant is a plain, hardcoded value — never read from a
+database row, never reachable by an LLM/AI tool call. Checked in a fixed,
+documented order; first violation wins.
+
+**Kill switch.** Both the organization-scoped kill switch (Sprint 9) and the
+system-wide `MARKET_EXECUTION_KILL_SWITCH` are checked unconditionally,
+matching Sprint 19's own existing wiring — engaging either blocks every new
+submission before the gateway is ever called; already-open positions are
+unaffected (the kill switch stops new risk, never manages existing risk by
+itself).
+
+**Reconciliation** (`execution/reconciliation.ts#reconcile`) compares this
+organization's locally-tracked open orders/positions/balances against the
+SAME gateway's own live reads — the gateway is the only source of "remote
+truth," never a second independently-maintained cache. Detects nine
+mismatch types: `unknown_order`, `missing_order`, `quantity_mismatch`,
+`price_mismatch`, `position_mismatch`, `balance_mismatch`, `stale_order`,
+`partial_fill`, `unexpected_close`. All quantity/price/balance comparisons
+use a relative tolerance, never brittle exact-equality. A locally-open order
+absent from the provider's own open-orders list is disambiguated via a
+direct `getOrder` lookup rather than guessed — `null` means `missing_order`,
+a real (already-terminal) record back means `unexpected_close`.
+`isSafeToOpenNewOrders` is the single gate every new-order path checks;
+any detected drift blocks new risk without attempting to self-heal.
+
+**Failure recovery.** Every write-path failure classifies cleanly into
+"definitely did not happen" (safe to retry) or "might have happened" (must
+reconcile, never auto-resubmit) — see the private client's own
+`ExecutionUnknownResultError` handling above. `submitDecision`'s catch block
+deliberately leaves a `LiveOrder` row at `SUBMITTING` on an unknown-result
+error rather than marking it `FAILED`, so the pre-submission idempotency
+check catches any retry.
+
+**Paper/live parity.** Both providers go through the exact same shared
+pipeline (`execution/service.ts#submitDecision`): idempotency check →
+validation (including risk limits and the kill switch) → submit → persist →
+audit. The only difference between a paper and a live submission is which
+`ExecutionGateway` instance is passed in.
+
+**Live mode gate** (`execution/live-mode-gate.ts#checkLiveModeReadiness`)
+checks `LIVE_EXECUTION_ENABLED`, credentials, account readability,
+reconciliation health, kill-switch queryability, gateway health, and symbol
+tradability — `ready` can never be `true` while
+`LIVE_EXECUTION_ENABLED` is `false`, checked first and short-circuiting
+everything else so a deployment that hasn't explicitly opted in never even
+attempts a live network call.
+
+**Audit trail.** Reuses the existing `AuditLog` model (Sprint 1) rather than
+a new table — its `metadata: Json` field and already append-only nature
+(no update/delete path exists for it anywhere) are exactly what an
+immutable execution audit trail needs. Every step from intent creation
+through submission or rejection is recorded; `metadata` is passed through
+`redactForLogging` as defense in depth even though nothing legitimately
+passed to it should ever contain a credential.
+
+**AI restrictions.** No registered AI tool anywhere in the codebase can
+submit, create, execute, or cancel a live order — verified both by a
+runtime scan of every `RegisteredTool`'s name/description and by the plain
+fact that `src/server/ai/` contains zero references to
+`execution/service`/`submitDecision`/`binance-adapter` at all. AI may only
+ever reach the read-only, already-redacted types this module exposes
+(`ExecutionAccount`/`ExecutionBalance`/`ExecutionPosition`/`ExecutionOrder`).
+
+**Tenant isolation.** `LiveOrder` is fully tenant-scoped (`tenant.ts`'s
+`TENANT_SCOPED_MODELS`/`DIRECTLY_SCOPED_MODELS`) — one organization's scoped
+client never sees another's `LiveOrder` rows, and explicitly querying or
+writing another organization's id throws `CrossTenantAccessError` rather
+than silently overriding it, identical to every other tenant-scoped model.
+
+**Honest scope boundaries.** `BinanceExecutionAdapter` targets Binance's
+SPOT REST API only; `getOpenPositions()` intentionally returns `[]` with a
+documented rationale — live USDⓈ-M futures/perpetual integration
+(`fapi.binance.com`) is a genuinely separate API surface and is out of scope
+this sprint, not approximated. Credentials are single-deployment-wide (like
+`MARKET_EXECUTION_KILL_SWITCH`), not yet per-organization — a future sprint
+introducing true per-organization live credentials would swap the
+implementation behind `execution/credentials.ts`'s own narrow surface with
+zero other files needing to change.
+
+**Tests.** `tests/sprint-22-live-execution.test.ts` (59 tests, groups A-AF)
+covers the gateway abstraction, provider separation, credential handling and
+redaction, account/balance/position reads, the full order lifecycle,
+idempotency and duplicate prevention, validation (including reused Sprint 19
+rejections for stale data and invalid stops), every hard risk limit,
+leverage, take-profit/stop-loss carry-through, the kill switch,
+insufficient-balance rejection, all nine reconciliation mismatch types
+(including the newly-implemented `balance_mismatch`), partial fills, network
+timeout classification, unknown-result handling, restart recovery, tenant
+isolation and cross-tenant rejection, `AutonomyPolicy` immutability, the L2
+market-domain ceiling, AI restrictions, credential-leakage checks on a real
+audit row, the live-disabled default, and that an explicit
+`liveExecutionEnabled: false` blocks the gateway from ever being called.
+Every test uses `execution/mock-gateway.ts#createMockExecutionGateway` (or a
+small ad-hoc fake for one specific scenario) — never a real Binance
+credential, never a real network call.
+
 ### API keys
 
 The `ApiKey` model (and its `apiKey: ["create", "read", "revoke"]` RBAC
