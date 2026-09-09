@@ -346,6 +346,12 @@ export async function runReplay(config: BacktestConfig): Promise<BacktestRunResu
         openPositionCount: runningPositionCount,
         existingOpenNotional: runningNotional,
         killSwitchEngaged: false,
+        // Sprint 26: a backtest replays a strategy's own historical
+        // performance in isolation -- it is never gated by this
+        // organization's LIVE quarantine/retirement state (which itself is
+        // computed FROM real closed trades, not from a hypothetical
+        // replay), exactly like `killSwitchEngaged: false` above.
+        strategyQuarantined: false,
         now: stepMs,
       };
       const decision = buildMarketDecision(decisionCtx);

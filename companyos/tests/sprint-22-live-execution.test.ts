@@ -85,6 +85,7 @@ function buildDecision(overrides: Partial<MarketDecision> & { proposedOrderOverr
     riskSeverity: "low",
     reasons: ["test fixture"],
     killSwitchEngaged: false,
+    strategyQuarantined: false,
     proposedOrder: buildProposedOrder(proposedOrderOverrides),
   };
   return { ...base, ...rest };

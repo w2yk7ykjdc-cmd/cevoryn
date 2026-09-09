@@ -11,6 +11,7 @@ import {
 } from "@/server/intelligence/strategy-performance/service";
 import { getStrategyEvaluations } from "@/server/intelligence/strategy-evaluation/service";
 import { getMostRecentBacktestComparisons } from "@/server/intelligence/backtest/comparison";
+import { listStrategyHealth } from "@/server/intelligence/learning/strategy-health";
 
 const schema = z.object({});
 
@@ -56,13 +57,19 @@ registerTool({
     "trades or replayed historical data -- never an LLM computation, never investment advice, never a guarantee " +
     "of future results, never real-money performance. This data can inform ranking as a bounded supporting signal " +
     "but can never itself change any policy, allowlist, risk limit, or autonomy level. No real Binance account, " +
-    "credential, or order exists anywhere in this pipeline.",
+    "credential, or order exists anywhere in this pipeline. Additionally (Sprint 26), a strategyHealth field: this " +
+    "organization's own adaptive-learning state for every strategy type -- TRIAL (still building evidence, still " +
+    "tradable), ACTIVE (tradable, healthy), QUARANTINED (a detected performance decline blocked NEW entries only -- " +
+    "existing positions are unaffected), or RETIRED (persistently degraded after quarantine). This state is " +
+    "computed purely from the same evaluationScore/evidenceQuality/temporalRobustness fields already returned in " +
+    "`evaluations` above -- read-only here; this tool cannot quarantine, retire, or reactivate a strategy, and " +
+    "reactivation out of QUARANTINED/RETIRED is always a separate, human-only, audited action.",
   schema,
   requiredPermission: { paperTrading: ["read"] },
   domain: "market",
   mutationCategory: "read_only",
   async handler(_input, ctx) {
-    const [overall, byStrategyType, byRegime, bySymbol, byDirection, byLeverageTier, confidenceCalibration, evaluations, backtestComparison] = await Promise.all([
+    const [overall, byStrategyType, byRegime, bySymbol, byDirection, byLeverageTier, confidenceCalibration, evaluations, backtestComparison, strategyHealth] = await Promise.all([
       getStrategyPerformanceOverall(ctx.organizationId),
       getStrategyTypePerformance(ctx.organizationId),
       getRegimePerformance(ctx.organizationId),
@@ -72,7 +79,8 @@ registerTool({
       getPaperTradeConfidenceCalibration(ctx.organizationId),
       getStrategyEvaluations(ctx.organizationId),
       getMostRecentBacktestComparisons(ctx.organizationId),
+      listStrategyHealth(ctx.organizationId),
     ]);
-    return { overall, byStrategyType, byRegime, bySymbol, byDirection, byLeverageTier, confidenceCalibration, evaluations, backtestComparison };
+    return { overall, byStrategyType, byRegime, bySymbol, byDirection, byLeverageTier, confidenceCalibration, evaluations, backtestComparison, strategyHealth };
   },
 });

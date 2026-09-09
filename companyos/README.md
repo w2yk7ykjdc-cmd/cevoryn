@@ -2866,6 +2866,81 @@ note above); no change to `MAX_AUTONOMY_LEVEL_BY_DOMAIN` or any AI-tool
 registration — the orchestrator remains reachable only from the scheduled
 background job, never from any AI/chat-triggered code path.
 
+### Adaptive Learning (Sprint 26)
+
+Sprint 18 built a comprehensive `StrategyEvaluation` (evidenceQuality, a
+bounded [0,100] evaluationScore, temporal robustness across older/previous/
+recent buckets, confidence calibration) but nothing ever ACTED on it — a
+persistently degraded strategy kept trading forever. Sprint 26 closes that
+gap with a state machine layered strictly on top of that same, unmodified
+evaluation — no second scoring formula.
+
+**State machine** (`learning/strategy-health.ts`, `StrategyHealthState`,
+one row per organization+strategyType):
+
+- **TRIAL** — the lazy default for a strategy type with no health row yet.
+  Fully tradable ("controlled discovery": still subject to every existing
+  risk/entry check, just explicitly tracked until it earns real evidence).
+- **ACTIVE** — evidence quality cleared "insufficient"; healthy.
+- **QUARANTINED** — a genuine, evidenced decline: overall evidenceQuality
+  is "moderate"/"strong", evaluationScore is below a documented threshold,
+  AND the temporal-robustness "recent" bucket shows a real win-rate drop
+  versus "older" (both buckets themselves evidenced, never a guess from
+  2-3 trades). A strategy can quarantine directly out of TRIAL too, if its
+  very first health check already reveals this pattern. Blocks NEW entries
+  for that strategy type only — existing positions are completely
+  unaffected, exactly like the kill switch's own "block new, never touch
+  existing" rule.
+- **RETIRED** — still degraded after a full fresh `MIN_SAMPLE_SIZE` of new
+  evidence accumulated since quarantine.
+
+Entering QUARANTINED/RETIRED is always automatic (a system actor, entering
+a SAFER state — mirroring the kill switch's own "engaging is automatic"
+precedent). Leaving them is **never** automatic: only `reactivateStrategy`
+(owner/admin-only via the new `strategyHealth:manage` RBAC permission) can
+bring a strategy back to ACTIVE, and every enable/disable transition is
+audited via the existing `AuditLog` (no new audit table).
+
+**Wiring.** `getBlockedStrategyTypes` (QUARANTINED ∪ RETIRED) is read once
+per pass and threaded into both `market-decision/service.ts#generateMarketDecisions`
+(a new `strategyQuarantined` field on `MarketDecision`, exactly mirroring
+`killSwitchEngaged`'s own "action still computed, `proposedOrder` forced
+null" pattern) and `paper-trading/generate.ts`'s own per-candidate entry
+loop. A `backtest/engine.ts` replay is deliberately never gated by live
+quarantine state — a backtest evaluates a strategy's own historical
+performance in isolation, exactly like it already ignores the live kill
+switch.
+
+**Scheduling.** A new hourly `evaluate-strategy-health` job (same cadence
+as the rest of the market pipeline) runs `evaluateStrategyHealth` per
+organization, cursor-paged, one organization's error never blocking
+another's.
+
+**AI surface.** `get_strategy_performance` (Sprint 17→18→21→26, extended
+again rather than duplicated) now also returns `strategyHealth` —
+read-only. No AI tool can quarantine, retire, or reactivate a strategy;
+`strategyHealth:manage` is never declared by any registered tool.
+
+**Tests** (`tests/sprint-26-adaptive-learning.test.ts`, 26 tests, groups
+A-I): controlled discovery (TRIAL default, graduation to ACTIVE),
+degradation detection and quarantine (including directly out of TRIAL),
+retirement (with and without sufficient fresh evidence, RETIRED as
+terminal), human-only reactivation (from QUARANTINED and RETIRED, throws
+for a nonexistent or already-ACTIVE strategy, and — critically — repeated
+automatic evaluation alone can never reach ACTIVE from QUARANTINED),
+decision-engine gate wiring (a quarantined strategy never gets a
+`proposedOrder`, an active one is unaffected, quarantine is scoped to the
+one strategy type), the scheduled job, tenant isolation, AI-tool
+restriction (by name and by declared permission), and a pure-function unit
+suite for `computeStrategyHealthTransition`.
+
+**Deliberately NOT done this sprint:** no settings UI for reviewing/
+reactivating a quarantined strategy (API/service layer only, matching
+every prior Sprint 22-25 credential/policy precedent); no
+`AutonomousActionLog`/AI-tool-triggered execution touches this state at
+all — quarantine is currently a paper/decision-engine-only signal (the
+production-execution wiring for Sprint 29/30 will read it the same way).
+
 ### API keys
 
 The `ApiKey` model (and its `apiKey: ["create", "read", "revoke"]` RBAC

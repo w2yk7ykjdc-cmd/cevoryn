@@ -119,6 +119,7 @@ function baseContext(overrides: Partial<DecisionContext> = {}): DecisionContext 
     openPositionCount: 0,
     existingOpenNotional: 0,
     killSwitchEngaged: false,
+    strategyQuarantined: false,
     now: Date.now(),
     ...overrides,
   };

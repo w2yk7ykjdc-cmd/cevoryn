@@ -91,6 +91,14 @@ export async function scheduleRecurringJobs(): Promise<void> {
     { every: 3_600_000 },
     { name: "run-autonomous-execution", data: {} },
   );
+  // Sprint 26: runs after evaluate-paper-trading/run-autonomous-execution's
+  // own hourly cadence has had a chance to produce fresh closed trades --
+  // same interval, no new cadence concept.
+  await getQueue().upsertJobScheduler(
+    "evaluate-strategy-health-scheduler",
+    { every: 3_600_000 },
+    { name: "evaluate-strategy-health", data: {} },
+  );
 }
 
 export { QUEUE_NAME };

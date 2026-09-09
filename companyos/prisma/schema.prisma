@@ -137,6 +137,7 @@ model Organization {
   executionCredential      OrganizationExecutionCredential?
   riskPolicy               OrganizationRiskPolicy?
   executionAutonomyPolicy  OrganizationExecutionAutonomyPolicy?
+  strategyHealthStates     StrategyHealthState[]
 
   @@unique([slug])
   @@map("organization")
@@ -1723,4 +1724,52 @@ model OrganizationExecutionAutonomyPolicy {
   updatedAt      DateTime     @updatedAt
 
   @@map("organization_execution_autonomy_policy")
+}
+
+/// Sprint 26: adaptive-learning state machine for one (organization,
+/// strategyType) pair -- computed PURELY from `strategy-evaluation/service.ts
+/// #getStrategyEvaluations` (Sprint 18, unmodified: evidenceQuality,
+/// evaluationScore, temporalRobustness), never a second, parallel scoring
+/// formula. TRIAL is the lazy-default for a strategy type this organization
+/// has never quarantine-evaluated before AND that still has insufficient
+/// evidence -- "controlled discovery": still tradable (identical risk/entry
+/// checks apply), just explicitly tracked until it earns real evidence.
+/// ACTIVE -> QUARANTINED and QUARANTINED -> RETIRED are both automatic,
+/// system-actor transitions (entering a SAFER state, mirroring the kill
+/// switch's own "engaging is automatic, disengaging needs a human"
+/// asymmetric-trust precedent -- see `learning/strategy-health.ts`).
+/// QUARANTINED/RETIRED -> ACTIVE (`reactivatedAt`/`reactivatedById` set)
+/// is NEVER automatic -- always a deliberate, audited human action.
+enum StrategyHealthStatus {
+  TRIAL
+  ACTIVE
+  QUARANTINED
+  RETIRED
+}
+
+model StrategyHealthState {
+  id                            String               @id @default(cuid())
+  organizationId                String
+  organization                  Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  strategyType                  String
+  status                        StrategyHealthStatus @default(TRIAL)
+  /// `StrategyEvaluation.evaluationScore` at the most recent health check --
+  /// stored purely for display/audit, never re-derived independently.
+  evaluationScoreAtLastCheck    Decimal?             @db.Decimal(6, 2)
+  /// `StrategyEvaluation.evaluatedTrades` at the moment QUARANTINED was
+  /// entered -- the baseline `evaluateStrategyHealth` requires a fresh
+  /// `MIN_SAMPLE_SIZE` of NEW evidence past before it will ever consider
+  /// retirement, so a stale snapshot can never trigger it.
+  evaluatedTradesAtQuarantine   Int?
+  reason                        String?
+  quarantinedAt                 DateTime?
+  retiredAt                     DateTime?
+  reactivatedAt                 DateTime?
+  reactivatedById               String?
+  lastCheckedAt                 DateTime?
+  createdAt                     DateTime             @default(now())
+  updatedAt                     DateTime             @updatedAt
+
+  @@unique([organizationId, strategyType])
+  @@map("strategy_health_state")
 }
