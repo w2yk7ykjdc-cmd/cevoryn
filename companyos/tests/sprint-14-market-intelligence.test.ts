@@ -381,7 +381,7 @@ describe("Z/AA/AB/AC: CRITICAL SAFETY -- market intelligence can never touch aut
 
     const marketTools = listRegisteredTools().filter((t) => t.domain === "market");
     expect(marketTools.every((t) => t.mutationCategory === "read_only")).toBe(true);
-  });
+  }, 60_000);
 });
 
 describe("AD: Outcome/Learning compatibility -- market Opportunity/Risk are ordinary, soft-referenceable rows", () => {

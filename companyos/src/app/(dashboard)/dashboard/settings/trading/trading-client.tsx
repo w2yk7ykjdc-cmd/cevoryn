@@ -27,10 +27,13 @@ type CredentialStatus = { provider: string; configured: boolean; fingerprint: st
 type Credentials = { statuses: CredentialStatus[]; canManage: boolean; canRevoke: boolean } | null;
 type StrategyHealthRow = { strategyType: string; status: string; evaluationScoreAtLastCheck: number | null; reason: string | null; lastCheckedAt: Date | null };
 type StrategyHealth = { rows: StrategyHealthRow[]; canManage: boolean } | null;
+type ReadinessCheck = { key: string; label: string; satisfied: boolean; detail: string };
+type Readiness = { ready: boolean; checks: ReadinessCheck[] } | null;
 
 export function TradingClient({
   supportedProviders,
   riskPolicyFieldKeys,
+  readiness,
   marketKillSwitch,
   executionAutonomy,
   riskPolicy,
@@ -39,6 +42,7 @@ export function TradingClient({
 }: {
   supportedProviders: string[];
   riskPolicyFieldKeys: (keyof RiskPolicyLimits)[];
+  readiness: Readiness;
   marketKillSwitch: MarketKillSwitch;
   executionAutonomy: ExecutionAutonomy;
   riskPolicy: { values: RiskPolicyLimits; canManage: boolean };
@@ -49,6 +53,7 @@ export function TradingClient({
 
   return (
     <div className="flex flex-col gap-6">
+      {readiness && <ProductionReadinessCard state={readiness} />}
       {marketKillSwitch && <MarketKillSwitchCard state={marketKillSwitch} onChanged={() => router.refresh()} />}
       {executionAutonomy && <ExecutionAutonomyCard state={executionAutonomy} onChanged={() => router.refresh()} />}
       <RiskPolicyCard fieldKeys={riskPolicyFieldKeys} initial={riskPolicy.values} canManage={riskPolicy.canManage} onChanged={() => router.refresh()} />
@@ -57,6 +62,39 @@ export function TradingClient({
       )}
       {strategyHealth && <StrategyHealthCard state={strategyHealth} onChanged={() => router.refresh()} />}
     </div>
+  );
+}
+
+function ProductionReadinessCard({ state }: { state: NonNullable<Readiness> }) {
+  return (
+    <Card className={state.ready ? undefined : "border-destructive/50"}>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-base">Production readiness</CardTitle>
+            <CardDescription>
+              The exact four gates the autonomous-execution orchestrator checks before it will ever generate a
+              decision for this organization, in the same order. All four must be satisfied before any live
+              submission can happen — reconciliation and order history are ongoing health, not a precondition.
+            </CardDescription>
+          </div>
+          <Badge variant={state.ready ? "default" : "secondary"}>{state.ready ? "Ready" : "Not ready"}</Badge>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <ul className="flex flex-col gap-2">
+          {state.checks.map((check) => (
+            <li key={check.key} className="flex items-start gap-2 text-sm">
+              <span aria-hidden="true">{check.satisfied ? "✓" : "✗"}</span>
+              <div>
+                <span className="font-medium">{check.label}</span>
+                <p className="text-xs text-muted-foreground">{check.detail}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
   );
 }
 
