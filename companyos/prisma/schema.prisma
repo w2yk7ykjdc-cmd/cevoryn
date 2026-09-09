@@ -134,9 +134,12 @@ model Organization {
   paperTrades              PaperTrade[]
   backtestRuns             BacktestRun[]
   liveOrders               LiveOrder[]
-  executionCredential      OrganizationExecutionCredential?
+  /// Sprint 27: one row per provider (`@@unique([organizationId, provider])`
+  /// on the child) -- was a strict one-to-one before this sprint.
+  executionCredentials     OrganizationExecutionCredential[]
   riskPolicy               OrganizationRiskPolicy?
   executionAutonomyPolicy  OrganizationExecutionAutonomyPolicy?
+  strategyHealthStates     StrategyHealthState[]
 
   @@unique([slug])
   @@map("organization")
@@ -1578,6 +1581,13 @@ model LiveOrder {
   organizationId   String
   organization     Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   clientOrderId    String
+  /// Sprint 27: which `execution/providers.ts` provider this order was
+  /// (or would be) submitted through -- `"binance"` for every existing row
+  /// and every order this codebase can actually submit today. Purely
+  /// descriptive metadata (mirrors `ExecutionGateway.providerName`'s own
+  /// "never branches execution-critical logic" rule) -- audit/reconciliation
+  /// only, never itself a routing decision.
+  provider         String          @default("binance")
   symbol           String
   side             String
   type             String
@@ -1646,8 +1656,16 @@ model LiveOrder {
 /// credential, exactly as intended.
 model OrganizationExecutionCredential {
   id                 String       @id @default(cuid())
-  organizationId     String       @unique
+  organizationId     String
   organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// Sprint 27: was a plain default-valued column with `organizationId`
+  /// alone unique (one credential per organization, period). Now part of
+  /// the row's own identity (`@@unique([organizationId, provider])`) --
+  /// an organization can hold one credential PER `execution/providers.ts`
+  /// provider (`binance` today; a future provider would get its own row,
+  /// never overwrite this one). Every Sprint 23-26 call site that never
+  /// passes a provider keeps defaulting to `"binance"`, so existing rows
+  /// and behavior are completely unaffected.
   provider           String       @default("binance")
   encryptedApiKey    String
   encryptedApiSecret String
@@ -1659,6 +1677,7 @@ model OrganizationExecutionCredential {
   revokedAt          DateTime?
   revokedById        String?
 
+  @@unique([organizationId, provider])
   @@map("organization_execution_credential")
 }
 
@@ -1723,4 +1742,52 @@ model OrganizationExecutionAutonomyPolicy {
   updatedAt      DateTime     @updatedAt
 
   @@map("organization_execution_autonomy_policy")
+}
+
+/// Sprint 26: adaptive-learning state machine for one (organization,
+/// strategyType) pair -- computed PURELY from `strategy-evaluation/service.ts
+/// #getStrategyEvaluations` (Sprint 18, unmodified: evidenceQuality,
+/// evaluationScore, temporalRobustness), never a second, parallel scoring
+/// formula. TRIAL is the lazy-default for a strategy type this organization
+/// has never quarantine-evaluated before AND that still has insufficient
+/// evidence -- "controlled discovery": still tradable (identical risk/entry
+/// checks apply), just explicitly tracked until it earns real evidence.
+/// ACTIVE -> QUARANTINED and QUARANTINED -> RETIRED are both automatic,
+/// system-actor transitions (entering a SAFER state, mirroring the kill
+/// switch's own "engaging is automatic, disengaging needs a human"
+/// asymmetric-trust precedent -- see `learning/strategy-health.ts`).
+/// QUARANTINED/RETIRED -> ACTIVE (`reactivatedAt`/`reactivatedById` set)
+/// is NEVER automatic -- always a deliberate, audited human action.
+enum StrategyHealthStatus {
+  TRIAL
+  ACTIVE
+  QUARANTINED
+  RETIRED
+}
+
+model StrategyHealthState {
+  id                            String               @id @default(cuid())
+  organizationId                String
+  organization                  Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  strategyType                  String
+  status                        StrategyHealthStatus @default(TRIAL)
+  /// `StrategyEvaluation.evaluationScore` at the most recent health check --
+  /// stored purely for display/audit, never re-derived independently.
+  evaluationScoreAtLastCheck    Decimal?             @db.Decimal(6, 2)
+  /// `StrategyEvaluation.evaluatedTrades` at the moment QUARANTINED was
+  /// entered -- the baseline `evaluateStrategyHealth` requires a fresh
+  /// `MIN_SAMPLE_SIZE` of NEW evidence past before it will ever consider
+  /// retirement, so a stale snapshot can never trigger it.
+  evaluatedTradesAtQuarantine   Int?
+  reason                        String?
+  quarantinedAt                 DateTime?
+  retiredAt                     DateTime?
+  reactivatedAt                 DateTime?
+  reactivatedById               String?
+  lastCheckedAt                 DateTime?
+  createdAt                     DateTime             @default(now())
+  updatedAt                     DateTime             @updatedAt
+
+  @@unique([organizationId, strategyType])
+  @@map("strategy_health_state")
 }

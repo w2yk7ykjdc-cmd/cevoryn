@@ -2866,6 +2866,135 @@ note above); no change to `MAX_AUTONOMY_LEVEL_BY_DOMAIN` or any AI-tool
 registration — the orchestrator remains reachable only from the scheduled
 background job, never from any AI/chat-triggered code path.
 
+### Adaptive Learning (Sprint 26)
+
+Sprint 18 built a comprehensive `StrategyEvaluation` (evidenceQuality, a
+bounded [0,100] evaluationScore, temporal robustness across older/previous/
+recent buckets, confidence calibration) but nothing ever ACTED on it — a
+persistently degraded strategy kept trading forever. Sprint 26 closes that
+gap with a state machine layered strictly on top of that same, unmodified
+evaluation — no second scoring formula.
+
+**State machine** (`learning/strategy-health.ts`, `StrategyHealthState`,
+one row per organization+strategyType):
+
+- **TRIAL** — the lazy default for a strategy type with no health row yet.
+  Fully tradable ("controlled discovery": still subject to every existing
+  risk/entry check, just explicitly tracked until it earns real evidence).
+- **ACTIVE** — evidence quality cleared "insufficient"; healthy.
+- **QUARANTINED** — a genuine, evidenced decline: overall evidenceQuality
+  is "moderate"/"strong", evaluationScore is below a documented threshold,
+  AND the temporal-robustness "recent" bucket shows a real win-rate drop
+  versus "older" (both buckets themselves evidenced, never a guess from
+  2-3 trades). A strategy can quarantine directly out of TRIAL too, if its
+  very first health check already reveals this pattern. Blocks NEW entries
+  for that strategy type only — existing positions are completely
+  unaffected, exactly like the kill switch's own "block new, never touch
+  existing" rule.
+- **RETIRED** — still degraded after a full fresh `MIN_SAMPLE_SIZE` of new
+  evidence accumulated since quarantine.
+
+Entering QUARANTINED/RETIRED is always automatic (a system actor, entering
+a SAFER state — mirroring the kill switch's own "engaging is automatic"
+precedent). Leaving them is **never** automatic: only `reactivateStrategy`
+(owner/admin-only via the new `strategyHealth:manage` RBAC permission) can
+bring a strategy back to ACTIVE, and every enable/disable transition is
+audited via the existing `AuditLog` (no new audit table).
+
+**Wiring.** `getBlockedStrategyTypes` (QUARANTINED ∪ RETIRED) is read once
+per pass and threaded into both `market-decision/service.ts#generateMarketDecisions`
+(a new `strategyQuarantined` field on `MarketDecision`, exactly mirroring
+`killSwitchEngaged`'s own "action still computed, `proposedOrder` forced
+null" pattern) and `paper-trading/generate.ts`'s own per-candidate entry
+loop. A `backtest/engine.ts` replay is deliberately never gated by live
+quarantine state — a backtest evaluates a strategy's own historical
+performance in isolation, exactly like it already ignores the live kill
+switch.
+
+**Scheduling.** A new hourly `evaluate-strategy-health` job (same cadence
+as the rest of the market pipeline) runs `evaluateStrategyHealth` per
+organization, cursor-paged, one organization's error never blocking
+another's.
+
+**AI surface.** `get_strategy_performance` (Sprint 17→18→21→26, extended
+again rather than duplicated) now also returns `strategyHealth` —
+read-only. No AI tool can quarantine, retire, or reactivate a strategy;
+`strategyHealth:manage` is never declared by any registered tool.
+
+**Tests** (`tests/sprint-26-adaptive-learning.test.ts`, 26 tests, groups
+A-I): controlled discovery (TRIAL default, graduation to ACTIVE),
+degradation detection and quarantine (including directly out of TRIAL),
+retirement (with and without sufficient fresh evidence, RETIRED as
+terminal), human-only reactivation (from QUARANTINED and RETIRED, throws
+for a nonexistent or already-ACTIVE strategy, and — critically — repeated
+automatic evaluation alone can never reach ACTIVE from QUARANTINED),
+decision-engine gate wiring (a quarantined strategy never gets a
+`proposedOrder`, an active one is unaffected, quarantine is scoped to the
+one strategy type), the scheduled job, tenant isolation, AI-tool
+restriction (by name and by declared permission), and a pure-function unit
+suite for `computeStrategyHealthTransition`.
+
+**Deliberately NOT done this sprint:** no settings UI for reviewing/
+reactivating a quarantined strategy (API/service layer only, matching
+every prior Sprint 22-25 credential/policy precedent); no
+`AutonomousActionLog`/AI-tool-triggered execution touches this state at
+all — quarantine is currently a paper/decision-engine-only signal (the
+production-execution wiring for Sprint 29/30 will read it the same way).
+
+### Multi-Market Provider Isolation (Sprint 27)
+
+**Audit finding:** `ExecutionGateway` (Sprint 22) and `MarketDataClient`
+(Sprint 13/14) were ALREADY provider-agnostic interfaces before this
+sprint — `ExecutionMode` is just `"PAPER" | "LIVE"`, `Symbol` is a plain
+runtime-validated string (not a Binance-specific literal union), and
+neither interface carries a Binance-specific field. Sprint 27 does not
+rewrite either interface; it closes the two places that were still
+implicitly, structurally Binance-only: credential storage and gateway
+construction.
+
+**Credential storage.** `OrganizationExecutionCredential` moves from
+`organizationId @unique` (one credential per organization, full stop) to
+`@@unique([organizationId, provider])` — an organization can now hold one
+credential PER provider. Every Sprint 23-26 function in
+`execution/org-credentials.ts` gained an optional `provider` parameter
+defaulting to `"binance"`, so every existing call site that never mentions
+a provider reads/writes the exact same row it always has. The env-var
+fallback (`BINANCE_API_KEY`/`BINANCE_API_SECRET`) is deliberately scoped
+to the `"binance"` provider only — it is inherently Binance-specific and
+is never returned for any other provider name.
+
+**Provider registry** (`execution/providers.ts`):
+`SUPPORTED_EXECUTION_PROVIDERS` honestly lists only `"binance"` — the only
+provider with a real, working `ExecutionGateway` implementation.
+`createExecutionGatewayForProvider` throws `UnsupportedExecutionProviderError`
+for anything else, rather than silently falling back to Binance or
+pretending an unimplemented provider is ready. Adding a genuinely new
+provider means adding both a real adapter AND a registry entry in the same
+change — never one without the other, so nothing here can ever claim a
+capability this codebase doesn't actually have.
+
+**`LiveOrder.provider`** — a new, purely descriptive column (defaults to
+`"binance"` for every existing row) recording which provider a given order
+went through, for audit/reconciliation. Never itself a routing decision.
+
+**Deliberately NOT done this sprint:** no second real exchange
+integration (no Coinbase/Kraken adapter — `SUPPORTED_EXECUTION_PROVIDERS`
+says so explicitly); no change to risk-limit formulas or symbol
+conventions (Sprint 22-24's crypto-perpetual-appropriate constants are
+untouched); `generateMarketDecisions` (Sprint 19) still has no concept of
+"which market a decision targets" — `autonomous-execution.ts`'s gateway
+resolution still defaults to `"binance"` for that reason, a documented
+seam for a future sprint that teaches decisions their own market, not
+something this sprint fakes.
+
+**Tests** (`tests/sprint-27-multi-market.test.ts`, 14 tests, groups A-F):
+provider registry (only "binance" supported, unsupported providers throw),
+multi-provider credential storage (two providers coexist, rotating/
+revoking one never touches another), backward compatibility (every
+no-provider-argument call site unchanged), tenant isolation (per-provider,
+and two organizations configuring the same provider name don't collide),
+the env fallback staying Binance-only, and AI-tool restriction.
+
 ### API keys
 
 The `ApiKey` model (and its `apiKey: ["create", "read", "revoke"]` RBAC

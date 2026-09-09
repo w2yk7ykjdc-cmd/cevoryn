@@ -61,6 +61,12 @@ export type JobMap = {
    */
   "run-autonomous-execution": Record<string, never>;
   /**
+   * Sprint 26: adaptive-learning pass -- strategy degradation detection,
+   * quarantine, retirement, and TRIAL-to-ACTIVE graduation, computed purely
+   * from Sprint 18's own `getStrategyEvaluations`.
+   */
+  "evaluate-strategy-health": Record<string, never>;
+  /**
    * Sprint 21: executes ONE already-created, `PENDING` `BacktestRun` row --
    * loads its `config`, fetches the real historical candle data, runs
    * Sprint 20's own unchanged `runBacktest`, and persists the result. Not a

@@ -95,5 +95,7 @@ export type MarketDecision = {
   reasons: string[];
   /** True when the kill switch (organization-scoped OR system-wide) was engaged at decision time -- `proposedOrder` is always `null` in this case, regardless of what `action` would otherwise justify. */
   killSwitchEngaged: boolean;
+  /** Sprint 26: true when THIS strategy type was QUARANTINED or RETIRED (`learning/strategy-health.ts`) at decision time -- `proposedOrder` is always `null` in this case too, same as the kill switch, but scoped to this one strategy type rather than every strategy. */
+  strategyQuarantined: boolean;
   proposedOrder: ProposedOrder | null;
 };

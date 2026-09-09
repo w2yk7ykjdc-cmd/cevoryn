@@ -87,6 +87,7 @@ function buildDecision(overrides: Partial<MarketDecision> & { proposedOrderOverr
     riskSeverity: "low",
     reasons: ["test fixture"],
     killSwitchEngaged: false,
+    strategyQuarantined: false,
     proposedOrder: buildProposedOrder(proposedOrderOverrides),
   };
   return { ...base, ...rest };
@@ -601,10 +602,10 @@ describe("Sprint 23: Live Execution Hardening & Organization Credentials", () =>
     it("X1: after rotation, the stored ciphertext changes and only the NEW secret is ever decryptable from the row", async () => {
       const { owner, organization } = await setupOrg();
       await setOrganizationCredentials({ organizationId: organization.id, actorId: owner.userId, apiKey: "rotate-old-key", apiSecret: "rotate-old-secret" });
-      const before = await prisma.organizationExecutionCredential.findUnique({ where: { organizationId: organization.id } });
+      const before = await prisma.organizationExecutionCredential.findUnique({ where: { organizationId_provider: { organizationId: organization.id, provider: "binance" } } });
 
       await setOrganizationCredentials({ organizationId: organization.id, actorId: owner.userId, apiKey: "rotate-new-key", apiSecret: "rotate-new-secret" });
-      const after = await prisma.organizationExecutionCredential.findUnique({ where: { organizationId: organization.id } });
+      const after = await prisma.organizationExecutionCredential.findUnique({ where: { organizationId_provider: { organizationId: organization.id, provider: "binance" } } });
 
       expect(after!.encryptedApiKey).not.toBe(before!.encryptedApiKey);
       expect(after!.encryptedApiSecret).not.toBe(before!.encryptedApiSecret);

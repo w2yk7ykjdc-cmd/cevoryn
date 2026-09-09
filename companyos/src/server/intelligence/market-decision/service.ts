@@ -1,6 +1,7 @@
 import { env } from "@/env";
 import { getTenantScopedClient } from "@/server/db/tenant";
 import { isKillSwitchEngaged } from "@/server/ai/autonomy/policy-service";
+import { getBlockedStrategyTypes } from "@/server/intelligence/learning/strategy-health";
 import { METRICS_SNAPSHOT_RULE_NAME, METRICS_SNAPSHOT_RULE_VERSION } from "@/server/intelligence/signals/market-scanner";
 import type { MarketMetricsSnapshotPayload, StrategyCandidate } from "@/server/intelligence/strategy/types";
 import { getOrCreatePaperAccount, type PaperAccountView } from "@/server/intelligence/paper-trading/account";
@@ -112,6 +113,8 @@ export type DecisionContext = {
   openPositionCount: number;
   existingOpenNotional: number;
   killSwitchEngaged: boolean;
+  /** Sprint 26: this specific strategy type is QUARANTINED or RETIRED (`learning/strategy-health.ts`) -- blocks a NEW execution proposal for THIS strategy type only, exactly like `killSwitchEngaged` blocks one for every strategy type. Existing positions are never affected here. */
+  strategyQuarantined: boolean;
   now: number;
 };
 
@@ -129,7 +132,7 @@ export type DecisionContext = {
  * proposed and why it wasn't actionable, rather than silently omitting it.
  */
 export function buildMarketDecision(ctx: DecisionContext): MarketDecision {
-  const { candidate, metrics, riskSeverity, opportunityScore, evaluation, account, hasExistingPositionForSymbol, openPositionCount, existingOpenNotional, killSwitchEngaged, now } = ctx;
+  const { candidate, metrics, riskSeverity, opportunityScore, evaluation, account, hasExistingPositionForSymbol, openPositionCount, existingOpenNotional, killSwitchEngaged, strategyQuarantined, now } = ctx;
 
   const evidenceQuality: EvidenceQuality = evaluation && evaluation.status === "evaluated" ? evaluation.evidenceQuality : "insufficient";
   const evaluationScore = evaluation && evaluation.status === "evaluated" ? evaluation.evaluationScore : null;
@@ -165,6 +168,7 @@ export function buildMarketDecision(ctx: DecisionContext): MarketDecision {
   }
 
   if (killSwitchEngaged) reasons.push("Kill switch engaged -- no execution proposal generated (read/evaluation only).");
+  if (strategyQuarantined) reasons.push("Strategy type is QUARANTINED or RETIRED (Sprint 26 adaptive learning) -- no execution proposal generated for this strategy type (read/evaluation only).");
 
   const base: Omit<MarketDecision, "proposedOrder"> = {
     symbol: candidate.symbol,
@@ -178,10 +182,11 @@ export function buildMarketDecision(ctx: DecisionContext): MarketDecision {
     riskSeverity,
     reasons,
     killSwitchEngaged,
+    strategyQuarantined,
   };
 
-  if (orderDirection === null || killSwitchEngaged || !metrics) {
-    if (!metrics && orderDirection !== null && !killSwitchEngaged) {
+  if (orderDirection === null || killSwitchEngaged || strategyQuarantined || !metrics) {
+    if (!metrics && orderDirection !== null && !killSwitchEngaged && !strategyQuarantined) {
       reasons.push("No current market data available for this symbol -- no order can be priced.");
     }
     return { ...base, proposedOrder: null };
@@ -252,7 +257,7 @@ export function buildMarketDecision(ctx: DecisionContext): MarketDecision {
 export async function generateMarketDecisions(organizationId: string, now: Date = new Date()): Promise<MarketDecision[]> {
   const scoped = getTenantScopedClient(organizationId);
 
-  const [snapshot, metricsSignals, account, openPositions, evaluations, orgKillSwitchEngaged] = await Promise.all([
+  const [snapshot, metricsSignals, account, openPositions, evaluations, orgKillSwitchEngaged, blockedStrategyTypes] = await Promise.all([
     getMarketIntelligenceRanking(organizationId),
     scoped.companySignal.findMany({
       where: { ruleName: METRICS_SNAPSHOT_RULE_NAME, ruleVersion: METRICS_SNAPSHOT_RULE_VERSION, status: "active" },
@@ -262,6 +267,7 @@ export async function generateMarketDecisions(organizationId: string, now: Date 
     scoped.paperPosition.findMany({ where: { status: "OPEN" }, select: { symbol: true, notional: true } }),
     getStrategyEvaluations(organizationId),
     isKillSwitchEngaged(organizationId, "market"),
+    getBlockedStrategyTypes(organizationId),
   ]);
 
   const killSwitchEngaged = orgKillSwitchEngaged || env.MARKET_EXECUTION_KILL_SWITCH;
@@ -291,6 +297,7 @@ export async function generateMarketDecisions(organizationId: string, now: Date 
       openPositionCount,
       existingOpenNotional,
       killSwitchEngaged,
+      strategyQuarantined: blockedStrategyTypes.has(candidate.strategyType),
       now: now.getTime(),
     });
   });

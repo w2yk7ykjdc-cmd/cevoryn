@@ -4,7 +4,7 @@ import { logger } from "@/server/logger/logger";
 import { isKillSwitchEngaged } from "@/server/ai/autonomy/policy-service";
 import { isAutonomousExecutionEnabled } from "@/server/execution/autonomy-gate";
 import { resolveExecutionCredentials } from "@/server/execution/org-credentials";
-import { createBinanceExecutionAdapter } from "@/server/execution/binance-adapter";
+import { DEFAULT_EXECUTION_PROVIDER, createExecutionGatewayForProvider } from "@/server/execution/providers";
 import { reconcileOrganizationLiveState } from "@/server/execution/position-management";
 import { isSafeToOpenNewOrders } from "@/server/execution/reconciliation";
 import { generateMarketDecisions } from "@/server/intelligence/market-decision/service";
@@ -97,10 +97,19 @@ export type AutonomousExecutionRunResult = {
   durationMs: number;
 };
 
+/**
+ * Sprint 27: provider-aware, but still defaults to `DEFAULT_EXECUTION_PROVIDER`
+ * ("binance") -- `generateMarketDecisions` (Sprint 19) has no concept of
+ * "which market a decision targets" yet, so this orchestrator has exactly
+ * one real provider to route to today, same as before this sprint. The
+ * seam (`createExecutionGatewayForProvider`) is what a future sprint that
+ * teaches decisions their own market would call with a real, per-decision
+ * provider instead of this constant.
+ */
 async function resolveLiveGateway(organizationId: string): Promise<ExecutionGateway | null> {
-  const credentials = await resolveExecutionCredentials(organizationId);
+  const credentials = await resolveExecutionCredentials(organizationId, DEFAULT_EXECUTION_PROVIDER);
   if (!credentials) return null;
-  return createBinanceExecutionAdapter(credentials);
+  return createExecutionGatewayForProvider(DEFAULT_EXECUTION_PROVIDER, credentials);
 }
 
 /**

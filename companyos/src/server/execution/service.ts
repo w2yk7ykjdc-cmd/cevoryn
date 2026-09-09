@@ -112,6 +112,10 @@ export async function submitDecision(params: {
       data: {
         organizationId,
         clientOrderId,
+        // Sprint 27: `providerName` is already existing, inspectable
+        // ExecutionGateway metadata (Sprint 22) -- recorded here purely
+        // for audit/reconciliation, never itself a routing decision.
+        provider: gateway.providerName,
         symbol: decision.proposedOrder.symbol,
         side: decision.proposedOrder.direction === "LONG" ? "BUY" : "SELL",
         type: "MARKET",

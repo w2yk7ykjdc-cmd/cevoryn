@@ -6,6 +6,7 @@ import { METRICS_SNAPSHOT_RULE_NAME, METRICS_SNAPSHOT_RULE_VERSION } from "@/ser
 import { STRATEGY_CANDIDATE_RULE_NAME, STRATEGY_CANDIDATE_RULE_VERSION } from "@/server/intelligence/strategy/generate";
 import { env } from "@/env";
 import { isKillSwitchEngaged } from "@/server/ai/autonomy/policy-service";
+import { getBlockedStrategyTypes } from "@/server/intelligence/learning/strategy-health";
 import { getOrCreatePaperAccount } from "@/server/intelligence/paper-trading/account";
 import { decideEntry } from "@/server/intelligence/paper-trading/entry";
 import { evaluatePositionUpdate, type OpenPositionState } from "@/server/intelligence/paper-trading/evaluate";
@@ -207,9 +208,18 @@ async function evaluatePaperTradingForOrganization(
     return { positionsOpened, positionsUpdated, positionsClosed };
   }
 
+  // Sprint 26: strategy types QUARANTINED/RETIRED by `learning/strategy-health.ts`
+  // are blocked from NEW entries only -- read once per pass, same shape as
+  // the org-wide kill-switch check above but scoped per strategy type.
+  const blockedStrategyTypes = await getBlockedStrategyTypes(organizationId);
+
   for (const [symbol, { candidate, signalId }] of candidatesBySymbol) {
     const metrics = metricsBySymbol.get(symbol);
     if (!metrics) continue;
+    if (blockedStrategyTypes.has(candidate.strategyType)) {
+      logger.debug({ organizationId, symbol, strategyType: candidate.strategyType }, "paper trading: entry skipped -- strategy type quarantined/retired");
+      continue;
+    }
 
     const liveAccount = { ...account, usedMargin: runningUsedMargin, availableMargin: account.currentEquity - runningUsedMargin };
 
