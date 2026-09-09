@@ -132,6 +132,7 @@ model Organization {
   paperAccount             PaperAccount?
   paperPositions           PaperPosition[]
   paperTrades              PaperTrade[]
+  backtestRuns             BacktestRun[]
 
   @@unique([slug])
   @@map("organization")
@@ -1466,4 +1467,67 @@ model PaperTrade {
   @@index([organizationId, closedAt])
   @@index([organizationId, strategyType])
   @@map("paper_trade")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Sprint 21: Persisted Backtest Runs, Multi-Scenario/Period Comparison
+// ─────────────────────────────────────────────────────────────────────────
+
+/// `PENDING` -> `RUNNING` -> `COMPLETED`/`FAILED`, set by the `run-backtest`
+/// job processor (Sprint 21) around Sprint 20's own unchanged `runBacktest`
+/// call. A run stuck at `PENDING`/`RUNNING` past a reasonable time simply
+/// means the job hasn't been picked up or is still executing -- there is no
+/// separate "cancelled" state this sprint, matching the minimal, honest
+/// scope of what's actually implemented.
+enum BacktestRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+/// A named, persisted historical backtest configuration + result (Sprint
+/// 21) -- makes Sprint 20's previously request-scoped, ephemeral
+/// `runBacktest` computation queryable, comparable across scenarios/
+/// periods, and retrievable after the request that launched it ends.
+/// Nothing about the underlying computation changes: `config`/`result`
+/// store exactly `BacktestConfig`/`BacktestReport` (Sprint 20's own types)
+/// as JSON -- the same "a computed shape that can grow without a migration
+/// per field" precedent `CompanySignal.payload` already established, never
+/// a parallel re-modeling of the engine's own output. PAPER/SIMULATION
+/// ONLY: no real account, no real order, no real money is referenced or
+/// implied by any row in this table -- see
+/// `backtest/service.ts#BACKTEST_DISCLAIMER`, embedded in every `result`.
+model BacktestRun {
+  id             String            @id @default(cuid())
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// Soft reference to the `User` who launched this run (Better Auth's own
+  /// user table, not tenant-scoped -- same soft-reference convention
+  /// `Outcome.confirmedById`/`AutonomyPolicyVersion.changedById` already
+  /// use). `null` for a run launched by a non-interactive path (e.g. a
+  /// future recurring-scenario job), never fabricated.
+  requestedById  String?
+  /// Human-chosen scenario label (e.g. "Q1 2024 BTC/ETH uptrend") -- purely
+  /// descriptive, never parsed or matched against for any decision logic.
+  label          String
+  status         BacktestRunStatus @default(PENDING)
+  /// `BacktestConfig` minus the actual candle arrays (symbols, the
+  /// requested historical window, starting equity) -- small enough to
+  /// store directly; the real historical candle data itself is re-fetched
+  /// by the job processor at run time, never persisted here.
+  config         Json
+  /// The full `BacktestReport` (Sprint 20) once `status` is `COMPLETED` --
+  /// `null` otherwise, never a partial/guessed result.
+  result         Json?
+  /// Set only when `status` is `FAILED` -- the real error message, never a
+  /// fabricated or generic one.
+  errorMessage   String?
+  createdAt      DateTime          @default(now())
+  startedAt      DateTime?
+  completedAt    DateTime?
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, status])
+  @@map("backtest_run")
 }

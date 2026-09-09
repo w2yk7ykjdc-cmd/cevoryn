@@ -77,7 +77,7 @@ src/
       strategy-performance/   deterministic strategy/regime/confidence performance aggregation over closed paper trades (Sprint 17, SIMULATION ONLY)
       strategy-evaluation/    evidence quality, drawdown, risk-adjusted return, regime/symbol/direction/leverage/temporal robustness, evaluation score (Sprint 18, SIMULATION ONLY)
       market-decision/        deterministic BUY/SELL/HOLD/NO_TRADE Decision Engine, execution-level Risk Engine, Order Validation, ProposedOrder (Sprint 19, PAPER/NOT REAL EXECUTION)
-      backtest/               Historical Market Replay & Backtest Engine: no-look-ahead replay, output metrics, robustness, walk-forward, quality score (Sprint 20, BACKTEST/HISTORICAL SIMULATION ONLY)
+      backtest/               Historical Market Replay & Backtest Engine: no-look-ahead replay, output metrics, robustness, walk-forward, quality score, +persisted BacktestRun/multi-scenario comparison/backtest-vs-live (Sprint 20-21, BACKTEST/HISTORICAL SIMULATION ONLY)
     market-data/              Binance public candle + exchangeInfo + 24hr ticker client, dynamic universe discovery (Sprint 13/14)
 ```
 
@@ -2215,6 +2215,98 @@ safe output metrics, robustness breakdowns, the walk-forward split, the
 quality score, isolation from production state, security invariants, and —
 as the sprint's own most critical requirement — five dedicated look-ahead
 bias tests (Group J) plus full determinism (Group K).
+
+### Backtest Persistence, Multi-Scenario Comparison & Backtest-vs-Live (Sprint 21)
+
+> **BACKTEST / SIMULATION — NOT REAL TRADING, NO NEW EXECUTION CAPABILITY.**
+> This sprint adds persistence and comparison around Sprint 20's own
+> unchanged `runBacktest` engine. Nothing here places an order, touches a
+> real account, or increases market autonomy past L2.
+
+Sprint 20 built a deterministic, look-ahead-safe backtest engine, but its
+result lived only for the length of one page request. This sprint makes
+that result durable, queryable, comparable across scenarios/periods, and
+readable side-by-side with real live paper-trading performance — without
+changing a single line of Sprint 20's own replay logic, and without letting
+a backtest result influence live ranking or evaluation.
+
+**New Prisma model: `BacktestRun`** (`status`: `PENDING`→`RUNNING`→
+`COMPLETED`/`FAILED`, `config`/`result` as JSON, mirroring `CompanySignal.
+payload`'s own "computed shape that can grow without a migration per field"
+precedent). The real historical candle data itself is never persisted —
+only the small config (symbols, window, starting equity) and, once
+complete, the full `BacktestReport`.
+
+**Reuses the existing BullMQ job queue, not a new job system.** A new
+`run-backtest` job (`jobs/processors/run-backtest.ts`) executes one
+`PENDING` row: loads its config, fetches real historical data
+(`loadHistoricalDataset`, unchanged from Sprint 20), and calls Sprint 20's
+own `runBacktest` verbatim. Idempotent — a row already `COMPLETED`/`FAILED`
+is left untouched on any retried or duplicated delivery, never
+re-computed, never double-written. The dataset loader is injectable
+(the same "inject the client, default to the real one" pattern
+`ingestMarketData` already established for `MarketDataClient`), so the
+Sprint 21 test suite exercises the full create → enqueue → process →
+persist cycle entirely offline, with zero real network calls.
+
+**Multi-scenario / period comparison** (`backtest/comparison.ts#compareBacktestRuns`):
+reads up to `MAX_COMPARISON_RUNS` completed runs this organization owns and
+returns them side by side, each with its own already-computed metrics —
+never blended into one combined figure. The `/dashboard/backtest` page
+renders this automatically across every completed run once more than one
+exists.
+
+**Backtest vs. live paper-trading comparability**
+(`backtest/comparison.ts#compareBacktestToLive`): takes one completed run's
+own `robustness.byStrategyType` bucket for a strategy type and lays it
+side by side against that SAME strategy type's real, live measurements
+(`getStrategyTypePerformance` from Sprint 17, `getStrategyEvaluations` from
+Sprint 18) — sample size, win rate, average return, total P&L,
+risk-adjusted return, max drawdown. The two sides are never averaged or
+written back into each other; live ranking (`market-intelligence/
+ranking.ts`) is completely untouched — this function is read-only and
+one-directional (data in, a comparison view out, nothing written).
+
+**New RBAC resource: `backtest: ["read", "run"]`.** Owner/admin/member get
+both; viewer gets `read` only, matching every other read-vs-write split
+this codebase already uses (`opportunity`, `outcome`). Enforced in the new
+`createBacktestRunAction` server action — launching a scenario is the only
+new state-changing surface this sprint adds.
+
+**AI tool, extended again, not duplicated.** `get_strategy_performance`
+(already extended once by Sprint 18) now additionally returns a
+`backtestComparison` field: this organization's single most recently
+COMPLETED backtest run (if any) and a backtest-vs-live comparison for every
+strategy type it covers. No new tool, no new `requiredPermission` on this
+tool (still `paperTrading: ["read"]` only) — the new `backtest` RBAC
+resource gates the run-service/UI launch path instead, where a run is
+actually created.
+
+**UI.** `/dashboard/backtest` gained a scenario-launch form (a plain
+`<form action={...}>` server action, no client JavaScript required), a
+list of persisted runs with live status, an automatic multi-run comparison
+table once more than one run has completed, and an automatic backtest-vs-
+live comparison table for the most recent completed run — all under the
+same explicit BACKTEST / SIMULATION labeling Sprint 20 established.
+
+**Security invariants, re-verified unchanged.** No real Binance account,
+credential, order, or private endpoint anywhere in this sprint's own new
+code (`historical-binance-fetcher.ts`'s public `/klines` endpoint, reused
+verbatim); `AutonomyPolicy`/`AutonomyPolicyVersion`/`AutonomyAllowlistEntry`
+are left byte-for-byte unchanged by creating and processing a backtest run,
+including for an organization that never touched its policy before;
+`MAX_AUTONOMY_LEVEL_BY_DOMAIN.market` stays `"L2"`; tenant isolation is
+enforced identically to every prior sprint, including a dedicated test that
+the job processor itself never touches a `BacktestRun` row belonging to an
+organization other than its own payload's.
+
+**Tests.** `tests/sprint-21-backtest-persistence.test.ts` (33 tests, groups
+A-I) covers run-configuration validation and resource bounds, tenant
+isolation (including the job processor's own cross-tenant no-op), job
+processor execution and idempotency (completed, failed, and not-found
+cases), policy immutability, multi-run comparison, backtest-vs-live
+comparison (including the "not found"/"strategy type not covered" honest
+edge cases), RBAC, the extended AI tool, and full end-to-end determinism.
 
 ### API keys
 

@@ -50,6 +50,17 @@ export type JobMap = {
   "generate-market-intelligence": Record<string, never>;
   "generate-market-strategies": Record<string, never>;
   "evaluate-paper-trading": Record<string, never>;
+  /**
+   * Sprint 21: executes ONE already-created, `PENDING` `BacktestRun` row --
+   * loads its `config`, fetches the real historical candle data, runs
+   * Sprint 20's own unchanged `runBacktest`, and persists the result. Not a
+   * recurring job (no `scheduleRecurringJobs` entry) -- enqueued on-demand
+   * exactly once per run, by `backtest/run-service.ts#createBacktestRun`.
+   * The payload is just the row's id, not its full config, so a retried
+   * job attempt always re-reads the current row rather than replaying a
+   * possibly-stale in-memory payload.
+   */
+  "run-backtest": { backtestRunId: string; organizationId: string };
 };
 
 export type JobName = keyof JobMap;

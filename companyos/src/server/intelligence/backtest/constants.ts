@@ -62,3 +62,27 @@ export { MIN_SAMPLE_SIZE } from "@/server/intelligence/decision-intelligence/sam
 
 /** Maximum number of per-symbol-per-step decisions retained in a run's `decisionTrace` (Phase 21/22 auditability) -- bounded so a long backtest over many symbols never returns an unbounded in-memory array. Callers that need the full trace for a short, targeted test run stay well under this. */
 export const MAX_DECISION_TRACE_ENTRIES = 5000;
+
+/**
+ * Sprint 21: bounds on a user-launched, persisted `BacktestRun` request --
+ * a real resource/cost ceiling (each additional symbol is 2 more real
+ * Binance klines fetches, each additional day is more warmup/replay work),
+ * not a modeling constant. `MAX_RUN_SYMBOLS` deliberately excludes
+ * `BENCHMARK_SYMBOL` from the count (it's always fetched regardless of
+ * whether the caller lists it -- see `historical-data.ts`'s own
+ * unconditional benchmark inclusion), so a request for `MAX_RUN_SYMBOLS`
+ * tradeable symbols still only ever means `MAX_RUN_SYMBOLS + 1` total
+ * series fetched.
+ */
+export const MAX_RUN_SYMBOLS = 5;
+export const MIN_RUN_WINDOW_DAYS = 1;
+export const MAX_RUN_WINDOW_DAYS = 90;
+export const MAX_RUN_LABEL_LENGTH = 120;
+
+/**
+ * Sprint 21 Phase (multi-run comparison): the maximum number of persisted
+ * `BacktestRun` rows a single comparison call will read at once -- bounded
+ * for the same reason `MAX_DECISION_TRACE_ENTRIES` is: a comparison view is
+ * meant to be read by a human, not an unbounded report.
+ */
+export const MAX_COMPARISON_RUNS = 10;
