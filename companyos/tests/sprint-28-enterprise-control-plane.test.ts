@@ -161,6 +161,16 @@ describe("Sprint 28: Enterprise Control Plane", () => {
 
   describe("D. AI restriction", () => {
     it("D1: zero diff in src/server/ai/autonomy/ vs main -- Sprint 28 only adds a human-facing settings page and server actions", () => {
+      // A CI checkout often fetches only the PR's own ref, so "origin/main"
+      // may not exist as a local ref yet even though "origin" itself does
+      // (the checkout had to reach it to clone in the first place) --
+      // fetch it once, tolerantly, rather than assuming it is already
+      // resolvable the way a local sandbox with a full clone has it.
+      try {
+        execSync("git rev-parse --verify origin/main", { cwd: process.cwd(), stdio: "pipe" });
+      } catch {
+        execSync("git fetch --depth=1 origin main", { cwd: process.cwd(), stdio: "pipe" });
+      }
       const diff = execSync("git diff --stat origin/main -- src/server/ai/autonomy/", { cwd: process.cwd(), encoding: "utf-8" });
       expect(diff.trim()).toBe("");
     });
