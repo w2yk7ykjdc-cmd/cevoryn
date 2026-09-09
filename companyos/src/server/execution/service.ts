@@ -136,7 +136,17 @@ export async function submitDecision(params: {
     if (scoped) {
       await scoped.liveOrder.update({
         where: { organizationId_clientOrderId: { organizationId, clientOrderId } },
-        data: { status: order.status, providerOrderId: order.providerOrderId, submittedAt: new Date() },
+        data: {
+          status: order.status,
+          providerOrderId: order.providerOrderId,
+          submittedAt: new Date(),
+          // Sprint 24 Phase 7: persist the REAL fill state the gateway
+          // already returned at submission time (a MARKET order is often
+          // filled immediately) -- previously discarded entirely.
+          filledQuantity: order.filledQuantity,
+          averageFillPrice: order.averageFillPrice,
+          filledAt: order.status === "FILLED" ? new Date() : null,
+        },
       });
     }
     await recordExecutionAudit({

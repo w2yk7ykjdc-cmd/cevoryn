@@ -3,6 +3,8 @@ import { isKillSwitchEngaged } from "@/server/ai/autonomy/policy-service";
 import type { MarketDecision } from "@/server/intelligence/market-decision/types";
 import { checkRiskLimits, type RiskLimitCheckInput, type RiskLimitViolation } from "@/server/execution/risk-limits";
 import { hasLiveCredentialsFor } from "@/server/execution/org-credentials";
+import { getOrganizationRiskPolicy, type RiskPolicyLimits } from "@/server/execution/risk-policy";
+import { evaluateCircuitBreakers, isEmergencyStopEngaged } from "@/server/execution/circuit-breakers";
 import type { ExecutionGateway } from "@/server/execution/types";
 
 /**
@@ -27,7 +29,13 @@ export type LiveValidationReason =
   | "proposed_order_invalid"
   | "no_trade_decision"
   | RiskLimitViolation
-  | "insufficient_balance";
+  | "insufficient_balance"
+  // Sprint 24 Phase 5: distinct from `RiskLimitViolation`'s own
+  // "emergency_stop" -- this specific reason means the PORTFOLIO-drawdown
+  // breaker tripped (a real, new check `checkRiskLimits` never performed),
+  // not the daily-loss/consecutive-loss/leverage/exposure checks it
+  // already covers.
+  | "portfolio_drawdown_breaker";
 
 export type LiveValidationResult = { status: "VALID" } | { status: "NO_EXECUTION"; reason: LiveValidationReason };
 
@@ -56,10 +64,21 @@ export async function validateForLiveExecution(params: {
    * by construction.
    */
   hasLiveCredentials?: (organizationId: string) => boolean | Promise<boolean>;
+  /**
+   * This organization's current portfolio drawdown (0 = no drawdown), used
+   * ONLY to evaluate the Sprint 24 portfolio-drawdown/emergency-stop
+   * breakers (`circuit-breakers.ts`). Optional and defaults to `0` (no
+   * drawdown, breakers never trip) so every EXISTING call site -- none of
+   * which know about this field -- keeps behaving exactly as before.
+   */
+  currentDrawdownPct?: number;
+  /** Injectable for tests -- defaults to this organization's real, effective policy (`risk-policy.ts#getOrganizationRiskPolicy`), which itself defaults to Sprint 22's own hardcoded values for an organization that configured nothing. */
+  riskPolicy?: RiskPolicyLimits;
 }): Promise<LiveValidationResult> {
   const { organizationId, decision, gateway, riskContext } = params;
   const liveExecutionEnabled = params.liveExecutionEnabled ?? env.LIVE_EXECUTION_ENABLED;
   const hasCredentials = params.hasLiveCredentials ?? hasLiveCredentialsFor;
+  const currentDrawdownPct = params.currentDrawdownPct ?? 0;
   const reject = (reason: LiveValidationReason): LiveValidationResult => ({ status: "NO_EXECUTION", reason });
 
   // Phase 13: LIVE mode itself, and credentials, checked FIRST, before
@@ -84,12 +103,39 @@ export async function validateForLiveExecution(params: {
   if (decision.action !== "BUY" && decision.action !== "SELL") return reject("no_trade_decision");
   if (!decision.proposedOrder || decision.proposedOrder.validationStatus !== "VALID") return reject("proposed_order_invalid");
 
-  // Phase 8: hard risk limits, using the already-validated proposed order's own notional/leverage.
-  const violation = checkRiskLimits({
-    ...riskContext,
-    orderNotional: decision.proposedOrder.notional,
-    leverage: decision.proposedOrder.leverage,
+  // Sprint 24 Phase 2: this organization's own effective risk policy --
+  // its own configured limits (clamped to the absolute ceiling) or
+  // Sprint 22's original hardcoded defaults if it configured nothing.
+  const riskPolicy = params.riskPolicy ?? (await getOrganizationRiskPolicy(organizationId));
+
+  // Sprint 24 Phase 5: the portfolio-drawdown breaker is a genuinely NEW
+  // check `checkRiskLimits` never performed -- checked explicitly here,
+  // separately from the emergency-stop flag folded into `riskContext`
+  // below, so its own distinct reason is reported rather than the more
+  // generic `emergency_stop`.
+  const breakers = evaluateCircuitBreakers({
+    todaysRealizedLossPct: riskContext.todaysRealizedLossPct,
+    consecutiveLosses: riskContext.consecutiveLosses,
+    currentDrawdownPct,
+    policy: riskPolicy,
   });
+  if (breakers.triggeredBreakers.includes("portfolio_drawdown")) return reject("portfolio_drawdown_breaker");
+
+  // Phase 8: hard risk limits, using the already-validated proposed order's
+  // own notional/leverage and this organization's own effective policy.
+  // `emergencyStopEngaged` is the OR of whatever the caller supplied
+  // (Sprint 22/23's original manual flag, preserved) and the breaker
+  // evaluation's own derived verdict (Sprint 24, additive-only -- can only
+  // ever ADD a trigger, never suppress one the caller already set).
+  const violation = checkRiskLimits(
+    {
+      ...riskContext,
+      orderNotional: decision.proposedOrder.notional,
+      leverage: decision.proposedOrder.leverage,
+      emergencyStopEngaged: riskContext.emergencyStopEngaged || isEmergencyStopEngaged(breakers),
+    },
+    riskPolicy,
+  );
   if (violation) return reject(violation);
 
   // Account balance sufficiency, read live from the gateway itself -- never assumed or estimated.

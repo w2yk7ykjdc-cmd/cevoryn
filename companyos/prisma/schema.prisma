@@ -135,6 +135,7 @@ model Organization {
   backtestRuns             BacktestRun[]
   liveOrders               LiveOrder[]
   executionCredential      OrganizationExecutionCredential?
+  riskPolicy               OrganizationRiskPolicy?
 
   @@unique([slug])
   @@map("organization")
@@ -1591,6 +1592,19 @@ model LiveOrder {
   /// The provider's own order id, set only once `SUBMITTING` succeeds --
   /// `null` before that, never guessed.
   providerOrderId  String?
+  /// Sprint 24 Phase 7: the real, persisted running filled quantity --
+  /// replaces the Sprint 23 `reconcileOrganizationLiveState`'s own
+  /// documented "always compared against an assumed 0" limitation.
+  /// `remainingQuantity` is deliberately NOT a column (derived as
+  /// `quantity - filledQuantity` at read time, matching
+  /// `PaperAccountView.drawdownPct`'s own "derive at read time so it can
+  /// never drift out of sync" precedent).
+  filledQuantity    Decimal         @default(0) @db.Decimal(28, 12)
+  /// Quantity-weighted average fill price across every fill event applied
+  /// to this order so far -- `null` until the first fill. Updated
+  /// atomically together with `filledQuantity` (see
+  /// `position-management.ts#applyFillUpdate`), never independently.
+  averageFillPrice  Decimal?        @db.Decimal(18, 8)
   rejectionReason  String?
   requestedAt      DateTime        @default(now())
   submittedAt      DateTime?
@@ -1645,4 +1659,38 @@ model OrganizationExecutionCredential {
   revokedById        String?
 
   @@map("organization_execution_credential")
+}
+
+/// Sprint 24 Phase 2: organization-configurable risk policy -- replaces
+/// Sprint 22's hardcoded-only `risk-limits.ts` constants as the PRIMARY
+/// limit source for an organization that has configured its own, while
+/// those same Sprint 22 constants remain both (a) the safe DEFAULT applied
+/// when no row exists (`risk-policy.ts#DEFAULT_RISK_POLICY`, deliberately
+/// never looser than the original hardcoded values) and (b) a hardcoded,
+/// code-level CEILING every configured value is clamped to regardless of
+/// what this row says (`risk-policy.ts#clampToAbsoluteCeiling`) -- the same
+/// "a compromised or mistaken DB row can never exceed a code-level ceiling"
+/// discipline `ai/autonomy/constants.ts#clampLevelForDomain` already
+/// established for autonomy levels. No dedicated version-history table is
+/// added; policy changes are audited via the existing `AuditLog` reuse
+/// (Sprint 23's own credential-audit precedent), not a new parallel model.
+model OrganizationRiskPolicy {
+  id                        String       @id @default(cuid())
+  organizationId            String       @unique
+  organization              Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  maxLeverage               Decimal      @db.Decimal(6, 2)
+  maxOrderNotionalPct       Decimal      @db.Decimal(6, 4)
+  maxTotalExposureMultiple  Decimal      @db.Decimal(6, 4)
+  maxSimultaneousPositions  Int
+  maxSymbolExposurePct      Decimal      @db.Decimal(6, 4)
+  maxStrategyExposurePct    Decimal      @db.Decimal(6, 4)
+  maxDailyLossPct           Decimal      @db.Decimal(6, 4)
+  maxConsecutiveLosses      Int
+  maxPortfolioDrawdownPct   Decimal      @db.Decimal(6, 4)
+  emergencyStopThresholdPct Decimal      @db.Decimal(6, 4)
+  createdById               String?
+  createdAt                 DateTime     @default(now())
+  updatedAt                 DateTime     @updatedAt
+
+  @@map("organization_risk_policy")
 }
