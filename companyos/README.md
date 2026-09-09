@@ -2755,6 +2755,117 @@ are byte-for-byte unmodified. Every test uses `createMockExecutionGateway`
 or a small ad-hoc fake — never a real Binance credential, never a real
 network call.
 
+### Controlled Autonomous Execution (Sprint 25)
+
+Sprint 22 built `submitDecision` (the full validation/risk/idempotency/
+audit pipeline for a single order) and Sprint 24 built
+`evaluateCapitalAllocation` (the deterministic capital-allocation chain) —
+but neither had a single production caller before this sprint. Every
+decision Sprint 19's `generateMarketDecisions` ever produced sat there,
+never autonomously acted on. Sprint 25 closes that gap with an explicit,
+narrowly-scoped orchestrator, reusing every existing safety mechanism
+verbatim — no new financial formula, no second risk/execution system.
+
+**The autonomy gate.** `OrganizationExecutionAutonomyPolicy`
+(`execution/autonomy-gate.ts`) is a new, per-organization, human-controlled
+opt-in — disabled by default, exactly like every other execution/risk model
+in this codebase. It answers one narrow question: has a human at this
+organization explicitly allowed the autonomous-execution background job to
+ever attempt a submission for it? It sits strictly on top of, and can never
+loosen, two things that stay completely unchanged:
+
+- `env.LIVE_EXECUTION_ENABLED` (Sprint 22) — the deployment-wide master
+  switch, still operator-only, still `false` by default, still checked
+  first.
+- The kill switch (Sprint 19/22/23, `AutonomyPolicy.killSwitchEngaged` for
+  the `market` domain) — always supreme, re-checked unconditionally inside
+  `validateForLiveExecution` regardless of the gate's state.
+
+Enabling requires `executionAutonomy:manage` (owner-only, mirroring
+`riskPolicy`); every organization gets `read`. Both enable and disable are
+audited (`execution.autonomy_enabled`/`execution.autonomy_disabled`).
+Disabling is the human-override / emergency-stop path for the autonomous
+pathway specifically: it stops the orchestrator's *next* pass from acting
+for that organization, but — like the kill switch it sits alongside — never
+touches an order already submitted and never cancels or closes anything
+(`position-management.ts`'s own separate, kill-switch-exempt path is
+unaffected and remains the only way to act on existing risk).
+
+**The orchestrator** (`execution/autonomous-execution.ts`,
+`runAutonomousExecution`/`runAutonomousExecutionForOrganization`) mirrors
+`paper-trading/generate.ts#evaluatePaperTrading`'s exact cursor-paged,
+per-organization-isolated, one-bad-organization-never-blocks-another shape,
+applied to the LIVE path for the first time. Per organization, in order,
+first failure wins:
+
+1. `LIVE_EXECUTION_ENABLED` (deployment-wide).
+2. This organization's own autonomy gate.
+3. The kill switch (org-scoped or system-wide) — re-checked again,
+   unconditionally, inside `submitDecision` regardless.
+4. A resolvable live gateway (organization credential or env fallback).
+5. Reconciliation health (Sprint 22 Phase 10) — never opens new risk on top
+   of undetected local/remote drift.
+6. `generateMarketDecisions` (Sprint 19, unmodified) — the one canonical
+   Decision Engine.
+7. `evaluateCapitalAllocation` (Sprint 24) — wired into a production path
+   for the first time this sprint, as a pre-trade check per decision;
+   a rejection here is audited as `execution.autonomous_decision_skipped`
+   and `submitDecision` is never even attempted for that decision.
+8. `submitDecision` (Sprint 22, unmodified) — the final, unconditional gate.
+   The orchestrator never calls `gateway.submitOrder` directly and never
+   weakens this step.
+
+`submitDecision` itself gained two purely additive, defaulted parameters
+(`currentDrawdownPct`, `riskPolicy`) so the orchestrator can forward this
+organization's real drawdown/risk policy into the SAME portfolio-drawdown/
+emergency-stop breaker check `evaluateCapitalAllocation` already used for
+its own pre-check — every Sprint 22/23/24 call site that never passes them
+keeps the exact original defaults (`0` / `getOrganizationRiskPolicy`),
+byte-for-byte unaffected.
+
+**Known, documented scope limit** (not a bug, not silently worked around):
+`computePortfolioSnapshot` (Sprint 24) is deliberately PAPER-scoped — no
+live-position-tracking equivalent exists yet, since `LIVE_EXECUTION_ENABLED`
+stays `false` through this sprint too. The orchestrator computes one
+snapshot per organization per pass and evaluates every actionable decision
+in that pass against it, rather than inventing a second, in-memory
+"expected new live exposure" formula to approximate a not-yet-built live
+snapshot. A second actionable decision in the same pass for the same
+organization does not see the first's newly-submitted live notional; the
+hard per-decision limit checks still apply, just against the start-of-pass
+snapshot.
+
+**Scheduling.** `run-autonomous-execution` runs hourly (the same cadence as
+every other market-pipeline job) via the existing BullMQ scheduler — a
+no-op, zero-database-iteration pass whenever `LIVE_EXECUTION_ENABLED` is
+`false` (the default).
+
+**Tests** (`tests/sprint-25-controlled-autonomous-execution.test.ts`, 30
+tests, groups A-L): autonomy gate default/enable/disable/audit, tenant
+isolation, every orchestrator gate in order (live-execution-disabled,
+gate-not-enabled, kill-switch-engaged, no-credentials, reconciliation-
+unhealthy), a genuine end-to-end happy-path submission through the
+unmodified `submitDecision` pipeline (using real `generateMarketDecisions`
+output, not a hand-built decision), HOLD/NO_TRADE decisions never reaching
+capital allocation, capital-allocation pre-check rejection, `submitDecision`
+backward compatibility, kill-switch supremacy, human override mid-operation
+(and that it never touches an already-submitted order), multi-organization
+isolation, `LIVE_EXECUTION_ENABLED=false` end-to-end (the real default,
+zero database iteration), idempotency (deterministic `clientOrderId`, a
+second identical pass never double-submits), AI-tool-bypass verification
+(by name and by declared permission, plus the unchanged L2 market-domain
+autonomy ceiling), and a regression group confirming `checkRiskLimits`/
+`generateMarketDecisions` are unmodified. Every test uses
+`createMockExecutionGateway` — never a real Binance credential, never a
+real network call.
+
+**Deliberately NOT done this sprint:** no settings UI for the autonomy gate
+(API/service layer only, matching every other Sprint 22-24 credential/
+policy precedent); no live-position portfolio snapshot (see the scope-limit
+note above); no change to `MAX_AUTONOMY_LEVEL_BY_DOMAIN` or any AI-tool
+registration — the orchestrator remains reachable only from the scheduled
+background job, never from any AI/chat-triggered code path.
+
 ### API keys
 
 The `ApiKey` model (and its `apiKey: ["create", "read", "revoke"]` RBAC

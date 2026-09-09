@@ -6,6 +6,7 @@ import { validateForLiveExecution } from "@/server/execution/validation";
 import { recordExecutionAudit } from "@/server/execution/audit";
 import { ExecutionUnknownResultError } from "@/server/execution/errors";
 import type { RiskLimitCheckInput } from "@/server/execution/risk-limits";
+import type { RiskPolicyLimits } from "@/server/execution/risk-policy";
 import type { ExecutionGateway, ExecutionOrder, OrderIntent } from "@/server/execution/types";
 
 /**
@@ -66,8 +67,20 @@ export async function submitDecision(params: {
   liveExecutionEnabled?: boolean;
   /** Injectable for tests -- see `validation.ts#validateForLiveExecution`'s own identical seam and doc comment. */
   hasLiveCredentials?: (organizationId: string) => boolean | Promise<boolean>;
+  /**
+   * Sprint 25: purely additive pass-through to `validateForLiveExecution`'s
+   * own identically-named, identically-defaulted parameters -- forwarding
+   * this organization's REAL current drawdown/risk policy (as the
+   * autonomous orchestrator does) so the portfolio-drawdown/emergency-stop
+   * breakers evaluate against real data. Every Sprint 22/23/24 call site
+   * that never passes these keeps the exact original defaults (`0` /
+   * `getOrganizationRiskPolicy(organizationId)`), so behavior is
+   * byte-for-byte unchanged for every existing caller.
+   */
+  currentDrawdownPct?: number;
+  riskPolicy?: RiskPolicyLimits;
 }): Promise<SubmitDecisionResult> {
-  const { organizationId, decision, gateway, riskContext, liveExecutionEnabled, hasLiveCredentials } = params;
+  const { organizationId, decision, gateway, riskContext, liveExecutionEnabled, hasLiveCredentials, currentDrawdownPct, riskPolicy } = params;
 
   if (!decision.proposedOrder) {
     return { status: "NO_EXECUTION", reason: "no_proposed_order" };
@@ -114,7 +127,7 @@ export async function submitDecision(params: {
 
   if (scoped) await scoped.liveOrder.update({ where: { organizationId_clientOrderId: { organizationId, clientOrderId } }, data: { status: "VALIDATING" } });
 
-  const validation = await validateForLiveExecution({ organizationId, decision, gateway, riskContext, liveExecutionEnabled, hasLiveCredentials });
+  const validation = await validateForLiveExecution({ organizationId, decision, gateway, riskContext, liveExecutionEnabled, hasLiveCredentials, currentDrawdownPct, riskPolicy });
   if (validation.status === "NO_EXECUTION") {
     if (scoped) {
       await scoped.liveOrder.update({

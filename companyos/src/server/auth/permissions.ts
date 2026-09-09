@@ -30,6 +30,7 @@ export const statement = {
   backtest: ["read", "run"],
   executionCredential: ["manage", "read", "revoke"],
   riskPolicy: ["manage", "read"],
+  executionAutonomy: ["manage", "read"],
 } as const;
 
 export const accessControl = createAccessControl(statement);
@@ -61,6 +62,7 @@ export const ownerRole = accessControl.newRole({
   backtest: ["read", "run"],
   executionCredential: ["manage", "read", "revoke"],
   riskPolicy: ["manage", "read"],
+  executionAutonomy: ["manage", "read"],
 });
 
 /** Runs day-to-day operations: manages people and settings, not billing. */
@@ -90,6 +92,7 @@ export const adminRole = accessControl.newRole({
   backtest: ["read", "run"],
   executionCredential: ["read"],
   riskPolicy: ["read"],
+  executionAutonomy: ["read"],
 });
 
 /** Standard seat: full use of the product, no org administration. */
@@ -119,6 +122,7 @@ export const memberRole = accessControl.newRole({
   backtest: ["read", "run"],
   executionCredential: [],
   riskPolicy: ["read"],
+  executionAutonomy: ["read"],
 });
 
 /** Read-only seat: can look around, cannot create or mutate anything. */

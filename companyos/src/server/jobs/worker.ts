@@ -22,6 +22,7 @@ import { ingestMarketDataProcessor } from "@/server/jobs/processors/ingest-marke
 import { generateMarketIntelligenceProcessor } from "@/server/jobs/processors/generate-market-intelligence";
 import { generateMarketStrategiesProcessor } from "@/server/jobs/processors/generate-market-strategies";
 import { evaluatePaperTradingProcessor } from "@/server/jobs/processors/evaluate-paper-trading";
+import { runAutonomousExecutionProcessor } from "@/server/jobs/processors/run-autonomous-execution";
 import { runBacktestProcessor } from "@/server/jobs/processors/run-backtest";
 import { registerIntelligenceSubscribers } from "@/server/intelligence/signals/subscriber";
 
@@ -65,6 +66,8 @@ async function processJob(job: Job<JobMap[JobName], void, JobName>): Promise<voi
       return generateMarketStrategiesProcessor();
     case "evaluate-paper-trading":
       return evaluatePaperTradingProcessor();
+    case "run-autonomous-execution":
+      return runAutonomousExecutionProcessor();
     case "run-backtest":
       return runBacktestProcessor(job.data as JobMap["run-backtest"]);
     default:

@@ -83,6 +83,14 @@ export async function scheduleRecurringJobs(): Promise<void> {
     { every: 3_600_000 },
     { name: "evaluate-paper-trading", data: {} },
   );
+  // Sprint 25: same hourly cadence as every other market-pipeline job
+  // above -- no new cadence concept introduced. A no-op pass (zero database
+  // iteration) whenever `LIVE_EXECUTION_ENABLED` is `false` (the default).
+  await getQueue().upsertJobScheduler(
+    "run-autonomous-execution-scheduler",
+    { every: 3_600_000 },
+    { name: "run-autonomous-execution", data: {} },
+  );
 }
 
 export { QUEUE_NAME };

@@ -51,6 +51,16 @@ export type JobMap = {
   "generate-market-strategies": Record<string, never>;
   "evaluate-paper-trading": Record<string, never>;
   /**
+   * Sprint 25: the CONTROLLED AUTONOMOUS EXECUTION pass -- for every
+   * organization that has BOTH `LIVE_EXECUTION_ENABLED=true` (deployment-
+   * wide, operator-only) AND its own `OrganizationExecutionAutonomyPolicy`
+   * explicitly enabled, generates this pass's market decisions and submits
+   * every valid, capital-allocation-approved one via the existing,
+   * unchanged `submitDecision` pipeline. A no-op, zero-database-iteration
+   * skip when `LIVE_EXECUTION_ENABLED` is `false` (the default).
+   */
+  "run-autonomous-execution": Record<string, never>;
+  /**
    * Sprint 21: executes ONE already-created, `PENDING` `BacktestRun` row --
    * loads its `config`, fetches the real historical candle data, runs
    * Sprint 20's own unchanged `runBacktest`, and persists the result. Not a
