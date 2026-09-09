@@ -2995,6 +2995,63 @@ no-provider-argument call site unchanged), tenant isolation (per-provider,
 and two organizations configuring the same provider name don't collide),
 the env fallback staying Binance-only, and AI-tool restriction.
 
+### Enterprise control plane (Sprint 28)
+
+**Audit finding:** organization management, RBAC (`auth/permissions.ts`),
+autonomy policies (Sprint 9/19), risk policy (Sprint 24), execution
+credentials (Sprint 23/27), the execution autonomy gate (Sprint 25), and
+strategy health (Sprint 26) were all already fully-built, RBAC-gated,
+audited services. The gap was entirely a human-facing surface: the
+`"market"` domain's kill switch — the one thing that actually blocks a
+live order submission — had zero UI anywhere in the app, and the other
+four services were reachable only from tests or a script, never a page an
+owner/admin could actually use. Audit/compliance visibility was already
+solid and unified (`recordExecutionAudit` writes into the same `AuditLog`
+table the CRM/org audit trail uses, shown in the one existing Audit Log
+page with no filtering that would hide execution events) — nothing new was
+needed there.
+
+**Trading Controls** (`/dashboard/settings/trading`) — the new, sole UI
+surface wiring up all five services, gated card-by-card on each resource's
+own existing RBAC permission (`autonomyPolicy`, `executionAutonomy`,
+`riskPolicy`, `executionCredential`, `strategyHealth` — all already
+defined in `auth/permissions.ts`, unchanged this sprint):
+
+- **Market kill switch** — `engageKillSwitch`/`disengageKillSwitch`
+  (Sprint 9) reused verbatim with `domain: "market"` instead of `"crm"`.
+  This is the exact read `validation.ts#validateForLiveExecution` already
+  checks — engaging it here really does block every new live submission.
+  Same asymmetric-trust rule as the CRM domain: any admin can engage it,
+  only an owner can disengage it.
+- **Autonomous execution** — enable/disable the Sprint 25 orchestrator
+  gate. The page states plainly that this is one of three independent
+  gates a submission must clear (the deployment-wide
+  `LIVE_EXECUTION_ENABLED` env flag and the market kill switch both still
+  apply and cannot be bypassed by this toggle).
+- **Risk policy** — the 10 Sprint 24 limits, editable (clamped to the same
+  absolute ceiling `setOrganizationRiskPolicy` already enforces) or
+  read-only depending on role.
+- **Exchange credentials** — configure/rotate/revoke per provider,
+  restricted to `SUPPORTED_EXECUTION_PROVIDERS` (Sprint 27) so the form
+  itself can never suggest configuring a provider with no real adapter.
+  Only a fingerprint is ever displayed — never a key or secret.
+- **Strategy health** — view status per strategy type and reactivate a
+  QUARANTINED/RETIRED one (Sprint 26's human-only path back to ACTIVE).
+
+No schema change, no new formula, no second system — every action in
+`settings/trading/actions.ts` is a thin, RBAC-checked wrapper around an
+unmodified existing service function. No AI tool imports from this page or
+its actions.
+
+**Tests** (`tests/sprint-28-enterprise-control-plane.test.ts`, 10 tests,
+groups A-D): the market-domain kill switch reused through the same tested
+function as the CRM domain, including domain isolation between the two and
+the same admin-can-engage/owner-must-disengage asymmetry; the RBAC matrix
+every card's visibility depends on, for owner/admin/member/viewer; a fresh
+organization's composed read matching its documented safe defaults; and
+confirmation that no AI tool references the new actions, with a zero-diff
+check against `src/server/ai/autonomy/`.
+
 ### API keys
 
 The `ApiKey` model (and its `apiKey: ["create", "read", "revoke"]` RBAC
