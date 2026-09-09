@@ -3114,6 +3114,71 @@ read-only classification, and non-autonomy-eligibility; and confirmation
 it never imports `reconcile()` plus the standing zero-diff check against
 `src/server/ai/autonomy/`.
 
+### Controlled autonomous production (Sprint 30)
+
+**Audit finding:** the "canonical pipeline" this sprint's own brief asked
+to unify — Market → Intelligence → Strategy → Decision → Risk → Capital →
+Autonomy → Execution → Reconciliation — already existed and was already
+unified. `execution/autonomous-execution.ts#runAutonomousExecutionForOrganization`
+(Sprint 25) already chains, in a fixed order: the deployment-wide
+`LIVE_EXECUTION_ENABLED` switch, this organization's own `executionAutonomy`
+opt-in, the market kill switch, reconciliation health, the Decision Engine
+(Sprint 19), capital allocation (Sprint 24), and `submitDecision` itself
+(validation, risk limits, the kill switch again, the gateway). Every
+sprint since composes onto that SAME orchestrator without needing new
+wiring — confirmed by direct code reading, not assumed:
+
+- Sprint 26's strategy quarantine already excludes a decision with zero
+  additional code: `buildMarketDecision` sets `proposedOrder: null` when a
+  strategy type is quarantined, and the orchestrator's own
+  actionable-decision filter already requires `proposedOrder !== null`.
+- Sprint 27's multi-provider credential resolution already flows through
+  the same `resolveLiveGateway` → `resolveExecutionCredentials` →
+  `createExecutionGatewayForProvider` chain inside the same orchestrator.
+- Sprint 28's human controls (the kill switch, the autonomy gate,
+  credentials) are exactly the state this orchestrator reads on its very
+  next pass — there is no separate copy of any of it to keep in sync.
+- Sprint 29's `get_execution_health` reads the exact `LiveOrder` rows this
+  orchestrator writes.
+
+What was genuinely missing was proof of this composition, and a single
+answer to "is this organization ready to go live":
+
+- **`execution/production-readiness.ts`** — a read-only synthesis of the
+  exact same four pre-flight gates the orchestrator checks before it will
+  ever generate a decision, in the same order, using the SAME underlying
+  functions (`getExecutionAutonomyStatus`, `isKillSwitchEngaged`,
+  `hasLiveCredentialsFor`) — never a re-implementation or a second notion
+  of "ready." Deliberately stops there: reconciliation health and order
+  volume are ongoing state the orchestrator only evaluates once already
+  running, not a precondition a human decides on ahead of time (that
+  remains `get_execution_health`'s own job, unduplicated).
+- A new **"Production readiness"** card at the top of the Trading Controls
+  page (`/dashboard/settings/trading`), visible to the same roles that can
+  already see every check it draws from (owner/admin).
+- **`tests/sprint-30-controlled-autonomous-production.test.ts`** — a new
+  integration suite exercising the full pipeline end to end across
+  Sprint 25-29 boundaries in one real pass: a quarantined strategy type is
+  excluded from an actual orchestrator run with zero new wiring; a real
+  submitted, filled order is correctly reflected by `get_execution_health`;
+  the readiness checklist tracks real state changes (enabling autonomy,
+  configuring credentials, engaging/disengaging the kill switch) against
+  the exact functions the orchestrator itself calls; and — critically —
+  readiness never reports `ready: true` merely because every
+  organization-controllable check passes, because the deployment-wide
+  switch still governs and a real, un-overridden orchestrator run confirms
+  it by skipping for the identical reason.
+
+**Known limitation, carried forward from Sprint 29, not fixed here:**
+live-position P&L tracking (the Outcome → Learning → StrategyHealth bridge
+for real trades) remains blocked upstream — the Decision Engine still has
+no exit/close order concept, so there is still no real "closed live
+position" to connect. This sprint's own honest scope stayed inside what
+that limitation allows: proving the ENTRY-side pipeline is real and
+correctly composed, and giving a human a single, accurate answer to
+whether their organization is ready to use it — not fabricating the
+missing exit-side connection to look more complete than it is.
+
 ### API keys
 
 The `ApiKey` model (and its `apiKey: ["create", "read", "revoke"]` RBAC

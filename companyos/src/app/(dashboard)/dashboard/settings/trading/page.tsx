@@ -7,6 +7,7 @@ import { getOrganizationRiskPolicy, RISK_POLICY_FIELD_KEYS } from "@/server/exec
 import { listOrganizationCredentialStatuses } from "@/server/execution/org-credentials";
 import { SUPPORTED_EXECUTION_PROVIDERS } from "@/server/execution/providers";
 import { listStrategyHealth } from "@/server/intelligence/learning/strategy-health";
+import { computeProductionReadiness } from "@/server/execution/production-readiness";
 import { TradingClient } from "@/app/(dashboard)/dashboard/settings/trading/trading-client";
 
 const MARKET_DOMAIN = "market";
@@ -57,12 +58,19 @@ export default async function TradingControlsPage() {
     checkPermission(organization.id, headers, "strategyHealth", "manage"),
   ]);
 
-  const [marketPolicy, executionAutonomy, riskPolicy, credentialStatuses, strategyHealthRows] = await Promise.all([
+  // Sprint 30: the readiness checklist synthesizes autonomyPolicy, executionAutonomy,
+  // and executionCredential reads together, so it only ever shows for a role that
+  // holds all three -- the same least-common-denominator every card it draws from
+  // already requires.
+  const canReadReadiness = canReadAutonomyPolicy && canReadExecutionAutonomy && canReadCredentials;
+
+  const [marketPolicy, executionAutonomy, riskPolicy, credentialStatuses, strategyHealthRows, readiness] = await Promise.all([
     canReadAutonomyPolicy ? getOrCreatePolicy(organization.id, MARKET_DOMAIN) : null,
     canReadExecutionAutonomy ? getExecutionAutonomyStatus(organization.id) : null,
     getOrganizationRiskPolicy(organization.id),
     canReadCredentials ? listOrganizationCredentialStatuses(organization.id) : [],
     canReadStrategyHealth ? listStrategyHealth(organization.id) : [],
+    canReadReadiness ? computeProductionReadiness(organization.id) : null,
   ]);
 
   return (
@@ -78,6 +86,7 @@ export default async function TradingControlsPage() {
       <TradingClient
         supportedProviders={[...SUPPORTED_EXECUTION_PROVIDERS]}
         riskPolicyFieldKeys={[...RISK_POLICY_FIELD_KEYS]}
+        readiness={readiness}
         marketKillSwitch={
           canReadAutonomyPolicy && marketPolicy
             ? { engaged: marketPolicy.killSwitchEngaged, canEngage: canEngageKillSwitch, canDisengage: canManageAutonomyPolicy }
