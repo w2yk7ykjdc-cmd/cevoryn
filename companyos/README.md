@@ -3052,6 +3052,68 @@ organization's composed read matching its documented safe defaults; and
 confirmation that no AI tool references the new actions, with a zero-diff
 check against `src/server/ai/autonomy/`.
 
+### Production intelligence (Sprint 29)
+
+**Audit finding:** strategy/portfolio health, market-signal intelligence,
+reconciliation-mismatch detection, and extensive read-only AI tooling
+already existed across Sprints 5-27. The genuine, confirmed gap: real
+production trades (`LiveOrder`) never fed any of it, and no execution-
+quality metric (slippage, fill rate, time-to-fill) was ever computed
+despite the raw data already being persisted since Sprint 22/24.
+
+**A deeper finding that bounds this sprint's honest scope:**
+`MarketDecision.proposedOrder` (`intelligence/market-decision/types.ts`)
+only ever represents a NEW entry — there is no exit/close order concept
+anywhere in the decision engine. A `LiveOrder` is a per-ORDER row, not a
+per-round-trip-position one, and there is no `LivePosition` model or
+entry/exit pairing anywhere in the schema (only `PaperPosition` has full
+mark-to-market: unrealized P&L, funding, liquidation price, MFE/MAE — none
+of which live trading has a real market-data feed to compute honestly
+yet). Building a live Outcome/Learning bridge on top of that would mean
+either fabricating a "closed position" that cannot actually occur in the
+current system, or inventing a shortcut P&L engine with no upstream close
+signal to trigger it — exactly the "never fabricate a genuinely
+unsupported capability" rule this project has followed since Sprint 27's
+own provider registry. This is the same "don't blend or estimate what you
+cannot honestly compute" discipline `portfolio-risk.ts#
+computePortfolioSnapshot`'s own doc comment already established by staying
+PAPER-only and explicitly deferring `computeLivePortfolioSnapshot` until
+live positions are real. Connecting live execution to Outcome/Learning/
+StrategyHealth therefore needs the market-decision engine to gain an
+exit/close concept FIRST — carried forward, not attempted here.
+
+**What Sprint 29 adds instead — exactly what is honestly computable today:**
+
+- **`execution/execution-quality.ts`** — pure, deterministic aggregation
+  over already-persisted `LiveOrder` fields: `computeSlippageBps` (signed
+  so a positive value always means unfavorable, whichever side), fill
+  rate, and average time-to-fill. Zero schema change, zero live exchange
+  call.
+- **`execution/reconciliation-health.ts`** — a pure read of the existing
+  `AuditLog` trail `position-management.ts` already writes for every past
+  reconciliation pass (Sprint 22/23). Deliberately never imports
+  `reconciliation.ts#reconcile()` itself — it can only ever report on PAST
+  reconciliation runs, never trigger a live one, so it is safe to expose
+  through an AI-reachable tool with zero risk of ever reaching a real
+  exchange.
+- **`get_execution_health`** — a new, read-only AI tool composing both
+  above, reusing the same `marketIntelligence: ["read"]` permission
+  `get_market_intelligence` already gates on (held by every role including
+  viewer). Deliberately kept separate from `get_strategy_performance`
+  (PAPER/SIMULATION-only) rather than blending live and paper data into
+  one tool. Every organization today sees an all-null/zero result here —
+  `LIVE_EXECUTION_ENABLED` stays `false` in every existing deployment, so
+  no organization has ever had a real live order — and the tool never
+  fabricates activity that hasn't happened.
+
+**Tests** (`tests/sprint-29-production-intelligence.test.ts`, 13 tests,
+groups A-E): slippage/fill-rate/time-to-fill math on deterministic edge
+cases (zero orders, mixed fills/rejections, missing data never fabricated
+as zero); tenant isolation for both new reads; the new tool's RBAC,
+read-only classification, and non-autonomy-eligibility; and confirmation
+it never imports `reconcile()` plus the standing zero-diff check against
+`src/server/ai/autonomy/`.
+
 ### API keys
 
 The `ApiKey` model (and its `apiKey: ["create", "read", "revoke"]` RBAC
