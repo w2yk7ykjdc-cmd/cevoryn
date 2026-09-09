@@ -41,6 +41,34 @@ export const MAX_DAILY_LOSS_PCT = 0.05;
 /** After this many consecutive losing closed trades (for LIVE positions), no new entries are allowed until a human explicitly re-enables entries -- a real, automatic circuit breaker against a strategy that has started failing in a way backtesting/paper trading never predicted. */
 export const MAX_CONSECUTIVE_LOSSES = 3;
 
+/**
+ * Sprint 23 Phase 3: the "risk limits configured" readiness check --
+ * verifies every hard limit this module defines is a positive, finite
+ * number (never zero, negative, `NaN`, or `Infinity`), so a future code
+ * change that accidentally undefines or breaks a constant is caught by
+ * `checkLiveModeReadiness` BEFORE it could ever let a limit silently stop
+ * applying. Pure, deterministic, and independent of any organization or
+ * gateway -- these constants are the same for every organization by
+ * design (Phase 15's own "LLM bu limitleri değiştiremez").
+ */
+/** Pure, unit-testable core: `true` only if every value is finite and positive. Separated from `areRiskLimitsConfigured()` so a test can exercise the FALSE branch (a hypothetical broken constant) without needing this codebase's own real, always-valid constants to ever actually be broken. */
+export function computeRiskLimitsConfigured(values: number[]): boolean {
+  return values.length > 0 && values.every((v) => Number.isFinite(v) && v > 0);
+}
+
+export function areRiskLimitsConfigured(): boolean {
+  return computeRiskLimitsConfigured([
+    MAX_LIVE_LEVERAGE,
+    MAX_ORDER_NOTIONAL_PCT_OF_EQUITY,
+    MAX_LIVE_TOTAL_EXPOSURE_MULTIPLE,
+    MAX_LIVE_SIMULTANEOUS_POSITIONS,
+    MAX_SYMBOL_EXPOSURE_PCT_OF_EQUITY,
+    MAX_STRATEGY_EXPOSURE_PCT_OF_EQUITY,
+    MAX_DAILY_LOSS_PCT,
+    MAX_CONSECUTIVE_LOSSES,
+  ]);
+}
+
 export type RiskLimitViolation =
   | "max_order_notional"
   | "max_leverage"

@@ -1,5 +1,5 @@
 import { ExecutionProviderError, ExecutionTimeoutError, ExecutionUnknownResultError } from "@/server/execution/errors";
-import type { ExecutionAccount, ExecutionBalance, ExecutionGateway, ExecutionOrder, ExecutionPosition, OrderIntent } from "@/server/execution/types";
+import type { ExecutionAccount, ExecutionBalance, ExecutionGateway, ExecutionOrder, ExecutionPosition, OrderIntent, TestOrderResult } from "@/server/execution/types";
 
 /**
  * Sprint 22 Phase 18/19: a test-only, fully in-memory `ExecutionGateway` --
@@ -17,6 +17,8 @@ export type MockGatewayBehavior = {
   positions?: ExecutionPosition[];
   openOrders?: ExecutionOrder[];
   mode?: "PAPER" | "LIVE";
+  /** Sprint 23: what `testOrder` reports -- defaults to `{ valid: true }`, matching the real Binance test endpoint's happy path. */
+  testOrderResult?: TestOrderResult;
 };
 
 export type MockExecutionGateway = ExecutionGateway & {
@@ -78,6 +80,10 @@ export function createMockExecutionGateway(behavior: MockGatewayBehavior = {}): 
 
     async cancelOrder(clientOrderId: string): Promise<void> {
       cancelledClientOrderIds.push(clientOrderId);
+    },
+
+    async testOrder(): Promise<TestOrderResult> {
+      return behavior.testOrderResult ?? { valid: true };
     },
   };
 }

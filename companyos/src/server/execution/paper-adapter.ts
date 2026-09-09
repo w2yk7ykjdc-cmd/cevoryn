@@ -10,6 +10,7 @@ import type {
   ExecutionOrder,
   ExecutionPosition,
   OrderIntent,
+  TestOrderResult,
 } from "@/server/execution/types";
 
 /**
@@ -137,6 +138,19 @@ export function createPaperExecutionAdapter(organizationId: string): ExecutionGa
 
     async cancelOrder(): Promise<void> {
       throw new Error("PaperExecutionAdapter has no pending orders to cancel -- paper fills are always instant");
+    },
+
+    /**
+     * PAPER has no real provider to validate against -- the same basic
+     * shape check `submitOrder` itself would fail on (a concrete price) is
+     * reused here rather than always trivially returning `valid: true`,
+     * so a caller that runs readiness checks against a paper gateway still
+     * gets a meaningful, non-fabricated answer.
+     */
+    async testOrder(intent: OrderIntent): Promise<TestOrderResult> {
+      if (!intent.price || intent.price <= 0) return { valid: false, reason: "PaperExecutionAdapter requires a concrete fill price" };
+      if (intent.quantity <= 0) return { valid: false, reason: "quantity must be positive" };
+      return { valid: true };
     },
   };
 }

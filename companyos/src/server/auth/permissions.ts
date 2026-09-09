@@ -28,6 +28,7 @@ export const statement = {
   marketIntelligence: ["read"],
   paperTrading: ["read"],
   backtest: ["read", "run"],
+  executionCredential: ["manage", "read", "revoke"],
 } as const;
 
 export const accessControl = createAccessControl(statement);
@@ -57,6 +58,7 @@ export const ownerRole = accessControl.newRole({
   marketIntelligence: ["read"],
   paperTrading: ["read"],
   backtest: ["read", "run"],
+  executionCredential: ["manage", "read", "revoke"],
 });
 
 /** Runs day-to-day operations: manages people and settings, not billing. */
@@ -84,6 +86,7 @@ export const adminRole = accessControl.newRole({
   marketIntelligence: ["read"],
   paperTrading: ["read"],
   backtest: ["read", "run"],
+  executionCredential: ["read"],
 });
 
 /** Standard seat: full use of the product, no org administration. */
@@ -111,6 +114,7 @@ export const memberRole = accessControl.newRole({
   marketIntelligence: ["read"],
   paperTrading: ["read"],
   backtest: ["read", "run"],
+  executionCredential: [],
 });
 
 /** Read-only seat: can look around, cannot create or mutate anything. */
@@ -138,6 +142,7 @@ export const viewerRole = accessControl.newRole({
   marketIntelligence: ["read"],
   paperTrading: ["read"],
   backtest: ["read"],
+  executionCredential: [],
 });
 
 export const roles = {
