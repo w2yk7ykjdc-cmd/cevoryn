@@ -315,7 +315,11 @@ describe("Y: RBAC for the market intelligence AI tool", () => {
   afterAll(closeTestConnections);
 
   it("Y: get_market_intelligence requires marketIntelligence:read, held by every role including viewer", async () => {
-    expect(getTool("get_market_intelligence")?.requiredPermission).toEqual({ marketIntelligence: ["read"] });
+    // Sprint 19 additionally requires paperTrading:read (the tool's `decisions`
+    // field now draws on PaperAccount state) -- every role already holds both
+    // permissions together, so this is a documented capability extension, not
+    // a narrowing: every role that could call this tool before still can.
+    expect(getTool("get_market_intelligence")?.requiredPermission).toEqual({ marketIntelligence: ["read"], paperTrading: ["read"] });
 
     const owner = await signUpUser();
     const organization = await createOrgForUser(owner);

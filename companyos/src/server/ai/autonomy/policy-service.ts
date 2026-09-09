@@ -329,3 +329,20 @@ export async function isToolAllowlisted(organizationId: string, domain: string, 
   const scoped = getTenantScopedClient(organizationId);
   return scoped.autonomyAllowlistEntry.findFirst({ where: { domain, toolName } });
 }
+
+/**
+ * Sprint 19: a PURE READ of the organization-scoped kill switch, deliberately
+ * NOT `getOrCreatePolicy` -- that function lazily creates a policy row (and
+ * a new `AutonomyPolicyVersion` #1) as a side effect on first read, which
+ * would make a read-only background job (the paper-trading engine's own
+ * kill-switch check) silently write new autonomy rows for every
+ * organization that has never touched its market policy yet. An
+ * organization with no policy row at all has never engaged the kill
+ * switch, so this returns `false` for it -- never `true`, and never a
+ * write of any kind.
+ */
+export async function isKillSwitchEngaged(organizationId: string, domain: string): Promise<boolean> {
+  const scoped = getTenantScopedClient(organizationId);
+  const policy = await scoped.autonomyPolicy.findFirst({ where: { domain }, select: { killSwitchEngaged: true } });
+  return policy?.killSwitchEngaged ?? false;
+}

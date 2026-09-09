@@ -430,7 +430,11 @@ describe("T: the read-only AI tool surfaces strategy data but can never execute 
     const tool = getTool("get_market_intelligence");
     expect(tool?.mutationCategory).toBe("read_only");
     expect(tool?.domain).toBe("market");
-    expect(tool?.requiredPermission).toEqual({ marketIntelligence: ["read"] });
+    // Sprint 19 additionally requires paperTrading:read (the tool's `decisions`
+    // field now draws on PaperAccount state) -- every role already holds both
+    // permissions together, so this is a documented capability extension, not
+    // a narrowing: every role that could call this tool before still can.
+    expect(tool?.requiredPermission).toEqual({ marketIntelligence: ["read"], paperTrading: ["read"] });
 
     const owner = await signUpUser();
     const organization = await createOrgForUser(owner);
