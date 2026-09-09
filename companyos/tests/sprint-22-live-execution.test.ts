@@ -19,7 +19,7 @@ import { reconcile, type LocalOrderSnapshot, type LocalPositionSnapshot } from "
 import { checkLiveModeReadiness } from "@/server/execution/live-mode-gate";
 import { recordExecutionAudit } from "@/server/execution/audit";
 import { binancePrivateGet, binancePrivatePost } from "@/server/execution/binance-private-client";
-import { ExecutionTimeoutError, ExecutionUnknownResultError } from "@/server/execution/errors";
+import { ExecutionAuthError, ExecutionRateLimitError, ExecutionTimeoutError, ExecutionUnknownResultError } from "@/server/execution/errors";
 import type { ExecutionGateway, ExecutionOrder } from "@/server/execution/types";
 import { authHeaders, closeTestConnections, createOrgForUser, signUpUser } from "./helpers";
 
@@ -535,6 +535,16 @@ describe("Sprint 22: Live Execution Foundation", () => {
     it("V2: a WRITE that aborts is classified as ExecutionUnknownResultError (must reconcile, never blindly retried)", async () => {
       vi.spyOn(global, "fetch").mockImplementation(() => Promise.reject(new DOMException("aborted", "AbortError")));
       await expect(binancePrivatePost("/api/v3/order", {}, { apiKey: "k", apiSecret: "s" })).rejects.toBeInstanceOf(ExecutionUnknownResultError);
+    });
+
+    it("V3: Binance rejecting the signed request's credentials (401/403) is classified as ExecutionAuthError, distinct from every other failure mode", async () => {
+      vi.spyOn(global, "fetch").mockResolvedValue(new Response("{}", { status: 401 }));
+      await expect(binancePrivateGet("/api/v3/account", {}, { apiKey: "k", apiSecret: "s" })).rejects.toBeInstanceOf(ExecutionAuthError);
+    });
+
+    it("V4: a 429 rate-limit response is classified as ExecutionRateLimitError, never a generic provider error", async () => {
+      vi.spyOn(global, "fetch").mockResolvedValue(new Response("{}", { status: 429, headers: { "retry-after": "2" } }));
+      await expect(binancePrivateGet("/api/v3/account", {}, { apiKey: "k", apiSecret: "s" })).rejects.toBeInstanceOf(ExecutionRateLimitError);
     });
   });
 
