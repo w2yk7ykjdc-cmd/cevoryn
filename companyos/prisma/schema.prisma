@@ -133,6 +133,7 @@ model Organization {
   paperPositions           PaperPosition[]
   paperTrades              PaperTrade[]
   backtestRuns             BacktestRun[]
+  liveOrders               LiveOrder[]
 
   @@unique([slug])
   @@map("organization")
@@ -1530,4 +1531,74 @@ model BacktestRun {
   @@index([organizationId, createdAt])
   @@index([organizationId, status])
   @@map("backtest_run")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Sprint 22: Live Execution Foundation
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Order lifecycle (Sprint 22 Phase 6) -- a strict progression, never
+/// skipped or re-entered: `INTENT` (constructed, not yet validated) ->
+/// `VALIDATING` -> `SUBMITTING` -> `SUBMITTED` -> (`PARTIALLY_FILLED` ->)
+/// `FILLED`, or `CANCEL_REQUESTED` -> `CANCELLED`, or `REJECTED` (failed
+/// validation/risk, never reached the provider) / `FAILED` (reached the
+/// provider but the provider call itself failed/errored, distinct from a
+/// clean `REJECTED` so failure-recovery -- Phase 11 -- can tell "never
+/// sent" from "sent, outcome unknown" apart).
+enum LiveOrderStatus {
+  INTENT
+  VALIDATING
+  SUBMITTING
+  SUBMITTED
+  PARTIALLY_FILLED
+  FILLED
+  CANCEL_REQUESTED
+  CANCELLED
+  REJECTED
+  FAILED
+}
+
+/// The ONLY new persistence this sprint adds for order lifecycle tracking
+/// -- deliberately LIVE-only: `PaperPosition`/`PaperTrade` (Sprint 16)
+/// already fully cover the paper/simulation side and are never touched or
+/// duplicated by this model (Phase 2's own explicit "SPOT ve
+/// PERPETUAL_SIMULATION mevcut paper sistemiyle karıştırılmayacak").
+/// `clientOrderId` is this sprint's idempotency key (Phase 6's own
+/// explicit requirement) -- deterministically derived from the originating
+/// decision, never random, and unique per organization so a retried
+/// submission attempt for the SAME decision can never create a second row
+/// or a second real order. NEVER stores a credential, an API key/secret,
+/// or any raw provider response body that could itself carry one -- only
+/// structured, already-redacted fields.
+model LiveOrder {
+  id               String          @id @default(cuid())
+  organizationId   String
+  organization     Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  clientOrderId    String
+  symbol           String
+  side             String
+  type             String
+  quantity         Decimal         @db.Decimal(28, 12)
+  price            Decimal?        @db.Decimal(18, 8)
+  status           LiveOrderStatus @default(INTENT)
+  strategyType     String?
+  strategySignalId String?
+  /// Soft reference to the exact `MarketDecision`/`ProposedOrder` this
+  /// order intent was built from -- for audit/traceability only, no
+  /// foreign key (that data is not itself persisted anywhere).
+  decisionSymbol   String?
+  /// The provider's own order id, set only once `SUBMITTING` succeeds --
+  /// `null` before that, never guessed.
+  providerOrderId  String?
+  rejectionReason  String?
+  requestedAt      DateTime        @default(now())
+  submittedAt      DateTime?
+  filledAt         DateTime?
+  cancelledAt      DateTime?
+  updatedAt        DateTime        @updatedAt
+
+  @@unique([organizationId, clientOrderId])
+  @@index([organizationId, status])
+  @@index([organizationId, symbol])
+  @@map("live_order")
 }
