@@ -22,6 +22,7 @@ import { ingestMarketDataProcessor } from "@/server/jobs/processors/ingest-marke
 import { generateMarketIntelligenceProcessor } from "@/server/jobs/processors/generate-market-intelligence";
 import { generateMarketStrategiesProcessor } from "@/server/jobs/processors/generate-market-strategies";
 import { evaluatePaperTradingProcessor } from "@/server/jobs/processors/evaluate-paper-trading";
+import { runBacktestProcessor } from "@/server/jobs/processors/run-backtest";
 import { registerIntelligenceSubscribers } from "@/server/intelligence/signals/subscriber";
 
 /**
@@ -64,6 +65,8 @@ async function processJob(job: Job<JobMap[JobName], void, JobName>): Promise<voi
       return generateMarketStrategiesProcessor();
     case "evaluate-paper-trading":
       return evaluatePaperTradingProcessor();
+    case "run-backtest":
+      return runBacktestProcessor(job.data as JobMap["run-backtest"]);
     default:
       logger.warn({ jobName: job.name }, "no processor registered for job");
   }
