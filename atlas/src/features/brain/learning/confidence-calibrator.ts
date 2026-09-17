@@ -123,22 +123,27 @@ export async function computeCalibration(organizationId: string): Promise<{
  * Decision calibration compares Decision.canvas.confidenceScore (a
  * subjective LLM-estimated confidence in a recommendation) against
  * Decision-sourced OutcomeEvaluation rows; this compares
- * Opportunity.confidence (the event-extraction confidence score already
- * stored on the Opportunity - see opportunity-generator.ts) against
- * Opportunity-sourced OutcomeEvaluation rows (written by
- * opportunity.service.ts::updateOpportunityStatus on WON/LOST). These are
- * two different real-world quantities that happen to share a [0,1] range -
- * pooling them into one calibration would silently blend unrelated signals,
- * which is exactly what computeCalibration's own `decisionId: { not: null }`
- * filter exists to prevent. The pure adjustment-factor math
- * (computeAdjustmentFactor/applyCalibration) is domain-agnostic and is
- * reused unchanged.
+ * Opportunity.probability against Opportunity-sourced OutcomeEvaluation
+ * rows (written by opportunity.service.ts::updateOpportunityStatus on
+ * WON/LOST). These are two different real-world quantities that happen to
+ * share a [0,1] range - pooling them into one calibration would silently
+ * blend unrelated signals, which is exactly what computeCalibration's own
+ * `decisionId: { not: null }` filter exists to prevent. The pure
+ * adjustment-factor math (computeAdjustmentFactor/applyCalibration) is
+ * domain-agnostic and is reused unchanged - only the input metric differs.
  *
- * `score`/`economicImpact` were considered as the "predicted" value instead
- * of `confidence`: `score` is a composite of relevance/strategicFit/
- * economicPotential/timing/confidence, not itself a confidence estimate,
- * and `economicImpact` is a dollar range, not a [0,1] confidence - neither
- * is comparable to a 1.0/0.0 outcomeScore the way `confidence` is.
+ * `probability`, not `confidence`, is the correct "predicted" value here.
+ * `Opportunity.confidence` is `event.confidence` (see
+ * opportunity-generator.ts: `confidence: event.confidence`) - the LLM's
+ * confidence that the underlying signal/event was correctly detected, with
+ * no semantic connection to deal outcome. `Opportunity.probability` is the
+ * field the generation prompt itself defines as "how likely this actually
+ * converts into a real outcome" (see OPPORTUNITY_PROMPT in
+ * opportunity-generator.ts) - the one genuinely comparable to a WON=1/
+ * LOST=0 outcomeScore. `score` and `economicImpact` were also considered
+ * and rejected: `score` is a composite of relevance/strategicFit/
+ * economicPotential/timing/confidence, not itself a probability estimate,
+ * and `economicImpact` is a dollar range, not a [0,1] value at all.
  */
 export async function computeOpportunityCalibration(
   organizationId: string
@@ -162,7 +167,7 @@ export async function computeOpportunityCalibration(
     .filter((id): id is string => id !== null);
   const opportunities = await prisma.opportunity.findMany({
     where: { id: { in: opportunityIds } },
-    select: { id: true, confidence: true, polarity: true },
+    select: { id: true, probability: true, polarity: true },
   });
 
   const opportunityMap = new Map(opportunities.map((o) => [o.id, o]));
@@ -174,7 +179,7 @@ export async function computeOpportunityCalibration(
     const opportunity = opportunityMap.get(eval_.opportunityId);
     if (!opportunity) continue;
 
-    const predicted = opportunity.confidence;
+    const predicted = opportunity.probability;
     const actual = eval_.outcomeScore;
 
     dataPoints.push({

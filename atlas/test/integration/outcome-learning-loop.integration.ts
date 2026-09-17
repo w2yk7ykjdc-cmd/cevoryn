@@ -154,7 +154,16 @@ after(async () => {
 
 async function createTestOpportunity(
   organizationId: string,
-  overrides: { confidence?: number; polarity?: "OPPORTUNITY" | "THREAT" } = {}
+  overrides: {
+    probability?: number;
+    /** Deliberately kept independent of `probability` in every caller
+     *  below (defaults to a fixed 0.5, unrelated to whatever probability
+     *  is set to) - this is what lets the tests prove
+     *  computeOpportunityCalibration reads Opportunity.probability, not
+     *  Opportunity.confidence, as the predicted value. */
+    confidence?: number;
+    polarity?: "OPPORTUNITY" | "THREAT";
+  } = {}
 ) {
   const entity = await createWatchedEntity(organizationId, USER_ID, {
     name: `Outcome Learning Chain Co ${randomUUID().slice(0, 6)}`,
@@ -187,8 +196,8 @@ async function createTestOpportunity(
       polarity: overrides.polarity ?? "OPPORTUNITY",
       title: `Test opportunity ${randomUUID().slice(0, 6)}`,
       description: "test",
-      probability: 0.5,
-      confidence: overrides.confidence ?? 0.8,
+      probability: overrides.probability ?? 0.5,
+      confidence: overrides.confidence ?? 0.5,
       strategicFit: 0.6,
       timeHorizon: "3-6 months",
       reasoning: "test",
@@ -224,11 +233,18 @@ function testDecisionCanvas(
   };
 }
 
-test("2A: Opportunity WON creates an OutcomeEvaluation, and computeOpportunityCalibration reads it back (regression: write path from Step 6/7 still works, and is no longer excluded from calibration)", async () => {
+test("2A: Opportunity WON creates an OutcomeEvaluation, and computeOpportunityCalibration reads it back using Opportunity.probability as the predicted value (regression: write path from Step 6/7 still works, and is no longer excluded from calibration)", async () => {
   const opportunities = await Promise.all([
-    createTestOpportunity(ORG_A_ID, { confidence: 0.9 }),
-    createTestOpportunity(ORG_A_ID, { confidence: 0.6 }),
-    createTestOpportunity(ORG_A_ID, { confidence: 0.3, polarity: "THREAT" }),
+    // confidence is deliberately the opposite of probability on every one
+    // of these - if computeOpportunityCalibration ever regresses to
+    // reading Opportunity.confidence again, these assertions fail.
+    createTestOpportunity(ORG_A_ID, { probability: 0.9, confidence: 0.1 }),
+    createTestOpportunity(ORG_A_ID, { probability: 0.6, confidence: 0.4 }),
+    createTestOpportunity(ORG_A_ID, {
+      probability: 0.3,
+      confidence: 0.7,
+      polarity: "THREAT",
+    }),
   ]);
 
   await updateOpportunityStatus(ORG_A_ID, opportunities[0]!.id, "WON", USER_ID);
@@ -251,13 +267,55 @@ test("2A: Opportunity WON creates an OutcomeEvaluation, and computeOpportunityCa
 
   const calibration = await computeOpportunityCalibration(ORG_A_ID);
   assert.equal(calibration.dataPoints.length, 3);
-  // predicted (Opportunity.confidence) vs actual (outcomeScore: WON=1, LOST=0)
+  // predicted (Opportunity.probability) vs actual (outcomeScore: WON=1, LOST=0)
   const byPredicted = new Map(
     calibration.dataPoints.map((d) => [d.predictedConfidence, d])
   );
   assert.equal(byPredicted.get(0.9)?.actualOutcomeScore, 1);
   assert.equal(byPredicted.get(0.6)?.actualOutcomeScore, 0);
   assert.equal(byPredicted.get(0.3)?.category, "THREAT");
+  // None of the confidence values (0.1/0.4/0.7) appear as a predicted
+  // value - proof the metric read is probability, not confidence.
+  assert.equal(byPredicted.has(0.1), false);
+  assert.equal(byPredicted.has(0.4), false);
+  assert.equal(byPredicted.has(0.7), false);
+});
+
+test("2A metric proof: probability=0.8+WON and probability=0.2+LOST, each with confidence set to the opposite value - calibration reads probability, never confidence", async () => {
+  const wonOpportunity = await createTestOpportunity(ORG_A_ID, {
+    probability: 0.8,
+    confidence: 0.2,
+  });
+  const lostOpportunity = await createTestOpportunity(ORG_A_ID, {
+    probability: 0.2,
+    confidence: 0.8,
+  });
+
+  await updateOpportunityStatus(ORG_A_ID, wonOpportunity.id, "WON", USER_ID);
+  await updateOpportunityStatus(ORG_A_ID, lostOpportunity.id, "LOST", USER_ID);
+
+  const calibration = await computeOpportunityCalibration(ORG_A_ID);
+  const won = calibration.dataPoints.find(
+    (d) => d.actualOutcomeScore === 1 && d.predictedConfidence === 0.8
+  );
+  const lost = calibration.dataPoints.find(
+    (d) => d.actualOutcomeScore === 0 && d.predictedConfidence === 0.2
+  );
+  assert.ok(won, "expected a WON data point predicted at 0.8 (probability)");
+  assert.ok(lost, "expected a LOST data point predicted at 0.2 (probability)");
+
+  // Sanity check against the actual stored rows, independent of the
+  // calibration function, so this test doesn't just check its own math.
+  const [wonRow, lostRow] = await Promise.all([
+    prisma.opportunity.findUniqueOrThrow({ where: { id: wonOpportunity.id } }),
+    prisma.opportunity.findUniqueOrThrow({
+      where: { id: lostOpportunity.id },
+    }),
+  ]);
+  assert.equal(wonRow.probability, 0.8);
+  assert.equal(wonRow.confidence, 0.2);
+  assert.equal(lostRow.probability, 0.2);
+  assert.equal(lostRow.confidence, 0.8);
 });
 
 test("2A: computeCalibration (Decision-only) never includes Opportunity-sourced rows - the two domains stay strictly separate", async () => {
@@ -338,7 +396,10 @@ test("2C/2D: runLearningCycleForOrganization persists both calibration domains a
 
   const result = await runLearningCycleForOrganization(ORG_A_ID);
   assert.deepEqual(result.errors, []);
-  assert.equal(result.opportunityCalibrationSampleSize, 3);
+  // 5, not 3: the 3 Opportunities from the first "2A" test above plus the
+  // 2 from the "2A metric proof" test that ran after it - both
+  // contribute real Opportunity-sourced OutcomeEvaluation rows for ORG_A.
+  assert.equal(result.opportunityCalibrationSampleSize, 5);
   assert.equal(result.decisionCalibrationSampleSize, 3);
 
   const patterns = await getLearningPatterns(ORG_A_ID);
@@ -346,7 +407,7 @@ test("2C/2D: runLearningCycleForOrganization persists both calibration domains a
     (p) => p.patternType === "calibration" && p.category === "opportunity"
   );
   assert.ok(opportunityCalibrationPattern);
-  assert.equal(opportunityCalibrationPattern.frequency, 3);
+  assert.equal(opportunityCalibrationPattern.frequency, 5);
 
   const raw = await prisma.learningPattern.findFirstOrThrow({
     where: {
@@ -356,7 +417,7 @@ test("2C/2D: runLearningCycleForOrganization persists both calibration domains a
     },
   });
   const metadata = raw.metadata as Record<string, unknown>;
-  assert.equal(metadata.sampleSize, 3);
+  assert.equal(metadata.sampleSize, 5);
   assert.equal(typeof metadata.adjustmentFactor, "number");
   // This is applyCalibration()'s actual return value for this run's real
   // average predicted confidence - proof it was genuinely called, not
@@ -407,7 +468,7 @@ test("2C: the learning cycle is idempotent - running it twice upserts the same c
 
 test("2D: insufficient sample data (fewer than the minimum threshold) never produces an aggressive calibration - adjustmentFactor stays neutral and isCalibrated stays false", async () => {
   const opportunity = await createTestOpportunity(ORG_B_ID, {
-    confidence: 0.95,
+    probability: 0.95,
   });
   await updateOpportunityStatus(ORG_B_ID, opportunity.id, "LOST", USER_ID);
 
@@ -433,7 +494,7 @@ test("2D: insufficient sample data (fewer than the minimum threshold) never prod
 
 test("tenant isolation: ORG_B's calibration/pattern data never appears in ORG_A's results and vice versa", async () => {
   const orgACalibration = await computeOpportunityCalibration(ORG_A_ID);
-  assert.equal(orgACalibration.dataPoints.length, 3);
+  assert.equal(orgACalibration.dataPoints.length, 5);
 
   const orgAPatterns = await getLearningPatterns(ORG_A_ID);
   const orgBPatterns = await getLearningPatterns(ORG_B_ID);

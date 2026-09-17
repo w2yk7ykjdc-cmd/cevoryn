@@ -48,11 +48,13 @@ export interface CalibrationData {
 /**
  * Same shape as CalibrationData, kept as a distinct type rather than a
  * reused alias: Opportunity calibration compares a structurally different
- * "predicted confidence" (Opportunity.confidence, an event-extraction
- * confidence score) against the same outcomeScore metric Decision
- * calibration uses - the two must never be pooled into one dataset, only
- * ever computed and reported separately. See
- * confidence-calibrator.ts::computeOpportunityCalibration.
+ * "predicted confidence" (Opportunity.probability - the LLM's own "how
+ * likely this actually converts into a real outcome" estimate, NOT
+ * Opportunity.confidence, which is event/signal detection confidence and
+ * has no semantic relationship to deal outcome) against the same
+ * outcomeScore metric Decision calibration uses - the two domains must
+ * never be pooled into one dataset, only ever computed and reported
+ * separately. See confidence-calibrator.ts::computeOpportunityCalibration.
  */
 export interface OpportunityCalibrationData {
   predictedConfidence: number;
