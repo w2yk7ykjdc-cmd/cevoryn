@@ -16,6 +16,10 @@
     {
       "path": "/api/cron/radar-ingest",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/learning-cycle",
+      "schedule": "0 7 * * *"
     }
   ]
 }

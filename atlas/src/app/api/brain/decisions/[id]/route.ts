@@ -6,6 +6,7 @@ import {
   updateDecisionStatus,
 } from "@/features/brain/decisions/decision.service";
 import { updateDecisionStatusSchema } from "@/features/brain/decisions/schemas";
+import { evaluateOutcome } from "@/features/brain/outcomes/outcome-evaluator";
 import {
   unauthorizedResponse,
   forbiddenResponse,
@@ -71,7 +72,21 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     );
     if (!updated) return notFoundResponse("Decision not found");
 
-    return NextResponse.json({ data: { id, status: parsed.data.status } });
+    // Reuses the existing outcome-evaluator.ts pipeline (the same function
+    // /api/brain/outcomes already calls for this status) rather than a
+    // second parallel evaluation path - see the audit finding that this
+    // route previously left evaluateOutcome() unreachable from the
+    // shipped Decision-completion UI (decision-queue.tsx). evaluateOutcome
+    // never throws (it catches its own errors and returns null), so this
+    // can't turn a successful status update into a failed response.
+    let evaluation = null;
+    if (parsed.data.status === "COMPLETED") {
+      evaluation = await evaluateOutcome(membership.organizationId, id);
+    }
+
+    return NextResponse.json({
+      data: { id, status: parsed.data.status, evaluation },
+    });
   } catch (error) {
     return internalErrorResponse(
       "Decision PATCH",

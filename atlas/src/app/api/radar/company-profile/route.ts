@@ -29,6 +29,23 @@ export async function GET(_request: NextRequest) {
       return forbiddenResponse("Insufficient permissions");
     }
 
+    try {
+      await assertOrganizationFeatureAccess(membership.organizationId, "RADAR");
+    } catch (error) {
+      if (error instanceof FeatureAccessError) {
+        return NextResponse.json(
+          {
+            error: {
+              code: error.code,
+              message: "Radar requires the Professional or Business plan.",
+            },
+          },
+          { status: 403 }
+        );
+      }
+      throw error;
+    }
+
     const profile = await getCompanyProfile(membership.organizationId);
     return NextResponse.json({ data: profile });
   } catch (error) {
