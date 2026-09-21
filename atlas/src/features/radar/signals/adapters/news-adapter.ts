@@ -2,22 +2,10 @@ import "server-only";
 
 import { fetchWithRetry } from "./fetch-with-retry";
 import { parseFeed } from "./rss-parser";
+import { buildNewsSearchQuery } from "./news-query";
 import type { RawSignal, SignalAdapter, SignalAdapterContext } from "./types";
 
 const FETCH_TIMEOUT_MS = 8_000;
-const MAX_QUERY_LENGTH = 180;
-
-export function buildNewsSearchQuery(
-  entityName: string,
-  entityDomain: string | null
-): string {
-  const name = entityName.trim();
-  if (!name) return "";
-
-  const domain = entityDomain?.trim().replace(/^www\./i, "");
-  const domainClause = domain ? ` OR "${domain}"` : "";
-  return `"${name}"${domainClause}`.slice(0, MAX_QUERY_LENGTH);
-}
 
 /**
  * Keyless external-news discovery for watched companies.
