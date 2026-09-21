@@ -1,6 +1,7 @@
 import "server-only";
 
 import { fetchWithRetry } from "./fetch-with-retry";
+import { filterRelevantNewsSignals } from "./news-relevance";
 import { parseFeed } from "./rss-parser";
 import { buildNewsSearchQuery } from "./news-query";
 import type { RawSignal, SignalAdapter, SignalAdapterContext } from "./types";
@@ -41,7 +42,12 @@ export const newsAdapter: SignalAdapter = {
       const xml = await response.text();
       const signals = parseFeed(xml);
 
-      return signals.map((signal) => ({
+      return filterRelevantNewsSignals(signals, {
+        entityName: context.entityName,
+        entityDomain: context.entityDomain,
+        industry: context.entityIndustry,
+        country: context.entityCountry,
+      })).map((signal) => ({
         ...signal,
         source: "google_news",
         sourceType: "NEWS_ARTICLE" as const,
