@@ -42,16 +42,18 @@ export const newsAdapter: SignalAdapter = {
       const xml = await response.text();
       const signals = parseFeed(xml);
 
-      return filterRelevantNewsSignals(signals, {
-        entityName: context.entityName,
-        entityDomain: context.entityDomain,
-        industry: context.entityIndustry,
-        country: context.entityCountry,
-      })).map((signal) => ({
+      const newsSignals = signals.map((signal) => ({
         ...signal,
         source: "google_news",
         sourceType: "NEWS_ARTICLE" as const,
       }));
+
+      return filterRelevantNewsSignals(newsSignals, {
+        entityName: context.entityName,
+        entityDomain: context.entityDomain,
+        industry: context.entityIndustry,
+        country: context.entityCountry,
+      });
     } catch (_error) {
       return [];
     }
