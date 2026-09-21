@@ -18,6 +18,12 @@ interface CreateActionParams {
   description: string;
   content: Record<string, unknown>;
   sourceInsightId?: string;
+  /** Set when this action was generated from the Radar Opportunity Engine
+   *  rather than the Brain Insight Engine - see the matching comment on
+   *  PreparedAction.sourceOpportunityId in prisma/schema.prisma. Both
+   *  source fields are independent and optional; a given action is
+   *  expected to carry at most one of them. */
+  sourceOpportunityId?: string;
   confidence: number;
   reasoning: string;
 }
@@ -31,6 +37,7 @@ export async function createPreparedAction(params: CreateActionParams) {
       description: params.description,
       content: params.content as Prisma.InputJsonValue,
       sourceInsightId: params.sourceInsightId ?? null,
+      sourceOpportunityId: params.sourceOpportunityId ?? null,
       confidence: params.confidence,
       reasoning: params.reasoning,
     },

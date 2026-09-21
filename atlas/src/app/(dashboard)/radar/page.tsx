@@ -15,10 +15,25 @@ import type { OpportunityCardData } from "./opportunity-card";
 import { RadarFeed } from "./radar-feed";
 
 function withLatestResearchTask<
-  T extends { workerTasks: { id: string; status: string; brief: string | null; error: string | null }[] },
->(opportunity: T): Omit<T, "workerTasks"> & Pick<OpportunityCardData, "latestResearchTask"> {
-  const { workerTasks, ...rest } = opportunity;
-  return { ...rest, latestResearchTask: workerTasks[0] ?? null };
+  T extends {
+    workerTasks: {
+      id: string;
+      status: string;
+      brief: string | null;
+      error: string | null;
+    }[];
+    preparedActions: { id: string; status: string }[];
+  },
+>(
+  opportunity: T
+): Omit<T, "workerTasks" | "preparedActions"> &
+  Pick<OpportunityCardData, "latestResearchTask" | "latestPreparedAction"> {
+  const { workerTasks, preparedActions, ...rest } = opportunity;
+  return {
+    ...rest,
+    latestResearchTask: workerTasks[0] ?? null,
+    latestPreparedAction: preparedActions[0] ?? null,
+  };
 }
 
 export const metadata: Metadata = { title: "Radar — CEVORYN" };

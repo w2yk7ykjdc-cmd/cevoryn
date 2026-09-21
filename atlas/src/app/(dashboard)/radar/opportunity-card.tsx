@@ -2,8 +2,10 @@
 
 import {
   ArrowRight,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
+  ClipboardList,
   Loader2,
   Search,
   X,
@@ -45,6 +47,12 @@ export interface OpportunityCardData {
     brief: string | null;
     error: string | null;
   } | null;
+  /** Most recent non-DISMISSED PreparedAction created from this
+   *  Opportunity's recommendedAction, if any - see
+   *  opportunity-action.service.ts. Only a display hint (disables the
+   *  button to avoid an obviously-redundant click); the real duplicate
+   *  guard is server-side. */
+  latestPreparedAction?: { id: string; status: string } | null;
 }
 
 function formatValueRange(
@@ -197,6 +205,10 @@ export function OpportunityCard({
   );
   const researchInFlight =
     researchTask?.status === "PENDING" || researchTask?.status === "RUNNING";
+  const [isPreparingAction, setIsPreparingAction] = useState(false);
+  const [preparedActionId, setPreparedActionId] = useState(
+    opportunity.latestPreparedAction?.id ?? null
+  );
 
   const evidence = asEvidenceList(opportunity.evidence);
   const breakdown = asScoreBreakdown(opportunity.scoreBreakdown);
@@ -270,6 +282,28 @@ export function OpportunityCard({
     }
   }
 
+  async function prepareAction() {
+    setIsPreparingAction(true);
+    try {
+      const response = await fetch(
+        `/api/radar/opportunities/${opportunity.id}/prepare-action`,
+        { method: "POST" }
+      );
+      if (handleUnauthorized(response)) return;
+      if (!response.ok) throw new Error(t("prepareActionFailed"));
+
+      const data = await response.json().catch(() => null);
+      setPreparedActionId(data?.data?.actionId ?? null);
+      toast.success(t("actionPrepared"));
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : t("prepareActionFailed")
+      );
+    } finally {
+      setIsPreparingAction(false);
+    }
+  }
+
   return (
     <Card className={isThreat ? "border-destructive/30" : undefined}>
       <CardHeader className="pb-2">
@@ -292,11 +326,35 @@ export function OpportunityCard({
         {opportunity.recommendedAction ? (
           <div className="flex items-start gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm">
             <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-            <div>
+            <div className="flex-1">
               <p className="text-xs font-medium uppercase tracking-wide text-primary">
                 {t("recommendedAction")}
               </p>
               <p className="mt-0.5">{opportunity.recommendedAction}</p>
+              {canManage ? (
+                <div className="mt-2">
+                  {preparedActionId ? (
+                    <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                      {t("actionAlreadyPrepared")}
+                    </p>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={isPreparingAction}
+                      onClick={prepareAction}
+                    >
+                      {isPreparingAction ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <ClipboardList className="h-4 w-4" />
+                      )}
+                      {t("prepareAction")}
+                    </Button>
+                  )}
+                </div>
+              ) : null}
             </div>
           </div>
         ) : null}

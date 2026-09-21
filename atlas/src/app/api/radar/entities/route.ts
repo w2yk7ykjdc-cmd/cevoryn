@@ -30,6 +30,23 @@ export async function GET(request: NextRequest) {
       return forbiddenResponse("Insufficient permissions");
     }
 
+    try {
+      await assertOrganizationFeatureAccess(membership.organizationId, "RADAR");
+    } catch (error) {
+      if (error instanceof FeatureAccessError) {
+        return NextResponse.json(
+          {
+            error: {
+              code: error.code,
+              message: "Radar requires the Professional or Business plan.",
+            },
+          },
+          { status: 403 }
+        );
+      }
+      throw error;
+    }
+
     const includeInactive =
       new URL(request.url).searchParams.get("includeInactive") === "true";
     const entities = await listWatchedEntities(membership.organizationId, {

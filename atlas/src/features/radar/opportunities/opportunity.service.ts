@@ -29,6 +29,17 @@ export async function listOpportunities(
         take: 1,
         select: { id: true, status: true, brief: true, error: true },
       },
+      // Non-dismissed only, most recent - just enough for the UI to know
+      // whether "Prepare Action" has already been used on this Opportunity
+      // (the real duplicate guard lives in
+      // opportunity-action.service.ts::prepareActionFromOpportunity; this
+      // is a display hint, not a security boundary).
+      preparedActions: {
+        where: { status: { not: "DISMISSED" } },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { id: true, status: true },
+      },
     },
     orderBy: [{ score: "desc" }, { createdAt: "desc" }],
     take: options.take ?? 30,
@@ -63,12 +74,11 @@ export async function getOpportunity(organizationId: string, id: string) {
  * query), so re-clicking or a duplicated request never creates a second
  * outcome record for the same opportunity.
  */
-const TERMINAL_OUTCOME_RESULT: Partial<
-  Record<string, "SUCCESS" | "FAILURE">
-> = {
-  WON: "SUCCESS",
-  LOST: "FAILURE",
-};
+const TERMINAL_OUTCOME_RESULT: Partial<Record<string, "SUCCESS" | "FAILURE">> =
+  {
+    WON: "SUCCESS",
+    LOST: "FAILURE",
+  };
 
 export async function updateOpportunityStatus(
   organizationId: string,

@@ -5,6 +5,10 @@ export const PATTERN_TYPES = [
   "failure",
   "repeat",
   "timing",
+  /** A persisted confidence-calibration snapshot (see
+   *  learning-engine.ts::runLearningCycleForOrganization) - category
+   *  distinguishes "decision" from "opportunity" calibration. */
+  "calibration",
 ] as const;
 
 export type PatternType = (typeof PATTERN_TYPES)[number];
@@ -39,4 +43,32 @@ export interface CalibrationData {
   actualOutcomeScore: number;
   delta: number;
   category: string;
+}
+
+/**
+ * Same shape as CalibrationData, kept as a distinct type rather than a
+ * reused alias: Opportunity calibration compares a structurally different
+ * "predicted confidence" (Opportunity.probability - the LLM's own "how
+ * likely this actually converts into a real outcome" estimate, NOT
+ * Opportunity.confidence, which is event/signal detection confidence and
+ * has no semantic relationship to deal outcome) against the same
+ * outcomeScore metric Decision calibration uses - the two domains must
+ * never be pooled into one dataset, only ever computed and reported
+ * separately. See confidence-calibrator.ts::computeOpportunityCalibration.
+ */
+export interface OpportunityCalibrationData {
+  predictedConfidence: number;
+  actualOutcomeScore: number;
+  delta: number;
+  /** Opportunity.polarity ("OPPORTUNITY" | "THREAT") - the natural
+   *  segmentation for this domain, unlike Decision's problem-statement
+   *  word category. */
+  category: string;
+}
+
+/** Result shape shared by computeCalibration and computeOpportunityCalibration. */
+export interface CalibrationResult<T> {
+  adjustmentFactor: number;
+  dataPoints: T[];
+  isCalibrated: boolean;
 }

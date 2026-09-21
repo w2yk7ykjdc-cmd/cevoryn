@@ -5,6 +5,11 @@ import { prisma } from "@/lib/prisma";
 import { parseDecisionCanvas } from "../decisions/json-schemas";
 import { createMemory } from "../memory/memory.service";
 
+import {
+  applyCalibration,
+  computeCalibration,
+  computeOpportunityCalibration,
+} from "./confidence-calibrator";
 import type { LearnedPattern, PatternType } from "./types";
 
 /**
@@ -192,7 +197,7 @@ async function detectRepeatPatterns(
   return created;
 }
 
-async function upsertPattern(
+export async function upsertPattern(
   organizationId: string,
   data: {
     patternType: PatternType;
@@ -200,6 +205,11 @@ async function upsertPattern(
     pattern: string;
     frequency: number;
     confidence: number;
+    /** Structured, explainable detail behind `pattern` (the human-readable
+     *  string) - e.g. calibration snapshots store {source, sampleSize,
+     *  historicalAccuracy, adjustmentFactor, exampleCalibratedConfidence}
+     *  here so the number in `pattern` is traceable, not just asserted. */
+    metadata?: Record<string, unknown>;
   }
 ): Promise<number> {
   const patternWhere = {
@@ -220,6 +230,7 @@ async function upsertPattern(
         pattern: data.pattern,
         frequency: data.frequency,
         confidence: data.confidence,
+        ...(data.metadata && { metadata: data.metadata as never }),
       },
     });
     return 0;
@@ -232,6 +243,7 @@ async function upsertPattern(
     pattern: data.pattern,
     frequency: data.frequency,
     confidence: data.confidence,
+    ...(data.metadata && { metadata: data.metadata as never }),
   };
 
   await prisma.learningPattern.create({
@@ -239,6 +251,139 @@ async function upsertPattern(
   });
 
   return 1;
+}
+
+const CALIBRATION_SAMPLE_TAKE = 50;
+
+/**
+ * Persists a computeCalibration/computeOpportunityCalibration result as an
+ * upserted LearningPattern row (patternType "calibration", category
+ * "decision" | "opportunity") - reuses upsertPattern above rather than a
+ * new persistence path, so the row participates in the exact same
+ * dedup/idempotency behavior extractLearningPatterns's own patterns
+ * already rely on (find-by-org+type+category, then update in place).
+ *
+ * This is also where applyCalibration is actually invoked (see the audit
+ * finding that it was defined but never called anywhere): applied to the
+ * sample's own average predicted confidence - a real, traceable number
+ * from this run's data, not an illustrative placeholder - to produce
+ * `exampleCalibratedConfidence`, so a reader can see concretely what the
+ * adjustment factor would do to a typical prediction, without this
+ * function silently rewriting any stored Opportunity/Decision confidence
+ * value.
+ */
+async function persistCalibrationSnapshot(
+  organizationId: string,
+  category: "decision" | "opportunity",
+  result: {
+    adjustmentFactor: number;
+    dataPoints: Array<{ predictedConfidence: number }>;
+    isCalibrated: boolean;
+  }
+): Promise<void> {
+  const sampleSize = result.dataPoints.length;
+  if (sampleSize === 0) return;
+
+  const avgPredicted =
+    result.dataPoints.reduce((sum, d) => sum + d.predictedConfidence, 0) /
+    sampleSize;
+  const exampleCalibratedConfidence = applyCalibration(
+    avgPredicted,
+    result.adjustmentFactor
+  );
+
+  await upsertPattern(organizationId, {
+    patternType: "calibration",
+    category,
+    pattern: result.isCalibrated
+      ? `${category === "decision" ? "Decision" : "Opportunity"} confidence calibration: adjustment factor ${result.adjustmentFactor.toFixed(2)} from ${sampleSize} outcomes`
+      : `${category === "decision" ? "Decision" : "Opportunity"} calibration not yet reliable: only ${sampleSize} outcome(s) recorded (minimum 5 required)`,
+    frequency: sampleSize,
+    confidence: result.isCalibrated ? Math.min(sampleSize / 20, 0.9) : 0.2,
+    metadata: {
+      source: `OutcomeEvaluation(${category === "decision" ? "decisionId" : "opportunityId"} not null), most recent ${CALIBRATION_SAMPLE_TAKE}`,
+      sampleSize,
+      isCalibrated: result.isCalibrated,
+      averagePredictedConfidence: Math.round(avgPredicted * 1000) / 1000,
+      adjustmentFactor: result.adjustmentFactor,
+      exampleCalibratedConfidence:
+        Math.round(exampleCalibratedConfidence * 1000) / 1000,
+      computedAt: new Date().toISOString(),
+    },
+  });
+}
+
+/**
+ * Full learning cycle for one organization: extract Decision patterns
+ * (existing, unchanged), then compute and durably persist both calibration
+ * domains (Decision-sourced and Opportunity-sourced OutcomeEvaluation rows,
+ * kept strictly separate - see computeOpportunityCalibration's own doc
+ * comment for why). Intended to be called on a schedule (see
+ * /api/cron/learning-cycle) rather than per-request, so a real calibration
+ * history accumulates over time instead of being recomputed from scratch
+ * (and immediately discarded) on every API read.
+ *
+ * Never throws: each of the three steps is independently try/caught so a
+ * failure in one (e.g. a single malformed Decision canvas) doesn't prevent
+ * the others from running - same isolation discipline as
+ * runRadarPipelineForOrganization's per-stage try/catch.
+ */
+export async function runLearningCycleForOrganization(
+  organizationId: string
+): Promise<{
+  patternsExtracted: number;
+  decisionCalibrationSampleSize: number;
+  opportunityCalibrationSampleSize: number;
+  errors: string[];
+}> {
+  const errors: string[] = [];
+  let patternsExtracted = 0;
+  let decisionCalibrationSampleSize = 0;
+  let opportunityCalibrationSampleSize = 0;
+
+  try {
+    patternsExtracted = await extractLearningPatterns(organizationId);
+  } catch (error) {
+    errors.push(
+      `pattern-extraction: ${error instanceof Error ? error.message : "unknown error"}`
+    );
+  }
+
+  try {
+    const decisionCalibration = await computeCalibration(organizationId);
+    decisionCalibrationSampleSize = decisionCalibration.dataPoints.length;
+    await persistCalibrationSnapshot(
+      organizationId,
+      "decision",
+      decisionCalibration
+    );
+  } catch (error) {
+    errors.push(
+      `decision-calibration: ${error instanceof Error ? error.message : "unknown error"}`
+    );
+  }
+
+  try {
+    const opportunityCalibration =
+      await computeOpportunityCalibration(organizationId);
+    opportunityCalibrationSampleSize = opportunityCalibration.dataPoints.length;
+    await persistCalibrationSnapshot(
+      organizationId,
+      "opportunity",
+      opportunityCalibration
+    );
+  } catch (error) {
+    errors.push(
+      `opportunity-calibration: ${error instanceof Error ? error.message : "unknown error"}`
+    );
+  }
+
+  return {
+    patternsExtracted,
+    decisionCalibrationSampleSize,
+    opportunityCalibrationSampleSize,
+    errors,
+  };
 }
 
 /**
