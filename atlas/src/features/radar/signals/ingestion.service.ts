@@ -32,6 +32,8 @@ export async function ingestSignalsForEntity(
     id: string;
     name: string;
     domain: string | null;
+    industry: string | null;
+    country: string | null;
     metadata: unknown;
   }
 ): Promise<EntityIngestionResult> {
@@ -50,6 +52,8 @@ export async function ingestSignalsForEntity(
         entityId: entity.id,
         entityName: entity.name,
         entityDomain: entity.domain,
+        entityIndustry: entity.industry,
+        entityCountry: entity.country,
         metadata,
       });
       fetched += signals.length;
@@ -92,7 +96,7 @@ export async function ingestSignalsForOrganization(
 ): Promise<EntityIngestionResult[]> {
   const entities = await prisma.externalEntity.findMany({
     where: { organizationId, isActive: true, isPaused: false },
-    select: { id: true, name: true, domain: true, metadata: true },
+    select: { id: true, name: true, domain: true, industry: true, country: true, metadata: true },
   });
 
   const results: EntityIngestionResult[] = [];
