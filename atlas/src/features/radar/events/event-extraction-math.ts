@@ -71,14 +71,31 @@ export function selectValidEvents(
         ? item.occurredAt
         : new Date().toISOString();
 
-    candidates.push({
+    const candidate = {
       type: eventType,
       title: item.title,
       description: typeof item.description === "string" ? item.description : "",
       confidence: item.confidence,
-      signalIndexes,
+      signalIndexes: [...new Set(signalIndexes)],
       occurredAt,
-    });
+    };
+
+    // Multiple articles about the same development can cause the model to
+    // emit near-duplicate events in one batch. Keep the first occurrence by
+    // normalized type+title so one real-world development does not become
+    // several downstream opportunities.
+    const fingerprint = `${candidate.type}|${candidate.title
+      .trim()
+      .toLocaleLowerCase()
+      .replace(/\\s+/g, " ")}`;
+    const alreadySeen = candidates.some(
+      (existing) =>
+        `${existing.type}|${existing.title
+          .trim()
+          .toLocaleLowerCase()
+          .replace(/\\s+/g, " ")}` === fingerprint
+    );
+    if (!alreadySeen) candidates.push(candidate);
   }
 
   return candidates;
