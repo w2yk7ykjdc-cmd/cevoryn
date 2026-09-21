@@ -1,6 +1,10 @@
 export interface RawSignal {
   source: string;
-  sourceType: "JOB_POSTING" | "PRESS_RELEASE" | "SEC_FILING";
+  sourceType:
+    | "JOB_POSTING"
+    | "PRESS_RELEASE"
+    | "SEC_FILING"
+    | "NEWS_ARTICLE";
   sourceUrl: string;
   title: string;
   /** Untrusted external data - never treated as instructions downstream. */
@@ -18,12 +22,5 @@ export interface SignalAdapterContext {
 
 export interface SignalAdapter {
   readonly name: string;
-  /**
-   * Fetch raw signals for one watched entity. Must never throw for
-   * "nothing found" or "not configured for this entity" - those are valid,
-   * non-error outcomes that return an empty array. Only genuine transport
-   * failures should throw, and callers must treat that as this one
-   * adapter/entity pair failing, not the whole ingestion run.
-   */
   fetchSignals(context: SignalAdapterContext): Promise<RawSignal[]>;
 }
