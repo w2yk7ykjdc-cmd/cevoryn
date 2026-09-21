@@ -5,12 +5,18 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 import { jobsAdapter } from "./adapters/jobs-adapter";
+import { newsAdapter } from "./adapters/news-adapter";
 import { rssAdapter } from "./adapters/rss-adapter";
 import { secEdgarAdapter } from "./adapters/sec-edgar-adapter";
 import type { SignalAdapter } from "./adapters/types";
 import { hashSignal } from "./signal-hash";
 
-const ADAPTERS: SignalAdapter[] = [jobsAdapter, rssAdapter, secEdgarAdapter];
+const ADAPTERS: SignalAdapter[] = [
+  newsAdapter,
+  jobsAdapter,
+  rssAdapter,
+  secEdgarAdapter,
+];
 
 export interface EntityIngestionResult {
   entityId: string;
@@ -20,18 +26,6 @@ export interface EntityIngestionResult {
   adapterErrors: string[];
 }
 
-/**
- * Runs every configured adapter for one watched entity and idempotently
- * persists whatever they return. `createMany({ skipDuplicates: true })`
- * against the `(organizationId, hash)` unique constraint is what makes
- * this safe to re-run on a schedule: a re-fetch of the same feed simply
- * inserts zero new rows for items already seen, no read-before-write
- * race condition.
- *
- * One adapter throwing (a real transport failure, not "nothing found")
- * is recorded in adapterErrors and does not stop the other adapters for
- * this entity, or other entities in the batch.
- */
 export async function ingestSignalsForEntity(
   organizationId: string,
   entity: {
