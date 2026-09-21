@@ -38,7 +38,7 @@ test("trims surrounding whitespace and returns empty for a blank name", () => {
 test("caps generated queries at the adapter limit", () => {
   const name = "A".repeat(300);
   const query = buildNewsSearchQuery(name, "example.com");
-  assert.equal(query.length, 180);
+  assert.equal(query.length, 180);\n  assert.equal(query.endsWith('"'), true);
 });
 
 test("rejects a short single-token company name without company context", () => {
