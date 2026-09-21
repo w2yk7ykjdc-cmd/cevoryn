@@ -7,7 +7,16 @@ export function buildNewsSearchQuery(
   const name = entityName.trim();
   if (!name) return "";
 
-  const domain = entityDomain?.trim().replace(/^www\./i, "");
+  const domain = entityDomain?.trim().replace(/^www\./i, "") || "";
   const domainClause = domain ? ` OR "${domain}"` : "";
-  return `"${name}"${domainClause}`.slice(0, MAX_QUERY_LENGTH);
+  const availableForName = Math.max(
+    1,
+    MAX_QUERY_LENGTH - domainClause.length - 2
+  );
+  const safeName =
+    name.length > availableForName
+      ? name.slice(0, availableForName).trim()
+      : name;
+
+  return `"${safeName}"${domainClause}`.slice(0, MAX_QUERY_LENGTH);
 }
