@@ -1,13 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildNewsSearchQuery } from "../src/features/radar/signals/adapters/news-adapter";
+import { buildNewsSearchQuery } from "../src/features/radar/signals/adapters/news-query";
 
 test("builds an exact company-name news query", () => {
-  assert.equal(
-    buildNewsSearchQuery("Acme Inc.", null),
-    '"Acme Inc."'
-  );
+  assert.equal(buildNewsSearchQuery("Acme Inc.", null), '"Acme Inc."');
 });
 
 test("adds the normalized domain when available", () => {
