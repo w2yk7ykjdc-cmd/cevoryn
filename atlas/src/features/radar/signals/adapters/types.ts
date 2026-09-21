@@ -16,6 +16,8 @@ export interface SignalAdapterContext {
   entityId: string;
   entityName: string;
   entityDomain: string | null;
+  entityIndustry: string | null;
+  entityCountry: string | null;
   /** Per-entity adapter config from ExternalEntity.metadata, e.g. { greenhouseToken }. */
   metadata: Record<string, unknown>;
 }
