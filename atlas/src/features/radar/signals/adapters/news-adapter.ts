@@ -7,6 +7,18 @@ import type { RawSignal, SignalAdapter, SignalAdapterContext } from "./types";
 const FETCH_TIMEOUT_MS = 8_000;
 const MAX_QUERY_LENGTH = 180;
 
+export function buildNewsSearchQuery(
+  entityName: string,
+  entityDomain: string | null
+): string {
+  const name = entityName.trim();
+  if (!name) return "";
+
+  const domain = entityDomain?.trim().replace(/^www\./i, "");
+  const domainClause = domain ? ` OR "${domain}"` : "";
+  return `"${name}"${domainClause}`.slice(0, MAX_QUERY_LENGTH);
+}
+
 /**
  * Keyless external-news discovery for watched companies.
  *
@@ -19,12 +31,11 @@ export const newsAdapter: SignalAdapter = {
   name: "news",
 
   async fetchSignals(context: SignalAdapterContext): Promise<RawSignal[]> {
-    const name = context.entityName.trim();
-    if (!name) return [];
-
-    const domain = context.entityDomain?.trim().replace(/^www\./i, "");
-    const domainClause = domain ? ` OR "${domain}"` : "";
-    const query = `"${name}"${domainClause}`.slice(0, MAX_QUERY_LENGTH);
+    const query = buildNewsSearchQuery(
+      context.entityName,
+      context.entityDomain
+    );
+    if (!query) return [];
 
     const url =
       `https://news.google.com/rss/search?q=${encodeURIComponent(query)}` +
