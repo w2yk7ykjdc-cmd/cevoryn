@@ -29,7 +29,8 @@ export type EconomicAssumptionSource =
   | "CompanyProfile.averageDealSize"
   | "Opportunity.probability"
   | "Opportunity.economicPotential"
-  | "LLM_ESTIMATE_UNVALIDATED";
+  | "LLM_ESTIMATE_UNVALIDATED"
+  | "OpportunityCalibration.probability";
 
 export interface EconomicAssumption {
   key: string;

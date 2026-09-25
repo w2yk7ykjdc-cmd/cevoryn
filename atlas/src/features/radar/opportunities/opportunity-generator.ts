@@ -3,6 +3,7 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 
 import { getAIProvider } from "@/features/ai/providers";
+import { computeOpportunityCalibration } from "@/features/brain/learning/confidence-calibrator";
 import { excerptProprietaryContent } from "@/features/enterprise/proprietary-data/content-excerpt";
 import { getProprietaryDataForOpportunityGeneration } from "@/features/enterprise/proprietary-data/proprietary-data.service";
 import { AI_CONFIG } from "@/lib/constants";
@@ -16,6 +17,7 @@ import {
   calculateDeterministicEconomicImpact,
 } from "./economic-impact-calculator";
 import {
+  applyOpportunityProbabilityCalibration,
   buildEconomicImpactRecord,
   mergeOpportunityEvidence,
   validateGeneratedOpportunity,
@@ -244,6 +246,22 @@ export async function generateOpportunityForEvent(
     };
     const { score, breakdown } = scoreOpportunity(scoreInputs);
 
+    // Connects the Outcome→Learning calibration loop to real generation:
+    // the org's current Opportunity-probability calibration (see
+    // confidence-calibrator.ts::computeOpportunityCalibration) is applied
+    // to this LLM's raw probability estimate before it is persisted or fed
+    // into the deterministic economic-value calculation. A no-op until the
+    // org has enough real WON/LOST outcomes (isCalibrated) - never
+    // retroactive, never touches scoreOpportunity() above, which does not
+    // take probability as an input at all.
+    const opportunityCalibration =
+      await computeOpportunityCalibration(organizationId);
+    const calibrationApplication = applyOpportunityProbabilityCalibration(
+      generated.probability,
+      opportunityCalibration
+    );
+    const calibratedProbability = calibrationApplication.calibratedProbability;
+
     // Deterministic economic value (Step 7A): source of truth when the
     // organization has declared a real averageDealSize; otherwise falls
     // back to honestly labeling whatever the LLM itself already produced
@@ -252,7 +270,7 @@ export async function generateOpportunityForEvent(
     // result is never overridden by the LLM's guess.
     const deterministicImpact = calculateDeterministicEconomicImpact({
       averageDealSize: profile!.averageDealSize,
-      probability: generated.probability,
+      probability: calibratedProbability,
       economicPotential: generated.economicPotential,
       currency: generated.currency,
     });
@@ -282,6 +300,7 @@ export async function generateOpportunityForEvent(
       eventConfidence: event.confidence,
       timeHorizon: generated.timeHorizon,
       mergedEvidence,
+      calibrationApplication,
     });
 
     const opportunity = await prisma.opportunity.create({
@@ -295,7 +314,7 @@ export async function generateOpportunityForEvent(
         estimatedValueMin: generated.estimatedValueMin,
         estimatedValueMax: generated.estimatedValueMax,
         currency: generated.currency,
-        probability: generated.probability,
+        probability: calibratedProbability,
         confidence: event.confidence,
         strategicFit: breakdown.strategicFit,
         timeHorizon: generated.timeHorizon,
