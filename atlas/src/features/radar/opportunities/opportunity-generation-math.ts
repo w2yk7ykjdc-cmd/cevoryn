@@ -4,12 +4,20 @@
  * dependencies - mirrors event-extraction-math.ts's shape.
  */
 
+import { applyCalibration } from "@/features/brain/learning/confidence-calibration-math";
+import type {
+  CalibrationResult,
+  OpportunityCalibrationData,
+} from "@/features/brain/learning/types";
 import { toOpportunityPolarity } from "@/lib/enum-validators";
 import type { OpportunityPolarity } from "@/lib/enum-validators";
 
 import type { EvidenceItem } from "../types";
 
-import type { EconomicImpact } from "./economic-impact-calculator";
+import type {
+  EconomicAssumption,
+  EconomicImpact,
+} from "./economic-impact-calculator";
 
 const MIN_TITLE_LENGTH = 5;
 
@@ -217,6 +225,58 @@ export interface EconomicImpactRecord extends EconomicImpact {
 const ECONOMIC_EVIDENCE_ROLE = "supports_economic_estimate";
 
 /**
+ * Result of applying an organization's Opportunity-probability calibration
+ * (see confidence-calibrator.ts::computeOpportunityCalibration) to one
+ * freshly-generated opportunity's raw LLM probability estimate. Kept as a
+ * pure function - separate from confidence-calibrator.ts, which has a
+ * server-only DB dependency - so this stays testable the same way the rest
+ * of this file is.
+ */
+export interface OpportunityProbabilityCalibrationApplication {
+  rawProbability: number;
+  calibratedProbability: number;
+  adjustmentFactor: number;
+  /** False whenever the organization doesn't yet have enough real outcomes
+   *  to calibrate against (CalibrationResult.isCalibrated) - in that case
+   *  calibratedProbability === rawProbability, unchanged. Calibration is
+   *  never fabricated from a small or empty sample. */
+  wasApplied: boolean;
+}
+
+/**
+ * Applies the org's current Opportunity-probability calibration adjustment
+ * to one raw probability estimate. Only ever adjusts the value that is
+ * itself the input to calibration (Opportunity.probability) - never
+ * scoreOpportunity()'s inputs, which do not include probability at all.
+ * A no-op (wasApplied: false, value unchanged) until the organization has
+ * enough real WON/LOST outcomes (isCalibrated), so early opportunities are
+ * never adjusted off a statistically meaningless sample.
+ */
+export function applyOpportunityProbabilityCalibration(
+  rawProbability: number,
+  calibration: CalibrationResult<OpportunityCalibrationData>
+): OpportunityProbabilityCalibrationApplication {
+  if (!calibration.isCalibrated) {
+    return {
+      rawProbability,
+      calibratedProbability: rawProbability,
+      adjustmentFactor: 1.0,
+      wasApplied: false,
+    };
+  }
+
+  return {
+    rawProbability,
+    calibratedProbability: applyCalibration(
+      rawProbability,
+      calibration.adjustmentFactor
+    ),
+    adjustmentFactor: calibration.adjustmentFactor,
+    wasApplied: true,
+  };
+}
+
+/**
  * Assembles the full persisted economicImpact shape from the pure
  * calculator's result plus the surrounding generation context. COST_AVOIDANCE
  * is a reserved impactType value (see the Step 7B spec's own enum) that no
@@ -230,13 +290,38 @@ export function buildEconomicImpactRecord(params: {
   eventConfidence: number;
   timeHorizon: string;
   mergedEvidence: EvidenceItem[];
+  /** When provided and wasApplied, an extra traceability assumption entry
+   *  is appended - regardless of basis, since calibration concerns the
+   *  probability estimate itself, not whether a dollar value was
+   *  computable. Omitted (or wasApplied: false) leaves assumptions exactly
+   *  as calculated produced them - no behavior change for any existing
+   *  caller that doesn't pass it. */
+  calibrationApplication?: OpportunityProbabilityCalibrationApplication;
 }): EconomicImpactRecord {
-  const { calculated, polarity, eventConfidence, timeHorizon, mergedEvidence } =
-    params;
+  const {
+    calculated,
+    polarity,
+    eventConfidence,
+    timeHorizon,
+    mergedEvidence,
+    calibrationApplication,
+  } = params;
+
+  const calibrationAssumptions: EconomicAssumption[] =
+    calibrationApplication?.wasApplied
+      ? [
+          {
+            key: "calibrated_probability",
+            value: `${Math.round(calibrationApplication.calibratedProbability * 100)}% (raw ${Math.round(calibrationApplication.rawProbability * 100)}%, adjustment ×${calibrationApplication.adjustmentFactor.toFixed(2)})`,
+            source: "OpportunityCalibration.probability",
+          },
+        ]
+      : [];
 
   if (calculated.basis === "INSUFFICIENT_DATA") {
     return {
       ...calculated,
+      assumptions: [...calculated.assumptions, ...calibrationAssumptions],
       impactType: "INSUFFICIENT_DATA",
       confidence: null,
       timeHorizon: null,
@@ -257,6 +342,7 @@ export function buildEconomicImpactRecord(params: {
 
   return {
     ...calculated,
+    assumptions: [...calculated.assumptions, ...calibrationAssumptions],
     impactType,
     confidence: eventConfidence,
     timeHorizon,
