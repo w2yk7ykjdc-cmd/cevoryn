@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import type {
+  CalibrationResult,
+  OpportunityCalibrationData,
+} from "../src/features/brain/learning/types";
 import { calculateDeterministicEconomicImpact } from "../src/features/radar/opportunities/economic-impact-calculator";
 import {
+  applyOpportunityProbabilityCalibration,
   asExternalEvidence,
   buildEconomicImpactRecord,
   buildProprietaryEvidence,
@@ -287,4 +292,166 @@ test("buildEconomicImpactRecord for INSUFFICIENT_DATA nulls out confidence/timeH
   assert.equal(record.timeHorizon, null);
   assert.deepEqual(record.evidenceRefs, []);
   assert.deepEqual(record.assumptions, []);
+});
+
+function notCalibrated(
+  adjustmentFactor = 1.0
+): CalibrationResult<OpportunityCalibrationData> {
+  return { adjustmentFactor, dataPoints: [], isCalibrated: false };
+}
+
+function calibrated(
+  adjustmentFactor: number
+): CalibrationResult<OpportunityCalibrationData> {
+  return {
+    adjustmentFactor,
+    dataPoints: [
+      {
+        predictedConfidence: 0.9,
+        actualOutcomeScore: 0,
+        delta: 0.9,
+        category: "OPPORTUNITY",
+      },
+    ],
+    isCalibrated: true,
+  };
+}
+
+test("applyOpportunityProbabilityCalibration is a no-op (wasApplied: false, value unchanged) when the org is not yet calibrated", () => {
+  const result = applyOpportunityProbabilityCalibration(
+    0.8,
+    notCalibrated(0.7)
+  );
+  assert.equal(result.rawProbability, 0.8);
+  assert.equal(result.calibratedProbability, 0.8);
+  assert.equal(result.wasApplied, false);
+  assert.equal(result.adjustmentFactor, 1.0);
+});
+
+test("applyOpportunityProbabilityCalibration applies the org's real adjustment factor once isCalibrated is true", () => {
+  const result = applyOpportunityProbabilityCalibration(0.9, calibrated(0.7));
+  assert.equal(result.rawProbability, 0.9);
+  assert.equal(result.wasApplied, true);
+  assert.equal(result.adjustmentFactor, 0.7);
+  // applyCalibration(0.9, 0.7) = clamp(0.63, 0.05, 0.95) = 0.63
+  assert.ok(Math.abs(result.calibratedProbability - 0.63) < 1e-9);
+});
+
+test("applyOpportunityProbabilityCalibration clamps the calibrated value to [0.05, 0.95] even at the extremes", () => {
+  const high = applyOpportunityProbabilityCalibration(0.99, calibrated(1.05));
+  assert.equal(high.calibratedProbability, 0.95);
+
+  const low = applyOpportunityProbabilityCalibration(0.1, calibrated(0.3));
+  assert.equal(low.calibratedProbability, 0.05);
+});
+
+test("buildEconomicImpactRecord appends a calibration assumption entry, sourced OpportunityCalibration.probability, on top of the existing DETERMINISTIC assumptions when calibration was applied", () => {
+  const calculated = calculateDeterministicEconomicImpact({
+    averageDealSize: 100_000,
+    probability: 0.63,
+    economicPotential: 0.6,
+    currency: "EUR",
+  });
+
+  const record = buildEconomicImpactRecord({
+    calculated,
+    polarity: "OPPORTUNITY",
+    eventConfidence: 0.75,
+    timeHorizon: "3-6 months",
+    mergedEvidence: [],
+    calibrationApplication: {
+      rawProbability: 0.9,
+      calibratedProbability: 0.63,
+      adjustmentFactor: 0.7,
+      wasApplied: true,
+    },
+  });
+
+  // The 3 pre-existing DETERMINISTIC assumptions plus 1 calibration entry.
+  assert.equal(record.assumptions.length, 4);
+  const calibrationAssumption = record.assumptions.find(
+    (a) => a.source === "OpportunityCalibration.probability"
+  );
+  assert.ok(calibrationAssumption);
+  assert.match(calibrationAssumption!.value, /63%/);
+  assert.match(calibrationAssumption!.value, /raw 90%/);
+});
+
+test("buildEconomicImpactRecord adds no calibration assumption when calibration was not applied (insufficient sample) - unchanged from pre-calibration behavior", () => {
+  const calculated = calculateDeterministicEconomicImpact({
+    averageDealSize: 100_000,
+    probability: 0.5,
+    economicPotential: 0.6,
+    currency: "EUR",
+  });
+
+  const record = buildEconomicImpactRecord({
+    calculated,
+    polarity: "OPPORTUNITY",
+    eventConfidence: 0.75,
+    timeHorizon: "3-6 months",
+    mergedEvidence: [],
+    calibrationApplication: {
+      rawProbability: 0.5,
+      calibratedProbability: 0.5,
+      adjustmentFactor: 1.0,
+      wasApplied: false,
+    },
+  });
+
+  assert.equal(record.assumptions.length, 3);
+  assert.ok(
+    !record.assumptions.some(
+      (a) => a.source === "OpportunityCalibration.probability"
+    )
+  );
+});
+
+test("buildEconomicImpactRecord appends the calibration assumption even when basis is INSUFFICIENT_DATA - calibration is about the probability estimate, not the dollar figure", () => {
+  const calculated = calculateDeterministicEconomicImpact({
+    averageDealSize: null,
+    probability: 0.63,
+    economicPotential: 0.6,
+    currency: "EUR",
+  });
+
+  const record = buildEconomicImpactRecord({
+    calculated,
+    polarity: "OPPORTUNITY",
+    eventConfidence: 0.9,
+    timeHorizon: "6-12 months",
+    mergedEvidence: [],
+    calibrationApplication: {
+      rawProbability: 0.9,
+      calibratedProbability: 0.63,
+      adjustmentFactor: 0.7,
+      wasApplied: true,
+    },
+  });
+
+  assert.equal(record.basis, "INSUFFICIENT_DATA");
+  assert.equal(record.assumptions.length, 1);
+  assert.equal(
+    record.assumptions[0]?.source,
+    "OpportunityCalibration.probability"
+  );
+});
+
+test("buildEconomicImpactRecord with no calibrationApplication param at all behaves exactly as before calibration wiring existed", () => {
+  const calculated = calculateDeterministicEconomicImpact({
+    averageDealSize: 100_000,
+    probability: 0.5,
+    economicPotential: 0.6,
+    currency: "EUR",
+  });
+
+  const record = buildEconomicImpactRecord({
+    calculated,
+    polarity: "OPPORTUNITY",
+    eventConfidence: 0.75,
+    timeHorizon: "3-6 months",
+    mergedEvidence: [],
+  });
+
+  assert.equal(record.assumptions.length, 3);
 });
