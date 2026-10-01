@@ -58,6 +58,9 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       return forbiddenResponse("Insufficient permissions");
     }
 
+    const featureError = await requireRadarFeature(membership.organizationId);
+    if (featureError) return featureError;
+
     const entity = await getWatchedEntity(membership.organizationId, id);
     if (!entity) return notFoundResponse("Entity not found");
 

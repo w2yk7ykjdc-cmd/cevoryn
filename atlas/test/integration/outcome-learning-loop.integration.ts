@@ -335,6 +335,17 @@ test("2B: Decision completion now reaches evaluateOutcome() from the same real c
     },
   });
 
+  // COMPLETED is only a valid transition from ACCEPTED (see
+  // decision.service.ts::VALID_SOURCE_STATUSES) - accept first, matching
+  // the real shipped decision-queue.tsx flow, rather than jumping straight
+  // from the default PROPOSED status.
+  const accepted = await updateDecisionStatus(
+    ORG_A_ID,
+    decision.id,
+    "ACCEPTED"
+  );
+  assert.equal(accepted, true);
+
   const updated = await updateDecisionStatus(
     ORG_A_ID,
     decision.id,

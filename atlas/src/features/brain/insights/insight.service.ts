@@ -250,6 +250,7 @@ export async function getInsightWithTrust(
     data: insight,
     evidence: parseEvidence(insight.evidence),
     reasoning: insight.reasoning,
+    organizationId,
     dataWindowHours: 168,
   });
 }

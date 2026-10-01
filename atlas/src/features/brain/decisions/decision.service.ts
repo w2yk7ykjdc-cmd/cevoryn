@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { DecisionStatus } from "@prisma/client";
+
 import { toTimelineEventType, toDecisionStatus } from "@/lib/enum-validators";
 import { prisma } from "@/lib/prisma";
 
@@ -54,10 +56,32 @@ export async function createDecision(params: {
   });
 }
 
+export type ShippedDecisionStatus =
+  "ACCEPTED" | "REJECTED" | "IGNORED" | "COMPLETED";
+
+/**
+ * Valid source statuses for each target status this function can set -
+ * scoped to the 4 statuses the shipped decision-queue UI actually uses
+ * (PROPOSED -> ACCEPTED/REJECTED/IGNORED -> COMPLETED), not the full 9-state
+ * DECISION_LIFECYCLE FSM in outcomes/types.ts (which includes EXECUTED/
+ * SUCCESSFUL/FAILED/UNKNOWN - states this function's own signature can
+ * never set, and that no shipped UI path ever reaches today). Previously
+ * this function wrote `status` unconditionally, so e.g. a REJECTED
+ * (meant to be terminal) decision could still be moved to COMPLETED -
+ * this map closes that gap without adopting the broader FSM's states,
+ * which would require UI changes beyond this fix's scope.
+ */
+const VALID_SOURCE_STATUSES: Record<ShippedDecisionStatus, DecisionStatus[]> = {
+  ACCEPTED: ["PROPOSED", "IGNORED"],
+  REJECTED: ["PROPOSED"],
+  IGNORED: ["PROPOSED"],
+  COMPLETED: ["ACCEPTED"],
+};
+
 export async function updateDecisionStatus(
   organizationId: string,
   decisionId: string,
-  status: "ACCEPTED" | "REJECTED" | "IGNORED" | "COMPLETED",
+  status: ShippedDecisionStatus,
   outcome?: string
 ): Promise<boolean> {
   const typeMap: Record<string, string> = {
@@ -69,7 +93,11 @@ export async function updateDecisionStatus(
 
   return prisma.$transaction(async (tx) => {
     const updated = await tx.decision.updateMany({
-      where: { id: decisionId, organizationId },
+      where: {
+        id: decisionId,
+        organizationId,
+        status: { in: VALID_SOURCE_STATUSES[status] },
+      },
       data: {
         status,
         ...(status === "COMPLETED" && { resolvedAt: new Date() }),

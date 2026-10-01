@@ -74,9 +74,8 @@ before(async () => {
   const prismaModule = await import("../../src/lib/prisma");
   prisma = prismaModule.prisma;
 
-  const serviceModule = await import(
-    "../../src/features/enterprise/proprietary-data/proprietary-data.service"
-  );
+  const serviceModule =
+    await import("../../src/features/enterprise/proprietary-data/proprietary-data.service");
   createProprietaryDataRecord = serviceModule.createProprietaryDataRecord;
   updateProprietaryDataRecord = serviceModule.updateProprietaryDataRecord;
   deleteProprietaryDataRecord = serviceModule.deleteProprietaryDataRecord;
@@ -84,16 +83,38 @@ before(async () => {
   listProprietaryDataRecords = serviceModule.listProprietaryDataRecords;
   searchProprietaryDataRecords = serviceModule.searchProprietaryDataRecords;
 
-  const moduleModule = await import(
-    "../../src/features/brain/proprietary-data/proprietary-data.module"
-  );
+  const moduleModule =
+    await import("../../src/features/brain/proprietary-data/proprietary-data.module");
   ProprietaryDataModule = moduleModule.ProprietaryDataModule;
 
   await prisma.organization.createMany({
     data: [
-      { id: ORG_A_ID, name: "Proprietary Data Test Org A", slug: `pdata-test-a-${TEST_RUN_ID}` },
-      { id: ORG_B_ID, name: "Proprietary Data Test Org B", slug: `pdata-test-b-${TEST_RUN_ID}` },
+      {
+        id: ORG_A_ID,
+        name: "Proprietary Data Test Org A",
+        slug: `pdata-test-a-${TEST_RUN_ID}`,
+      },
+      {
+        id: ORG_B_ID,
+        name: "Proprietary Data Test Org B",
+        slug: `pdata-test-b-${TEST_RUN_ID}`,
+      },
     ],
+  });
+
+  // getProprietaryDataForContext() (what ProprietaryDataModule.getContext
+  // calls) is now billing-gated on RADAR - give ORG_A_ID a real,
+  // active Professional-plan subscription so its chat-context tests below
+  // keep exercising real data rather than the "no RADAR access" empty
+  // path. ORG_B_ID deliberately gets none - it's only used for cross-tenant
+  // CRUD/IDOR checks in this suite, never for getContext().
+  await prisma.subscription.create({
+    data: {
+      organizationId: ORG_A_ID,
+      stripeCustomerId: `stripe-cus-${TEST_RUN_ID}`,
+      plan: "PROFESSIONAL",
+      subscriptionStatus: "ACTIVE",
+    },
   });
 });
 
@@ -213,7 +234,11 @@ test("deleteProprietaryDataRecord is idempotent: a second delete affects zero ro
   const first = await deleteProprietaryDataRecord(ORG_A_ID, record.id, USER_ID);
   assert.equal(first.count, 1);
 
-  const second = await deleteProprietaryDataRecord(ORG_A_ID, record.id, USER_ID);
+  const second = await deleteProprietaryDataRecord(
+    ORG_A_ID,
+    record.id,
+    USER_ID
+  );
   assert.equal(second.count, 0);
 
   const fetched = await getProprietaryDataRecord(ORG_A_ID, record.id);
@@ -299,6 +324,17 @@ test("ProprietaryDataModule.getContext injects real records and truncates long c
       id: contextOrgId,
       name: "Context Org",
       slug: `pdata-context-${TEST_RUN_ID}`,
+    },
+  });
+  // getContext() is billing-gated on RADAR (see getProprietaryDataForContext)
+  // - without this, the real records below would be invisible to it and
+  // this test would be indistinguishable from the empty-org case above.
+  await prisma.subscription.create({
+    data: {
+      organizationId: contextOrgId,
+      stripeCustomerId: `stripe-cus-context-${TEST_RUN_ID}`,
+      plan: "PROFESSIONAL",
+      subscriptionStatus: "ACTIVE",
     },
   });
 

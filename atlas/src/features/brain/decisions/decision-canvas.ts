@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getAIProvider } from "@/features/ai/providers";
+import { computeCalibration } from "@/features/brain/learning/confidence-calibrator";
 import { AI_CONFIG } from "@/lib/constants";
 
 import { listInsights } from "../insights/insight.service";
@@ -8,7 +9,11 @@ import { getMemoriesForContext } from "../memory/memory.service";
 import { createTrustEnvelope } from "../trust/trust-engine";
 import type { Evidence, TrustEnvelope } from "../trust/types";
 
-import { computeDecisionScore, parseScoringResponse } from "./decision-scorer";
+import {
+  applyDecisionConfidenceCalibration,
+  computeDecisionScore,
+  parseScoringResponse,
+} from "./decision-scorer";
 import type { DecisionCanvas, DecisionOption } from "./types";
 
 const CANVAS_GENERATION_PROMPT = `You are CEVORYN, a Management Intelligence Platform.
@@ -116,6 +121,25 @@ export async function generateDecisionCanvas(params: {
         }))
       : [];
 
+    const rawConfidenceScore = Math.min(
+      (scoringInput.confidence.score / 10) * 0.95,
+      0.95
+    );
+    // Connects the Decision-domain calibration loop (see
+    // confidence-calibrator.ts::computeCalibration) to real canvas
+    // generation, mirroring the same wiring already done for
+    // Opportunity.probability: the org's current calibration is applied
+    // to this LLM's raw confidenceScore before it's persisted. A no-op
+    // until the org has enough real completed-decision outcomes
+    // (isCalibrated) - never retroactive, and never touches
+    // computeDecisionScore()'s five weighted dimensions above, which this
+    // never feeds into.
+    const decisionCalibration = await computeCalibration(organizationId);
+    const calibrationApplication = applyDecisionConfidenceCalibration(
+      rawConfidenceScore,
+      decisionCalibration
+    );
+
     const canvas: DecisionCanvas = {
       executiveSummary: String(raw.executiveSummary ?? ""),
       problemStatement: String(raw.problemStatement ?? problemDescription),
@@ -128,10 +152,7 @@ export async function generateDecisionCanvas(params: {
       scoringBreakdown: dimensions,
       options,
       recommendedDecision: String(raw.recommendedDecision ?? ""),
-      confidenceScore: Math.min(
-        (scoringInput.confidence.score / 10) * 0.95,
-        0.95
-      ),
+      confidenceScore: calibrationApplication.calibratedConfidence,
       expectedOutcome: String(raw.expectedOutcome ?? ""),
       followUpPlan: Array.isArray(raw.followUpPlan)
         ? raw.followUpPlan.map(String)
@@ -142,6 +163,7 @@ export async function generateDecisionCanvas(params: {
       data: canvas,
       evidence: params.evidence,
       reasoning: `Decision canvas generated from problem analysis with ${memories.length} company memories and ${insights.length} active insights as context.`,
+      organizationId,
       dataWindowHours: 168,
     });
   } catch (error) {
@@ -170,6 +192,7 @@ export async function generateDecisionCanvas(params: {
       evidence: params.evidence,
       reasoning:
         "Canvas generation encountered an error. Fallback analysis provided.",
+      organizationId,
       missingInformation: ["Full AI analysis unavailable"],
       dataWindowHours: 0,
     });

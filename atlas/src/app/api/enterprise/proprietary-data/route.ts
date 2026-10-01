@@ -30,6 +30,24 @@ export async function GET(request: NextRequest) {
       return forbiddenResponse("Insufficient permissions");
     }
 
+    try {
+      await assertOrganizationFeatureAccess(membership.organizationId, "RADAR");
+    } catch (error) {
+      if (error instanceof FeatureAccessError) {
+        return NextResponse.json(
+          {
+            error: {
+              code: error.code,
+              message:
+                "Proprietary data requires the Professional or Business plan.",
+            },
+          },
+          { status: 403 }
+        );
+      }
+      throw error;
+    }
+
     const query = new URL(request.url).searchParams.get("q")?.trim();
     const records = query
       ? await searchProprietaryDataRecords(membership.organizationId, query)
@@ -65,7 +83,8 @@ export async function POST(request: NextRequest) {
           {
             error: {
               code: error.code,
-              message: "Proprietary data requires the Professional or Business plan.",
+              message:
+                "Proprietary data requires the Professional or Business plan.",
             },
           },
           { status: 403 }

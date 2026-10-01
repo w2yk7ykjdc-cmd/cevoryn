@@ -30,7 +30,10 @@ import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
 
 import type { createProprietaryDataRecord as CreateProprietaryDataRecordType } from "../../src/features/enterprise/proprietary-data/proprietary-data.service";
-import type { getProprietaryDataForOpportunityGeneration as GetProprietaryDataForOpportunityGenerationType } from "../../src/features/enterprise/proprietary-data/proprietary-data.service";
+import type {
+  getProprietaryDataForContext as GetProprietaryDataForContextType,
+  getProprietaryDataForOpportunityGeneration as GetProprietaryDataForOpportunityGenerationType,
+} from "../../src/features/enterprise/proprietary-data/proprietary-data.service";
 import type { prisma as PrismaType } from "../../src/lib/prisma";
 import type { createWatchedEntity as CreateWatchedEntityType } from "../../src/features/radar/entities/entity.service";
 import type { generateOpportunityForEvent as GenerateOpportunityForEventType } from "../../src/features/radar/opportunities/opportunity-generator";
@@ -62,6 +65,7 @@ const USER_ID = `oppdata-test-user-${TEST_RUN_ID}`;
 
 let prisma: typeof PrismaType;
 let createProprietaryDataRecord: typeof CreateProprietaryDataRecordType;
+let getProprietaryDataForContext: typeof GetProprietaryDataForContextType;
 let getProprietaryDataForOpportunityGeneration: typeof GetProprietaryDataForOpportunityGenerationType;
 let createWatchedEntity: typeof CreateWatchedEntityType;
 let generateOpportunityForEvent: typeof GenerateOpportunityForEventType;
@@ -79,6 +83,7 @@ before(async () => {
   const serviceModule =
     await import("../../src/features/enterprise/proprietary-data/proprietary-data.service");
   createProprietaryDataRecord = serviceModule.createProprietaryDataRecord;
+  getProprietaryDataForContext = serviceModule.getProprietaryDataForContext;
   getProprietaryDataForOpportunityGeneration =
     serviceModule.getProprietaryDataForOpportunityGeneration;
 
@@ -160,6 +165,21 @@ test("a STARTER-plan organization's proprietary data is NEVER read, even though 
     where: { organizationId: STARTER_ORG_ID },
   });
   assert.equal(rawCount, 1);
+});
+
+test("getProprietaryDataForContext (used directly by chat context injection, not just the Opportunity-generation alias) is itself billing-gated: a STARTER org gets nothing even though records exist", async () => {
+  const records = await getProprietaryDataForContext(STARTER_ORG_ID);
+  assert.deepEqual(records, []);
+
+  const rawCount = await prisma.proprietaryDataRecord.count({
+    where: { organizationId: STARTER_ORG_ID },
+  });
+  assert.ok(rawCount > 0, "the record from the prior test must still exist");
+});
+
+test("getProprietaryDataForContext returns real records for a RADAR org, called directly (not through the generation alias)", async () => {
+  const records = await getProprietaryDataForContext(RADAR_ORG_ID);
+  assert.ok(records.some((r) => r.title === "Enterprise pricing tiers"));
 });
 
 test("the proprietary fetch for generation is tenant-scoped: a RADAR org never sees another org's records", async () => {
