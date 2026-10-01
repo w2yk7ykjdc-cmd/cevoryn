@@ -3,7 +3,11 @@ import type { RawSignal } from "./types";
 const TOKEN_PATTERN = /[^\p{L}\p{N}]+/gu;
 
 function normalize(value: string): string {
-  return value.trim().toLowerCase().replace(TOKEN_PATTERN, " ").replace(/\s+/g, " ");
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(TOKEN_PATTERN, " ")
+    .replace(/\s+/g, " ");
 }
 
 function containsPhrase(haystack: string, phrase: string): boolean {
@@ -12,14 +16,13 @@ function containsPhrase(haystack: string, phrase: string): boolean {
 }
 
 function domainMatches(signal: RawSignal, domain: string): boolean {
-  const normalizedDomain = domain.trim().toLowerCase().replace(/^www\./, "");
+  const normalizedDomain = domain
+    .trim()
+    .toLowerCase()
+    .replace(/^www\./, "");
   if (!normalizedDomain) return false;
 
-  const haystack = [
-    signal.sourceUrl,
-    signal.title,
-    signal.rawContent,
-  ]
+  const haystack = [signal.sourceUrl, signal.title, signal.rawContent]
     .join(" ")
     .toLowerCase();
 

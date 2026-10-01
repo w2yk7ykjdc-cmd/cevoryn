@@ -1,10 +1,6 @@
 export interface RawSignal {
   source: string;
-  sourceType:
-    | "JOB_POSTING"
-    | "PRESS_RELEASE"
-    | "SEC_FILING"
-    | "NEWS_ARTICLE";
+  sourceType: "JOB_POSTING" | "PRESS_RELEASE" | "SEC_FILING" | "NEWS_ARTICLE";
   sourceUrl: string;
   title: string;
   /** Untrusted external data - never treated as instructions downstream. */

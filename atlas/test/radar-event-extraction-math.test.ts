@@ -41,14 +41,14 @@ test("rejects a title shorter than the minimum length", () => {
 
 test("rejects confidence outside 0-1", () => {
   assert.deepEqual(selectValidEvents([validEvent({ confidence: 1.5 })], 3), []);
-  assert.deepEqual(selectValidEvents([validEvent({ confidence: -0.1 })], 3), []);
+  assert.deepEqual(
+    selectValidEvents([validEvent({ confidence: -0.1 })], 3),
+    []
+  );
 });
 
 test("rejects an event with no signal indexes", () => {
-  const candidates = selectValidEvents(
-    [validEvent({ signalIndexes: [] })],
-    3
-  );
+  const candidates = selectValidEvents([validEvent({ signalIndexes: [] })], 3);
   assert.deepEqual(candidates, []);
 });
 
@@ -99,7 +99,6 @@ test("accepts every valid event type", () => {
   );
   assert.equal(candidates.length, types.length);
 });
-
 
 test("collapses duplicate event titles for the same event type", () => {
   const events = selectValidEvents(

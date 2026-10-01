@@ -87,13 +87,13 @@ export function selectValidEvents(
     const fingerprint = `${candidate.type}|${candidate.title
       .trim()
       .toLowerCase()
-      .replace(/\\s+/g, " ")}`;
+      .replace(/\s+/g, " ")}`;
     const alreadySeen = candidates.some(
       (existing) =>
         `${existing.type}|${existing.title
           .trim()
           .toLowerCase()
-          .replace(/\\s+/g, " ")}` === fingerprint
+          .replace(/\s+/g, " ")}` === fingerprint
     );
     if (!alreadySeen) candidates.push(candidate);
   }

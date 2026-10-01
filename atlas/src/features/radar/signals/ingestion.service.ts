@@ -96,7 +96,14 @@ export async function ingestSignalsForOrganization(
 ): Promise<EntityIngestionResult[]> {
   const entities = await prisma.externalEntity.findMany({
     where: { organizationId, isActive: true, isPaused: false },
-    select: { id: true, name: true, domain: true, industry: true, country: true, metadata: true },
+    select: {
+      id: true,
+      name: true,
+      domain: true,
+      industry: true,
+      country: true,
+      metadata: true,
+    },
   });
 
   const results: EntityIngestionResult[] = [];

@@ -1,9 +1,9 @@
 import "server-only";
 
 import { fetchWithRetry } from "./fetch-with-retry";
+import { buildNewsSearchQuery } from "./news-query";
 import { filterRelevantNewsSignals } from "./news-relevance";
 import { parseFeed } from "./rss-parser";
-import { buildNewsSearchQuery } from "./news-query";
 import type { RawSignal, SignalAdapter, SignalAdapterContext } from "./types";
 
 const FETCH_TIMEOUT_MS = 8_000;

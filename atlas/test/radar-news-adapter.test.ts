@@ -38,7 +38,8 @@ test("trims surrounding whitespace and returns empty for a blank name", () => {
 test("caps generated queries at the adapter limit", () => {
   const name = "A".repeat(300);
   const query = buildNewsSearchQuery(name, "example.com");
-  assert.equal(query.length, 180);\n  assert.equal(query.endsWith('"'), true);
+  assert.equal(query.length, 180);
+  assert.equal(query.endsWith('"'), true);
 });
 
 test("rejects a short single-token company name without company context", () => {
@@ -91,7 +92,12 @@ test("keeps a company when its domain appears in the article evidence", () => {
 test("rejects an unrelated article even when the company has a domain", () => {
   assert.equal(
     filterRelevantNewsSignals(
-      [news("Acme competitor raises funding", "A different company raises funding")],
+      [
+        news(
+          "Acme competitor raises funding",
+          "A different company raises funding"
+        ),
+      ],
       {
         entityName: "Acme",
         entityDomain: "acme.example",
