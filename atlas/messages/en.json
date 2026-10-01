@@ -698,6 +698,19 @@
       "removeFailed": "Failed to remove record",
       "empty": "No proprietary data yet. Add your own documents, CRM notes, or internal context so chat and Radar can use them.",
       "requiresPlan": "Proprietary Data requires the Professional or Business plan."
+    },
+    "auditLog": {
+      "title": "Audit Log",
+      "subtitle": "A record of who did what across Radar and Brain for this organization.",
+      "empty": "No audit events recorded yet.",
+      "byActor": "By {actor}",
+      "unknownUser": "Unknown user",
+      "actorTypes": {
+        "USER": "A user",
+        "SYSTEM": "The system",
+        "CRON": "A scheduled job",
+        "AI_WORKER": "An AI worker"
+      }
     }
   },
   "billing": {

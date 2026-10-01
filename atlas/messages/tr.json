@@ -698,6 +698,19 @@
       "removeFailed": "Kayıt kaldırılamadı",
       "empty": "Henüz özel veri yok. Sohbet ve Radar'ın kullanabilmesi için kendi belgelerinizi, CRM notlarınızı veya iç bağlamınızı ekleyin.",
       "requiresPlan": "Özel Veri, Professional veya Business plan gerektirir."
+    },
+    "auditLog": {
+      "title": "Denetim Günlüğü",
+      "subtitle": "Bu kuruluş için Radar ve Brain genelinde kimin ne yaptığının kaydı.",
+      "empty": "Henüz denetim olayı kaydedilmedi.",
+      "byActor": "{actor} tarafından",
+      "unknownUser": "Bilinmeyen kullanıcı",
+      "actorTypes": {
+        "USER": "Bir kullanıcı",
+        "SYSTEM": "Sistem",
+        "CRON": "Zamanlanmış bir iş",
+        "AI_WORKER": "Bir AI işçisi"
+      }
     }
   },
   "billing": {

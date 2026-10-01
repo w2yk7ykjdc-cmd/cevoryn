@@ -212,6 +212,7 @@ export async function executePipeline(
     data: report,
     evidence,
     reasoning: `Intelligence report based on ${messageCount} messages, ${memories.length} memories, and ${insights.length} detected insights from the past week.`,
+    organizationId,
     dataWindowHours: 168,
   });
 }

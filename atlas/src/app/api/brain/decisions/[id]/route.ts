@@ -70,7 +70,18 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       parsed.data.status,
       parsed.data.outcome
     );
-    if (!updated) return notFoundResponse("Decision not found");
+    if (!updated) {
+      // updateDecisionStatus's `count === 0` now means either "no such
+      // decision" or "found, but this status change isn't a valid
+      // transition from its current status" (see
+      // decision.service.ts::VALID_SOURCE_STATUSES) - distinguish them so
+      // a real illegal-transition attempt isn't reported as a 404.
+      const existing = await getDecision(membership.organizationId, id);
+      if (!existing) return notFoundResponse("Decision not found");
+      return badRequestResponse(
+        `Cannot change decision status from ${existing.status} to ${parsed.data.status}`
+      );
+    }
 
     // Reuses the existing outcome-evaluator.ts pipeline (the same function
     // /api/brain/outcomes already calls for this status) rather than a

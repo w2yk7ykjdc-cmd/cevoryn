@@ -157,11 +157,23 @@ export async function searchProprietaryDataRecords(
  * same "top N, not query-matched" pattern getMemoriesForContext() already
  * uses for Memory, rather than trying to relevance-match the live message
  * against ILIKE (which would rarely fire usefully).
+ *
+ * Billing-gated: proprietary data must never be read for an organization
+ * without the RADAR feature, even if it still has rows from before a
+ * downgrade - returns an empty array (never throws) for a non-RADAR
+ * organization, exactly as if it had no proprietary data at all. Every
+ * caller of this function (chat context injection and Opportunity
+ * generation alike) goes through this one check rather than repeating it
+ * ad hoc, so consumption is gated consistently with the write-side gate on
+ * the proprietary-data API routes.
  */
 export async function getProprietaryDataForContext(
   organizationId: string,
   take: number = 8
 ) {
+  const plan = await getOrganizationPlan(organizationId);
+  if (!hasFeature(plan, "RADAR")) return [];
+
   return prisma.proprietaryDataRecord.findMany({
     where: { organizationId },
     orderBy: { updatedAt: "desc" },
@@ -177,23 +189,16 @@ export async function getProprietaryDataForContext(
 }
 
 /**
- * Billing-gated variant of getProprietaryDataForContext() for the
- * Opportunity/Threat generation path (src/features/radar/opportunities/
- * opportunity-generator.ts). Proprietary data must never be read for an
- * organization without the RADAR feature - the batch pipeline entry point
- * (runRadarPipelineForAllOrganizations) already filters non-RADAR
- * organizations out before this is ever reached, but that upstream filter
- * is not this function's caller's only path (generateOpportunityForEvent
- * can also run directly), so the check is repeated here, immediately
- * before the only query that would read the data - not trusted to an
- * upstream caller. Returns an empty array (never throws) for a non-RADAR
- * organization, exactly as if it had no proprietary data at all.
+ * Thin alias kept for the Opportunity/Threat generation call site (src/
+ * features/radar/opportunities/opportunity-generator.ts) - the billing
+ * check now lives in getProprietaryDataForContext() itself, so this no
+ * longer duplicates it, but the distinct name is kept so that call site
+ * continues to read as "the generation-specific entry point" rather than
+ * a bare alias.
  */
 export async function getProprietaryDataForOpportunityGeneration(
   organizationId: string,
   take: number = 5
 ) {
-  const plan = await getOrganizationPlan(organizationId);
-  if (!hasFeature(plan, "RADAR")) return [];
   return getProprietaryDataForContext(organizationId, take);
 }

@@ -121,6 +121,7 @@ export async function executeDecisionPipeline(params: {
     },
     evidence,
     reasoning: `Decision pipeline executed with ${evidence.length} evidence items. Canvas scored ${canvas.priorityScore}/10 priority. ${actionsGenerated} action(s) prepared.`,
+    organizationId,
     missingInformation: canvasEnvelope.missingInformation,
     alternativeExplanations: canvasEnvelope.alternativeExplanations,
     dataWindowHours: 168,

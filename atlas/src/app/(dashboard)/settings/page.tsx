@@ -3,6 +3,7 @@ import {
   CreditCard,
   Database,
   Link2,
+  ListChecks,
   Radar,
   Shield,
   ShieldAlert,
@@ -22,7 +23,7 @@ import {
   getValidGoogleAccessToken,
 } from "@/lib/google-connection";
 import { prisma } from "@/lib/prisma";
-import { hasPermission } from "@/lib/rbac";
+import { hasPermission, isRoleAtLeast } from "@/lib/rbac";
 
 import { GoogleIntegrationCard } from "./google-integration-card";
 import { OrganizationNameForm } from "./organization-name-form";
@@ -215,6 +216,25 @@ export default async function SettingsPage() {
               className={buttonVariants({ variant: "outline", size: "sm" })}
             >
               {t("proprietaryData.title")}
+            </Link>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {isRoleAtLeast(membership.role, "ADMIN") ? (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ListChecks className="h-4 w-4" />
+              {t("auditLog.title")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Link
+              href="/settings/audit-log"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              {t("auditLog.title")}
             </Link>
           </CardContent>
         </Card>

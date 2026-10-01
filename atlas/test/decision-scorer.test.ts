@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import type {
+  CalibrationData,
+  CalibrationResult,
+} from "../src/features/brain/learning/types";
 import {
+  applyDecisionConfidenceCalibration,
   computeDecisionScore,
   parseScoringResponse,
 } from "../src/features/brain/decisions/decision-scorer";
@@ -80,4 +85,51 @@ test("parseScoringResponse clamps out-of-range AI-provided scores", () => {
     risk: { score: 500, reasoning: "runaway value" },
   });
   assert.equal(parsed.risk.score, 10);
+});
+
+function notCalibrated(
+  adjustmentFactor = 1.0
+): CalibrationResult<CalibrationData> {
+  return { adjustmentFactor, dataPoints: [], isCalibrated: false };
+}
+
+function calibrated(
+  adjustmentFactor: number
+): CalibrationResult<CalibrationData> {
+  return {
+    adjustmentFactor,
+    dataPoints: [
+      {
+        predictedConfidence: 0.9,
+        actualOutcomeScore: 0,
+        delta: 0.9,
+        category: "Vendor renewal",
+      },
+    ],
+    isCalibrated: true,
+  };
+}
+
+test("applyDecisionConfidenceCalibration is a no-op (wasApplied: false, value unchanged) when the org is not yet calibrated", () => {
+  const result = applyDecisionConfidenceCalibration(0.8, notCalibrated(0.7));
+  assert.equal(result.rawConfidence, 0.8);
+  assert.equal(result.calibratedConfidence, 0.8);
+  assert.equal(result.wasApplied, false);
+  assert.equal(result.adjustmentFactor, 1.0);
+});
+
+test("applyDecisionConfidenceCalibration applies the org's real adjustment factor once isCalibrated is true", () => {
+  const result = applyDecisionConfidenceCalibration(0.9, calibrated(0.7));
+  assert.equal(result.wasApplied, true);
+  assert.equal(result.adjustmentFactor, 0.7);
+  // applyCalibration(0.9, 0.7) = clamp(0.63, 0.05, 0.95) = 0.63
+  assert.ok(Math.abs(result.calibratedConfidence - 0.63) < 1e-9);
+});
+
+test("applyDecisionConfidenceCalibration clamps the calibrated value to [0.05, 0.95] even at the extremes", () => {
+  const high = applyDecisionConfidenceCalibration(0.99, calibrated(1.05));
+  assert.equal(high.calibratedConfidence, 0.95);
+
+  const low = applyDecisionConfidenceCalibration(0.1, calibrated(0.3));
+  assert.equal(low.calibratedConfidence, 0.05);
 });

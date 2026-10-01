@@ -1,3 +1,9 @@
+import { applyCalibration } from "@/features/brain/learning/confidence-calibration-math";
+import type {
+  CalibrationData,
+  CalibrationResult,
+} from "@/features/brain/learning/types";
+
 import type { ScoringDimension } from "./types";
 
 /**
@@ -121,4 +127,60 @@ function extractDimension(
 
 function clamp(value: number): number {
   return Math.max(0, Math.min(10, value));
+}
+
+/**
+ * Result of applying an organization's Decision-confidence calibration
+ * (see confidence-calibrator.ts::computeCalibration) to one freshly
+ * generated canvas's raw confidenceScore. Mirrors
+ * applyOpportunityProbabilityCalibration() (opportunity-generation-math.ts)
+ * exactly, for the same reason that one exists: kept pure and separate
+ * from confidence-calibrator.ts (which has a server-only DB dependency)
+ * so this stays testable the same way the rest of this file is.
+ */
+export interface DecisionConfidenceCalibrationApplication {
+  rawConfidence: number;
+  calibratedConfidence: number;
+  adjustmentFactor: number;
+  /** False whenever the organization doesn't yet have enough real
+   *  completed-decision outcomes to calibrate against
+   *  (CalibrationResult.isCalibrated) - in that case calibratedConfidence
+   *  === rawConfidence, unchanged. */
+  wasApplied: boolean;
+}
+
+/**
+ * Applies the org's current Decision-confidence calibration adjustment to
+ * one raw confidenceScore. Only ever adjusts the value calibration is
+ * itself computed against (DecisionCanvas.confidenceScore) - never
+ * computeDecisionScore()'s five weighted dimensions (including its own,
+ * separately-sourced "Confidence" dimension), which this function never
+ * touches. A no-op (wasApplied: false, value unchanged) until the
+ * organization has enough real outcomes (isCalibrated), so early
+ * decisions are never adjusted off a statistically meaningless sample -
+ * and never retroactive, since only a freshly generated canvas's
+ * confidenceScore is ever passed in here.
+ */
+export function applyDecisionConfidenceCalibration(
+  rawConfidence: number,
+  calibration: CalibrationResult<CalibrationData>
+): DecisionConfidenceCalibrationApplication {
+  if (!calibration.isCalibrated) {
+    return {
+      rawConfidence,
+      calibratedConfidence: rawConfidence,
+      adjustmentFactor: 1.0,
+      wasApplied: false,
+    };
+  }
+
+  return {
+    rawConfidence,
+    calibratedConfidence: applyCalibration(
+      rawConfidence,
+      calibration.adjustmentFactor
+    ),
+    adjustmentFactor: calibration.adjustmentFactor,
+    wasApplied: true,
+  };
 }
