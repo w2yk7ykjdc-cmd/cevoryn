@@ -41,14 +41,14 @@ test("rejects a title shorter than the minimum length", () => {
 
 test("rejects confidence outside 0-1", () => {
   assert.deepEqual(selectValidEvents([validEvent({ confidence: 1.5 })], 3), []);
-  assert.deepEqual(selectValidEvents([validEvent({ confidence: -0.1 })], 3), []);
+  assert.deepEqual(
+    selectValidEvents([validEvent({ confidence: -0.1 })], 3),
+    []
+  );
 });
 
 test("rejects an event with no signal indexes", () => {
-  const candidates = selectValidEvents(
-    [validEvent({ signalIndexes: [] })],
-    3
-  );
+  const candidates = selectValidEvents([validEvent({ signalIndexes: [] })], 3);
   assert.deepEqual(candidates, []);
 });
 
@@ -98,4 +98,49 @@ test("accepts every valid event type", () => {
     3
   );
   assert.equal(candidates.length, types.length);
+});
+
+test("collapses duplicate event titles for the same event type", () => {
+  const events = selectValidEvents(
+    [
+      {
+        type: "EXPANSION",
+        title: "Acme opens Berlin office",
+        description: "First report",
+        confidence: 0.8,
+        signalIndexes: [0],
+        occurredAt: "2026-01-15T00:00:00.000Z",
+      },
+      {
+        type: "EXPANSION",
+        title: "  acme opens   berlin office  ",
+        description: "Second report",
+        confidence: 0.9,
+        signalIndexes: [1],
+        occurredAt: "2026-01-16T00:00:00.000Z",
+      },
+    ],
+    2
+  );
+
+  assert.equal(events.length, 1);
+  assert.deepEqual(events[0]?.signalIndexes, [0]);
+});
+
+test("deduplicates signal indexes within an event", () => {
+  const events = selectValidEvents(
+    [
+      {
+        type: "FUNDING",
+        title: "Acme raises Series B",
+        description: "Funding announced",
+        confidence: 0.9,
+        signalIndexes: [0, 0, 1, 1],
+        occurredAt: "2026-01-15T00:00:00.000Z",
+      },
+    ],
+    2
+  );
+
+  assert.deepEqual(events[0]?.signalIndexes, [0, 1]);
 });
