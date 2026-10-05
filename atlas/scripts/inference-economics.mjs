@@ -38,6 +38,7 @@ const monthlyInputCapacity = monthlyOutputCapacity * inputOutputRatio;
 const monthlyTotalCapacity = monthlyOutputCapacity + monthlyInputCapacity;
 
 const models = [
+  { name: "GPT-4o Mini (current Cevoryn default)", input: 0.15, output: 0.60 },
   { name: "GPT-5.6 Terra", input: 2.00, output: 12.00 },
   { name: "GPT-5.4 Mini", input: 0.75, output: 4.50 },
   { name: "GPT-5 Mini", input: 0.25, output: 2.00 },
