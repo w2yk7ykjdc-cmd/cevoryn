@@ -25,31 +25,31 @@ model Organization {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  members            Member[]
-  invites            Invite[]
-  conversations      Conversation[]
-  usageRecords       UsageRecord[]
-  memories           Memory[]
-  insights           Insight[]
-  pulseSnapshots     PulseSnapshot[]
-  briefs             Brief[]
-  preparedActions    PreparedAction[]
-  decisions          Decision[]
-  outcomeEvaluations OutcomeEvaluation[]
-  learningPatterns   LearningPattern[]
-  analyticsEvents    AnalyticsEvent[]
-  subscription       Subscription?
-  companyProfile     CompanyProfile?
-  externalEntities   ExternalEntity[]
-  externalSignals    ExternalSignal[]
-  externalEvents     ExternalEvent[]
-  opportunities      Opportunity[]
-  notifications      Notification[]
-  workerTasks        WorkerTask[]
-  actionExecutions   ActionExecution[]
-  auditLogs          AuditLog[]
-  pipelineRuns       PipelineRun[]
-  googleConnections  GoogleConnection[]
+  members                Member[]
+  invites                Invite[]
+  conversations          Conversation[]
+  usageRecords           UsageRecord[]
+  memories               Memory[]
+  insights               Insight[]
+  pulseSnapshots         PulseSnapshot[]
+  briefs                 Brief[]
+  preparedActions        PreparedAction[]
+  decisions              Decision[]
+  outcomeEvaluations     OutcomeEvaluation[]
+  learningPatterns       LearningPattern[]
+  analyticsEvents        AnalyticsEvent[]
+  subscription           Subscription?
+  companyProfile         CompanyProfile?
+  externalEntities       ExternalEntity[]
+  externalSignals        ExternalSignal[]
+  externalEvents         ExternalEvent[]
+  opportunities          Opportunity[]
+  notifications          Notification[]
+  workerTasks            WorkerTask[]
+  actionExecutions       ActionExecution[]
+  auditLogs              AuditLog[]
+  pipelineRuns           PipelineRun[]
+  googleConnections      GoogleConnection[]
   proprietaryDataRecords ProprietaryDataRecord[]
 
   @@map("organizations")
@@ -1160,19 +1160,707 @@ enum ProprietaryDataSourceKind {
 }
 
 model ProprietaryDataRecord {
-  id             String                     @id @default(cuid())
-  organizationId String                     @map("organization_id")
-  sourceKind     ProprietaryDataSourceKind  @default(KNOWLEDGE_BASE) @map("source_kind")
+  id             String                    @id @default(cuid())
+  organizationId String                    @map("organization_id")
+  sourceKind     ProprietaryDataSourceKind @default(KNOWLEDGE_BASE) @map("source_kind")
   title          String
   content        String
   url            String?
-  tags           String[]                   @default([])
-  addedByUserId  String                     @map("added_by_user_id")
-  createdAt      DateTime                   @default(now()) @map("created_at")
-  updatedAt      DateTime                   @updatedAt @map("updated_at")
+  tags           String[]                  @default([])
+  addedByUserId  String                    @map("added_by_user_id")
+  createdAt      DateTime                  @default(now()) @map("created_at")
+  updatedAt      DateTime                  @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, createdAt(sort: Desc)])
   @@map("proprietary_data_records")
+}
+
+// =============================================================================
+// Romance Engine — "The Court of Thorns" (working title; see
+// docs/romance/01-PRODUCT_BIBLE.md for the trademark-risk note on the name)
+//
+// A SEPARATE, user-scoped bounded domain (see
+// docs/romance/adr/0001-user-scoped-tenancy.md) - tenancy root is
+// RomancePlayer, keyed directly by Supabase userId, NOT by Organization.
+// No model below has a foreign key to Organization/Member/Subscription/
+// AuditLog, and nothing above this line is modified by this section.
+//
+// Two kinds of tables:
+//  - CONTENT tables (Universe, Season, StoryCharacter, CharacterSecret,
+//    Beat, SceneVariant): admin-authored, versioned, no player FK. Referenced
+//    by player data via onDelete: Restrict so a content edit/removal can
+//    never silently corrupt a live StorySession (see docs/romance/
+//    02-STORY_ENGINE_BIBLE.md §24 / content versioning).
+//  - PLAYER tables (everything else): cascade-deleted from RomancePlayer so
+//    a player's full data erasure is a single, real, enforced cascade, not
+//    an application-level sweep that can be forgotten.
+// =============================================================================
+
+enum RomanceSubscriptionPlan {
+  FREE
+  PREMIUM
+}
+
+enum RomanceSubscriptionStatus {
+  ACTIVE
+  CANCELED
+  EXPIRED
+}
+
+enum RomanceAuditActorType {
+  PLAYER
+  SYSTEM
+  AI
+}
+
+enum SpicePreference {
+  FADE_TO_BLACK
+  SUGGESTIVE
+  EXPLICIT
+}
+
+enum FaeRace {
+  FAE
+  MORTAL
+  HALF_FAE
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  DEPRECATED
+}
+
+enum StorySessionStatus {
+  ACTIVE
+  COMPLETED
+  ABANDONED
+}
+
+enum RomanceMemoryType {
+  PROMISE
+  BARGAIN
+  DEBT
+  SECRET
+  RELATIONSHIP_EVENT
+  USER_FACT
+  CHARACTER_FACT
+  WORLD_EVENT
+  DISCOVERED_TRUTH
+  ITEM
+  LOCATION
+  BETRAYAL
+  PREFERENCE
+}
+
+enum RomanceMemorySource {
+  USER_STATED
+  CHARACTER_STATED
+  SYSTEM_INFERRED
+  NARRATION
+}
+
+enum RomanceMemoryStatus {
+  ACTIVE
+  SUPERSEDED
+  RETRACTED
+  ARCHIVED
+}
+
+enum RomanceMemoryValidity {
+  PERMANENT
+  SCOPED_TO_SEASON
+  SCOPED_TO_BEAT
+}
+
+/// See Story Engine Bible §6 - CanonFact is the single ground-truth table;
+/// `factType` discriminates what the brief's design notes separately as
+/// "WorldStateFact" vs. bargain/promise/debt terms vs. revealed secrets,
+/// rather than standing up near-duplicate tables for each (deliberately
+/// not one table per fact kind - see Stage 3 design notes in
+/// docs/romance/00-REPOSITORY_AUDIT.md's "don't create unnecessary
+/// entities" principle).
+enum CanonFactType {
+  WORLD_STATE
+  BARGAIN_TERM
+  PROMISE_TERM
+  DEBT_TERM
+  CHARACTER_KNOWLEDGE
+  REVEALED_SECRET
+}
+
+enum BargainStatus {
+  PROPOSED
+  SEALED
+  FULFILLED
+  BROKEN
+}
+
+enum PromiseStatus {
+  MADE
+  FULFILLED
+  BROKEN
+  FORGIVEN
+}
+
+enum DebtStatus {
+  OPEN
+  REPAID
+  FORGIVEN
+  ESCALATED
+}
+
+enum VoiceSourceType {
+  HUMAN
+  LICENSED
+  AI
+}
+
+enum AudioRenderStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum StoryEventType {
+  INTENT_RESOLVED
+  INTENT_REJECTED
+  SCENE_GENERATED
+  CANON_VALIDATION_FAILED
+  RELATIONSHIP_CHANGED
+  BARGAIN_PROPOSED
+  BARGAIN_SEALED
+  BARGAIN_BROKEN
+  PROMISE_MADE
+  PROMISE_RESOLVED
+  DEBT_OPENED
+  DEBT_RESOLVED
+  SECRET_REVEALED
+  BEAT_ENTERED
+  BEAT_EXITED
+}
+
+/// Root of all Romance Engine player data. Keyed by the Supabase auth
+/// userId directly (never by Organization - ADR-0001). Deleting a
+/// RomancePlayer row is a full, real, cascaded erasure of every piece of
+/// that player's romance data - the one deliberate privacy property this
+/// model exists to guarantee.
+model RomancePlayer {
+  id              String          @id @default(cuid())
+  userId          String          @unique @map("user_id")
+  displayName     String          @map("display_name")
+  /// Null until the player has passed 18+ verification. No route in the
+  /// (romance) route group that reaches mature content may be entered
+  /// while this is null - see Story Engine Bible §10 (SAFETY-001..005).
+  ageVerifiedAt   DateTime?       @map("age_verified_at")
+  spicePreference SpicePreference @default(FADE_TO_BLACK) @map("spice_preference")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  subscription       RomanceSubscription?
+  characters         PlayerCharacter[]
+  sessions           StorySession[]
+  memories           RomanceMemory[]
+  auditLogs          RomanceAuditLog[]
+  notifications      RomanceNotification[]
+  storyEvents        StoryEvent[]
+  relationshipStates RelationshipState[]
+  canonFacts         CanonFact[]
+  bargains           Bargain[]
+  promises           Promise[]
+  debts              Debt[]
+
+  @@map("romance_players")
+}
+
+/// Independent of Cevoryn's B2B `Subscription` table on purpose - see
+/// ADR-0001. `provider`/`providerCustomerId` stay nullable because no live
+/// payment provider is wired yet (Product Bible's explicit post-MVP
+/// boundary); the shape exists so wiring one later is additive.
+model RomanceSubscription {
+  id                 String                    @id @default(cuid())
+  playerId           String                    @unique @map("player_id")
+  plan               RomanceSubscriptionPlan   @default(FREE)
+  status             RomanceSubscriptionStatus @default(ACTIVE)
+  provider           String?
+  providerCustomerId String?                   @map("provider_customer_id")
+  currentPeriodEnd   DateTime?                 @map("current_period_end")
+  createdAt          DateTime                  @default(now()) @map("created_at")
+  updatedAt          DateTime                  @updatedAt @map("updated_at")
+
+  player RomancePlayer @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@map("romance_subscriptions")
+}
+
+/// Deliberately a separate table from Cevoryn's org-scoped `AuditLog` (see
+/// ADR-0001's rejected-alternative section - this keeps a deeply personal
+/// product surface out of any B2B admin's audit view).
+model RomanceAuditLog {
+  id           String                @id @default(cuid())
+  playerId     String                @map("player_id")
+  actorType    RomanceAuditActorType @map("actor_type")
+  action       String
+  resourceType String                @map("resource_type")
+  resourceId   String?               @map("resource_id")
+  metadata     Json                  @default("{}")
+  createdAt    DateTime              @default(now()) @map("created_at")
+
+  player RomancePlayer @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([playerId, createdAt(sort: Desc)])
+  @@map("romance_audit_logs")
+}
+
+/// CONTENT table - admin-authored, versioned. See Story Engine Bible §1.
+model Universe {
+  id          String        @id @default(cuid())
+  slug        String
+  name        String
+  version     Int           @default(1)
+  status      ContentStatus @default(DRAFT)
+  description String
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  seasons          Season[]
+  characters       StoryCharacter[]
+  playerCharacters PlayerCharacter[]
+  sessions         StorySession[]
+
+  @@unique([slug, version])
+  @@map("romance_universes")
+}
+
+/// CONTENT table. See Story Engine Bible §7.
+model Season {
+  id           String        @id @default(cuid())
+  universeId   String        @map("universe_id")
+  slug         String
+  name         String
+  seasonNumber Int           @map("season_number")
+  version      Int           @default(1)
+  status       ContentStatus @default(DRAFT)
+  synopsis     String
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  universe Universe       @relation(fields: [universeId], references: [id], onDelete: Restrict)
+  beats    Beat[]
+  sessions StorySession[]
+
+  @@unique([universeId, slug, version])
+  @@map("romance_seasons")
+}
+
+/// CONTENT table - one row per beat in the Beat Graph. See Story Engine
+/// Bible §7. `entryConditions`/`exitConditions`/`stateEffects`/
+/// `canonFactTemplates` are content-authored structured Json, following
+/// the same "flexible content, not forced into premature relational
+/// tables" convention already used for Opportunity.economicImpact and
+/// Decision.canvas elsewhere in this schema.
+model Beat {
+  id                   String   @id @default(cuid())
+  seasonId             String   @map("season_id")
+  slug                 String
+  beatOrder            Int      @map("beat_order")
+  name                 String
+  entryConditions      Json     @default("{}") @map("entry_conditions")
+  exitConditions       Json     @default("{}") @map("exit_conditions")
+  availableActions     String[] @map("available_actions")
+  stateEffects         Json     @default("{}") @map("state_effects")
+  characterInvolvement String[] @map("character_involvement")
+  canonFactTemplates   Json     @default("[]") @map("canon_fact_templates")
+  isFailState          Boolean  @default(false) @map("is_fail_state")
+  version              Int      @default(1)
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  season                Season         @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  variants              SceneVariant[]
+  sessionsCurrentlyHere StorySession[]
+
+  @@unique([seasonId, slug, version])
+  @@index([seasonId, beatOrder])
+  @@map("romance_beats")
+}
+
+/// CONTENT table. See Story Engine Bible §7/§8.
+model SceneVariant {
+  id                String   @id @default(cuid())
+  beatId            String   @map("beat_id")
+  slug              String
+  selectionCriteria Json     @default("{}") @map("selection_criteria")
+  audioEligible     Boolean  @default(false) @map("audio_eligible")
+  promptTemplate    String   @map("prompt_template")
+  version           Int      @default(1)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  beat Beat @relation(fields: [beatId], references: [id], onDelete: Restrict)
+
+  @@unique([beatId, slug, version])
+  @@map("romance_scene_variants")
+}
+
+/// CONTENT table - Caelan, Rival, Wren. See Story Engine Bible §2.
+/// `goals`/`fears`/`values`/`forbiddenBehavior` are enum-tagged strings
+/// (universe-specific vocabulary, e.g. "BREAK_HIS_OWN_BINDING") rather
+/// than a global Prisma enum, since each universe defines its own goal
+/// vocabulary - validated at the application layer against that
+/// universe's declared vocabulary, not the database layer.
+model StoryCharacter {
+  id                 String   @id @default(cuid())
+  universeId         String   @map("universe_id")
+  slug               String
+  name               String
+  race               FaeRace
+  isVoiced           Boolean  @default(true) @map("is_voiced")
+  personality        Json     @default("{}")
+  goals              String[]
+  fears              String[]
+  values             String[]
+  speechStyle        String   @map("speech_style")
+  forbiddenBehavior  String[] @map("forbidden_behavior")
+  /// Human-readable rule reference (e.g. "common Fae-court knowledge,
+  /// direct witness, or told in-fiction") - the enforceable check is
+  /// CANON-003 in the Story Engine, not this text.
+  knowledgeScopeRule String   @map("knowledge_scope_rule")
+  version            Int      @default(1)
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  universe     Universe          @relation(fields: [universeId], references: [id], onDelete: Restrict)
+  secrets      CharacterSecret[]
+  voiceProfile VoiceProfile?
+
+  @@unique([universeId, slug, version])
+  @@map("romance_story_characters")
+}
+
+/// CONTENT table - what a character is hiding and what (if anything)
+/// reveals it. See Story Engine Bible §2/§3 (FAE-003). Whether a given
+/// player has actually *learned* a secret is tracked by a RomanceMemory
+/// row (type=SECRET), never by mutating this content table.
+model CharacterSecret {
+  id                      String   @id @default(cuid())
+  characterId             String   @map("character_id")
+  secretKey               String   @map("secret_key")
+  content                 String
+  revealConditionBeatSlug String?  @map("reveal_condition_beat_slug")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  character StoryCharacter @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@unique([characterId, secretKey])
+  @@map("romance_character_secrets")
+}
+
+/// CONTENT table - voice assignment per character. Human/licensed/AI is an
+/// explicit field, not a code fork (see Story Engine Bible §9 / brief §26
+/// provider-agnostic AI infrastructure requirement).
+model VoiceProfile {
+  id              String          @id @default(cuid())
+  characterId     String          @unique @map("character_id")
+  sourceType      VoiceSourceType @map("source_type")
+  provider        String
+  providerVoiceId String          @map("provider_voice_id")
+  version         Int             @default(1)
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  character StoryCharacter @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  renders   AudioRender[]
+
+  @@map("romance_voice_profiles")
+}
+
+/// PLAYER table - the player's own created character. One per player per
+/// universe in MVP (brief's own scope: "Create your character" is a
+/// single-character flow, not a roster).
+model PlayerCharacter {
+  id              String   @id @default(cuid())
+  playerId        String   @map("player_id")
+  universeId      String   @map("universe_id")
+  name            String
+  pronouns        String
+  appearanceNotes String?  @map("appearance_notes")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  player   RomancePlayer  @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  universe Universe       @relation(fields: [universeId], references: [id], onDelete: Restrict)
+  sessions StorySession[]
+
+  @@unique([playerId, universeId])
+  @@map("romance_player_characters")
+}
+
+/// PLAYER table - root of one play-through. Pins the content version it
+/// started with (`pinnedUniverseVersion`/`pinnedSeasonVersion`) so a later
+/// content edit can never retroactively change an in-progress session's
+/// rules out from under it - see Story Engine Bible §24/content
+/// versioning requirement.
+model StorySession {
+  id                    String             @id @default(cuid())
+  playerId              String             @map("player_id")
+  universeId            String             @map("universe_id")
+  seasonId              String             @map("season_id")
+  playerCharacterId     String             @map("player_character_id")
+  pinnedUniverseVersion Int                @map("pinned_universe_version")
+  pinnedSeasonVersion   Int                @map("pinned_season_version")
+  status                StorySessionStatus @default(ACTIVE)
+  currentBeatId         String?            @map("current_beat_id")
+  spicePreference       SpicePreference    @default(FADE_TO_BLACK) @map("spice_preference")
+  startedAt             DateTime           @default(now()) @map("started_at")
+  lastPlayedAt          DateTime           @default(now()) @map("last_played_at")
+  completedAt           DateTime?          @map("completed_at")
+  createdAt             DateTime           @default(now()) @map("created_at")
+  updatedAt             DateTime           @updatedAt @map("updated_at")
+
+  player          RomancePlayer   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  universe        Universe        @relation(fields: [universeId], references: [id], onDelete: Restrict)
+  season          Season          @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  playerCharacter PlayerCharacter @relation(fields: [playerCharacterId], references: [id], onDelete: Cascade)
+  currentBeat     Beat?           @relation(fields: [currentBeatId], references: [id], onDelete: SetNull)
+
+  relationshipStates RelationshipState[]
+  memories           RomanceMemory[]
+  canonFacts         CanonFact[]
+  events             StoryEvent[]
+  bargains           Bargain[]
+  promises           Promise[]
+  debts              Debt[]
+
+  @@index([playerId, status])
+  @@map("romance_story_sessions")
+}
+
+/// PLAYER table - append-only event log. The authoritative timeline for
+/// CANON-002 (timeline integrity) and the audit trail for every state
+/// mutation (brief's explicit traceability requirement - every
+/// relationship/canon/memory change must cite a real stored event).
+/// Covers the brief's candidate "Intent"/"Decision" entities too
+/// (`INTENT_RESOLVED`/`INTENT_REJECTED` event types) rather than standing
+/// up separate tables with no independent lifecycle of their own.
+model StoryEvent {
+  id             String         @id @default(cuid())
+  storySessionId String         @map("story_session_id")
+  playerId       String         @map("player_id")
+  beatId         String?        @map("beat_id")
+  type           StoryEventType
+  /// Structured payload specific to `type` - e.g. for RELATIONSHIP_CHANGED:
+  /// {characterSlug, dimension, previousValue, newValue, reason}. Validated
+  /// per-type at the application layer (Stage 5), not by the DB.
+  payload        Json           @default("{}")
+  createdAt      DateTime       @default(now()) @map("created_at")
+
+  storySession StorySession  @relation(fields: [storySessionId], references: [id], onDelete: Cascade)
+  player       RomancePlayer @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([storySessionId, createdAt])
+  @@map("romance_story_events")
+}
+
+/// PLAYER table - multi-dimensional relationship state per (session,
+/// character). See Story Engine Bible §4. Mutated only by the Story
+/// Engine's state-transition step, from a logged StoryEvent cause - never
+/// written directly from LLM output.
+model RelationshipState {
+  id                 String   @id @default(cuid())
+  storySessionId     String   @map("story_session_id")
+  playerId           String   @map("player_id")
+  characterSlug      String   @map("character_slug")
+  trust              Int      @default(0)
+  attraction         Int      @default(0)
+  fear               Int      @default(0)
+  loyalty            Int      @default(0)
+  tension            Int      @default(0)
+  trueNameCompelUsed Boolean  @default(false) @map("true_name_compel_used")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  storySession StorySession  @relation(fields: [storySessionId], references: [id], onDelete: Cascade)
+  player       RomancePlayer @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([storySessionId, characterSlug])
+  @@map("romance_relationship_states")
+}
+
+/// PLAYER table - typed persistent memory. See Story Engine Bible §5. The
+/// full taxonomy from the brief; retrieval is always scoped/ranked, never
+/// "give the model everything" (§5.7).
+model RomanceMemory {
+  id                   String                @id @default(cuid())
+  storySessionId       String                @map("story_session_id")
+  playerId             String                @map("player_id")
+  type                 RomanceMemoryType
+  subject              String
+  object               String?
+  content              String
+  source               RomanceMemorySource
+  confidence           Float                 @default(1.0)
+  importance           Float                 @default(0.5)
+  status               RomanceMemoryStatus   @default(ACTIVE)
+  validity             RomanceMemoryValidity @default(PERMANENT)
+  relatedCharacterSlug String?               @map("related_character_slug")
+  relatedBeatSlug      String?               @map("related_beat_slug")
+  supersedesId         String?               @map("supersedes_id")
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+
+  storySession StorySession  @relation(fields: [storySessionId], references: [id], onDelete: Cascade)
+  player       RomancePlayer @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([storySessionId, status, type])
+  @@index([storySessionId, subject, object])
+  @@map("romance_memories")
+}
+
+/// PLAYER table - ground-truth facts. See Story Engine Bible §6. Written
+/// only by the state-transition step after Canon Validation passes -
+/// never speculatively, never directly by the LLM.
+model CanonFact {
+  id                 String        @id @default(cuid())
+  storySessionId     String        @map("story_session_id")
+  playerId           String        @map("player_id")
+  factType           CanonFactType @map("fact_type")
+  subject            String
+  content            String
+  sourceStoryEventId String?       @map("source_story_event_id")
+  createdAt          DateTime      @default(now()) @map("created_at")
+
+  storySession StorySession  @relation(fields: [storySessionId], references: [id], onDelete: Cascade)
+  player       RomancePlayer @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([storySessionId, factType])
+  @@map("romance_canon_facts")
+}
+
+/// PLAYER table - Fae Rule FAE-002/FAE-005. `breachConsequence` is
+/// required (not optional) - every bargain must declare its consequence
+/// at creation time, so breaking it is a mechanical application, never an
+/// improvised LLM decision.
+model Bargain {
+  id                    String        @id @default(cuid())
+  storySessionId        String        @map("story_session_id")
+  playerId              String        @map("player_id")
+  characterSlug         String        @map("character_slug")
+  terms                 String
+  breachConsequence     String        @map("breach_consequence")
+  proposerConfirmed     Boolean       @default(false) @map("proposer_confirmed")
+  counterpartyConfirmed Boolean       @default(false) @map("counterparty_confirmed")
+  status                BargainStatus @default(PROPOSED)
+  sealedAt              DateTime?     @map("sealed_at")
+  resolvedAt            DateTime?     @map("resolved_at")
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+
+  storySession StorySession  @relation(fields: [storySessionId], references: [id], onDelete: Cascade)
+  player       RomancePlayer @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([storySessionId, status])
+  @@map("romance_bargains")
+}
+
+/// PLAYER table - Fae Rule FAE-006 (never goes stale on its own).
+model Promise {
+  id             String        @id @default(cuid())
+  storySessionId String        @map("story_session_id")
+  playerId       String        @map("player_id")
+  characterSlug  String        @map("character_slug")
+  /// Who made the promise - the player, or the named character.
+  madeBy         String        @map("made_by")
+  content        String
+  dueBeatSlug    String?       @map("due_beat_slug")
+  status         PromiseStatus @default(MADE)
+  resolvedAt     DateTime?     @map("resolved_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  storySession StorySession  @relation(fields: [storySessionId], references: [id], onDelete: Cascade)
+  player       RomancePlayer @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([storySessionId, status])
+  @@map("romance_promises")
+}
+
+/// PLAYER table - Fae Rule FAE-004. `dueBeatSlug` plus age-based escalation
+/// (checked at beat-advance time, see Story Engine Bible §3) forces a
+/// DEBT_COLLECTION scene intent rather than letting an ignored debt vanish.
+model Debt {
+  id                  String     @id @default(cuid())
+  storySessionId      String     @map("story_session_id")
+  playerId            String     @map("player_id")
+  owedByCharacterSlug String?    @map("owed_by_character_slug")
+  owedToCharacterSlug String?    @map("owed_to_character_slug")
+  reason              String
+  dueBeatSlug         String?    @map("due_beat_slug")
+  status              DebtStatus @default(OPEN)
+  resolvedAt          DateTime?  @map("resolved_at")
+  createdAt           DateTime   @default(now()) @map("created_at")
+  updatedAt           DateTime   @updatedAt @map("updated_at")
+
+  storySession StorySession  @relation(fields: [storySessionId], references: [id], onDelete: Cascade)
+  player       RomancePlayer @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([storySessionId, status])
+  @@map("romance_debts")
+}
+
+/// PLAYER table - the rendered deliverable. Separate from AudioRender
+/// (the job) so re-rendering never needs to touch a once-published asset
+/// a player may already be listening to.
+model AudioAsset {
+  id          String   @id @default(cuid())
+  storagePath String   @map("storage_path")
+  durationMs  Int      @map("duration_ms")
+  format      String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  renders AudioRender[]
+
+  @@map("romance_audio_assets")
+}
+
+/// PLAYER table - the render job. See Story Engine Bible §9. Idempotency
+/// is the whole point of the unique constraint below (golden test: brief's
+/// TEST 11 - a retry must never create a duplicate asset).
+model AudioRender {
+  id                  String            @id @default(cuid())
+  storyEventId        String            @map("story_event_id")
+  voiceProfileId      String            @map("voice_profile_id")
+  voiceProfileVersion Int               @map("voice_profile_version")
+  status              AudioRenderStatus @default(PENDING)
+  audioAssetId        String?           @map("audio_asset_id")
+  failureReason       String?           @map("failure_reason")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+
+  voiceProfile VoiceProfile @relation(fields: [voiceProfileId], references: [id], onDelete: Restrict)
+  audioAsset   AudioAsset?  @relation(fields: [audioAssetId], references: [id], onDelete: SetNull)
+
+  @@unique([storyEventId, voiceProfileVersion])
+  @@map("romance_audio_renders")
+}
+
+/// PLAYER table - story-context-bound notifications only (brief §15 - never
+/// generic marketing). `payload` carries the specific story fact the
+/// notification cites (e.g. the Promise/Bargain id and its content).
+model RomanceNotification {
+  id        String   @id @default(cuid())
+  playerId  String   @map("player_id")
+  title     String
+  body      String
+  payload   Json     @default("{}")
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  player RomancePlayer @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([playerId, isRead, createdAt(sort: Desc)])
+  @@map("romance_notifications")
 }
