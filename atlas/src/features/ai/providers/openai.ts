@@ -81,6 +81,9 @@ export class OpenAIProvider implements AIProvider {
       })),
       temperature: params.temperature ?? 0.3,
       max_tokens: params.maxTokens,
+      ...(params.responseFormat
+        ? { response_format: { type: params.responseFormat } }
+        : {}),
     });
 
     const content = response.choices[0]?.message?.content ?? "";
