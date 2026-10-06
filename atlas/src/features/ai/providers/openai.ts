@@ -27,7 +27,7 @@ export class OpenAIProvider implements AIProvider {
     if (!apiKey) {
       throw new Error("OPENAI_API_KEY is not configured");
     }
-    this.client = new OpenAI({ apiKey });
+    this.client = new OpenAI({ apiKey, timeout: 8000 });
   }
 
   async *streamCompletion(
@@ -81,6 +81,9 @@ export class OpenAIProvider implements AIProvider {
       })),
       temperature: params.temperature ?? 0.3,
       max_tokens: params.maxTokens,
+      ...(params.responseFormat
+        ? { response_format: { type: params.responseFormat } }
+        : {}),
     });
 
     const content = response.choices[0]?.message?.content ?? "";

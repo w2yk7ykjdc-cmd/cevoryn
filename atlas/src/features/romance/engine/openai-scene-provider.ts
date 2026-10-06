@@ -34,6 +34,8 @@ export class OpenAISceneProvider implements LLMProvider {
         { role: "user", content: buildSceneUserPrompt(context) },
       ],
       temperature: 0.8,
+      maxTokens: 900,
+      responseFormat: "json_object",
     });
     return parseStructuredSceneOutput(content);
   }

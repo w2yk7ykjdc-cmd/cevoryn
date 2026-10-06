@@ -874,7 +874,7 @@ export async function submitPlayerInput(
             newValue: number;
           }>) ?? null,
       };
-    });
+    }, { maxWait: 5000, timeout: 30000 });
   } catch (error) {
     if (error instanceof RomanceValidationError) {
       return recordRejection(
