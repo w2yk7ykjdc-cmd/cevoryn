@@ -122,7 +122,20 @@ export function parseStructuredSceneOutput(raw: string): StructuredSceneOutput {
   try {
     parsed = JSON.parse(raw);
   } catch (error) {
-    throw new SceneGenerationError("Scene provider returned non-JSON output.", error);
+    // Keep the parser resilient to providers that wrap an otherwise valid
+    // JSON object in markdown fences or a short preamble. The OpenAI
+    // provider requests JSON mode, but this boundary must remain defensive
+    // because provider behavior can vary by model/version.
+    const fenced = raw.match(/\`\`\`(?:json)?\\s*([\\s\\S]*?)\\s*\`\`\`/i);
+    const candidate = fenced?.[1] ?? raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1);
+    if (!candidate || !candidate.trim()) {
+      throw new SceneGenerationError("Scene provider returned non-JSON output.", error);
+    }
+    try {
+      parsed = JSON.parse(candidate);
+    } catch (candidateError) {
+      throw new SceneGenerationError("Scene provider returned non-JSON output.", candidateError);
+    }
   }
 
   if (typeof parsed !== "object" || parsed === null) {
