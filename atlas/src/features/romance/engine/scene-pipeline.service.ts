@@ -81,10 +81,7 @@ export async function generateValidatedScene(
       // Provider/network/format failures are recoverable at the Story Engine
       // boundary. A live provider must never turn one malformed response or
       // transient upstream failure into a broken player session.
-      violationsEncountered.push({
-        ruleId: "PROVIDER_FAILURE",
-        message: error instanceof Error ? error.message : "Unknown scene provider failure",
-      });
+      // The concrete error is intentionally not exposed to the player.
       continue;
     }
 
