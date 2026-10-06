@@ -13,6 +13,8 @@ export interface CompletionParams {
   messages: ChatMessage[];
   temperature?: number;
   maxTokens?: number;
+  /** Request provider-enforced JSON object output when supported. */
+  responseFormat?: "json_object";
 }
 
 /**
