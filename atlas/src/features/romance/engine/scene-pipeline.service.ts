@@ -74,7 +74,20 @@ export async function generateValidatedScene(
           }
         : {}),
     };
-    const scene = await provider.generateScene(attemptContext);
+    let scene: StructuredSceneOutput;
+    try {
+      scene = await provider.generateScene(attemptContext);
+    } catch (error) {
+      // Provider/network/format failures are recoverable at the Story Engine
+      // boundary. A live provider must never turn one malformed response or
+      // transient upstream failure into a broken player session.
+      violationsEncountered.push({
+        ruleId: "PROVIDER_FAILURE",
+        message: error instanceof Error ? error.message : "Unknown scene provider failure",
+      });
+      continue;
+    }
+
     const result = validateSceneClaims(scene.sceneClaims, canonContext);
 
     if (result.valid) {
