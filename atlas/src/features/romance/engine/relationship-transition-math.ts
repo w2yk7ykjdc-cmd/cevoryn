@@ -36,6 +36,8 @@ const RELATIONSHIP_DELTAS: Record<
   BARGAIN_SEALED: { tension: 5 },
   BARGAIN_BROKEN: { trust: -30, loyalty: -15, tension: 20 },
   TRUE_NAME_REVEALED: { trust: 15, fear: 10 },
+  NARRATIVE_POSITIVE_BEAT: { trust: 3, attraction: 2 },
+  NARRATIVE_NEGATIVE_BEAT: { trust: -3, tension: 2 },
 };
 
 export function clamp(value: number): number {

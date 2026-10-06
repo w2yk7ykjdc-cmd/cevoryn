@@ -4,36 +4,61 @@ import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
+import {
+  deriveBeatTransitionEventType,
+  evaluateBeatTransition,
+} from "./beat-transition-math";
+import type { BeatExitRule } from "./beat-transition-math";
 import { canTransitionBargain } from "./commitment-fsm-math";
 import { parseFreeformIntent } from "./intent-parser-math";
 import { resolveMemoryWrite } from "./memory-dedup-math";
+import { getSceneProvider } from "./openai-scene-provider";
 import { getRelationshipDelta } from "./relationship-transition-math";
 import type {
+  LLMProvider,
+  SceneGenerationContext,
+  StructuredSceneOutput,
+} from "./scene-generation-provider";
+import { selectValidSceneMemoryCandidates } from "./scene-memory-candidate-math";
+import { generateValidatedScene } from "./scene-pipeline.service";
+import type { SceneFailureReason } from "./scene-pipeline.service";
+import type {
+  CanonContext,
   MemoryLite,
   RelationshipDimensionKey,
   RelationshipEventCause,
   StructuredIntent,
 } from "./types";
 
+/** CanonFact.content prefix written by REVEAL_TRUE_NAME - shared between the writer and the CanonContext reader below so they can never drift apart. */
+const TRUE_NAME_REVEAL_PREFIX = "player revealed true name:";
+
 /**
  * Romance Story Engine orchestration - the server-only wrapper around the
  * pure deterministic layer (intent-parser-math, canon-validator-math,
- * relationship-transition-math, commitment-fsm-math, memory-dedup-math).
- * See docs/romance/02-STORY_ENGINE_BIBLE.md §7 for the pipeline this
+ * relationship-transition-math, commitment-fsm-math, memory-dedup-math,
+ * beat-transition-math) plus the scene-generation pipeline
+ * (scene-generation-provider.ts, scene-pipeline.service.ts). See
+ * docs/romance/02-STORY_ENGINE_BIBLE.md §7 for the full pipeline this
  * implements: USER INPUT -> INTENT PARSER -> VALIDATION -> STATE
- * TRANSITION -> MEMORY EXTRACTION -> STATE COMMIT.
+ * TRANSITION -> SCENE GENERATION -> CANON VALIDATION -> MEMORY
+ * EXTRACTION -> STATE COMMIT -> BEAT ADVANCE.
  *
- * NOT implemented in this slice (see final report's known-gaps section):
- * LLM scene generation (step "SCENE PLAN -> LLM SCENE GENERATION" is a
- * real AIProvider call site that exists in the full pipeline design but
- * is not wired or tested here - this sandbox has no real OPENAI_API_KEY,
- * and claiming it "works" without exercising it against a real provider
- * would violate the explicit "never report a failure state as success"
- * instruction), and the post-generation canon-validation-of-prose step
- * (which depends on scene generation existing first). What IS real and
- * tested here is everything upstream and downstream of that gap: intent
- * parsing, beat-gated validation, state transitions, memory writes, and
- * the canon validator as a standalone, structurally-enforced unit.
+ * Every accepted intent gets a generated, canon-validated scene (the
+ * player-facing narration/dialogue) - the deterministic state transition
+ * above always runs first and owns the facts; the LLM only narrates
+ * within them. For PROMISE/REVEAL_TRUE_NAME/bargain actions (which
+ * already have their own deterministic relationship effect), the scene's
+ * proposedRelationshipNudge is ignored to avoid double-applying a delta;
+ * for ASK_QUESTION/GENERIC_ACTION (which have no other effect) it is the
+ * only relationship signal, and even then the engine - not the model -
+ * owns the fixed magnitude (relationship-transition-math.ts).
+ *
+ * Production scene generation (OpenAISceneProvider) is real code but not
+ * exercised against a real model in this sandbox - no OPENAI_API_KEY
+ * exists here, so getSceneProvider() falls back to the deterministic
+ * TestSceneProvider by default. See the final report's known-limitations
+ * section; this is not hidden or reported as "working against a real LLM".
  */
 
 export class RomanceStoryNotFoundError extends Error {
@@ -58,10 +83,27 @@ export interface SubmitPlayerInputParams {
   targetCharacterSlug?: string;
   /** Required when the parsed intent is PROPOSE_BARGAIN - never fabricated by the engine. */
   bargainBreachConsequence?: string;
+  /** Swappable provider (brief §26) - defaults to getSceneProvider(). Tests inject a TestSceneProvider with a custom plan. */
+  llmProvider?: LLMProvider;
+  /** Client-generated key - a retried/duplicate submission (double-click, network retry) with the same key returns the original result instead of reprocessing. */
+  idempotencyKey?: string;
 }
 
 export type SubmitPlayerInputResult =
-  | { accepted: true; intent: StructuredIntent; storyEventId: string }
+  | {
+      accepted: true;
+      intent: StructuredIntent;
+      storyEventId: string;
+      scene: StructuredSceneOutput;
+      sceneFailureReason: SceneFailureReason | null;
+      beatAdvancedTo: string | null;
+      sessionCompleted: boolean;
+      relationshipChanges: Array<{
+        dimension: RelationshipDimensionKey;
+        previousValue: number;
+        newValue: number;
+      }> | null;
+    }
   | { accepted: false; intent: StructuredIntent; reason: string };
 
 /**
@@ -266,6 +308,95 @@ function toJson(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value));
 }
 
+async function buildCanonContext(
+  tx: Prisma.TransactionClient,
+  storySessionId: string
+): Promise<CanonContext> {
+  const [trueNameFacts, bargains, promises] = await Promise.all([
+    tx.canonFact.findMany({
+      where: {
+        storySessionId,
+        factType: "CHARACTER_KNOWLEDGE",
+        content: { startsWith: TRUE_NAME_REVEAL_PREFIX },
+      },
+      select: { subject: true },
+    }),
+    tx.bargain.findMany({ where: { storySessionId }, select: { id: true } }),
+    tx.promise.findMany({ where: { storySessionId }, select: { id: true } }),
+  ]);
+
+  return {
+    trueNameRevealedTo: new Set(trueNameFacts.map((f) => f.subject)),
+    knownBargainIds: new Set(bargains.map((b) => b.id)),
+    knownPromiseIds: new Set(promises.map((p) => p.id)),
+  };
+}
+
+async function buildSceneGenerationContext(
+  tx: Prisma.TransactionClient,
+  session: { id: string; universeId: string },
+  beatSlug: string,
+  beatName: string,
+  intent: StructuredIntent,
+  targetCharacterSlug: string | null
+): Promise<SceneGenerationContext> {
+  const RECENT_LIMIT = 5;
+
+  const [memories, canonFacts, relationshipState, character] = await Promise.all([
+    tx.romanceMemory.findMany({
+      where: {
+        storySessionId: session.id,
+        status: "ACTIVE",
+        ...(targetCharacterSlug && { relatedCharacterSlug: targetCharacterSlug }),
+      },
+      orderBy: { createdAt: "desc" },
+      take: RECENT_LIMIT,
+      select: { type: true, subject: true, object: true, content: true },
+    }),
+    tx.canonFact.findMany({
+      where: { storySessionId: session.id },
+      orderBy: { createdAt: "desc" },
+      take: RECENT_LIMIT,
+      select: { factType: true, subject: true, content: true },
+    }),
+    targetCharacterSlug
+      ? tx.relationshipState.findUnique({
+          where: {
+            storySessionId_characterSlug: {
+              storySessionId: session.id,
+              characterSlug: targetCharacterSlug,
+            },
+          },
+        })
+      : Promise.resolve(null),
+    targetCharacterSlug
+      ? tx.storyCharacter.findFirst({
+          where: { universeId: session.universeId, slug: targetCharacterSlug },
+          select: { knowledgeScopeRule: true },
+        })
+      : Promise.resolve(null),
+  ]);
+
+  return {
+    beatSlug,
+    beatName,
+    intent,
+    targetCharacterSlug,
+    relevantMemories: memories,
+    relevantCanonFacts: canonFacts,
+    relationshipState: relationshipState
+      ? {
+          trust: relationshipState.trust,
+          attraction: relationshipState.attraction,
+          fear: relationshipState.fear,
+          loyalty: relationshipState.loyalty,
+          tension: relationshipState.tension,
+        }
+      : null,
+    characterKnowledgeScope: character?.knowledgeScopeRule ?? null,
+  };
+}
+
 async function recordRejection(
   storySessionId: string,
   playerId: string,
@@ -285,6 +416,47 @@ async function recordRejection(
   return { accepted: false, intent, reason };
 }
 
+interface StoredAcceptedPayload {
+  intent: StructuredIntent;
+  scene: StructuredSceneOutput;
+  sceneFailureReason: SceneFailureReason | null;
+  relationshipChanges:
+    | Array<{ dimension: RelationshipDimensionKey; previousValue: number; newValue: number }>
+    | null;
+}
+
+/**
+ * Looks up a prior INTENT_RESOLVED StoryEvent carrying this idempotency
+ * key, scoped to this session. Reconstructs the same result shape
+ * submitPlayerInput would have returned the first time, so a retried
+ * call is a safe no-op read, never a second write.
+ */
+async function findResultByIdempotencyKey(
+  storySessionId: string,
+  idempotencyKey: string
+): Promise<SubmitPlayerInputResult | null> {
+  const event = await prisma.storyEvent.findFirst({
+    where: {
+      storySessionId,
+      type: "INTENT_RESOLVED",
+      payload: { path: ["idempotencyKey"], equals: idempotencyKey },
+    },
+  });
+  if (!event) return null;
+
+  const payload = event.payload as unknown as StoredAcceptedPayload;
+  return {
+    accepted: true,
+    intent: payload.intent,
+    storyEventId: event.id,
+    scene: payload.scene,
+    sceneFailureReason: payload.sceneFailureReason,
+    beatAdvancedTo: null,
+    sessionCompleted: false,
+    relationshipChanges: payload.relationshipChanges,
+  };
+}
+
 /**
  * The main pipeline entry point: USER INPUT -> INTENT PARSER -> VALIDATION
  * -> STATE TRANSITION -> MEMORY EXTRACTION -> STATE COMMIT. Everything
@@ -302,6 +474,11 @@ export async function submitPlayerInput(
   );
   if (!session) {
     throw new RomanceStoryNotFoundError();
+  }
+
+  if (params.idempotencyKey) {
+    const replayed = await findResultByIdempotencyKey(session.id, params.idempotencyKey);
+    if (replayed) return replayed;
   }
 
   const intent = parseFreeformIntent(params.rawInput);
@@ -358,6 +535,9 @@ export async function submitPlayerInput(
   try {
     return await prisma.$transaction(async (tx) => {
       const storyEventPayload: Record<string, unknown> = { intent };
+      if (params.idempotencyKey) {
+        storyEventPayload.idempotencyKey = params.idempotencyKey;
+      }
 
       switch (intent.type) {
         case "PROMISE": {
@@ -513,11 +693,91 @@ export async function submitPlayerInput(
 
         case "ASK_QUESTION":
         case "GENERIC_ACTION":
-          // No deterministic state effect beyond the audit trail - in the
-          // full pipeline this is where scene generation would be invoked
-          // (not implemented in this slice; see module-level comment).
+          // No deterministic state effect of their own - the scene
+          // generation step below is their only effect beyond the audit
+          // trail, via the bounded relationship nudge and memory
+          // candidates it may propose.
           break;
       }
+
+      const targetCharacterSlug = params.targetCharacterSlug ?? null;
+      const beatSlug = session.currentBeat?.slug ?? "unknown";
+      const beatName = session.currentBeat?.name ?? "Unknown";
+
+      const [canonContext, sceneContext] = await Promise.all([
+        buildCanonContext(tx, session.id),
+        buildSceneGenerationContext(
+          tx,
+          session,
+          beatSlug,
+          beatName,
+          intent,
+          targetCharacterSlug
+        ),
+      ]);
+
+      const sceneResult = await generateValidatedScene(
+        params.llmProvider ?? getSceneProvider(),
+        sceneContext,
+        canonContext
+      );
+
+      if (sceneResult.failureReason) {
+        await tx.storyEvent.create({
+          data: {
+            storySessionId: session.id,
+            playerId: params.playerId,
+            beatId,
+            type: "CANON_VALIDATION_FAILED",
+            payload: toJson({
+              intentType: intent.type,
+              attempts: sceneResult.attempts,
+              failureReason: sceneResult.failureReason,
+              violations: sceneResult.violationsEncountered,
+            }),
+          },
+        });
+      }
+
+      // Only ASK_QUESTION/GENERIC_ACTION apply the scene's proposed
+      // nudge - every other intent type already applied its own
+      // deterministic relationship delta above, and applying both would
+      // double-count the same action.
+      if (
+        (intent.type === "ASK_QUESTION" || intent.type === "GENERIC_ACTION") &&
+        sceneResult.scene.proposedRelationshipNudge &&
+        targetCharacterSlug
+      ) {
+        const nudge = sceneResult.scene.proposedRelationshipNudge;
+        const changes = await applyRelationshipDeltaAtomic(
+          tx,
+          session.id,
+          params.playerId,
+          nudge.characterSlug,
+          nudge.cause
+        );
+        storyEventPayload.relationshipChanges = changes;
+      }
+
+      const validMemoryCandidates = selectValidSceneMemoryCandidates(
+        sceneResult.scene.proposedMemoryCandidates
+      );
+      for (const candidate of validMemoryCandidates) {
+        await writeMemory(tx, {
+          storySessionId: session.id,
+          playerId: params.playerId,
+          type: candidate.type,
+          subject: candidate.subject,
+          object: candidate.object,
+          content: candidate.content,
+          source: "SYSTEM_INFERRED",
+          relatedCharacterSlug: targetCharacterSlug,
+        });
+      }
+
+      storyEventPayload.scene = sceneResult.scene;
+      storyEventPayload.sceneFailureReason = sceneResult.failureReason;
+      storyEventPayload.sceneAttempts = sceneResult.attempts;
 
       const storyEvent = await tx.storyEvent.create({
         data: {
@@ -529,12 +789,91 @@ export async function submitPlayerInput(
         },
       });
 
+      // Beat Graph auto-advance (Story Engine Bible §7): check the
+      // current beat's declared exitConditions against what just
+      // happened. exitConditions defaults to {} (not an array) on beats
+      // that declare none - never trust stored Json shape blindly.
+      let beatAdvancedTo: string | null = null;
+      let sessionCompleted = false;
+
+      const exitRules = Array.isArray(session.currentBeat?.exitConditions)
+        ? (session.currentBeat.exitConditions as unknown as BeatExitRule[])
+        : [];
+
+      if (exitRules.length > 0 && session.currentBeat) {
+        const effectiveEventType = deriveBeatTransitionEventType(intent.type);
+        const occurrencesInBeat =
+          effectiveEventType === "INTENT_RESOLVED"
+            ? await tx.storyEvent.count({
+                where: { storySessionId: session.id, beatId, type: "INTENT_RESOLVED" },
+              })
+            : 1;
+
+        const transition = evaluateBeatTransition(
+          exitRules,
+          effectiveEventType,
+          occurrencesInBeat
+        );
+
+        if (transition?.completesSession) {
+          sessionCompleted = true;
+          await tx.storySession.update({
+            where: { id: session.id },
+            data: { status: "COMPLETED", completedAt: new Date() },
+          });
+        } else if (transition?.next) {
+          const nextBeat = await tx.beat.findFirst({
+            where: { seasonId: session.seasonId, slug: transition.next },
+            orderBy: { version: "desc" },
+          });
+          if (nextBeat) {
+            beatAdvancedTo = nextBeat.slug;
+            await tx.storyEvent.create({
+              data: {
+                storySessionId: session.id,
+                playerId: params.playerId,
+                beatId: session.currentBeat.id,
+                type: "BEAT_EXITED",
+                payload: toJson({ beatSlug: session.currentBeat.slug }),
+              },
+            });
+            await tx.storyEvent.create({
+              data: {
+                storySessionId: session.id,
+                playerId: params.playerId,
+                beatId: nextBeat.id,
+                type: "BEAT_ENTERED",
+                payload: toJson({ beatSlug: nextBeat.slug }),
+              },
+            });
+            await tx.storySession.update({
+              where: { id: session.id },
+              data: { currentBeatId: nextBeat.id },
+            });
+          }
+        }
+      }
+
       await tx.storySession.update({
         where: { id: session.id },
         data: { lastPlayedAt: new Date() },
       });
 
-      return { accepted: true, intent, storyEventId: storyEvent.id };
+      return {
+        accepted: true,
+        intent,
+        storyEventId: storyEvent.id,
+        scene: sceneResult.scene,
+        sceneFailureReason: sceneResult.failureReason,
+        beatAdvancedTo,
+        sessionCompleted,
+        relationshipChanges:
+          (storyEventPayload.relationshipChanges as Array<{
+            dimension: RelationshipDimensionKey;
+            previousValue: number;
+            newValue: number;
+          }>) ?? null,
+      };
     });
   } catch (error) {
     if (error instanceof RomanceValidationError) {

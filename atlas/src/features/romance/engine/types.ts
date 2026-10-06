@@ -46,7 +46,15 @@ export type RelationshipEventCause =
   | "PROMISE_BROKEN"
   | "BARGAIN_SEALED"
   | "BARGAIN_BROKEN"
-  | "TRUE_NAME_REVEALED";
+  | "TRUE_NAME_REVEALED"
+  /** A small, fixed-magnitude nudge the scene-generation step may propose
+   * for GENERIC_ACTION/ASK_QUESTION scenes (which have no other
+   * deterministic effect) - the LLM picks a direction, never a
+   * magnitude, so it still never becomes the source of truth on *how
+   * much* a relationship changes (brief: relationship changes remain
+   * deterministic Story Engine operations). */
+  | "NARRATIVE_POSITIVE_BEAT"
+  | "NARRATIVE_NEGATIVE_BEAT";
 
 export interface RelationshipChangeRecord {
   dimension: RelationshipDimensionKey;
