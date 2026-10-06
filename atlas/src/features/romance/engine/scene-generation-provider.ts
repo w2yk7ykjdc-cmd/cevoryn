@@ -126,7 +126,7 @@ export function parseStructuredSceneOutput(raw: string): StructuredSceneOutput {
     // JSON object in markdown fences or a short preamble. The OpenAI
     // provider requests JSON mode, but this boundary must remain defensive
     // because provider behavior can vary by model/version.
-    const fenced = raw.match(/\`\`\`(?:json)?\\s*([\\s\\S]*?)\\s*\`\`\`/i);
+    const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
     const candidate = fenced?.[1] ?? raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1);
     if (!candidate || !candidate.trim()) {
       throw new SceneGenerationError("Scene provider returned non-JSON output.", error);
