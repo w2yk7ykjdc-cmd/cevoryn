@@ -74,7 +74,16 @@ export async function generateValidatedScene(
           }
         : {}),
     };
-    const scene = await provider.generateScene(attemptContext);
+    let scene: StructuredSceneOutput;
+    try {
+      scene = await provider.generateScene(attemptContext);
+    } catch {
+      // A provider timeout/network/format failure must not break the player's
+      // session. Continue to the next recovery attempt; after MAX_ATTEMPTS
+      // the deterministic fallback is returned and validated.
+      continue;
+    }
+
     const result = validateSceneClaims(scene.sceneClaims, canonContext);
 
     if (result.valid) {
