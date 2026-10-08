@@ -16,7 +16,8 @@ import type { PrismaClient } from "@prisma/client";
  */
 
 const UNIVERSE_SLUG = "thornbound";
-const SEASON_SLUG = "season-one";
+const SEASON_ONE_SLUG = "season-one";
+const SEASON_TWO_SLUG = "season-two";
 
 type BeatExitRule = {
   onEventType: string;
@@ -27,6 +28,53 @@ type BeatExitRule = {
 
 function exitRules(rules: BeatExitRule[]) {
   return rules as unknown as object;
+}
+
+interface BeatDefinition {
+  slug: string;
+  beatOrder: number;
+  name: string;
+  entryConditions: object;
+  exitConditions: BeatExitRule[];
+  availableActions: string[];
+  stateEffects: object;
+  characterInvolvement: string[];
+  canonFactTemplates: object;
+  isFailState: boolean;
+}
+
+async function upsertBeatsForSeason(
+  prisma: PrismaClient,
+  seasonId: string,
+  beats: BeatDefinition[]
+): Promise<void> {
+  for (const beat of beats) {
+    await prisma.beat.upsert({
+      where: { seasonId_slug_version: { seasonId, slug: beat.slug, version: 1 } },
+      create: {
+        seasonId,
+        slug: beat.slug,
+        beatOrder: beat.beatOrder,
+        name: beat.name,
+        entryConditions: beat.entryConditions,
+        exitConditions: exitRules(beat.exitConditions),
+        availableActions: beat.availableActions,
+        stateEffects: beat.stateEffects,
+        characterInvolvement: beat.characterInvolvement,
+        canonFactTemplates: beat.canonFactTemplates,
+        isFailState: beat.isFailState,
+        version: 1,
+      },
+      update: {
+        entryConditions: beat.entryConditions,
+        exitConditions: exitRules(beat.exitConditions),
+        availableActions: beat.availableActions,
+        stateEffects: beat.stateEffects,
+        characterInvolvement: beat.characterInvolvement,
+        canonFactTemplates: beat.canonFactTemplates,
+      },
+    });
+  }
 }
 
 export async function seedRomanceContent(
@@ -51,13 +99,13 @@ export async function seedRomanceContent(
     where: {
       universeId_slug_version: {
         universeId: universe.id,
-        slug: SEASON_SLUG,
+        slug: SEASON_ONE_SLUG,
         version: 1,
       },
     },
     create: {
       universeId: universe.id,
-      slug: SEASON_SLUG,
+      slug: SEASON_ONE_SLUG,
       name: "Season One: The Bargain",
       seasonNumber: 1,
       version: 1,
@@ -70,18 +118,31 @@ export async function seedRomanceContent(
     update: {},
   });
 
-  const beats: Array<{
-    slug: string;
-    beatOrder: number;
-    name: string;
-    entryConditions: object;
-    exitConditions: BeatExitRule[];
-    availableActions: string[];
-    stateEffects: object;
-    characterInvolvement: string[];
-    canonFactTemplates: object;
-    isFailState: boolean;
-  }> = [
+  const seasonTwo = await prisma.season.upsert({
+    where: {
+      universeId_slug_version: {
+        universeId: universe.id,
+        slug: SEASON_TWO_SLUG,
+        version: 1,
+      },
+    },
+    create: {
+      universeId: universe.id,
+      slug: SEASON_TWO_SLUG,
+      name: "Season Two: The Thorn Debt",
+      seasonNumber: 2,
+      version: 1,
+      status: "PUBLISHED",
+      synopsis:
+        "The Wild Hunt has not forgotten what the Thorn Court owes it. As " +
+        "Rowan comes to collect Caelan's debt, whispers spread that someone " +
+        "at court has started asking after his true name - and the price of " +
+        "learning it may fall on you.",
+    },
+    update: {},
+  });
+
+  const seasonOneBeats: BeatDefinition[] = [
     {
       slug: "awakening",
       beatOrder: 1,
@@ -207,33 +268,147 @@ export async function seedRomanceContent(
     },
   ];
 
-  for (const beat of beats) {
-    await prisma.beat.upsert({
-      where: { seasonId_slug_version: { seasonId: season.id, slug: beat.slug, version: 1 } },
-      create: {
-        seasonId: season.id,
-        slug: beat.slug,
-        beatOrder: beat.beatOrder,
-        name: beat.name,
-        entryConditions: beat.entryConditions,
-        exitConditions: exitRules(beat.exitConditions),
-        availableActions: beat.availableActions,
-        stateEffects: beat.stateEffects,
-        characterInvolvement: beat.characterInvolvement,
-        canonFactTemplates: beat.canonFactTemplates,
-        isFailState: beat.isFailState,
-        version: 1,
-      },
-      update: {
-        entryConditions: beat.entryConditions,
-        exitConditions: exitRules(beat.exitConditions),
-        availableActions: beat.availableActions,
-        stateEffects: beat.stateEffects,
-        characterInvolvement: beat.characterInvolvement,
-        canonFactTemplates: beat.canonFactTemplates,
-      },
-    });
-  }
+  await upsertBeatsForSeason(prisma, season.id, seasonOneBeats);
+
+  // Season Two picks up directly after Season One's finale: Caelan's
+  // binding was revealed there but his debt to the Wild Hunt (via Rowan)
+  // was never settled, and his true name - established in Season One as
+  // "never revealed... a Season 2 hook" - starts to matter again as the
+  // court takes notice. Same cast, continuing arcs (ADR/Product Bible's
+  // "second season" post-MVP item) - no new characters, so no new voice
+  // assignments needed either.
+  const seasonTwoBeats: BeatDefinition[] = [
+    {
+      slug: "return",
+      beatOrder: 1,
+      name: "The Return",
+      entryConditions: {},
+      exitConditions: [
+        { onEventType: "INTENT_RESOLVED", next: "the_debt", minOccurrencesInBeat: 2 },
+      ],
+      availableActions: ["ASK_QUESTION", "GENERIC_ACTION", "REVEAL_TRUE_NAME", "PROMISE"],
+      stateEffects: {},
+      characterInvolvement: ["caelan", "wren"],
+      canonFactTemplates: [],
+      isFailState: false,
+    },
+    {
+      slug: "the_debt",
+      beatOrder: 2,
+      name: "The Hunt's Debt",
+      entryConditions: { requiresBeat: "return" },
+      exitConditions: [
+        { onEventType: "BARGAIN_SEALED", next: "whispers" },
+        { onEventType: "BARGAIN_BROKEN", next: "whispers" },
+      ],
+      availableActions: [
+        "ASK_QUESTION",
+        "GENERIC_ACTION",
+        "REVEAL_TRUE_NAME",
+        "PROMISE",
+        "PROPOSE_BARGAIN",
+        "ACCEPT_BARGAIN",
+        "BREAK_BARGAIN",
+      ],
+      stateEffects: {},
+      characterInvolvement: ["caelan", "rival"],
+      canonFactTemplates: [],
+      isFailState: false,
+    },
+    {
+      slug: "whispers",
+      beatOrder: 3,
+      name: "Court Whispers",
+      entryConditions: { requiresBeat: "the_debt" },
+      exitConditions: [
+        { onEventType: "INTENT_RESOLVED", next: "the_offer", minOccurrencesInBeat: 2 },
+      ],
+      availableActions: ["ASK_QUESTION", "GENERIC_ACTION", "REVEAL_TRUE_NAME", "PROMISE"],
+      stateEffects: {},
+      characterInvolvement: ["caelan", "wren"],
+      canonFactTemplates: [
+        {
+          factType: "CHARACTER_KNOWLEDGE",
+          subject: "caelan",
+          content: "someone at court has begun asking after his true name",
+        },
+      ],
+      isFailState: false,
+    },
+    {
+      slug: "the_offer",
+      beatOrder: 4,
+      name: "The Offer",
+      entryConditions: { requiresBeat: "whispers" },
+      exitConditions: [
+        { onEventType: "BARGAIN_SEALED", next: "blood_price" },
+        { onEventType: "BARGAIN_BROKEN", next: "blood_price" },
+      ],
+      availableActions: [
+        "ASK_QUESTION",
+        "GENERIC_ACTION",
+        "PROMISE",
+        "PROPOSE_BARGAIN",
+        "ACCEPT_BARGAIN",
+        "BREAK_BARGAIN",
+      ],
+      stateEffects: {},
+      characterInvolvement: ["caelan", "rival"],
+      canonFactTemplates: [],
+      isFailState: false,
+    },
+    {
+      slug: "blood_price",
+      beatOrder: 5,
+      name: "Blood Price",
+      entryConditions: { requiresBeat: "the_offer" },
+      exitConditions: [
+        { onEventType: "INTENT_RESOLVED", next: "the_reckoning", minOccurrencesInBeat: 2 },
+      ],
+      availableActions: [
+        "ASK_QUESTION",
+        "GENERIC_ACTION",
+        "PROMISE",
+        "PROPOSE_BARGAIN",
+        "ACCEPT_BARGAIN",
+        "BREAK_BARGAIN",
+      ],
+      stateEffects: { fear: 10 },
+      characterInvolvement: ["caelan", "rival", "wren"],
+      canonFactTemplates: [],
+      isFailState: false,
+    },
+    {
+      slug: "the_reckoning",
+      beatOrder: 6,
+      name: "The Reckoning",
+      entryConditions: { requiresBeat: "blood_price" },
+      exitConditions: [
+        { onEventType: "INTENT_RESOLVED", next: "season_two_finale", minOccurrencesInBeat: 2 },
+      ],
+      availableActions: ["ASK_QUESTION", "GENERIC_ACTION", "REVEAL_TRUE_NAME", "PROMISE"],
+      stateEffects: {},
+      characterInvolvement: ["caelan", "rival", "wren"],
+      canonFactTemplates: [],
+      isFailState: false,
+    },
+    {
+      slug: "season_two_finale",
+      beatOrder: 7,
+      name: "Season Two Finale",
+      entryConditions: { requiresBeat: "the_reckoning" },
+      exitConditions: [
+        { onEventType: "INTENT_RESOLVED", next: null, minOccurrencesInBeat: 3, completesSession: true },
+      ],
+      availableActions: ["ASK_QUESTION", "GENERIC_ACTION", "REVEAL_TRUE_NAME", "PROMISE"],
+      stateEffects: {},
+      characterInvolvement: ["caelan", "rival", "wren"],
+      canonFactTemplates: [],
+      isFailState: false,
+    },
+  ];
+
+  await upsertBeatsForSeason(prisma, seasonTwo.id, seasonTwoBeats);
 
   const caelan = await prisma.storyCharacter.upsert({
     where: { universeId_slug_version: { universeId: universe.id, slug: "caelan", version: 1 } },
@@ -368,6 +543,6 @@ export async function seedRomanceContent(
     universeName: universe.name,
     universeSlug: universe.slug,
     universeVersion: universe.version,
-    beatCount: beats.length,
+    beatCount: seasonOneBeats.length + seasonTwoBeats.length,
   };
 }
