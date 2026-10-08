@@ -26,15 +26,23 @@ export function RomanceShell({ displayName, children }: RomanceShellProps) {
           >
             Thornbound
           </Link>
-          <form action={signOutAction} className="flex items-center gap-3 text-sm text-white/60">
-            <span className="hidden sm:inline">{displayName}</span>
-            <button
-              type="submit"
-              className="rounded-md px-2 py-1 underline hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c9a7e0]"
+          <div className="flex items-center gap-3 text-sm text-white/60">
+            <Link
+              href="/romance/admin"
+              className="hidden rounded-md px-2 py-1 underline hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c9a7e0] sm:inline"
             >
-              Sign out
-            </button>
-          </form>
+              Admin
+            </Link>
+            <span className="hidden sm:inline">{displayName}</span>
+            <form action={signOutAction} className="inline">
+              <button
+                type="submit"
+                className="rounded-md px-2 py-1 underline hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c9a7e0]"
+              >
+                Sign out
+              </button>
+            </form>
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-3xl px-4 py-8">{children}</main>
