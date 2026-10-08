@@ -16,10 +16,17 @@ interface DialogueLine {
   text: string;
 }
 
+interface AudioForLine {
+  playbackUrl: string;
+  durationMs: number;
+}
+
 interface SceneEntry {
   id: string;
   narration: string;
   dialogueLines: DialogueLine[];
+  /** Keyed by dialogueLines index (as a string, since it crosses a JSON/props boundary). Absent entirely for a scene the player just submitted - audio renders out-of-band and only appears on a later load. */
+  audioByLine?: Record<string, AudioForLine>;
 }
 
 interface RelationshipDimensions {
@@ -172,14 +179,24 @@ export function StorySessionScreen({
         {scenes.map((scene) => (
           <div key={scene.id} className="space-y-2">
             <p className="text-sm leading-relaxed text-[#e4d9ea]">{scene.narration}</p>
-            {scene.dialogueLines.map((line, index) => (
-              <p key={index} className="text-sm italic text-[#c9a7e0]">
-                <span className="font-medium not-italic">
-                  {characterNames[line.speakerSlug] ?? line.speakerSlug}:
-                </span>{" "}
-                &ldquo;{line.text}&rdquo;
-              </p>
-            ))}
+            {scene.dialogueLines.map((line, index) => {
+              const audio = scene.audioByLine?.[index];
+              return (
+                <div key={index} className="space-y-1">
+                  <p className="text-sm italic text-[#c9a7e0]">
+                    <span className="font-medium not-italic">
+                      {characterNames[line.speakerSlug] ?? line.speakerSlug}:
+                    </span>{" "}
+                    &ldquo;{line.text}&rdquo;
+                  </p>
+                  {audio && (
+                    <audio controls preload="none" src={audio.playbackUrl} className="h-8 w-full max-w-xs">
+                      Your browser does not support audio playback.
+                    </audio>
+                  )}
+                </div>
+              );
+            })}
           </div>
         ))}
         {isPending && (

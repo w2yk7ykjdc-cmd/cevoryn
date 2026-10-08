@@ -94,6 +94,8 @@ export type SubmitPlayerInputResult =
       accepted: true;
       intent: StructuredIntent;
       storyEventId: string;
+      /** Needed by the caller to schedule renderSceneAudio() post-response (brief §20) without a second DB round trip. */
+      universeId: string;
       scene: StructuredSceneOutput;
       sceneFailureReason: SceneFailureReason | null;
       beatAdvancedTo: string | null;
@@ -433,6 +435,7 @@ interface StoredAcceptedPayload {
  */
 async function findResultByIdempotencyKey(
   storySessionId: string,
+  universeId: string,
   idempotencyKey: string
 ): Promise<SubmitPlayerInputResult | null> {
   const event = await prisma.storyEvent.findFirst({
@@ -449,6 +452,7 @@ async function findResultByIdempotencyKey(
     accepted: true,
     intent: payload.intent,
     storyEventId: event.id,
+    universeId,
     scene: payload.scene,
     sceneFailureReason: payload.sceneFailureReason,
     beatAdvancedTo: null,
@@ -477,7 +481,11 @@ export async function submitPlayerInput(
   }
 
   if (params.idempotencyKey) {
-    const replayed = await findResultByIdempotencyKey(session.id, params.idempotencyKey);
+    const replayed = await findResultByIdempotencyKey(
+      session.id,
+      session.universeId,
+      params.idempotencyKey
+    );
     if (replayed) return replayed;
   }
 
@@ -863,6 +871,7 @@ export async function submitPlayerInput(
         accepted: true,
         intent,
         storyEventId: storyEvent.id,
+        universeId: session.universeId,
         scene: sceneResult.scene,
         sceneFailureReason: sceneResult.failureReason,
         beatAdvancedTo,

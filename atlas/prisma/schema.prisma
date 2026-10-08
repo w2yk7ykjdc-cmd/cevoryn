@@ -1832,6 +1832,15 @@ model AudioAsset {
 model AudioRender {
   id                  String            @id @default(cuid())
   storyEventId        String            @map("story_event_id")
+  /// Position of this dialogue line within the scene's dialogueLines[]
+  /// array - a single StoryEvent can have multiple characters (or the
+  /// same character twice) speaking, so (storyEventId, voiceProfileId)
+  /// alone is not unique. Added alongside voiceProfileId to the
+  /// uniqueness constraint below (a Stage 3 schema gap: the original
+  /// constraint was only [storyEventId, voiceProfileVersion], which two
+  /// different characters both on their voice profile's first version
+  /// would collide on).
+  lineIndex           Int               @default(0) @map("line_index")
   voiceProfileId      String            @map("voice_profile_id")
   voiceProfileVersion Int               @map("voice_profile_version")
   status              AudioRenderStatus @default(PENDING)
@@ -1843,7 +1852,7 @@ model AudioRender {
   voiceProfile VoiceProfile @relation(fields: [voiceProfileId], references: [id], onDelete: Restrict)
   audioAsset   AudioAsset?  @relation(fields: [audioAssetId], references: [id], onDelete: SetNull)
 
-  @@unique([storyEventId, voiceProfileVersion])
+  @@unique([storyEventId, lineIndex, voiceProfileId, voiceProfileVersion])
   @@map("romance_audio_renders")
 }
 
