@@ -36,6 +36,9 @@ export function StoryLibraryGrid({ universes }: StoryLibraryGridProps) {
             <p className="mt-2 text-sm leading-relaxed text-[#c9b8d4]">
               {universe.description}
             </p>
+            <span className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[#5c3a73] px-4 py-2 text-sm font-medium text-white transition group-hover:bg-[#6d4788] sm:w-auto">
+              Enter story
+            </span>
           </Link>
         ))}
       </div>
