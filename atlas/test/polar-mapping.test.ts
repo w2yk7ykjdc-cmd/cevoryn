@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
   getBillingPlanFromPolarProductId,
+  getRomancePlanFromPolarProductId,
+  mapPolarStatusToRomanceStatus,
   mapPolarSubscriptionStatus,
   SUPPORTED_POLAR_EVENT_TYPES,
 } from "../src/lib/polar/mapping";
@@ -89,6 +91,48 @@ test("payment status change: past_due status maps to PAST_DUE", () => {
 test("an unrecognized status string never crashes - falls back to INCOMPLETE", () => {
   assert.equal(mapPolarSubscriptionStatus("some_future_status"), "INCOMPLETE");
   assert.equal(mapPolarSubscriptionStatus(undefined), "INCOMPLETE");
+});
+
+test("Romance purchase: the configured Romance Premium product id maps to PREMIUM", () => {
+  process.env.POLAR_PRODUCT_ROMANCE_PREMIUM = "prod_romance_premium_test";
+  try {
+    assert.equal(
+      getRomancePlanFromPolarProductId("prod_romance_premium_test"),
+      "PREMIUM"
+    );
+  } finally {
+    process.env = { ...ORIGINAL_ENV };
+  }
+});
+
+test("a B2B product id never maps to a Romance plan, even when both are configured", () => {
+  process.env.POLAR_PRODUCT_ROMANCE_PREMIUM = "prod_romance_premium_test";
+  process.env.POLAR_PRODUCT_STARTER = "prod_starter_test";
+  try {
+    assert.equal(getRomancePlanFromPolarProductId("prod_starter_test"), null);
+  } finally {
+    process.env = { ...ORIGINAL_ENV };
+  }
+});
+
+test("Romance status mapping: active/trialing collapse to ACTIVE", () => {
+  assert.equal(mapPolarStatusToRomanceStatus("active"), "ACTIVE");
+  assert.equal(mapPolarStatusToRomanceStatus("trialing"), "ACTIVE");
+});
+
+test("Romance status mapping: canceled/revoked collapse to CANCELED", () => {
+  assert.equal(mapPolarStatusToRomanceStatus("canceled"), "CANCELED");
+  assert.equal(mapPolarStatusToRomanceStatus("revoked"), "CANCELED");
+});
+
+test("Romance status mapping: fails closed - payment-troubled/ambiguous/unknown statuses are never ACTIVE", () => {
+  assert.equal(mapPolarStatusToRomanceStatus("past_due"), "EXPIRED");
+  assert.equal(mapPolarStatusToRomanceStatus("unpaid"), "EXPIRED");
+  assert.equal(mapPolarStatusToRomanceStatus("paused"), "EXPIRED");
+  assert.equal(mapPolarStatusToRomanceStatus("incomplete"), "EXPIRED");
+  assert.equal(mapPolarStatusToRomanceStatus("incomplete_expired"), "EXPIRED");
+  assert.equal(mapPolarStatusToRomanceStatus("some_future_status"), "EXPIRED");
+  assert.equal(mapPolarStatusToRomanceStatus(undefined), "EXPIRED");
 });
 
 test("the webhook route only acts on the real, SDK-verified subscription lifecycle events", () => {

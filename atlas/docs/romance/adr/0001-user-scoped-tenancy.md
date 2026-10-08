@@ -40,7 +40,7 @@ semantically, reusing the same *mechanism* but not the same *table*:
 |---|---|---|
 | Identity | Supabase Auth (`getUser()`) | **Same** — reused as-is |
 | Tenancy root | `Organization` (B2B) | `RomancePlayer` (keyed by `userId`) |
-| Entitlement | `Subscription` (org-scoped, STARTER/PROFESSIONAL/BUSINESS) | `RomanceSubscription` (player-scoped, FREE/PREMIUM) — same shape, independent table, independent of Polar/billing-provider wiring per the product brief's "provider-agnostic" requirement |
+| Entitlement | `Subscription` (org-scoped, STARTER/PROFESSIONAL/BUSINESS) | `RomanceSubscription` (player-scoped, FREE/PREMIUM) — independent table, independent product (`POLAR_PRODUCT_ROMANCE_PREMIUM`) and checkout/portal routes, but reuses the same Polar account/access-token/webhook-secret and the same shared webhook endpoint (routed by metadata key, not product id) — see Product Bible's "Live payment integration" section |
 | Audit | `AuditLog` (org-scoped, non-nullable `organizationId`) | `RomanceAuditLog` (player-scoped) — a new table rather than loosening `AuditLog`'s FK, so no existing B2B audit query or constraint is touched |
 | AI provider | `AIProvider` interface (`src/features/ai/providers`) | **Same interface, reused directly** — it is already provider-agnostic and has no Organization coupling |
 | Rate limiting | `auth-rate-limit.service.ts` (Postgres advisory-lock pattern) | **Same pattern reused** for Romance action-level abuse limits (new rows, same proven technique) |

@@ -61,6 +61,17 @@ export function getPolarProductId(plan: BillingPlan): string {
   return value;
 }
 
+/** The single Romance product (PREMIUM) - a distinct Polar product from any B2B plan's, per ADR-0001. */
+export function getRomancePremiumPolarProductId(): string {
+  const value = process.env.POLAR_PRODUCT_ROMANCE_PREMIUM?.trim();
+  if (!value) {
+    throw new PolarConfigurationError(
+      "POLAR_PRODUCT_ROMANCE_PREMIUM is not configured."
+    );
+  }
+  return value;
+}
+
 type PolarErrorPayload = {
   error?: string;
   detail?: string | Array<{ msg?: string }>;

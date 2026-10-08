@@ -6,6 +6,8 @@ import { z } from "zod";
 import type { ActionResult } from "@/types";
 
 import { renderSceneAudio } from "../../audio/audio-render.service";
+import { isRomancePremiumActive } from "../../billing/entitlement-math";
+import { getRomanceSubscription } from "../../billing/romance-subscription.service";
 import {
   RomanceStoryNotFoundError,
   submitPlayerInput,
@@ -81,20 +83,29 @@ export async function submitStoryActionAction(
     // has been sent, so a slow or failed TTS/storage call can never delay
     // or lose the player's turn. Safe to re-schedule on an idempotency
     // replay too: renderSceneAudio() is itself idempotent per line.
+    //
+    // "Premium voice performance" (Product Bible) is the paid feature -
+    // a FREE player's scene is never sent to TTS at all, not even to
+    // silently discard the result. Checked here (not inside
+    // renderSceneAudio itself) so a FREE player's audio never costs a
+    // TTS API call in the first place.
     if (result.accepted && result.scene.dialogueLines.length > 0) {
-      const { storyEventId, universeId, scene } = result;
-      after(() =>
-        renderSceneAudio({
-          storyEventId,
-          universeId,
-          dialogueLines: scene.dialogueLines,
-        }).catch((error) => {
-          console.error(
-            "[romance] renderSceneAudio scheduling failed",
-            error instanceof Error ? error.message : "unknown error"
-          );
-        })
-      );
+      const subscription = await getRomanceSubscription(player.id);
+      if (isRomancePremiumActive(subscription)) {
+        const { storyEventId, universeId, scene } = result;
+        after(() =>
+          renderSceneAudio({
+            storyEventId,
+            universeId,
+            dialogueLines: scene.dialogueLines,
+          }).catch((error) => {
+            console.error(
+              "[romance] renderSceneAudio scheduling failed",
+              error instanceof Error ? error.message : "unknown error"
+            );
+          })
+        );
+      }
     }
 
     return { success: true, data: result };
