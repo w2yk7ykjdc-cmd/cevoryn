@@ -6,6 +6,7 @@ import { ROUTES } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import type { ActionResult } from "@/types";
 
+import { recordRomanceAuditEvent } from "../../audit/romance-audit.service";
 import { requireRomancePlayer } from "../romance-player-guards";
 
 /**
@@ -34,6 +35,13 @@ export async function verifyAdultAction(input: {
     await prisma.romancePlayer.update({
       where: { id: player.id },
       data: { ageVerifiedAt: new Date() },
+    });
+    await recordRomanceAuditEvent({
+      playerId: player.id,
+      actorType: "PLAYER",
+      action: "age_verification.completed",
+      resourceType: "RomancePlayer",
+      resourceId: player.id,
     });
   }
 

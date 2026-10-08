@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import type { ActionResult } from "@/types";
 
+import { recordRomanceAuditEvent } from "../../audit/romance-audit.service";
 import { getAdultRomancePlayerOrThrow } from "../../player/romance-player-guards";
 
 const createPlayerCharacterSchema = z.object({
@@ -60,6 +61,15 @@ export async function createPlayerCharacterAction(
       pronouns: parsed.data.pronouns,
       appearanceNotes: parsed.data.appearanceNotes ?? null,
     },
+  });
+
+  await recordRomanceAuditEvent({
+    playerId: player.id,
+    actorType: "PLAYER",
+    action: "player_character.created",
+    resourceType: "PlayerCharacter",
+    resourceId: created.id,
+    metadata: { universeSlug: parsed.data.universeSlug },
   });
 
   return { success: true, data: { playerCharacterId: created.id } };

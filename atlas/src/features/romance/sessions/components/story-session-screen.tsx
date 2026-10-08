@@ -143,7 +143,11 @@ export function StorySessionScreen({
       }
 
       if (inner.beatAdvancedTo) {
-        setCurrentBeatName(inner.beatAdvancedTo);
+        // beatAdvancedTo is a slug (an API/test contract - see
+        // romance-story.service.ts); beatAdvancedToName is the display
+        // name actually meant for the header. A pre-existing bug here
+        // used the slug directly - fixed while touching this code path.
+        setCurrentBeatName(inner.beatAdvancedToName ?? inner.beatAdvancedTo);
         toast("The story moves forward.");
       }
 

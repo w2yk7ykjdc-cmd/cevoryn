@@ -99,6 +99,8 @@ export type SubmitPlayerInputResult =
       scene: StructuredSceneOutput;
       sceneFailureReason: SceneFailureReason | null;
       beatAdvancedTo: string | null;
+      /** The new beat's display name, e.g. for a UI/notification - beatAdvancedTo itself stays a slug (test/API contract). */
+      beatAdvancedToName: string | null;
       sessionCompleted: boolean;
       relationshipChanges: Array<{
         dimension: RelationshipDimensionKey;
@@ -456,6 +458,7 @@ async function findResultByIdempotencyKey(
     scene: payload.scene,
     sceneFailureReason: payload.sceneFailureReason,
     beatAdvancedTo: null,
+    beatAdvancedToName: null,
     sessionCompleted: false,
     relationshipChanges: payload.relationshipChanges,
   };
@@ -802,6 +805,7 @@ export async function submitPlayerInput(
       // happened. exitConditions defaults to {} (not an array) on beats
       // that declare none - never trust stored Json shape blindly.
       let beatAdvancedTo: string | null = null;
+      let beatAdvancedToName: string | null = null;
       let sessionCompleted = false;
 
       const exitRules = Array.isArray(session.currentBeat?.exitConditions)
@@ -836,6 +840,7 @@ export async function submitPlayerInput(
           });
           if (nextBeat) {
             beatAdvancedTo = nextBeat.slug;
+            beatAdvancedToName = nextBeat.name;
             await tx.storyEvent.create({
               data: {
                 storySessionId: session.id,
@@ -875,6 +880,7 @@ export async function submitPlayerInput(
         scene: sceneResult.scene,
         sceneFailureReason: sceneResult.failureReason,
         beatAdvancedTo,
+        beatAdvancedToName,
         sessionCompleted,
         relationshipChanges:
           (storyEventPayload.relationshipChanges as Array<{

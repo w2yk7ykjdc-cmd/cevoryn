@@ -1,15 +1,15 @@
-# Product Bible — "The Court of Thorns" (working title)
+# Product Bible — "Thornbound"
 
-**⚠️ TRADEMARK RISK — read before any public-facing use of this name.**
-"The Court of Thorns" is a near-identical match to *A Court of Thorns and
-Roses* (Sarah J. Maas / Bloomsbury), the dominant, trademarked work in
-exactly this genre (dark fae romantasy). Using this name publicly risks a
-real trademark/passing-off claim and App Store/marketing rejection. This
-document treats it strictly as the internal working title per the
-brief's own framing ("Çalışma adı"). **A cleared, distinct name is a
-hard blocker before any public launch, store listing, or marketing
-asset** — not a cosmetic rename. Flagging this once, here, rather than
-burying it.
+**Naming history:** this product was originally planned under the working
+title "The Court of Thorns," which was flagged as a near-identical,
+real trademark-risk match to *A Court of Thorns and Roses* (Sarah J. Maas
+/ Bloomsbury), the dominant trademarked work in exactly this genre (dark
+fae romantasy). That risk is why the shipped product, its seed content,
+and every player-facing surface (`src/features/romance/seed/`, the
+`/romance` UI) use **"Thornbound"** instead — a cleared, distinct name,
+not a cosmetic rename. This document (and the Story Engine Bible) still
+refer to the setting generically in places; nothing in the shipped
+product displays the old working title.
 
 ---
 

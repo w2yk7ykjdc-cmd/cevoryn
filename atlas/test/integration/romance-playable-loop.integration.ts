@@ -254,6 +254,7 @@ test("the full loop: create character -> start session -> free-form input -> val
   assert.equal(result.sceneFailureReason, null);
   // The ASK_QUESTION nudge + beat-advance (beat-a exits after 1 resolved intent) both fired.
   assert.equal(result.beatAdvancedTo, "beat-b");
+  assert.equal(result.beatAdvancedToName, "Beat B");
   assert.ok(result.relationshipChanges && result.relationshipChanges.length > 0);
 
   const worldEventMemories = await getMemoriesForContext(player.id, session.id, {
