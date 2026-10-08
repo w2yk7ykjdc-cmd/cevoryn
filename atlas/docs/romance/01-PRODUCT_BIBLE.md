@@ -148,15 +148,33 @@ enforced). Beat graph + Canon Validator (both real, both enforced — this
 is the one piece of "MVP" that is explicitly *not* allowed to be a
 simplified stand-in, because it is the product's core differentiator).
 Personalized audio for key scenes (not every scene — see Audio Model).
-FREE/PREMIUM entitlement scaffolding (no live payment integration
-required for MVP; the seam must exist and be real, not hard-coded true).
+FREE/PREMIUM entitlement, now wired to a real payment provider (Polar —
+see "Live payment integration" below), gating audio narration
+specifically (free-form play, memory, and relationships are never
+paywalled; the differentiator being sold is the audio performance).
+
+## Live payment integration (Polar)
+
+Reuses Cevoryn's existing, already-production-tested Polar integration
+(`src/lib/polar/**`, `src/server/services/billing.service.ts`) rather
+than a second payment stack — same access token, same webhook secret,
+same signature verification — but with Romance's own product
+(`POLAR_PRODUCT_ROMANCE_PREMIUM`), checkout/portal routes
+(`src/app/api/romance/billing/**`), and state table
+(`RomanceSubscription`, player-scoped per ADR-0001, never the B2B
+`Subscription` table). The single shared webhook route
+(`/api/billing/polar/webhook`) branches on which metadata key an event
+carries (`romancePlayerId` vs `organizationId`) — set by whichever
+checkout route created it — so the two billing surfaces never cross
+wires despite sharing one Polar account and one webhook endpoint.
+PREMIUM gates exactly one thing: whether `submitStoryActionAction`
+schedules `renderSceneAudio()` at all. A FREE player's scene is never
+sent to TTS, not even to discard the result.
 
 ## Post-MVP boundary (explicitly deferred, not forgotten)
 
 - Second universe / second season.
 - Co-op or shared-story features.
-- Live payment provider integration (Polar or other) wired to
-  `RomanceSubscription`.
 - Full admin content-authoring UI (MVP ships with versioned
   JSON/TS-defined beat graphs + a seed script, not a visual editor — see
   §23; the *data model* for admin tooling ships in MVP, the *UI* does

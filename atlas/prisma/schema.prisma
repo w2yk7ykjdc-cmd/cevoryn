@@ -1377,9 +1377,9 @@ model RomancePlayer {
 }
 
 /// Independent of Cevoryn's B2B `Subscription` table on purpose - see
-/// ADR-0001. `provider`/`providerCustomerId` stay nullable because no live
-/// payment provider is wired yet (Product Bible's explicit post-MVP
-/// boundary); the shape exists so wiring one later is additive.
+/// ADR-0001. `provider`/`providerCustomerId` are nullable because a FREE
+/// player never has a payment-provider record - once wired (Polar, see
+/// src/features/romance/billing/**), a PREMIUM row always has both set.
 model RomanceSubscription {
   id                 String                    @id @default(cuid())
   playerId           String                    @unique @map("player_id")
@@ -1388,6 +1388,10 @@ model RomanceSubscription {
   provider           String?
   providerCustomerId String?                   @map("provider_customer_id")
   currentPeriodEnd   DateTime?                 @map("current_period_end")
+  /// Timestamp of the last Polar webhook event actually applied to this row -
+  /// same out-of-order-redelivery defense as the B2B `Subscription` table's
+  /// `lastWebhookEventAt` (see billing.service.ts's applyPolarSubscriptionEvent).
+  lastWebhookEventAt DateTime?                 @map("last_webhook_event_at")
   createdAt          DateTime                  @default(now()) @map("created_at")
   updatedAt          DateTime                  @updatedAt @map("updated_at")
 

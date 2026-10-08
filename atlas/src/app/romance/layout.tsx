@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { isRomancePremiumActive } from "@/features/romance/billing/entitlement-math";
+import { getRomanceSubscription } from "@/features/romance/billing/romance-subscription.service";
 import { requireRomancePlayer } from "@/features/romance/player/romance-player-guards";
 
 import { RomanceShell } from "./romance-shell";
@@ -14,5 +16,10 @@ import { RomanceShell } from "./romance-shell";
  */
 export default async function RomanceLayout({ children }: { children: ReactNode }) {
   const { player } = await requireRomancePlayer();
-  return <RomanceShell displayName={player.displayName}>{children}</RomanceShell>;
+  const subscription = await getRomanceSubscription(player.id);
+  return (
+    <RomanceShell displayName={player.displayName} isPremium={isRomancePremiumActive(subscription)}>
+      {children}
+    </RomanceShell>
+  );
 }

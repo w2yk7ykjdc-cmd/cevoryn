@@ -24,6 +24,43 @@ export function getBillingPlanFromPolarProductId(
 }
 
 /**
+ * Reverse lookup of a Polar product id to the Romance plan it represents.
+ * Separate from getBillingPlanFromPolarProductId() (B2B) on purpose - a
+ * Romance checkout/webhook event is identified by its own metadata key
+ * (romancePlayerId) in the webhook route, never by trying both product-id
+ * lookups against one event, but this still gives the webhook handler a
+ * second, independent confirmation that the product is the one Romance
+ * checkout actually created.
+ */
+export function getRomancePlanFromPolarProductId(
+  productId: string
+): "PREMIUM" | null {
+  const configured = process.env.POLAR_PRODUCT_ROMANCE_PREMIUM?.trim();
+  return configured && configured === productId ? "PREMIUM" : null;
+}
+
+const ROMANCE_ACTIVE_POLAR_STATUSES = new Set(["ACTIVE", "TRIALING"]);
+const ROMANCE_CANCELED_POLAR_STATUSES = new Set(["CANCELED", "REVOKED"]);
+
+/**
+ * Collapses Polar's 8 (well, 9 with "revoked", a webhook-event-type name
+ * rather than a status value) subscription statuses onto Romance's
+ * simpler 3-value model. Deliberately fails closed: anything not
+ * positively known to be active or explicitly canceled (incomplete,
+ * incomplete_expired, past_due, unpaid, paused) maps to EXPIRED - a
+ * player is never granted PREMIUM access on an ambiguous or
+ * payment-troubled status.
+ */
+export function mapPolarStatusToRomanceStatus(
+  status: string | undefined
+): "ACTIVE" | "CANCELED" | "EXPIRED" {
+  const upper = status?.toUpperCase();
+  if (upper && ROMANCE_ACTIVE_POLAR_STATUSES.has(upper)) return "ACTIVE";
+  if (upper && ROMANCE_CANCELED_POLAR_STATUSES.has(upper)) return "CANCELED";
+  return "EXPIRED";
+}
+
+/**
  * Event types this integration acts on. Verified against @polar-sh/sdk
  * 0.49.0 (src/webhooks.ts parseEvent switch) - these are real event names,
  * not guessed. Polar also sends checkout.*, order.*, product.*,

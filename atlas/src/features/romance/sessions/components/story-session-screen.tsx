@@ -45,6 +45,7 @@ interface StorySessionScreenProps {
   initialScenes: SceneEntry[];
   initialRelationships: Record<string, RelationshipDimensions>;
   initialSessionCompleted: boolean;
+  isPremium: boolean;
 }
 
 function friendlyRejectionMessage(reason: string): string {
@@ -77,6 +78,7 @@ export function StorySessionScreen({
   initialScenes,
   initialRelationships,
   initialSessionCompleted,
+  isPremium,
 }: StorySessionScreenProps) {
   const [scenes, setScenes] = useState<SceneEntry[]>(initialScenes);
   const [relationships, setRelationships] =
@@ -175,6 +177,12 @@ export function StorySessionScreen({
       >
         {scenes.length === 0 && (
           <p className="text-sm text-[#a08bb0]">The story is about to begin.</p>
+        )}
+        {!isPremium && scenes.some((scene) => scene.dialogueLines.length > 0) && (
+          <p className="text-xs text-[#8a7693]">
+            🔒 Voiced dialogue is a Premium feature.{" "}
+            <span className="underline">Unlock Premium Voices</span> above to hear this scene performed.
+          </p>
         )}
         {scenes.map((scene) => (
           <div key={scene.id} className="space-y-2">

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { getAudioForStoryEvent } from "@/features/romance/audio/audio-render.service";
+import { isRomancePremiumActive } from "@/features/romance/billing/entitlement-math";
+import { getRomanceSubscription } from "@/features/romance/billing/romance-subscription.service";
 import { requireAdultRomancePlayer } from "@/features/romance/player/romance-player-guards";
 import { StorySessionScreen } from "@/features/romance/sessions/components/story-session-screen";
 import { loadStoryContext } from "@/features/romance/sessions/romance-session.service";
@@ -40,7 +42,10 @@ export default async function StorySessionPage({ params }: PageProps) {
   const { sessionId } = await params;
   const { player } = await requireAdultRomancePlayer();
 
-  const context = await loadStoryContext(player.id, sessionId);
+  const [context, subscription] = await Promise.all([
+    loadStoryContext(player.id, sessionId),
+    getRomanceSubscription(player.id),
+  ]);
   if (!context) notFound();
 
   const { session, relationshipStates, recentResolvedEvents } = context;
@@ -100,6 +105,7 @@ export default async function StorySessionPage({ params }: PageProps) {
       initialScenes={initialScenes}
       initialRelationships={initialRelationships}
       initialSessionCompleted={session.status === "COMPLETED"}
+      isPremium={isRomancePremiumActive(subscription)}
     />
   );
 }
