@@ -1,9 +1,11 @@
 "use server";
 
+import { after } from "next/server";
 import { z } from "zod";
 
 import type { ActionResult } from "@/types";
 
+import { renderSceneAudio } from "../../audio/audio-render.service";
 import {
   RomanceStoryNotFoundError,
   submitPlayerInput,
@@ -73,6 +75,28 @@ export async function submitStoryActionAction(
       bargainBreachConsequence: parsed.data.bargainBreachConsequence,
       idempotencyKey: parsed.data.idempotencyKey,
     });
+
+    // Brief §20: audio rendering never runs inside the request/transaction
+    // that commits story state - after() schedules it once the response
+    // has been sent, so a slow or failed TTS/storage call can never delay
+    // or lose the player's turn. Safe to re-schedule on an idempotency
+    // replay too: renderSceneAudio() is itself idempotent per line.
+    if (result.accepted && result.scene.dialogueLines.length > 0) {
+      const { storyEventId, universeId, scene } = result;
+      after(() =>
+        renderSceneAudio({
+          storyEventId,
+          universeId,
+          dialogueLines: scene.dialogueLines,
+        }).catch((error) => {
+          console.error(
+            "[romance] renderSceneAudio scheduling failed",
+            error instanceof Error ? error.message : "unknown error"
+          );
+        })
+      );
+    }
+
     return { success: true, data: result };
   } catch (error) {
     if (error instanceof RomanceStoryNotFoundError) {

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { getAudioForStoryEvent } from "@/features/romance/audio/audio-render.service";
 import { requireAdultRomancePlayer } from "@/features/romance/player/romance-player-guards";
 import { StorySessionScreen } from "@/features/romance/sessions/components/story-session-screen";
 import { loadStoryContext } from "@/features/romance/sessions/romance-session.service";
@@ -52,15 +53,30 @@ export default async function StorySessionPage({ params }: PageProps) {
 
   const availableCharacterSlugs = session.currentBeat?.characterInvolvement ?? [];
 
-  const initialScenes = recentResolvedEvents
+  const sceneEntries = recentResolvedEvents
     .slice()
     .reverse()
     .map((event) => ({ id: event.id, scene: extractScene(event.payload) }))
     .filter(
       (entry): entry is { id: string; scene: NonNullable<ReturnType<typeof extractScene>> } =>
         entry.scene !== null
-    )
-    .map((entry) => ({ id: entry.id, ...entry.scene }));
+    );
+
+  // Audio renders happen out-of-band after the turn that generated them
+  // (see submit-action.ts's after() call) - a scene fetched here may
+  // already have completed audio for some/all lines, none, or (for a
+  // scene the player just submitted this request) none yet. The player
+  // sees text immediately either way; audio appears once it exists.
+  const initialScenes = await Promise.all(
+    sceneEntries.map(async (entry) => {
+      const audioByLine = await getAudioForStoryEvent(entry.id);
+      return {
+        id: entry.id,
+        ...entry.scene,
+        audioByLine: Object.fromEntries(audioByLine),
+      };
+    })
+  );
 
   const initialRelationships = Object.fromEntries(
     relationshipStates.map((state) => [
