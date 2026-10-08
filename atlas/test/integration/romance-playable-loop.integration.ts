@@ -430,7 +430,9 @@ test("the real shipped seed content (Thornbound) produces a beat graph shape com
   const beats = await prisma.beat.findMany({
     where: { season: { universe: { slug: "thornbound" } } },
   });
-  assert.equal(beats.length, 7);
+  // 7 beats per season, two seasons now shipped (Season One: The Bargain,
+  // Season Two: The Thorn Debt - see seed-romance-content.ts).
+  assert.equal(beats.length, 14);
 
   for (const beat of beats) {
     assert.ok(Array.isArray(beat.exitConditions), `${beat.slug}.exitConditions must be an array`);
@@ -439,4 +441,7 @@ test("the real shipped seed content (Thornbound) produces a beat graph shape com
   const awakening = beats.find((b) => b.slug === "awakening");
   assert.ok(awakening);
   assert.ok(awakening!.availableActions.includes("ASK_QUESTION"));
+
+  const seasonTwoFinale = beats.find((b) => b.slug === "season_two_finale");
+  assert.ok(seasonTwoFinale, "Season Two's finale beat should exist");
 });

@@ -20,7 +20,7 @@ export default async function StoryDetailPage({ params }: PageProps) {
   const { universeSlug } = await params;
   const { player } = await requireAdultRomancePlayer();
 
-  const detail = await getPublishedUniverseDetail(universeSlug);
+  const detail = await getPublishedUniverseDetail(universeSlug, player.id);
   if (!detail) notFound();
 
   const existingCharacter = await prisma.playerCharacter.findUnique({
