@@ -10,6 +10,9 @@ import {
 } from "@/lib/polar/mapping";
 import { prisma } from "@/lib/prisma";
 
+import { recordRomanceAuditEvent } from "../audit/romance-audit.service";
+import { createRomanceNotification } from "../notifications/romance-notification.service";
+
 /**
  * Romance's own billing-state service (ADR-0001: `RomanceSubscription` is
  * a separate table from Cevoryn's org-scoped `Subscription`, keyed by
@@ -47,7 +50,10 @@ export async function applyPolarRomanceSubscriptionEvent(
   eventId: string,
   event: PolarSubscriptionEvent
 ): Promise<ApplyPolarRomanceEventResult> {
-  return prisma.$transaction(async (transaction) => {
+  let appliedRomancePlayerId: string | null = null;
+  let appliedStatus: string | null = null;
+
+  const result = await prisma.$transaction(async (transaction) => {
     const claimed = await transaction.$executeRaw(Prisma.sql`
       INSERT INTO "billing_webhook_events" ("provider", "event_id", "event_type")
       VALUES ('polar', ${eventId}, ${event.type})
@@ -73,6 +79,8 @@ export async function applyPolarRomanceSubscriptionEvent(
 
     const eventTimestamp = parseDate(event.timestamp);
     const status = mapPolarStatusToRomanceStatus(event.data.status);
+    appliedRomancePlayerId = romancePlayerId;
+    appliedStatus = status;
 
     // Same out-of-order-redelivery guard as billing.service.ts's
     // applyPolarSubscriptionEvent(): only blocks the update when we have
@@ -105,4 +113,35 @@ export async function applyPolarRomanceSubscriptionEvent(
 
     return { processed: true, applied: updateResult > 0 };
   });
+
+  // Outside the transaction on purpose - these are non-critical,
+  // best-effort side effects (audit trail + in-app notification), never
+  // worth holding the subscription-state transaction open for, and
+  // never allowed to fail the webhook's actual job (recording state).
+  if (result.applied && appliedRomancePlayerId) {
+    await recordRomanceAuditEvent({
+      playerId: appliedRomancePlayerId,
+      actorType: "SYSTEM",
+      action: "subscription.updated",
+      resourceType: "RomanceSubscription",
+      metadata: { eventType: event.type, status: appliedStatus },
+    });
+    // Only the two events that represent an actual new activation, not
+    // every subsequent event that happens to reconfirm ACTIVE (e.g.
+    // subscription.updated can fire for unrelated field changes) - this
+    // notification would otherwise repeat on every webhook delivery.
+    if (
+      appliedStatus === "ACTIVE" &&
+      (event.type === "subscription.created" || event.type === "subscription.active")
+    ) {
+      await createRomanceNotification({
+        playerId: appliedRomancePlayerId,
+        title: "Premium voices unlocked",
+        body: "Your Premium subscription is active - dialogue from your voiced characters will now be performed as audio.",
+        payload: { eventType: event.type },
+      });
+    }
+  }
+
+  return result;
 }

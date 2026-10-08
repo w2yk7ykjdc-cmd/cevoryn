@@ -1,5 +1,6 @@
 import "server-only";
 
+import { captureServerError } from "@/lib/error-reporting";
 import { prisma } from "@/lib/prisma";
 
 import type { AudioStorageProvider } from "./audio-storage-provider";
@@ -99,15 +100,20 @@ export async function renderSceneAudio(params: {
             failureReason: error instanceof Error ? error.message.slice(0, 500) : "unknown error",
           },
         });
+        captureServerError("romance-audio-render", error, {
+          storyEventId: params.storyEventId,
+          lineIndex,
+          voiceProfileId: voiceProfile.id,
+        });
       }
     } catch (error) {
       // A failure resolving the character/voice profile (not the render
       // itself) - log and move on to the next line; never let one
       // line's lookup failure break the rest of the scene's audio.
-      console.error(
-        "[romance] renderSceneAudio: failed to resolve character/voice profile",
-        error instanceof Error ? error.message : "unknown error"
-      );
+      captureServerError("romance-audio-render-lookup", error, {
+        storyEventId: params.storyEventId,
+        lineIndex,
+      });
     }
   }
 }
