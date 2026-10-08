@@ -21,7 +21,8 @@ export class TestAudioStorageProvider implements AudioStorageProvider {
   readonly name = "test-audio-storage-provider";
   private readonly store = new Map<string, string>();
 
-  async uploadAudio(path: string, audioBase64: string): Promise<UploadedAudio> {
+  async uploadAudio(path: string, audioBase64: string, format: "mp3"): Promise<UploadedAudio> {
+    void format;
     this.store.set(path, audioBase64);
     return { storagePath: path };
   }

@@ -15,6 +15,7 @@ test("TestAudioStorageProvider stores uploaded audio and reports it present via 
 test("TestAudioStorageProvider returns a deterministic, path-encoded playback URL without calling a network", async () => {
   const storage = new TestAudioStorageProvider();
   await storage.uploadAudio("a/b c.mp3", "data", "mp3");
+
   const url = await storage.getPlaybackUrl("a/b c.mp3");
   assert.equal(url, "test://romance-audio/a%2Fb%20c.mp3");
 });

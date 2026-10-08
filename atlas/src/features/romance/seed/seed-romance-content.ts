@@ -334,17 +334,33 @@ export async function seedRomanceContent(
     update: {},
   });
 
-  for (const character of [caelan, rival]) {
+  // OpenAI tts-1 voices, picked for each character's established
+  // speechStyle above (onyx: deep/formal, matches Caelan's controlled
+  // cadence; echo: a distinct male voice, matches Rowan's clipped
+  // mocking tone). version=2 so a VoiceProfile row created before this
+  // change (provider="unconfigured", version=1) is recognized as stale
+  // and updated, per this file's established versioned-content
+  // convention - never silently overwritten in place.
+  const voiceAssignments: Array<{ character: typeof caelan; providerVoiceId: string }> = [
+    { character: caelan, providerVoiceId: "onyx" },
+    { character: rival, providerVoiceId: "echo" },
+  ];
+  for (const { character, providerVoiceId } of voiceAssignments) {
     await prisma.voiceProfile.upsert({
       where: { characterId: character.id },
       create: {
         characterId: character.id,
         sourceType: "AI",
-        provider: "unconfigured",
-        providerVoiceId: "unconfigured",
-        version: 1,
+        provider: "openai",
+        providerVoiceId,
+        version: 2,
       },
-      update: {},
+      update: {
+        sourceType: "AI",
+        provider: "openai",
+        providerVoiceId,
+        version: 2,
+      },
     });
   }
 
