@@ -21,6 +21,10 @@ export interface SceneSafetyContext {
   characters: Record<string, SceneSafetyCharacterEligibility>;
 }
 
+export interface SceneSafetyClassifier {
+  classify(scene: StructuredSceneOutput): Promise<unknown>;
+}
+
 export interface SceneSafetyViolation {
   ruleId: string;
   message: string;
