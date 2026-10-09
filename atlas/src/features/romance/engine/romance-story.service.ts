@@ -61,11 +61,11 @@ function extractPersonalityTraits(personality: unknown): string[] {
  * only relationship signal, and even then the engine - not the model -
  * owns the fixed magnitude (relationship-transition-math.ts).
  *
- * Production scene generation (OpenAISceneProvider) is real code but not
- * exercised against a real model in this sandbox - no OPENAI_API_KEY
- * exists here, so getSceneProvider() falls back to the deterministic
- * TestSceneProvider by default. See the final report's known-limitations
- * section; this is not hidden or reported as "working against a real LLM".
+ * Production scene generation uses OpenAISceneProvider when configured.
+ * If production credentials are missing, getSceneProvider() fails closed
+ * with SceneGenerationError rather than returning placeholder fiction.
+ * Deterministic TestSceneProvider use is restricted to explicit test contexts;
+ * real-provider connectivity must still be verified separately in deployment.
  */
 
 export class RomanceStoryNotFoundError extends Error {
