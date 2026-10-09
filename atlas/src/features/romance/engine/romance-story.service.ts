@@ -363,7 +363,7 @@ async function buildSceneSafetyContext(
 ): Promise<SceneSafetyContext> {
   const [characters, player] = await Promise.all([
     tx.storyCharacter.findMany({
-    where: { universeId },
+      where: { universeId },
       select: {
         slug: true,
         isAdult: true,
