@@ -67,8 +67,17 @@ function validateClaim(
       }
       return null;
     }
-    default:
-      return null;
+    default: {
+      // The provider output crosses a runtime JSON boundary; TypeScript's
+      // union cannot guarantee the model actually returned a known claim.
+      // Unknown claim types must fail closed rather than silently pass.
+      const unknownClaim = claim as unknown as { type?: unknown; characterSlug?: unknown };
+      return {
+        ruleId: "CANON-007",
+        message: `Unsupported scene claim type "${String(unknownClaim?.type)}"; refusing to treat an unrecognized claim as safe.`,
+        claim: claim as SceneClaim,
+      };
+    }
   }
 }
 
