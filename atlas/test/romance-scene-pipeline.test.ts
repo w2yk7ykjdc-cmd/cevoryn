@@ -325,3 +325,26 @@ test("potentially unsafe age/content combination is rejected before the classifi
   assert.equal(result.failureReason, "fallback");
   assert.ok(result.safetyViolationsEncountered.some((v) => v.ruleId === "SAFETY-011"));
 });
+
+
+test("repeated scene-provider failures return the deterministic safe fallback", async () => {
+  let calls = 0;
+  const provider = new TestSceneProvider(() => {
+    calls++;
+    throw new Error("scene provider timeout");
+  });
+
+  const result = await generateValidatedScene(
+    provider,
+    baseContext(),
+    emptyCanonContext(),
+    safeSafetyContext(),
+    safeSafetyClassifier
+  );
+
+  assert.equal(calls, 3);
+  assert.equal(result.valid, true);
+  assert.equal(result.failureReason, "fallback");
+  assert.equal(result.scene.sceneClaims.length, 0);
+  assert.equal(result.scene.narration.includes("provider timeout"), false);
+});
