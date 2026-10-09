@@ -451,8 +451,8 @@ test("full chain: Signal -> Event -> Opportunity -> Action -> Outcome links reso
 
   assert.equal(persistedOpportunity?.status, "LOST");
   assert.equal(persistedOutcomes.length, 1);
-  assert.equal(persistedOutcomes[0].result, "FAILURE");
-  assert.equal(persistedOutcomes[0].outcomeScore, 0);
+  assert.equal(persistedOutcomes[0]?.result, "FAILURE");
+  assert.equal(persistedOutcomes[0]?.outcomeScore, 0);
 });
 
 test("cascade delete: removing an Organization removes its entities, signals, events, and opportunities", async () => {
