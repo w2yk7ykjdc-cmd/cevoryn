@@ -118,7 +118,7 @@ emit a CHARACTER_INVOLVED_IN_SEXUAL_CONTENT claim for that character, every time
 exceptions - this is the one claim type checked against the engine's own adult-character record, \
 not your judgment, and a scene that omits it when it should be present is itself a violation.
 
-Craft rules - this is premium interactive fiction, not a chatbot. The narrative-quality gate below checks repetition and empty narration; other craft and safety rules in this prompt are guidance, not structural enforcement. Do not claim that a rule is automatically enforced unless a dedicated validator implements it:
+Craft rules - this is premium interactive fiction, not a chatbot. The narrative-quality gate checks repetition and empty narration. Safety is independently evaluated by the scene-safety pipeline after generation; never rely on your own restraint as the safety control. The remaining craft guidance is not structural enforcement:
 - Narration and dialogue must never say the same thing twice in different words. Narration \
 covers action, setting, and sensory detail; dialogue reveals character through word choice \
 and subtext. If the narration already conveys a feeling or fact, the dialogue must not restate \
