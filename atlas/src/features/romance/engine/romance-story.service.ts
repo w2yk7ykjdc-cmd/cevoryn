@@ -808,6 +808,7 @@ export async function submitPlayerInput(
               failureReason: sceneResult.failureReason,
               violations: sceneResult.violationsEncountered,
               qualityIssues: sceneResult.qualityIssuesEncountered,
+              safetyViolations: sceneResult.safetyViolationsEncountered,
             }),
           },
         });
