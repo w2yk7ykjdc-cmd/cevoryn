@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, BookOpen, Heart, Mail, Sparkles } from "lucide-react";
+import { BookOpen, Heart, Mail, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
