@@ -24,9 +24,11 @@ function scene(
 }
 
 function context(
-  overrides: Partial<SceneSafetyContext["characters"]["caelan"]> = {}
+  overrides: Partial<SceneSafetyContext["characters"]["caelan"]> = {},
+  playerAdultVerified = true
 ): SceneSafetyContext {
   return {
+    playerAdultVerified,
     characters: {
       caelan: {
         isAdult: true,
@@ -184,4 +186,15 @@ test("untrusted player input can be rejected locally before scene generation", (
     containsSuspectedChildSexualText("An adult asks to discuss the court bargain."),
     false
   );
+});
+
+
+test("unverified player age fails closed for intimate scenes", () => {
+  const result = validateSceneSafety(
+    scene("They kiss.", sexualClaim),
+    classification(),
+    context({}, false)
+  );
+  assert.equal(result.valid, false);
+  assert.ok(result.violations.some((v) => v.ruleId === "SAFETY-014"));
 });
