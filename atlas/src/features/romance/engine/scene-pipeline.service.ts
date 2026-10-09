@@ -1,7 +1,7 @@
 /**
  * generate -> validate -> repair -> regenerate -> fallback pipeline.
- * Orchestrates (but does not itself implement) canon-validator-math's
- * validateSceneClaims() against an LLMProvider's output. No Prisma, no
+ * Orchestrates canon validation, narrative-quality validation, and the
+ * injectable structured safety policy against untrusted provider output. No Prisma, no
  * "server-only" - it depends only on the LLMProvider interface (injected,
  * not imported concretely), so it's directly unit-testable with a
  * deterministic TestSceneProvider.
@@ -57,12 +57,9 @@ function safeFallbackScene(): StructuredSceneOutput {
 }
 
 /**
- * Runs the full pipeline. Always returns a scene that has actually
- * passed validateSceneClaims() - `valid` is true unless the caller is
- * looking at the guaranteed-valid deterministic fallback, in which case
- * it is also true (the fallback makes zero claims, so it trivially
- * passes). `violationsEncountered` lets the caller log what was rejected
- * even when the final result is clean.
+ * Runs the full pipeline. Generated scenes must pass canon, narrative-quality,
+ * and safety validation. The deterministic fallback is checked through the
+ * same deterministic gates before it can be returned.
  */
 export async function generateValidatedScene(
   provider: LLMProvider,
@@ -102,19 +99,33 @@ export async function generateValidatedScene(
       continue;
     }
 
-    const canonResult = validateSceneClaims(scene.sceneClaims, canonContext);
-    const qualityIssues = evaluateNarrativeQuality(scene);
+    let canonResult = { valid: false, violations: [] as CanonViolation[] };
+    let qualityIssues: NarrativeQualityIssue[] = [];
     let safetyViolations: SceneSafetyViolation[] = [];
+    let malformedScene = false;
 
-    // Potential child-sexual content is rejected locally before the scene is
-    // sent to any remote classifier. This preflight is defense-in-depth, not
-    // the primary classifier.
-    if (containsSuspectedChildSexualContent(scene)) {
+    try {
+      canonResult = validateSceneClaims(scene.sceneClaims, canonContext);
+      qualityIssues = evaluateNarrativeQuality(scene);
+    } catch {
+      // A malformed provider object is untrusted input too. Do not pass it to
+      // the remote classifier or return it to the player.
+      malformedScene = true;
+      safetyViolations = [{
+        ruleId: "SAFETY-013",
+        message: "Generated scene structure is malformed; refusing to show it.",
+      }];
+    }
+
+    if (!malformedScene && containsSuspectedChildSexualContent(scene)) {
+      // Potential age/intimacy combinations are rejected locally before the
+      // scene is sent to any remote classifier. This is defense-in-depth,
+      // not the primary classifier.
       safetyViolations = [{
         ruleId: "SAFETY-011",
-        message: "Potentially unsafe age/sexual-content combination detected; scene rejected before remote classification.",
+        message: "Potentially unsafe age/intimacy combination detected before remote classification.",
       }];
-    } else {
+    } else if (!malformedScene) {
       try {
         const safetyResult = validateSceneSafety(
           scene,
