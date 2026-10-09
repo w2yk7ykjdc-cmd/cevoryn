@@ -321,9 +321,10 @@ function toJson(value: unknown): Prisma.InputJsonValue {
 
 async function buildCanonContext(
   tx: Prisma.TransactionClient,
-  storySessionId: string
+  storySessionId: string,
+  universeId: string
 ): Promise<CanonContext> {
-  const [trueNameFacts, bargains, promises] = await Promise.all([
+  const [trueNameFacts, bargains, promises, adultCharacters] = await Promise.all([
     tx.canonFact.findMany({
       where: {
         storySessionId,
@@ -334,12 +335,17 @@ async function buildCanonContext(
     }),
     tx.bargain.findMany({ where: { storySessionId }, select: { id: true } }),
     tx.promise.findMany({ where: { storySessionId }, select: { id: true } }),
+    tx.storyCharacter.findMany({
+      where: { universeId, isAdult: true },
+      select: { slug: true },
+    }),
   ]);
 
   return {
     trueNameRevealedTo: new Set(trueNameFacts.map((f) => f.subject)),
     knownBargainIds: new Set(bargains.map((b) => b.id)),
     knownPromiseIds: new Set(promises.map((p) => p.id)),
+    adultCharacterSlugs: new Set(adultCharacters.map((c) => c.slug)),
   };
 }
 
@@ -739,7 +745,7 @@ export async function submitPlayerInput(
       const beatName = session.currentBeat?.name ?? "Unknown";
 
       const [canonContext, sceneContext] = await Promise.all([
-        buildCanonContext(tx, session.id),
+        buildCanonContext(tx, session.id, session.universeId),
         buildSceneGenerationContext(
           tx,
           session,

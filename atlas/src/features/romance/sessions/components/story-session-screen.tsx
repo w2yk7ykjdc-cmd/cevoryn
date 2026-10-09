@@ -8,6 +8,7 @@ import {
   HeartHandshake,
   Search,
   UserRound,
+  VolumeX,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -25,16 +26,15 @@ interface DialogueLine {
   text: string;
 }
 
-interface AudioForLine {
-  playbackUrl: string;
-  durationMs: number;
-}
+type AudioForLine =
+  | { status: "COMPLETED"; playbackUrl: string; durationMs: number }
+  | { status: "FAILED" };
 
 interface SceneEntry {
   id: string;
   narration: string;
   dialogueLines: DialogueLine[];
-  /** Keyed by dialogueLines index. Audio is optional and only rendered when a real asset exists. */
+  /** Keyed by dialogueLines index. Omitted entirely while a render hasn't been attempted or hasn't finished - the player just sees text, same as before audio ever existed. */
   audioByLine?: Record<string, AudioForLine>;
 }
 
@@ -390,7 +390,7 @@ export function StorySessionScreen({
                     <p className="font-serif text-base leading-relaxed text-[#332532] sm:text-lg">
                       &ldquo;{line.text}&rdquo;
                     </p>
-                    {audio && (
+                    {audio?.status === "COMPLETED" && (
                       <audio
                         controls
                         preload="none"
@@ -400,6 +400,16 @@ export function StorySessionScreen({
                       >
                         Your browser does not support audio playback.
                       </audio>
+                    )}
+                    {audio?.status === "FAILED" && (
+                      <p className="flex items-center gap-1.5 text-xs text-[#927e8e]">
+                        <VolumeX
+                          className="h-3.5 w-3.5 shrink-0"
+                          aria-hidden="true"
+                        />
+                        Voice performance couldn&apos;t be prepared for this
+                        line.
+                      </p>
                     )}
                   </div>
                 </div>

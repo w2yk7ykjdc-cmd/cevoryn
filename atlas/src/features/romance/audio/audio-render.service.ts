@@ -118,25 +118,41 @@ export async function renderSceneAudio(params: {
   }
 }
 
+export type AudioLineStatus =
+  | { status: "COMPLETED"; playbackUrl: string; durationMs: number }
+  | { status: "FAILED" };
+
 /**
- * Read side - the completed audio (if any) for a StoryEvent's dialogue
- * lines, keyed by line index, with a fresh signed playback URL.
+ * Read side - the audio status (if any) for a StoryEvent's dialogue lines,
+ * keyed by line index. COMPLETED lines carry a fresh signed playback URL;
+ * FAILED lines carry no URL (nothing was ever stored) so the player can be
+ * told honestly that voiced audio was attempted and didn't come through,
+ * instead of the line silently looking like it was never voiced at all.
+ * PROCESSING/absent lines are omitted - the player just sees text, same as
+ * before a render completes.
  */
 export async function getAudioForStoryEvent(
   storyEventId: string,
   storageProvider: AudioStorageProvider = getAudioStorageProvider()
-): Promise<Map<number, { playbackUrl: string; durationMs: number }>> {
-
+): Promise<Map<number, AudioLineStatus>> {
   const renders = await prisma.audioRender.findMany({
-    where: { storyEventId, status: "COMPLETED" },
+    where: { storyEventId, status: { in: ["COMPLETED", "FAILED"] } },
     include: { audioAsset: true },
   });
 
-  const result = new Map<number, { playbackUrl: string; durationMs: number }>();
+  const result = new Map<number, AudioLineStatus>();
   for (const render of renders) {
+    if (render.status === "FAILED") {
+      result.set(render.lineIndex, { status: "FAILED" });
+      continue;
+    }
     if (!render.audioAsset) continue;
     const playbackUrl = await storageProvider.getPlaybackUrl(render.audioAsset.storagePath);
-    result.set(render.lineIndex, { playbackUrl, durationMs: render.audioAsset.durationMs });
+    result.set(render.lineIndex, {
+      status: "COMPLETED",
+      playbackUrl,
+      durationMs: render.audioAsset.durationMs,
+    });
   }
   return result;
 }

@@ -102,7 +102,7 @@ Respond with ONLY a JSON object matching this exact shape:
 {
   "narration": string,
   "dialogueLines": [{ "speakerSlug": string, "text": string }],
-  "sceneClaims": [{ "type": "CHARACTER_KNOWS_TRUE_NAME" | "CHARACTER_CLAIMS_BARGAIN_FULFILLED_WITHOUT_CONSEQUENCE" | "CHARACTER_REFERENCES_UNMADE_PROMISE", "characterSlug": string, "referenceId"?: string }],
+  "sceneClaims": [{ "type": "CHARACTER_KNOWS_TRUE_NAME" | "CHARACTER_CLAIMS_BARGAIN_FULFILLED_WITHOUT_CONSEQUENCE" | "CHARACTER_REFERENCES_UNMADE_PROMISE" | "CHARACTER_INVOLVED_IN_SEXUAL_CONTENT", "characterSlug": string, "referenceId"?: string }],
   "proposedRelationshipNudge": null | { "characterSlug": string, "cause": "NARRATIVE_POSITIVE_BEAT" | "NARRATIVE_NEGATIVE_BEAT" },
   "proposedMemoryCandidates": [{ "type": string, "subject": string, "object": string | null, "content": string }]
 }
@@ -113,6 +113,10 @@ provided context that it was revealed to them - otherwise never emit a CHARACTER
 - Never have a character reference a bargain or promise that is not listed in the provided context.
 - Never invent sexual content involving a character whose age is not explicitly established as an adult.
 - Never force romantic or intimate progression the player's input did not invite.
+- Whenever a scene depicts sexual or intimate physical content involving a character, you MUST \
+emit a CHARACTER_INVOLVED_IN_SEXUAL_CONTENT claim for that character, every time, with no \
+exceptions - this is the one claim type checked against the engine's own adult-character record, \
+not your judgment, and a scene that omits it when it should be present is itself a violation.
 
 Craft rules - this is premium interactive fiction, not a chatbot. The narrative-quality gate below checks repetition and empty narration; other craft and safety rules in this prompt are guidance, not structural enforcement. Do not claim that a rule is automatically enforced unless a dedicated validator implements it:
 - Narration and dialogue must never say the same thing twice in different words. Narration \

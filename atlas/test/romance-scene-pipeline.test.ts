@@ -32,6 +32,7 @@ function emptyCanonContext(): CanonContext {
     trueNameRevealedTo: new Set(),
     knownBargainIds: new Set(),
     knownPromiseIds: new Set(),
+    adultCharacterSlugs: new Set(),
   };
 }
 

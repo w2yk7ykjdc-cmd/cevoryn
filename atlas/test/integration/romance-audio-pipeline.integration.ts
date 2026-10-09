@@ -190,8 +190,9 @@ test("a voiced character's dialogue line is rendered and becomes playable", asyn
   assert.equal(playable.size, 1);
   const line0 = playable.get(0);
   assert.ok(line0);
-  assert.ok(line0!.playbackUrl.startsWith("test://romance-audio/"));
-  assert.ok(line0!.durationMs > 0);
+  assert.equal(line0!.status, "COMPLETED");
+  assert.ok(line0!.status === "COMPLETED" && line0.playbackUrl.startsWith("test://romance-audio/"));
+  assert.ok(line0!.status === "COMPLETED" && line0.durationMs > 0);
 });
 
 test("an unvoiced character's dialogue line is skipped entirely - no AudioRender row is created", async () => {

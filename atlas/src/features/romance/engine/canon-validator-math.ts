@@ -57,6 +57,16 @@ function validateClaim(
       }
       return null;
     }
+    case "CHARACTER_INVOLVED_IN_SEXUAL_CONTENT": {
+      if (!context.adultCharacterSlugs.has(claim.characterSlug)) {
+        return {
+          ruleId: "CANON-006",
+          message: `${claim.characterSlug} is involved in sexual content but is not on record as an adult character - this scene can never pass regardless of retries.`,
+          claim,
+        };
+      }
+      return null;
+    }
     default:
       return null;
   }
