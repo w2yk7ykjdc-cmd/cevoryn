@@ -120,7 +120,7 @@ export async function generateValidatedScene(
       try {
         const safetyResult = validateSceneSafety(
           scene,
-          await safetyClassifier.classify(scene),
+          await safetyClassifier.classify(scene, safetyContext),
           safetyContext
         );
         safetyViolations = safetyResult.violations;
