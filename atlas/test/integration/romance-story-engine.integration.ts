@@ -184,7 +184,10 @@ test("suspected age/intimacy input is rejected before scene or safety providers 
   });
 
   assert.equal(result.accepted, false);
-  assert.equal(result.reason, "safety:potential_age_intimacy");
+  assert.equal(
+    "reason" in result ? result.reason : undefined,
+    "safety:potential_age_intimacy"
+  );
   assert.equal(sceneProviderCalls, 0);
   assert.equal(safetyClassifierCalls, 0);
 });
