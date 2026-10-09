@@ -309,6 +309,6 @@ test("generateDecisionCanvas returns calibrated confidence from real DB outcomes
     Math.abs(result.data.confidenceScore - 0.532) < 1e-9,
     `expected generated confidence ~0.532, got ${result.data.confidenceScore}`
   );
-  // Calibration changes only the confidence field, not the weighted priority score.
-  assert.equal(result.data.priorityScore, 5);
+  // The raw confidence dimension contributes to the priority score; calibration must not change that score.
+  assert.equal(result.data.priorityScore, 5.6);
 });
