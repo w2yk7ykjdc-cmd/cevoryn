@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { BookOpen, Heart, Mail, Sparkles } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 
