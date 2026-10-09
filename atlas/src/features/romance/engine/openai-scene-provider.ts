@@ -54,7 +54,8 @@ export function getSceneProvider(): LLMProvider {
 
   const testProviderExplicitlyEnabled =
     process.env.NODE_ENV === "test" ||
-    process.env.ROMANCE_TEST_SCENE_PROVIDER === "true";
+    (process.env.NODE_ENV !== "production" &&
+      process.env.ROMANCE_TEST_SCENE_PROVIDER === "true");
 
   if (testProviderExplicitlyEnabled) {
     return new TestSceneProvider();
