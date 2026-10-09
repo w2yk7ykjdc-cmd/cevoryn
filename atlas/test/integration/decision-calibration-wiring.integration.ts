@@ -2,11 +2,9 @@
  * Real Postgres integration coverage for connecting the Decision-domain
  * half of the Outcome -> Learning -> Calibration loop to real canvas
  * generation - the Decision-side counterpart of
- * opportunity-calibration-wiring.integration.ts. A read-only audit found
- * that computeCalibration() (confidence-calibrator.ts) was computed and
- * persisted as a LearningPattern snapshot, but never fed back into
- * decision-canvas.ts's confidenceScore - unlike the Opportunity domain,
- * which already closed this loop for Opportunity.probability.
+ * opportunity-calibration-wiring.integration.ts. The generation path now
+ * applies computeCalibration() prospectively to DecisionCanvas.confidenceScore,
+ * mirroring the existing Opportunity.probability calibration loop.
  *
  * What "connected to generation" means here, precisely:
  * decision-canvas.ts now applies applyDecisionConfidenceCalibration() (the
@@ -35,12 +33,12 @@ import { execSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
 
-import type { computeCalibration as ComputeCalibrationType } from "../../src/features/brain/learning/confidence-calibrator";
-import type { applyDecisionConfidenceCalibration as ApplyDecisionConfidenceCalibrationType } from "../../src/features/brain/decisions/decision-scorer";
-import type { generateDecisionCanvas as GenerateDecisionCanvasType } from "../../src/features/brain/decisions/decision-canvas";
 import type { AIProvider } from "../../src/features/ai/providers/types";
-import type { prisma as PrismaType } from "../../src/lib/prisma";
+import type { generateDecisionCanvas as GenerateDecisionCanvasType } from "../../src/features/brain/decisions/decision-canvas";
+import type { applyDecisionConfidenceCalibration as ApplyDecisionConfidenceCalibrationType } from "../../src/features/brain/decisions/decision-scorer";
 import type { DecisionCanvas } from "../../src/features/brain/decisions/types";
+import type { computeCalibration as ComputeCalibrationType } from "../../src/features/brain/learning/confidence-calibrator";
+import type { prisma as PrismaType } from "../../src/lib/prisma";
 
 const INTEGRATION_DATABASE_URL = process.env.INTEGRATION_DATABASE_URL;
 
@@ -113,7 +111,9 @@ function mockAIProvider(confidenceDimensionScore: number): AIProvider {
 
   return {
     name: "decision-calibration-test-provider",
-    async *streamCompletion() {},
+    async *streamCompletion() {
+      yield { type: "finish" as const, content: "" };
+    },
     async complete() {
       return {
         content: JSON.stringify(response),
