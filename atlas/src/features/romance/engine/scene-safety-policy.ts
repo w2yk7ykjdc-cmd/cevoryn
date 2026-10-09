@@ -54,7 +54,16 @@ export function parseSceneSafetyClassification(
 ): SceneSafetyClassification | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
   const candidate = value as Record<string, unknown>;
+  const expectedKeys = [
+    "sexualContentDetected",
+    "involvedCharacterSlugs",
+    "ageRisk",
+    "relationshipRisk",
+    "consentRisk",
+  ];
   if (
+    Object.keys(candidate).length !== expectedKeys.length ||
+    Object.keys(candidate).some((key) => !expectedKeys.includes(key)) ||
     typeof candidate.sexualContentDetected !== "boolean" ||
     !Array.isArray(candidate.involvedCharacterSlugs) ||
     !candidate.involvedCharacterSlugs.every((slug) => typeof slug === "string" && slug.length > 0) ||
