@@ -47,12 +47,28 @@ test("production fails closed instead of silently returning placeholder scenes w
 test("the deterministic scene provider requires an explicit test context", () => {
   withEnv(
     {
-      NODE_ENV: "production",
+      NODE_ENV: undefined,
       OPENAI_API_KEY: undefined,
       ROMANCE_TEST_SCENE_PROVIDER: "true",
     },
     () => {
       assert.ok(getSceneProvider() instanceof TestSceneProvider);
+    }
+  );
+});
+
+test("the test-provider opt-in cannot enable placeholder scenes in production", () => {
+  withEnv(
+    {
+      NODE_ENV: "production",
+      OPENAI_API_KEY: undefined,
+      ROMANCE_TEST_SCENE_PROVIDER: "true",
+    },
+    () => {
+      assert.throws(
+        () => getSceneProvider(),
+        /OPENAI_API_KEY is missing/
+      );
     }
   );
 });
