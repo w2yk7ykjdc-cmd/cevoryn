@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { Loader2, Lock } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -164,8 +164,9 @@ export function StorySessionScreen({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="font-serif text-xl text-[#f1e9f4]">{currentBeatName}</h1>
+      <div>
+        <h1 className="font-serif text-2xl font-semibold text-[#f1e9f4]">{currentBeatName}</h1>
+        <div className="mt-2 h-px w-12 bg-gradient-to-r from-[#c9a7e0] to-transparent" />
       </div>
 
       {targetCharacterSlug && relationships[targetCharacterSlug] && (
@@ -176,36 +177,54 @@ export function StorySessionScreen({
       )}
 
       <div
-        className="space-y-4 rounded-lg border border-white/10 bg-[#140b1b]/60 p-4"
+        className="space-y-5 rounded-xl border border-white/10 bg-[#140b1b]/60 p-4 shadow-lg shadow-black/20 sm:p-5"
         aria-live="polite"
       >
         {scenes.length === 0 && (
           <p className="text-sm text-[#a08bb0]">The story is about to begin.</p>
         )}
         {!isPremium && scenes.some((scene) => scene.dialogueLines.length > 0) && (
-          <p className="text-xs text-[#8a7693]">
-            🔒 Voiced dialogue is a Premium feature.{" "}
-            <span className="underline">Unlock Premium Voices</span> above to hear this scene performed.
+          <p className="flex items-start gap-1.5 rounded-lg border border-[#c9a7e0]/20 bg-[#c9a7e0]/5 px-3 py-2 text-xs text-[#b9a0c9]">
+            <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>
+              Voiced dialogue is a Premium feature.{" "}
+              <span className="underline">Unlock Premium Voices</span> above to hear this scene performed.
+            </span>
           </p>
         )}
-        {scenes.map((scene) => (
-          <div key={scene.id} className="space-y-2">
-            <p className="text-sm leading-relaxed text-[#e4d9ea]">{scene.narration}</p>
+        {scenes.map((scene, sceneIndex) => (
+          <div
+            key={scene.id}
+            className={
+              sceneIndex > 0 ? "space-y-3 border-t border-white/5 pt-5" : "space-y-3"
+            }
+          >
+            <p className="text-[15px] leading-relaxed text-[#e4d9ea]">{scene.narration}</p>
             {scene.dialogueLines.map((line, index) => {
               const audio = scene.audioByLine?.[index];
+              const speakerName = characterNames[line.speakerSlug] ?? line.speakerSlug;
               return (
-                <div key={index} className="space-y-1">
-                  <p className="text-sm italic text-[#c9a7e0]">
-                    <span className="font-medium not-italic">
-                      {characterNames[line.speakerSlug] ?? line.speakerSlug}:
-                    </span>{" "}
-                    &ldquo;{line.text}&rdquo;
-                  </p>
-                  {audio && (
-                    <audio controls preload="none" src={audio.playbackUrl} className="h-8 w-full max-w-xs">
-                      Your browser does not support audio playback.
-                    </audio>
-                  )}
+                <div
+                  key={index}
+                  className="flex gap-2.5 rounded-lg border-l-2 border-[#c9a7e0]/40 bg-white/[0.03] py-2 pl-3 pr-2"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#5c3a73] text-[11px] font-semibold text-white"
+                  >
+                    {speakerName.charAt(0).toUpperCase()}
+                  </span>
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <p className="text-sm italic text-[#c9a7e0]">
+                      <span className="font-medium not-italic text-[#d9bfe8]">{speakerName}:</span>{" "}
+                      &ldquo;{line.text}&rdquo;
+                    </p>
+                    {audio && (
+                      <audio controls preload="none" src={audio.playbackUrl} className="h-8 w-full max-w-xs">
+                        Your browser does not support audio playback.
+                      </audio>
+                    )}
+                  </div>
                 </div>
               );
             })}

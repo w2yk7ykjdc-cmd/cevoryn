@@ -41,7 +41,7 @@ export function RelationshipBars({ characterName, dimensions }: RelationshipBars
               aria-label={`${label} with ${characterName}`}
             >
               <div
-                className="h-full rounded-full bg-[#c9a7e0]"
+                className="h-full rounded-full bg-gradient-to-r from-[#8a5cb8] to-[#c9a7e0] transition-[width] duration-500"
                 style={{ width: `${Math.max(0, Math.min(100, dimensions[key]))}%` }}
               />
             </div>
