@@ -447,6 +447,7 @@ test("new story characters default to not adult-eligible until explicitly verifi
   });
 
   assert.equal(character.isAdult, false);
+  assert.equal(character.relationshipToPlayerSafety, "UNKNOWN");
   await prisma.storyCharacter.delete({ where: { id: character.id } });
 });
 
