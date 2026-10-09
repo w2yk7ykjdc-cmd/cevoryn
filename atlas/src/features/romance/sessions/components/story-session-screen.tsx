@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Lock } from "lucide-react";
+import { Loader2, Lock, MessageCircle, ShieldAlert, HeartHandshake, Search, UserRound } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -25,7 +25,7 @@ interface SceneEntry {
   id: string;
   narration: string;
   dialogueLines: DialogueLine[];
-  /** Keyed by dialogueLines index (as a string, since it crosses a JSON/props boundary). Absent entirely for a scene the player just submitted - audio renders out-of-band and only appears on a later load. */
+  /** Keyed by dialogueLines index. Audio is optional and only rendered when a real asset exists. */
   audioByLine?: Record<string, AudioForLine>;
 }
 
@@ -47,6 +47,27 @@ interface StorySessionScreenProps {
   initialSessionCompleted: boolean;
   isPremium: boolean;
 }
+
+const QUICK_ACTIONS = [
+  {
+    label: "Ask for details",
+    description: "Find out more about the hidden group.",
+    prompt: "I ask him what he knows about the group and where we should begin looking.",
+    Icon: Search,
+  },
+  {
+    label: "Show trust",
+    description: "Let him know you are listening.",
+    prompt: "I meet his gaze and tell him I want to trust him, but I need the truth.",
+    Icon: HeartHandshake,
+  },
+  {
+    label: "Be cautious",
+    description: "Keep your guard up.",
+    prompt: "I keep a little distance and ask what he is not telling me.",
+    Icon: ShieldAlert,
+  },
+] as const;
 
 function friendlyRejectionMessage(reason: string): string {
   if (reason.startsWith("unparseable:")) {
@@ -99,7 +120,7 @@ export function StorySessionScreen({
     try {
       const result = await submitStoryActionAction({
         storySessionId,
-        rawInput,
+        rawInput: rawInput.trim(),
         targetCharacterSlug: targetCharacterSlug || undefined,
         idempotencyKey: crypto.randomUUID(),
       });
@@ -143,10 +164,6 @@ export function StorySessionScreen({
       }
 
       if (inner.beatAdvancedTo) {
-        // beatAdvancedTo is a slug (an API/test contract - see
-        // romance-story.service.ts); beatAdvancedToName is the display
-        // name actually meant for the header. A pre-existing bug here
-        // used the slug directly - fixed while touching this code path.
         setCurrentBeatName(inner.beatAdvancedToName ?? inner.beatAdvancedTo);
         toast("The story moves forward.");
       }
@@ -163,64 +180,141 @@ export function StorySessionScreen({
   }
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="font-serif text-2xl font-semibold text-[#f1e9f4]">{currentBeatName}</h1>
-        <div className="mt-2 h-px w-12 bg-gradient-to-r from-[#c9a7e0] to-transparent" />
-      </div>
+    <div className="mx-auto w-full max-w-3xl space-y-5 text-[#332532]">
+      <header className="rounded-2xl border border-[#eadde5] bg-gradient-to-br from-white via-[#fffaf8] to-[#f8edf2] p-5 shadow-sm sm:p-6">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#a34e79]">
+          Thornbound · Story in progress
+        </p>
+        <h1 className="mt-2 font-serif text-3xl font-semibold tracking-tight text-[#44253f] sm:text-4xl">
+          {currentBeatName}
+        </h1>
+        <div className="mt-3 h-1 w-16 rounded-full bg-gradient-to-r from-[#b75b88] to-[#ead0dd]" />
+      </header>
 
-      {targetCharacterSlug && relationships[targetCharacterSlug] && (
-        <RelationshipBars
-          characterName={characterNames[targetCharacterSlug] ?? targetCharacterSlug}
-          dimensions={relationships[targetCharacterSlug]}
-        />
+      {availableCharacterSlugs.length > 0 && (
+        <section aria-labelledby="character-selection-title" className="space-y-3">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <h2 id="character-selection-title" className="font-serif text-xl font-semibold text-[#44253f]">
+                Who are you speaking to?
+              </h2>
+              <p className="mt-1 text-sm text-[#806d7d]">
+                Choose a character before you send your action.
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full bg-[#f4e5ed] px-3 py-1 text-xs font-medium text-[#8f3f69]">
+              {availableCharacterSlugs.length} {availableCharacterSlugs.length === 1 ? "character" : "characters"}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {availableCharacterSlugs.map((slug) => {
+              const selected = targetCharacterSlug === slug;
+              const name = characterNames[slug] ?? slug;
+              const relationship = relationships[slug];
+              return (
+                <button
+                  key={slug}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => setTargetCharacterSlug(slug)}
+                  disabled={isPending}
+                  className={[
+                    "flex min-h-16 items-center gap-3 rounded-xl border p-3 text-left transition",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b75b88] focus-visible:ring-offset-2",
+                    "disabled:cursor-not-allowed disabled:opacity-60",
+                    selected
+                      ? "border-[#b75b88] bg-[#f9edf3] shadow-sm"
+                      : "border-[#eadde5] bg-white hover:border-[#d5a5bd] hover:bg-[#fff9fc]",
+                  ].join(" ")}
+                >
+                  <span className={[
+                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-full border font-serif text-lg font-semibold",
+                    selected
+                      ? "border-[#d7a3bc] bg-white text-[#913f6c]"
+                      : "border-[#eadde5] bg-[#fbf4f7] text-[#9b7b91]",
+                  ].join(" ")}>
+                    {name.trim().charAt(0).toUpperCase() || <UserRound className="h-5 w-5" aria-hidden="true" />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium text-[#44253f]">{name}</span>
+                    <span className="mt-0.5 block text-xs text-[#806d7d]">
+                      {relationship ? "Relationship tracked" : "Story character"}
+                    </span>
+                  </span>
+                  <span aria-hidden="true" className={[
+                    "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-xs",
+                    selected ? "border-[#a34e79] bg-[#a34e79] text-white" : "border-[#d9c8d3] text-transparent",
+                  ].join(" ")}>✓</span>
+                </button>
+              );
+            })}
+          </div>
+          {targetCharacterSlug && relationships[targetCharacterSlug] && (
+            <div className="rounded-xl border border-[#eadde5] bg-white p-4">
+              <RelationshipBars
+                characterName={characterNames[targetCharacterSlug] ?? targetCharacterSlug}
+                dimensions={relationships[targetCharacterSlug]}
+              />
+            </div>
+          )}
+        </section>
       )}
 
-      <div
-        className="space-y-5 rounded-xl border border-white/10 bg-[#140b1b]/60 p-4 shadow-lg shadow-black/20 sm:p-5"
+      <section
+        className="space-y-4 rounded-2xl border border-[#eadde5] bg-white p-4 shadow-sm sm:space-y-5 sm:p-6"
+        aria-label="Story dialogue"
         aria-live="polite"
       >
         {scenes.length === 0 && (
-          <p className="text-sm text-[#a08bb0]">The story is about to begin.</p>
+          <p className="rounded-xl bg-[#fbf4f7] p-4 text-sm text-[#806d7d]">
+            The story is about to begin.
+          </p>
         )}
         {!isPremium && scenes.some((scene) => scene.dialogueLines.length > 0) && (
-          <p className="flex items-start gap-1.5 rounded-lg border border-[#c9a7e0]/20 bg-[#c9a7e0]/5 px-3 py-2 text-xs text-[#b9a0c9]">
-            <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <p className="flex items-start gap-2 rounded-xl border border-[#ead5e2] bg-[#fff7fb] px-3 py-2.5 text-xs leading-relaxed text-[#806078]">
+            <Lock className="mt-0.5 h-4 w-4 shrink-0 text-[#a34e79]" aria-hidden="true" />
             <span>
-              Voiced dialogue is a Premium feature.{" "}
-              <span className="underline">Unlock Premium Voices</span> above to hear this scene performed.
+              Voiced dialogue is a Premium feature. Unlock Premium Voices to hear this scene performed.
             </span>
           </p>
         )}
         {scenes.map((scene, sceneIndex) => (
-          <div
+          <article
             key={scene.id}
-            className={
-              sceneIndex > 0 ? "space-y-3 border-t border-white/5 pt-5" : "space-y-3"
-            }
+            className={sceneIndex > 0 ? "space-y-3 border-t border-[#f0e5eb] pt-5" : "space-y-3"}
           >
-            <p className="text-[15px] leading-relaxed text-[#e4d9ea]">{scene.narration}</p>
+            {scene.narration && (
+              <p className="rounded-xl border-l-2 border-[#d8a3bc] bg-[#fbf4f7] px-4 py-3 font-serif text-base italic leading-relaxed text-[#72576c]">
+                {scene.narration}
+              </p>
+            )}
             {scene.dialogueLines.map((line, index) => {
               const audio = scene.audioByLine?.[index];
               const speakerName = characterNames[line.speakerSlug] ?? line.speakerSlug;
               return (
                 <div
                   key={index}
-                  className="flex gap-2.5 rounded-lg border-l-2 border-[#c9a7e0]/40 bg-white/[0.03] py-2 pl-3 pr-2"
+                  className="flex gap-3 rounded-xl border border-[#eee2e9] bg-[#fffdfc] p-3 sm:p-4"
                 >
                   <span
                     aria-hidden="true"
-                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#5c3a73] text-[11px] font-semibold text-white"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#e5c8d8] bg-[#f8eaf1] font-serif text-base font-semibold text-[#913f6c]"
                   >
                     {speakerName.charAt(0).toUpperCase()}
                   </span>
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <p className="text-sm italic text-[#c9a7e0]">
-                      <span className="font-medium not-italic text-[#d9bfe8]">{speakerName}:</span>{" "}
-                      &ldquo;{line.text}&rdquo;
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <p className="text-sm font-semibold text-[#913f6c]">{speakerName}</p>
+                    <p className="font-serif text-base leading-relaxed text-[#332532] sm:text-lg">
+                      “{line.text}”
                     </p>
                     {audio && (
-                      <audio controls preload="none" src={audio.playbackUrl} className="h-8 w-full max-w-xs">
+                      <audio
+                        controls
+                        preload="none"
+                        src={audio.playbackUrl}
+                        className="h-9 w-full max-w-sm"
+                        aria-label={`Play ${speakerName}'s dialogue`}
+                      >
                         Your browser does not support audio playback.
                       </audio>
                     )}
@@ -228,60 +322,81 @@ export function StorySessionScreen({
                 </div>
               );
             })}
-          </div>
+          </article>
         ))}
         {isPending && (
-          <p className="flex items-center gap-2 text-sm text-[#a08bb0]" role="status">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            The story is unfolding...
+          <p className="flex items-center gap-2 rounded-xl bg-[#fbf4f7] p-3 text-sm text-[#806d7d]" role="status">
+            <Loader2 className="h-4 w-4 animate-spin text-[#a34e79]" aria-hidden="true" />
+            The story is unfolding…
           </p>
         )}
-      </div>
+      </section>
 
-      {sessionCompleted ? (
-        <p className="rounded-lg border border-white/10 bg-[#1c1024]/70 p-4 text-sm text-[#c9b8d4]">
+      {!sessionCompleted ? (
+        <section className="space-y-3 rounded-2xl border border-[#eadde5] bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-serif text-xl font-semibold text-[#44253f]">Your next move</h2>
+            <span className="text-xs text-[#927e8e]">{rawInput.length}/2000</span>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <Textarea
+              value={rawInput}
+              onChange={(event) => setRawInput(event.target.value)}
+              placeholder={
+                targetCharacterSlug
+                  ? `What do you want to say or do with ${characterNames[targetCharacterSlug] ?? targetCharacterSlug}?`
+                  : "What do you do or say?"
+              }
+              rows={3}
+              maxLength={2000}
+              disabled={isPending}
+              aria-label="What do you do or say?"
+              className="min-h-28 resize-y rounded-xl border-[#e6d5df] bg-[#fffdfc] text-[#332532] placeholder:text-[#a18d9c] focus-visible:ring-[#b75b88]"
+            />
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs leading-relaxed text-[#927e8e]">
+                Write freely. Suggested actions can help you get started.
+              </p>
+              <Button
+                type="submit"
+                disabled={isPending || !rawInput.trim() || !targetCharacterSlug}
+                className="min-h-11 w-full rounded-xl bg-[#963f70] px-6 text-white hover:bg-[#7f315e] focus-visible:ring-[#b75b88] sm:w-auto"
+              >
+                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <MessageCircle className="mr-2 h-4 w-4" aria-hidden="true" />}
+                {isPending ? "Sending…" : "Send action"}
+              </Button>
+            </div>
+          </form>
+
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#927e8e]">
+              Try a suggested action
+            </p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {QUICK_ACTIONS.map(({ label, description, prompt, Icon }) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => setRawInput(prompt)}
+                  disabled={isPending}
+                  className="flex min-h-16 items-center gap-3 rounded-xl border border-[#eadde5] bg-[#fffafc] p-3 text-left transition hover:border-[#d5a5bd] hover:bg-[#f9edf3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b75b88] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f5e3ec] text-[#963f70]">
+                    <Icon className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-[#44253f]">{label}</span>
+                    <span className="mt-0.5 block text-xs leading-snug text-[#806d7d]">{description}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : (
+        <p className="rounded-2xl border border-[#eadde5] bg-white p-5 text-sm text-[#806d7d]">
           This chapter has ended. Thank you for playing.
         </p>
-      ) : (
-        <form onSubmit={handleSubmit} className="space-y-3">
-          {availableCharacterSlugs.length > 1 && (
-            <div className="flex items-center gap-2 text-sm text-[#c9b8d4]">
-              <label htmlFor="target-character">Speaking to</label>
-              <select
-                id="target-character"
-                value={targetCharacterSlug}
-                onChange={(event) => setTargetCharacterSlug(event.target.value)}
-                className="rounded-md border border-white/20 bg-[#120a18] px-2 py-1 text-[#f1e9f4] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c9a7e0]"
-              >
-                {availableCharacterSlugs.map((slug) => (
-                  <option key={slug} value={slug}>
-                    {characterNames[slug] ?? slug}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          <Textarea
-            value={rawInput}
-            onChange={(event) => setRawInput(event.target.value)}
-            placeholder="I step closer but don't touch him."
-            rows={3}
-            maxLength={2000}
-            disabled={isPending}
-            aria-label="What do you do or say?"
-            className="border-white/20 bg-[#120a18] text-[#f1e9f4] placeholder:text-[#6b5a78]"
-          />
-
-          <Button
-            type="submit"
-            disabled={isPending || !rawInput.trim()}
-            className="w-full bg-[#5c3a73] text-white hover:bg-[#6d4788] sm:w-auto"
-          >
-            {isPending && <Loader2 className="animate-spin" />}
-            Continue
-          </Button>
-        </form>
       )}
     </div>
   );
