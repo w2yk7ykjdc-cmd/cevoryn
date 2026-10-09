@@ -81,18 +81,27 @@ export function parseSceneSafetyClassification(
  * prevents potentially child-sexual content from being sent to any remote
  * classifier; it is not the scene safety classifier itself.
  */
-export function containsSuspectedChildSexualContent(
-  scene: StructuredSceneOutput
-): boolean {
-  const text = [
-    scene.narration,
-    ...scene.dialogueLines.map((line) => line.text),
-  ].join("\n");
+export function containsSuspectedChildSexualText(text: string): boolean {
   const ageSignal =
     /\b(?:underage|minor|child|children|teen|teenage|schoolgirl|schoolboy|(?:1[0-7]|[0-9])[- ]year[- ]old)\b/i;
   const sexualSignal =
     /\b(?:sex|sexual|nude|naked|erotic|orgasm|genitals|intercourse|seduc(?:e|tion|tive))\b/i;
   return ageSignal.test(text) && sexualSignal.test(text);
+}
+
+export function containsSuspectedChildSexualContent(
+  scene: StructuredSceneOutput
+): boolean {
+  const dialogue = Array.isArray(scene.dialogueLines)
+    ? scene.dialogueLines
+        .filter((line) => typeof line?.text === "string")
+        .map((line) => line.text)
+    : [];
+  const text = [
+    typeof scene.narration === "string" ? scene.narration : "",
+    ...dialogue,
+  ].join("\n");
+  return containsSuspectedChildSexualText(text);
 }
 
 export function validateSceneSafety(
