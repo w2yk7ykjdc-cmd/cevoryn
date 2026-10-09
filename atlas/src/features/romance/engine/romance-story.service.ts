@@ -4,6 +4,8 @@ import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
+import { isPlausibleVerificationTimestamp } from "../player/age-gate-math";
+
 import {
   deriveBeatTransitionEventType,
   evaluateBeatTransition,
@@ -356,18 +358,28 @@ async function buildCanonContext(
 
 async function buildSceneSafetyContext(
   tx: Prisma.TransactionClient,
-  universeId: string
+  universeId: string,
+  playerId: string
 ): Promise<SceneSafetyContext> {
-  const characters = await tx.storyCharacter.findMany({
+  const [characters, player] = await Promise.all([
+    tx.storyCharacter.findMany({
     where: { universeId },
-    select: {
-      slug: true,
-      isAdult: true,
-      relationshipToPlayerSafety: true,
-    },
-  });
+      select: {
+        slug: true,
+        isAdult: true,
+        relationshipToPlayerSafety: true,
+      },
+    }),
+    tx.romancePlayer.findUnique({
+      where: { id: playerId },
+      select: { ageVerifiedAt: true },
+    }),
+  ]);
 
   return {
+    playerAdultVerified: isPlausibleVerificationTimestamp(
+      player?.ageVerifiedAt ?? null
+    ),
     characters: Object.fromEntries(
       characters.map((character) => [
         character.slug,
@@ -800,7 +812,7 @@ export async function submitPlayerInput(
           intent,
           targetCharacterSlug
         ),
-        buildSceneSafetyContext(tx, session.universeId),
+        buildSceneSafetyContext(tx, session.universeId, params.playerId),
       ]);
 
       const sceneResult = await generateValidatedScene(
