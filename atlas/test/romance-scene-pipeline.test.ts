@@ -42,6 +42,7 @@ function emptyCanonContext(): CanonContext {
 
 function safeSafetyContext(): SceneSafetyContext {
   return {
+    playerAdultVerified: true,
     characters: {
       caelan: {
         isAdult: true,
