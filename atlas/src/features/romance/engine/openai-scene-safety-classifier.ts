@@ -24,6 +24,7 @@ export class OpenAISceneSafetyClassifier implements SceneSafetyClassifier {
   ): Promise<unknown> {
     const provider = getAIProvider("openai");
     const sceneText = {
+      playerAdultVerified: context.playerAdultVerified,
       characterEligibility: context.characters,
       narration: scene.narration,
       dialogueLines: Array.isArray(scene.dialogueLines)
