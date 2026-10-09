@@ -96,6 +96,10 @@ async function createPlayerWithSession() {
 }
 
 before(async () => {
+  // This suite deliberately uses the deterministic provider and never calls
+  // a paid AI API. The opt-in flag prevents production from inheriting that
+  // test-only fallback when OPENAI_API_KEY is missing.
+  process.env.ROMANCE_TEST_SCENE_PROVIDER = "true";
   process.env.DATABASE_URL = INTEGRATION_DATABASE_URL;
   process.env.DIRECT_URL =
     process.env.INTEGRATION_DIRECT_URL ?? INTEGRATION_DATABASE_URL;
