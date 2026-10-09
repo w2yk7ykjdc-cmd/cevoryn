@@ -96,6 +96,9 @@ async function createPlayerCharacterFor(playerId: string, universeId: string) {
 }
 
 before(async () => {
+  // Keep integration runs fully deterministic and prevent any paid classifier
+  // call even when CI provides placeholder API credentials.
+  process.env.ROMANCE_TEST_SCENE_PROVIDER = "true";
   process.env.DATABASE_URL = INTEGRATION_DATABASE_URL;
   process.env.DIRECT_URL = process.env.INTEGRATION_DIRECT_URL ?? INTEGRATION_DATABASE_URL;
 
