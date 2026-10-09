@@ -4,8 +4,6 @@ import { getAIProvider } from "@/features/ai/providers";
 
 import {
   SCENE_SYSTEM_PROMPT,
-  SceneGenerationError,
-  TestSceneProvider,
   buildSceneUserPrompt,
   parseStructuredSceneOutput,
 } from "./scene-generation-provider";
@@ -14,14 +12,13 @@ import type {
   SceneGenerationContext,
   StructuredSceneOutput,
 } from "./scene-generation-provider";
+import { selectSceneProvider } from "./scene-provider-selection";
 
 /**
  * Production scene provider - real code, wired through the existing
  * AIProvider interface (reused, not a new vendor SDK embedded directly
- * in domain logic - brief §26). NOT exercised against a real model in
- * this sandbox (no OPENAI_API_KEY) - see the final report's
- * known-limitations section. Never used by default in tests; tests
- * inject TestSceneProvider directly instead.
+ * in domain logic - brief §26). Real model calls require configured
+ * credentials and are verified separately from deterministic unit tests.
  */
 export class OpenAISceneProvider implements LLMProvider {
   readonly name = "openai-scene-provider";
@@ -48,21 +45,5 @@ export class OpenAISceneProvider implements LLMProvider {
  * turn a paid story session into placeholder fiction.
  */
 export function getSceneProvider(): LLMProvider {
-  if (process.env.OPENAI_API_KEY?.trim()) {
-    return new OpenAISceneProvider();
-  }
-
-  const testProviderExplicitlyEnabled =
-    process.env.NODE_ENV === "test" ||
-    (process.env.NODE_ENV !== "production" &&
-      process.env.ROMANCE_TEST_SCENE_PROVIDER === "true");
-
-  if (testProviderExplicitlyEnabled) {
-    return new TestSceneProvider();
-  }
-
-  throw new SceneGenerationError(
-    "Romance scene generation is not configured: OPENAI_API_KEY is missing. " +
-      "Configure a real provider or explicitly enable the test provider only in an isolated test environment."
-  );
+  return selectSceneProvider(process.env, () => new OpenAISceneProvider());
 }
