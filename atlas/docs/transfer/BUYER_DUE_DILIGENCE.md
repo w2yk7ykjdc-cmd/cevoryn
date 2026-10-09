@@ -59,6 +59,11 @@ None of these are exclusive/locked-in beyond normal SaaS vendor
 switching costs — see [`TRANSFER_GUIDE.md`](TRANSFER_GUIDE.md) for how to
 move each one to the buyer's own accounts.
 
+## Launch positioning and legal review
+
+- **Public pricing vs. private-beta terms:** the public pricing page presents paid plans with a “Get started” path, while `src/app/terms/page.tsx` still says the terms apply to a “private beta” and describes CEVORYN as a “pre-release product.” Resolve this positioning mismatch before representing the product as generally available or buyer-ready. The owner and qualified counsel should approve any legal-language changes; this audit does not rewrite legal terms or certify compliance.
+- **Thornbound age assurance boundary:** the current 18+ gate is self-attestation recorded as `ageVerifiedAt`, not identity/document verification. Do not describe it as verified identity or independently verified age. Whether additional age assurance is required must be assessed by the owner and qualified counsel for target markets and distribution channels.
+
 ## Known limitations
 
 - **No automatic database backups.** Supabase's free tier (which this
