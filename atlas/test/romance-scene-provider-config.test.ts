@@ -1,87 +1,56 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  getSceneProvider,
-  OpenAISceneProvider,
-} from "../src/features/romance/engine/openai-scene-provider";
-import { TestSceneProvider } from "../src/features/romance/engine/scene-generation-provider";
+import { SceneGenerationError, TestSceneProvider } from "../src/features/romance/engine/scene-generation-provider";
+import { selectSceneProvider } from "../src/features/romance/engine/scene-provider-selection";
 
-function withEnv(
-  values: Record<string, string | undefined>,
-  fn: () => void
-): void {
-  const previous = new Map<string, string | undefined>();
-  for (const key of Object.keys(values)) previous.set(key, process.env[key]);
-
-  try {
-    for (const [key, value] of Object.entries(values)) {
-      if (value === undefined) delete process.env[key];
-      else process.env[key] = value;
-    }
-    fn();
-  } finally {
-    for (const [key, value] of previous) {
-      if (value === undefined) delete process.env[key];
-      else process.env[key] = value;
-    }
-  }
-}
+const realProvider = { name: "real-provider", generateScene: async () => ({
+  narration: "configured",
+  dialogueLines: [],
+  sceneClaims: [],
+  proposedRelationshipNudge: null,
+  proposedMemoryCandidates: [],
+}) };
 
 test("production fails closed instead of silently returning placeholder scenes when OPENAI_API_KEY is missing", () => {
-  withEnv(
-    {
-      NODE_ENV: "production",
-      OPENAI_API_KEY: undefined,
-      ROMANCE_TEST_SCENE_PROVIDER: undefined,
-    },
-    () => {
-      assert.throws(
-        () => getSceneProvider(),
-        /OPENAI_API_KEY is missing/
-      );
-    }
+  assert.throws(
+    () => selectSceneProvider({ NODE_ENV: "production" }, () => realProvider),
+    (error: unknown) => error instanceof SceneGenerationError && /OPENAI_API_KEY is missing/.test(error.message)
   );
 });
 
 test("the deterministic scene provider requires an explicit test context", () => {
-  withEnv(
-    {
-      NODE_ENV: undefined,
-      OPENAI_API_KEY: undefined,
-      ROMANCE_TEST_SCENE_PROVIDER: "true",
-    },
-    () => {
-      assert.ok(getSceneProvider() instanceof TestSceneProvider);
-    }
+  assert.ok(
+    selectSceneProvider(
+      { NODE_ENV: "development", ROMANCE_TEST_SCENE_PROVIDER: "true" },
+      () => realProvider
+    ) instanceof TestSceneProvider
   );
 });
 
 test("the test-provider opt-in cannot enable placeholder scenes in production", () => {
-  withEnv(
-    {
-      NODE_ENV: "production",
-      OPENAI_API_KEY: undefined,
-      ROMANCE_TEST_SCENE_PROVIDER: "true",
-    },
-    () => {
-      assert.throws(
-        () => getSceneProvider(),
-        /OPENAI_API_KEY is missing/
-      );
-    }
+  assert.throws(
+    () =>
+      selectSceneProvider(
+        { NODE_ENV: "production", ROMANCE_TEST_SCENE_PROVIDER: "true" },
+        () => realProvider
+      ),
+    /OPENAI_API_KEY is missing/
   );
 });
 
-test("a configured API key selects the real OpenAI scene provider", () => {
-  withEnv(
-    {
-      NODE_ENV: "production",
-      OPENAI_API_KEY: "test-key-not-used-for-network",
-      ROMANCE_TEST_SCENE_PROVIDER: undefined,
-    },
-    () => {
-      assert.ok(getSceneProvider() instanceof OpenAISceneProvider);
-    }
+test("a configured API key selects the real provider", () => {
+  assert.equal(
+    selectSceneProvider(
+      { NODE_ENV: "production", OPENAI_API_KEY: "test-key-not-used-for-network" },
+      () => realProvider
+    ),
+    realProvider
+  );
+});
+
+test("NODE_ENV=test explicitly permits the deterministic provider without a key", () => {
+  assert.ok(
+    selectSceneProvider({ NODE_ENV: "test" }, () => realProvider) instanceof TestSceneProvider
   );
 });
