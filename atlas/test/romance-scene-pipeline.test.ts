@@ -237,3 +237,91 @@ test("prose-quality issues from earlier attempts are cited in the repair (3rd) a
     thirdAttemptPriorViolations.some((v) => v.ruleId === "REPETITIVE_DIALOGUE")
   );
 });
+
+
+test("a transient safety-classifier failure rejects that attempt and retries before returning a valid scene", async () => {
+  let calls = 0;
+  const classifier: SceneSafetyClassifier = {
+    async classify() {
+      calls++;
+      if (calls === 1) throw new Error("classifier timeout");
+      return {
+        sexualContentDetected: false,
+        involvedCharacterSlugs: [],
+        ageRisk: "NONE",
+        relationshipRisk: "NONE",
+        consentRisk: "CLEAR",
+      };
+    },
+  };
+
+  const result = await generateValidatedScene(
+    new TestSceneProvider(() => validScene()),
+    baseContext(),
+    emptyCanonContext(),
+    safeSafetyContext(),
+    classifier
+  );
+
+  assert.equal(result.valid, true);
+  assert.equal(result.attempts, 2);
+  assert.equal(result.failureReason, "regenerated");
+  assert.ok(result.safetyViolationsEncountered.some((v) => v.ruleId === "SAFETY-012"));
+});
+
+test("repeated safety-classifier failures return only the policy-safe fallback", async () => {
+  let calls = 0;
+  const classifier: SceneSafetyClassifier = {
+    async classify() {
+      calls++;
+      throw new Error("classifier unavailable");
+    },
+  };
+
+  const result = await generateValidatedScene(
+    new TestSceneProvider(() => validScene("Never show this without classification.")),
+    baseContext(),
+    emptyCanonContext(),
+    safeSafetyContext(),
+    classifier
+  );
+
+  assert.equal(calls, 3);
+  assert.equal(result.valid, true);
+  assert.equal(result.failureReason, "fallback");
+  assert.equal(result.scene.narration.includes("Never show this"), false);
+  assert.ok(result.safetyViolationsEncountered.length >= 3);
+});
+
+test("potentially unsafe age/content combination is rejected before the classifier is called", async () => {
+  let classifierCalls = 0;
+  let providerCalls = 0;
+  const classifier: SceneSafetyClassifier = {
+    async classify() {
+      classifierCalls++;
+      return {
+        sexualContentDetected: false,
+        involvedCharacterSlugs: [],
+        ageRisk: "NONE",
+        relationshipRisk: "NONE",
+        consentRisk: "CLEAR",
+      };
+    },
+  };
+
+  const result = await generateValidatedScene(
+    new TestSceneProvider(() => {
+      providerCalls++;
+      return validScene("The 17-year-old describes a sexual encounter.");
+    }),
+    baseContext(),
+    emptyCanonContext(),
+    safeSafetyContext(),
+    classifier
+  );
+
+  assert.equal(providerCalls, 3);
+  assert.equal(classifierCalls, 0);
+  assert.equal(result.failureReason, "fallback");
+  assert.ok(result.safetyViolationsEncountered.some((v) => v.ruleId === "SAFETY-011"));
+});
