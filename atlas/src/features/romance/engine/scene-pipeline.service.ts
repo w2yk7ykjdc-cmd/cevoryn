@@ -46,14 +46,10 @@ export interface ValidatedSceneResult {
 
 const MAX_ATTEMPTS = 3; // 1 = initial, 2 = regenerate (same plan), 3 = repair (cites prior violations); beyond this is the deterministic fallback.
 
-function safeFallbackScene(context: SceneGenerationContext): StructuredSceneOutput {
+function safeFallbackScene(): StructuredSceneOutput {
   return {
-    narration:
-      "The moment holds, unresolved - as if the room itself is waiting " +
-      "to see what you do next.",
-    dialogueLines: context.targetCharacterSlug
-      ? [{ speakerSlug: context.targetCharacterSlug, text: "..." }]
-      : [],
+    narration: "The story pauses while the next moment is prepared.",
+    dialogueLines: [],
     sceneClaims: [],
     proposedRelationshipNudge: null,
     proposedMemoryCandidates: [],
@@ -158,8 +154,32 @@ export async function generateValidatedScene(
     safetyViolationsEncountered.push(...safetyViolations);
   }
 
+  const fallback = safeFallbackScene();
+  const fallbackCanon = validateSceneClaims(fallback.sceneClaims, canonContext);
+  const fallbackQuality = evaluateNarrativeQuality(fallback);
+  const fallbackSafety = validateSceneSafety(
+    fallback,
+    {
+      sexualContentDetected: false,
+      involvedCharacterSlugs: [],
+      ageRisk: "NONE",
+      relationshipRisk: "NONE",
+      consentRisk: "CLEAR",
+    },
+    safetyContext
+  );
+  if (
+    !fallbackCanon.valid ||
+    fallbackQuality.length > 0 ||
+    !fallbackSafety.valid
+  ) {
+    // A regression in the authored fallback is an engine error, never a
+    // reason to return content that failed one of the mandatory gates.
+    throw new Error("The built-in safe fallback failed deterministic validation.");
+  }
+
   return {
-    scene: safeFallbackScene(context),
+    scene: fallback,
     valid: true,
     attempts: MAX_ATTEMPTS + 1,
     failureReason: "fallback",
