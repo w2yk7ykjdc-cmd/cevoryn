@@ -317,6 +317,6 @@ test("two different voiced characters speaking in the same scene, both on voiceP
   assert.equal(rendered[0]!.lineIndex, 0);
   assert.equal(rendered[1]!.lineIndex, 1);
 
-  const playable = await getAudioForStoryEvent(event.id, storageProvider);
+  const playable = await getAudioForStoryEvent(event.id, new TestAudioStorageProvider());
   assert.equal(playable.size, 2);
 });
