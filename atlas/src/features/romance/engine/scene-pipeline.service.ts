@@ -19,7 +19,6 @@ import type {
   SceneGenerationContext,
   StructuredSceneOutput,
 } from "./scene-generation-provider";
-import type { CanonContext, CanonViolation } from "./types";
 import {
   containsSuspectedChildSexualContent,
   validateSceneSafety,
@@ -29,6 +28,7 @@ import type {
   SceneSafetyContext,
   SceneSafetyViolation,
 } from "./scene-safety-policy";
+import type { CanonContext, CanonViolation } from "./types";
 
 export type SceneFailureReason = "regenerated" | "repaired" | "fallback";
 
