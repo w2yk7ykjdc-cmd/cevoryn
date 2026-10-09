@@ -247,7 +247,14 @@ before(async () => {
 after(async () => {
   await prisma.organization.deleteMany({
     where: {
-      id: { in: [ORG_CALIBRATED_ID, ORG_UNCALIBRATED_ID, ORG_GENERATION_ID] },
+      id: {
+        in: [
+          ORG_CALIBRATED_ID,
+          ORG_UNCALIBRATED_ID,
+          ORG_GENERATION_ID,
+          ORG_DOMAIN_ISOLATION_ID,
+        ],
+      },
     },
   });
   await prisma.$disconnect();
