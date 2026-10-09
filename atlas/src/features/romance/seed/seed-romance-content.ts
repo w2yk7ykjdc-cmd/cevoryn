@@ -417,6 +417,7 @@ export async function seedRomanceContent(
       slug: "caelan",
       name: "Caelan",
       race: "FAE",
+      isAdult: true,
       isVoiced: true,
       personality: { traits: ["controlled", "wry", "dangerous-charming"], crackPoint: "player" },
       goals: ["BREAK_HIS_OWN_BINDING", "PROTECT_THE_COURT", "KEEP_HIS_TRUE_NAME_HIDDEN"],
@@ -435,7 +436,7 @@ export async function seedRomanceContent(
         "unless a CanonFact records it was revealed to him specifically (CANON-004).",
       version: 1,
     },
-    update: {},
+    update: { isAdult: true },
   });
 
   await prisma.characterSecret.upsert({
@@ -469,6 +470,7 @@ export async function seedRomanceContent(
       slug: "rival",
       name: "Rowan",
       race: "FAE",
+      isAdult: true,
       isVoiced: true,
       personality: { traits: ["clipped", "mocking", "watchful"] },
       goals: ["COLLECT_THE_HUNTS_DEBT", "TEST_THE_PLAYER"],
@@ -484,7 +486,7 @@ export async function seedRomanceContent(
         "player has told him in-fiction. Holds a legitimate debt claim against Caelan.",
       version: 1,
     },
-    update: {},
+    update: { isAdult: true },
   });
 
   await prisma.storyCharacter.upsert({
@@ -494,6 +496,7 @@ export async function seedRomanceContent(
       slug: "wren",
       name: "Wren",
       race: "HALF_FAE",
+      isAdult: true,
       isVoiced: false,
       personality: { traits: ["quiet", "observant", "loyal once trust is earned"] },
       goals: ["REPAY_DEBT_TO_PLAYER", "SURVIVE_COURT_POLITICS"],
@@ -506,7 +509,7 @@ export async function seedRomanceContent(
         "lord's secrets.",
       version: 1,
     },
-    update: {},
+    update: { isAdult: true },
   });
 
   // OpenAI tts-1 voices, picked for each character's established
