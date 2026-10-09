@@ -2,11 +2,9 @@
  * Real Postgres integration coverage for connecting the Decision-domain
  * half of the Outcome -> Learning -> Calibration loop to real canvas
  * generation - the Decision-side counterpart of
- * opportunity-calibration-wiring.integration.ts. A read-only audit found
- * that computeCalibration() (confidence-calibrator.ts) was computed and
- * persisted as a LearningPattern snapshot, but never fed back into
- * decision-canvas.ts's confidenceScore - unlike the Opportunity domain,
- * which already closed this loop for Opportunity.probability.
+ * opportunity-calibration-wiring.integration.ts. The generation path now
+ * applies computeCalibration() prospectively to DecisionCanvas.confidenceScore,
+ * mirroring the existing Opportunity.probability calibration loop.
  *
  * What "connected to generation" means here, precisely:
  * decision-canvas.ts now applies applyDecisionConfidenceCalibration() (the
@@ -21,10 +19,10 @@
  * applyDecisionConfidenceCalibration() function exactly as
  * decision-canvas.ts now calls it.
  *
- * What this suite CANNOT verify: a real generateDecisionCanvas() call
- * actually producing a calibrated canvas end-to-end - that requires a
- * successful LLM response first, which requires a real AI provider
- * credential this environment does not have.
+ * The end-to-end generation assertion injects a deterministic AIProvider, so
+ * the real generateDecisionCanvas() path runs without external LLM credentials.
+ * It verifies the calibrated confidence is what the generated canvas returns,
+ * not only that the pure calibration helper behaves correctly.
  *
  * Same safety rules as every other suite in this directory: requires
  * INTEGRATION_DATABASE_URL explicitly, refuses anything supabase.co-shaped,
@@ -35,10 +33,12 @@ import { execSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
 
-import type { computeCalibration as ComputeCalibrationType } from "../../src/features/brain/learning/confidence-calibrator";
+import type { AIProvider } from "../../src/features/ai/providers/types";
+import type { generateDecisionCanvas as GenerateDecisionCanvasType } from "../../src/features/brain/decisions/decision-canvas";
 import type { applyDecisionConfidenceCalibration as ApplyDecisionConfidenceCalibrationType } from "../../src/features/brain/decisions/decision-scorer";
-import type { prisma as PrismaType } from "../../src/lib/prisma";
 import type { DecisionCanvas } from "../../src/features/brain/decisions/types";
+import type { computeCalibration as ComputeCalibrationType } from "../../src/features/brain/learning/confidence-calibrator";
+import type { prisma as PrismaType } from "../../src/lib/prisma";
 
 const INTEGRATION_DATABASE_URL = process.env.INTEGRATION_DATABASE_URL;
 
@@ -63,10 +63,65 @@ if (/supabase\.co/i.test(INTEGRATION_DATABASE_URL)) {
 const TEST_RUN_ID = randomUUID().slice(0, 8);
 const ORG_CALIBRATED_ID = `decision-calib-wiring-calibrated-${TEST_RUN_ID}`;
 const ORG_UNCALIBRATED_ID = `decision-calib-wiring-uncalibrated-${TEST_RUN_ID}`;
+const ORG_GENERATION_ID = `decision-calib-wiring-generation-${TEST_RUN_ID}`;
 
 let prisma: typeof PrismaType;
 let computeCalibration: typeof ComputeCalibrationType;
 let applyDecisionConfidenceCalibration: typeof ApplyDecisionConfidenceCalibrationType;
+let generateDecisionCanvas: typeof GenerateDecisionCanvasType;
+
+function mockAIProvider(confidenceDimensionScore: number): AIProvider {
+  const response = {
+    executiveSummary: "A vendor renewal requires review.",
+    problemStatement: "Vendor renewal terms need review",
+    possibleCauses: ["Contract auto-renewal", "Pricing drift"],
+    businessImpact: "Avoid unnecessary renewal cost",
+    options: [
+      {
+        title: "Renegotiate",
+        description: "Request revised terms",
+        pros: ["Potential savings"],
+        cons: ["Negotiation time"],
+        risk: "low",
+        estimatedImpact: "Lower renewal cost",
+      },
+      {
+        title: "Switch vendors",
+        description: "Evaluate alternatives",
+        pros: ["Competitive pricing"],
+        cons: ["Migration cost"],
+        risk: "medium",
+        estimatedImpact: "Potential long-term savings",
+      },
+    ],
+    recommendedDecision: "Renegotiate with the vendor",
+    expectedOutcome: "A better rate",
+    followUpPlan: ["Review contract", "Request proposal"],
+    scoring: {
+      businessImpact: { score: 5, reasoning: "Moderate savings" },
+      urgency: { score: 5, reasoning: "Renewal is approaching" },
+      confidence: {
+        score: confidenceDimensionScore,
+        reasoning: "Evidence supports this estimate",
+      },
+      risk: { score: 5, reasoning: "Manageable negotiation risk" },
+      companyContext: { score: 5, reasoning: "Fits current priorities" },
+    },
+  };
+
+  return {
+    name: "decision-calibration-test-provider",
+    async *streamCompletion() {
+      yield { type: "finish" as const, content: "" };
+    },
+    async complete() {
+      return {
+        content: JSON.stringify(response),
+        usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      };
+    },
+  };
+}
 
 function testCanvas(confidenceScore: number): DecisionCanvas {
   return {
@@ -104,8 +159,17 @@ before(async () => {
   applyDecisionConfidenceCalibration =
     decisionScorerModule.applyDecisionConfidenceCalibration;
 
+  const decisionCanvasModule =
+    await import("../../src/features/brain/decisions/decision-canvas");
+  generateDecisionCanvas = decisionCanvasModule.generateDecisionCanvas;
+
   await prisma.organization.createMany({
     data: [
+      {
+        id: ORG_GENERATION_ID,
+        name: "Decision Calibration Generation Org",
+        slug: `decision-calib-wiring-generation-${TEST_RUN_ID}`,
+      },
       {
         id: ORG_CALIBRATED_ID,
         name: "Decision Calibration Wiring Org (calibrated)",
@@ -122,7 +186,9 @@ before(async () => {
 
 after(async () => {
   await prisma.organization.deleteMany({
-    where: { id: { in: [ORG_CALIBRATED_ID, ORG_UNCALIBRATED_ID] } },
+    where: {
+      id: { in: [ORG_CALIBRATED_ID, ORG_UNCALIBRATED_ID, ORG_GENERATION_ID] },
+    },
   });
   await prisma.$disconnect();
 });
@@ -223,4 +289,26 @@ test("tenant isolation: ORG_UNCALIBRATED's calibration state is entirely unaffec
   const calibration = await computeCalibration(ORG_UNCALIBRATED_ID);
   assert.equal(calibration.isCalibrated, false);
   assert.equal(calibration.adjustmentFactor, 1.0);
+});
+
+
+test("generateDecisionCanvas returns calibrated confidence from real DB outcomes without an external LLM", async () => {
+  for (let i = 0; i < 5; i += 1) {
+    await createCompletedDecisionWithOutcome(ORG_GENERATION_ID, 0.9, 0);
+  }
+
+  const result = await generateDecisionCanvas({
+    organizationId: ORG_GENERATION_ID,
+    problemDescription: "Vendor renewal terms need review",
+    evidence: [],
+    aiProvider: mockAIProvider(8),
+  });
+
+  // Raw confidence = (8 / 10) * 0.95 = 0.76; calibration factor = 0.7.
+  assert.ok(
+    Math.abs(result.data.confidenceScore - 0.532) < 1e-9,
+    `expected generated confidence ~0.532, got ${result.data.confidenceScore}`
+  );
+  // The raw confidence dimension contributes to the priority score; calibration must not change that score.
+  assert.equal(result.data.priorityScore, 5.6);
 });
