@@ -62,18 +62,18 @@ and retain timestamped evidence:
 1. [x] Rename a conversation and refresh the page - persists.
 2. [x] Archive a conversation and confirm it disappears from the active list - confirmed.
 3. [x] Request a password-reset email, open the link, set a new password, and sign in with it - confirmed end-to-end.
-4. [ ] Create, renew, and revoke a team invitation - now unblocked (a real ACTIVE subscription exists after the webhook fix below); not yet tested.
+4. [ ] Create, renew, and revoke a team invitation - not yet tested against the current production subscription state.
 5. [ ] Accept an invitation with a separate test account - not yet tested.
-6. [ ] Verify current production health probe and confirm its reported commit
+6. [x] Verify mobile chat input remains visible above the keyboard - confirmed historically; repeat against the current deployment before sale.
+7. [x] Historical Paddle sandbox checkout and webhook synchronization were confirmed before the provider migration. This does **not** verify the current Polar checkout/webhook path; current live-provider acceptance must be tracked separately.
+8. [ ] Verify current production health probe and confirm its reported commit
    matches the intended release; preserve the workflow run and response.
-7. [ ] Verify the current Polar checkout → signed webhook → database
+9. [ ] Verify the current Polar checkout → signed webhook → database
    subscription → entitlement flow, then cancellation/portal behavior, using
    a controlled test account and retain provider/database evidence.
-8. [ ] Verify the live Thornbound 18+ route/action guard, configured safety
-   classifier behavior, user-facing rejection behavior, and production audit
-   logs (tracked in issue #260).
-6. [x] Verify mobile chat input remains visible above the keyboard - confirmed.
-7. [x] Historical Paddle sandbox checkout and webhook synchronization were confirmed before the provider migration. This does **not** verify the current Polar checkout/webhook path; current live-provider acceptance must be tracked separately.
+10. [ ] Verify the live Thornbound 18+ route/action guard, configured safety
+    classifier behavior, user-facing rejection behavior, and production audit
+    logs (tracked in issue #260).
 
 ## Historical Paddle migration evidence (not the current billing provider)
 
