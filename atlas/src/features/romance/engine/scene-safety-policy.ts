@@ -18,6 +18,7 @@ export interface SceneSafetyCharacterEligibility {
 }
 
 export interface SceneSafetyContext {
+  playerAdultVerified: boolean;
   characters: Record<string, SceneSafetyCharacterEligibility>;
 }
 
@@ -143,6 +144,12 @@ export function validateSceneSafety(
     return { valid: violations.length === 0, classification, violations };
   }
 
+  if (context.playerAdultVerified !== true) {
+    violations.push({
+      ruleId: "SAFETY-014",
+      message: "The player account has no valid server-side 18+ verification.",
+    });
+  }
   if (classification.involvedCharacterSlugs.length === 0) {
     violations.push({
       ruleId: "SAFETY-003",
