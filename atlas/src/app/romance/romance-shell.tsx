@@ -14,15 +14,8 @@ interface RomanceShellProps {
   children: ReactNode;
 }
 
-/**
- * Minimal, atmospheric shell for the Romance product - deliberately NOT
- * the B2B DashboardShell (no org switcher, no team nav; ADR-0001: a
- * Romance player never sees "organization"/"team" anywhere). Dark,
- * low-chrome, so the story itself is the focus. Header controls are
- * real icon/pill buttons, not plain underlined text links - this is a
- * paid consumer product, and its own header shouldn't look like an
- * internal tool.
- */
+/** Consumer-facing shell for Thornbound. Warm editorial palette, restrained
+ * rose accents and high-contrast controls; no internal SaaS navigation. */
 export function RomanceShell({
   displayName,
   isPremium,
@@ -30,31 +23,35 @@ export function RomanceShell({
   children,
 }: RomanceShellProps) {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#160c1e] via-[#1a0f22] to-[#0d0712] text-[#f1e9f4]">
-      <header className="sticky top-0 z-10 border-b border-white/10 bg-[#120a18]/80 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
+    <div className="min-h-screen overflow-x-clip bg-[#fbf7f3] text-[#2d211f]">
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-0 bg-[radial-gradient(ellipse_at_top_right,rgba(221,151,158,0.15),transparent_38%),linear-gradient(180deg,#fffdfa_0%,#fbf5f1_58%,#f7eeea_100%)]" />
+      <header className="sticky top-0 z-20 border-b border-[#eadbd5]/80 bg-[#fffdfa]/90 backdrop-blur-xl">
+        <div className="mx-auto flex min-h-[68px] max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <Link
             href={ROUTES.ROMANCE_LIBRARY}
-            className="font-serif text-xl font-semibold tracking-wide text-[#f1e9f4] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c9a7e0]"
+            className="min-w-0 font-serif text-[1.35rem] tracking-[-0.035em] text-[#342421] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#bd4968] sm:text-2xl"
           >
+            <span className="mr-2 text-[#bd4968]" aria-hidden="true">♡</span>
             Thornbound
           </Link>
-          <div className="flex items-center gap-1.5 text-sm text-white/60 sm:gap-2">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <BillingShellControl isPremium={isPremium} />
             <NotificationBell unreadCount={unreadNotificationCount} />
             <Link
               href="/romance/admin"
               aria-label="Admin"
-              className="hidden shrink-0 items-center justify-center rounded-full p-1.5 transition hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c9a7e0] sm:inline-flex"
+              title="Admin"
+              className="hidden h-9 w-9 items-center justify-center rounded-full border border-[#eadbd5] text-[#705d58] transition hover:border-[#bd4968]/40 hover:bg-[#faedf0] hover:text-[#a52f50] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#bd4968] sm:inline-flex"
             >
               <Settings className="h-4 w-4" aria-hidden="true" />
             </Link>
-            <span className="hidden text-xs text-white/40 sm:inline">{displayName}</span>
+            <span className="hidden max-w-28 truncate text-xs text-[#887671] lg:inline">{displayName}</span>
             <form action={signOutAction} className="inline-flex">
               <button
                 type="submit"
                 aria-label="Sign out"
-                className="inline-flex shrink-0 items-center justify-center rounded-full p-1.5 transition hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c9a7e0]"
+                title="Sign out"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#eadbd5] text-[#705d58] transition hover:border-[#bd4968]/40 hover:bg-[#faedf0] hover:text-[#a52f50] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#bd4968]"
               >
                 <LogOut className="h-4 w-4" aria-hidden="true" />
               </button>
@@ -62,7 +59,9 @@ export function RomanceShell({
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-3xl px-4 py-8">{children}</main>
+      <main className="relative z-10 mx-auto min-h-[calc(100svh-68px)] w-full max-w-5xl px-4 pb-12 pt-7 sm:px-6 sm:pt-10">
+        {children}
+      </main>
     </div>
   );
 }
