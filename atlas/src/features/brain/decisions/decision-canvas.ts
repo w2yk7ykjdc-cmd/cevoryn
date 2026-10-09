@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getAIProvider } from "@/features/ai/providers";
+import type { AIProvider } from "@/features/ai/providers";
 import { computeCalibration } from "@/features/brain/learning/confidence-calibrator";
 import { AI_CONFIG } from "@/lib/constants";
 
@@ -64,6 +65,8 @@ export async function generateDecisionCanvas(params: {
   organizationId: string;
   problemDescription: string;
   evidence: Evidence[];
+  /** Injectable provider for deterministic integration tests; production uses the configured provider. */
+  aiProvider?: AIProvider;
 }): Promise<TrustEnvelope<DecisionCanvas>> {
   const { organizationId, problemDescription } = params;
 
@@ -92,7 +95,7 @@ export async function generateDecisionCanvas(params: {
   );
 
   try {
-    const provider = getAIProvider();
+    const provider = params.aiProvider ?? getAIProvider();
     const { content } = await provider.complete({
       model: AI_CONFIG.defaultModel,
       messages: [
