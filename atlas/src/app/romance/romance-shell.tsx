@@ -35,7 +35,7 @@ export function RomanceShell({
           >
             Thornbound
           </Link>
-          <div className="flex items-center gap-3 text-sm text-white/60">
+          <div className="flex items-center gap-1 text-sm text-white/60 sm:gap-3">
             <BillingShellControl isPremium={isPremium} />
             <NotificationBell unreadCount={unreadNotificationCount} />
             <Link

@@ -47,7 +47,7 @@ export function BillingShellControl({ isPremium }: { isPremium: boolean }) {
         type="button"
         onClick={handleClick}
         disabled={isPending}
-        className="hidden rounded-md px-2 py-1 text-[#c9a7e0] underline hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c9a7e0] sm:inline"
+        className="shrink-0 whitespace-nowrap rounded-md px-1.5 py-1 text-[#c9a7e0] underline hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c9a7e0]"
       >
         ✦ Premium
       </button>
@@ -59,9 +59,10 @@ export function BillingShellControl({ isPremium }: { isPremium: boolean }) {
       type="button"
       onClick={handleClick}
       disabled={isPending}
-      className="hidden rounded-md px-2 py-1 underline hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c9a7e0] sm:inline"
+      className="shrink-0 whitespace-nowrap rounded-md px-1.5 py-1 underline hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c9a7e0]"
     >
-      Unlock Premium Voices
+      <span className="sm:hidden">Premium</span>
+      <span className="hidden sm:inline">Unlock Premium Voices</span>
     </button>
   );
 }
