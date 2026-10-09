@@ -371,11 +371,13 @@ test("Decision calibration excludes outcomes that are also linked to an Opportun
     );
   }
 
+  const firstDecision = decisions[0];
+  assert.ok(firstDecision);
   const opportunity = await createTestOpportunity(ORG_DOMAIN_ISOLATION_ID);
   await prisma.outcomeEvaluation.create({
     data: {
       organizationId: ORG_DOMAIN_ISOLATION_ID,
-      decisionId: decisions[0].id,
+      decisionId: firstDecision.id,
       opportunityId: opportunity.id,
       result: "FAILURE",
       outcomeScore: 0,
