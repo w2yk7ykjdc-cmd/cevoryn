@@ -22,7 +22,7 @@ export interface SceneSafetyContext {
 }
 
 export interface SceneSafetyClassifier {
-  classify(scene: StructuredSceneOutput): Promise<unknown>;
+  classify(scene: StructuredSceneOutput, context: SceneSafetyContext): Promise<unknown>;
 }
 
 export interface SceneSafetyViolation {
