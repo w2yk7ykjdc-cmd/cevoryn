@@ -384,3 +384,37 @@ test("repair attempt receives prior safety-classifier failures", async () => {
   assert.equal(result.failureReason, "repaired");
   assert.ok(repairViolations?.some((violation) => violation.ruleId === "SAFETY-012"));
 });
+
+
+test("malformed generated scene objects fail closed and are never sent to the classifier", async () => {
+  let classifierCalls = 0;
+  const malformedScene = {
+    ...validScene(),
+    sceneClaims: null,
+  } as unknown as StructuredSceneOutput;
+  const classifier: SceneSafetyClassifier = {
+    async classify() {
+      classifierCalls++;
+      return {
+        sexualContentDetected: false,
+        involvedCharacterSlugs: [],
+        ageRisk: "NONE",
+        relationshipRisk: "NONE",
+        consentRisk: "CLEAR",
+      };
+    },
+  };
+
+  const result = await generateValidatedScene(
+    new TestSceneProvider(() => malformedScene),
+    baseContext(),
+    emptyCanonContext(),
+    safeSafetyContext(),
+    classifier
+  );
+
+  assert.equal(classifierCalls, 0);
+  assert.equal(result.failureReason, "fallback");
+  assert.equal(result.scene.sceneClaims.length, 0);
+  assert.ok(result.safetyViolationsEncountered.some((v) => v.ruleId === "SAFETY-013"));
+});
