@@ -376,19 +376,37 @@ async function buildSceneSafetyContext(
     }),
   ]);
 
+  const characterEligibility: SceneSafetyContext["characters"] = {};
+  for (const character of characters) {
+    const existing = characterEligibility[character.slug];
+    if (!existing) {
+      characterEligibility[character.slug] = {
+        isAdult: character.isAdult,
+        relationshipToPlayerSafety: character.relationshipToPlayerSafety,
+      };
+      continue;
+    }
+
+    // Multiple content versions may share a slug. Conflicts must resolve to
+    // the stricter eligibility, never whichever row happened to be returned last.
+    characterEligibility[character.slug] = {
+      isAdult: existing.isAdult && character.isAdult,
+      relationshipToPlayerSafety:
+        existing.relationshipToPlayerSafety === "FAMILY_MEMBER" ||
+        character.relationshipToPlayerSafety === "FAMILY_MEMBER"
+          ? "FAMILY_MEMBER"
+          : existing.relationshipToPlayerSafety === "UNRELATED" &&
+              character.relationshipToPlayerSafety === "UNRELATED"
+            ? "UNRELATED"
+            : "UNKNOWN",
+    };
+  }
+
   return {
     playerAdultVerified: isPlausibleVerificationTimestamp(
       player?.ageVerifiedAt ?? null
     ),
-    characters: Object.fromEntries(
-      characters.map((character) => [
-        character.slug,
-        {
-          isAdult: character.isAdult,
-          relationshipToPlayerSafety: character.relationshipToPlayerSafety,
-        },
-      ])
-    ),
+    characters: characterEligibility,
   };
 }
 
