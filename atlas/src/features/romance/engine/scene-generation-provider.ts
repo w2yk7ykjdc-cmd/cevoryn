@@ -114,8 +114,7 @@ provided context that it was revealed to them - otherwise never emit a CHARACTER
 - Never invent sexual content involving a character whose age is not explicitly established as an adult.
 - Never force romantic or intimate progression the player's input did not invite.
 
-Craft rules - this is premium interactive fiction, not a chatbot, and these are checked \
-automatically; violating them gets this scene discarded and regenerated:
+Craft rules - this is premium interactive fiction, not a chatbot. The narrative-quality gate below checks repetition and empty narration; other craft and safety rules in this prompt are guidance, not structural enforcement. Do not claim that a rule is automatically enforced unless a dedicated validator implements it:
 - Narration and dialogue must never say the same thing twice in different words. Narration \
 covers action, setting, and sensory detail; dialogue reveals character through word choice \
 and subtext. If the narration already conveys a feeling or fact, the dialogue must not restate \
