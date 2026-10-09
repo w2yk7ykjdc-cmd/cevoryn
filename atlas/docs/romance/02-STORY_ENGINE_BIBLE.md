@@ -1,10 +1,11 @@
 # Story Engine Bible — "The Court of Thorns" Season 1
 
-The single most important document in this product. Every rule below is
-written so it can be (and, in Stage 5+, is) checked by code — not prose
-flavor text the LLM is merely asked to respect. Where a rule has a
-`RULE_ID`, that ID is a literal string constant the Canon Validator checks
-against; it is not decorative.
+This is the product's narrative and systems source of truth, but a described rule is
+not proof of implementation. Only rules covered by a current validator or
+state-transition implementation are enforced in code. Section 10 documents
+the current scene safety gates; beta-readiness documentation tracks remaining
+release and manual-verification work. Do not infer enforcement merely from a
+rule ID or a prompt instruction.
 
 ---
 
