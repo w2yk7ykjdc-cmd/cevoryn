@@ -73,14 +73,17 @@ These require a real browser, email delivery, and authenticated user interaction
 - [x] `/settings/billing` is now reachable - it existed but had no link from the sidebar, mobile nav, or the Settings page itself (fixed in #52).
 - [x] Production canonicalization now covers every non-canonical host, not just the one legacy domain: any host other than `cevoryn.vercel.app` redirects to it when `VERCEL_ENV === "production"`, including Vercel's per-deployment preview-style URLs (`<project>-<hash>-<team>.vercel.app`) which are otherwise always live in parallel with the alias.
 
-## Known open work outside this branch
+## Current open verification and release blockers (2026-10-10)
 
-- PR #37 (`feature/team-management-ui`) - closed as redundant; `/team` already exists and is reachable on `main`.
-- PR #35 (`feature/iyzico-subscriptions`) - closed; Paddle is the live, working billing provider.
-- Issues #17, #4, #1 - closed as superseded by this document.
+- [ ] **Romance safety gate is not yet complete.** Issue [#260](https://github.com/w2yk7ykjdc-cmd/cevoryn/issues/260) requires structured safety classification, typed relationship/family constraints, fail-closed behavior on classifier errors, and tests for consent/coercion, ambiguous age, malformed outputs, and missing claims. PR [#262](https://github.com/w2yk7ykjdc-cmd/cevoryn/pull/262) addresses the adult-eligibility default and malformed/unknown canon claims, but is only a partial fix and must not be treated as closing #260.
+- [ ] **Production health check:** the previous Production Smoke failures were traced to probing the redirected `cevoryn.vercel.app` host. [PR #261](https://github.com/w2yk7ykjdc-cmd/cevoryn/pull/261) has been merged and its CI passed; the live health endpoint still needs a successful production smoke invocation to confirm the issue is resolved in production.
+- [ ] **Team invitations:** create/renew/revoke and accept an invitation with a separate test account remain manual acceptance checks above.
+- [ ] **Cron execution:** all four configured jobs use daily schedules that satisfy Hobby frequency limits, but verify each job's actual production execution in Vercel Cron Jobs logs. Vercel does not automatically retry failed cron invocations.
+
+Historical cleanup: PR #37 (`feature/team-management-ui`) was closed as redundant because `/team` already exists; PR #35 (`feature/iyzico-subscriptions`) was closed because Paddle is the active billing provider. Issues #17, #4, and #1 were previously closed as superseded; the invite manual acceptance checks above remain valid.
 
 ## Release boundary
 
-Passing the final checks makes CEVORYN suitable for a small, controlled private beta. It does not yet certify enterprise readiness, formal penetration testing, legal compliance, or large-scale production usage.
+Passing automated CI is necessary but not sufficient for a release. A controlled private beta requires the outstanding manual checks above and the Romance safety gate must remain explicitly marked incomplete until issue #260's acceptance criteria are implemented and verified. This document does not certify enterprise readiness, formal penetration testing, legal compliance, or large-scale production usage.
 
-**Status: Paddle billing fully verified end-to-end** (checkout, price display, and webhook → `subscriptions` sync). The only remaining items are team-invite creation/acceptance (#4/#5 above), now unblocked and pending a manual test.
+**Billing status:** Paddle checkout, price display, and webhook-to-subscription synchronization were previously verified end-to-end in the sandbox. This is not evidence of a successful live-money transaction.
