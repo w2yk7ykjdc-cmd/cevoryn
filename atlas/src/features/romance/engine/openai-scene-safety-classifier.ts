@@ -69,15 +69,15 @@ export class TestSceneSafetyClassifier implements SceneSafetyClassifier {
 }
 
 export function getSceneSafetyClassifier(): SceneSafetyClassifier {
-  if (process.env.OPENAI_API_KEY?.trim()) {
-    return new OpenAISceneSafetyClassifier();
-  }
-
   const testContext =
     process.env.NODE_ENV === "test" ||
     (process.env.NODE_ENV !== "production" &&
       process.env.ROMANCE_TEST_SCENE_PROVIDER === "true");
   if (testContext) return new TestSceneSafetyClassifier();
+
+  if (process.env.OPENAI_API_KEY?.trim()) {
+    return new OpenAISceneSafetyClassifier();
+  }
 
   throw new SceneGenerationError(
     "Romance safety classification is not configured: OPENAI_API_KEY is missing."
