@@ -42,19 +42,14 @@ export class OpenAISceneProvider implements LLMProvider {
   }
 }
 
-let cachedProvider: LLMProvider | null = null;
-
 /**
  * Runtime default. A deterministic test provider is permitted only in an
  * explicit test context; a missing production API key must never silently
  * turn a paid story session into placeholder fiction.
  */
 export function getSceneProvider(): LLMProvider {
-  if (cachedProvider) return cachedProvider;
-
   if (process.env.OPENAI_API_KEY?.trim()) {
-    cachedProvider = new OpenAISceneProvider();
-    return cachedProvider;
+    return new OpenAISceneProvider();
   }
 
   const testProviderExplicitlyEnabled =
@@ -62,8 +57,7 @@ export function getSceneProvider(): LLMProvider {
     process.env.ROMANCE_TEST_SCENE_PROVIDER === "true";
 
   if (testProviderExplicitlyEnabled) {
-    cachedProvider = new TestSceneProvider();
-    return cachedProvider;
+    return new TestSceneProvider();
   }
 
   throw new SceneGenerationError(
