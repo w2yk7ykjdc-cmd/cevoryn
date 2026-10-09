@@ -1,3 +1,4 @@
+import { LogOut, Settings } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -17,7 +18,10 @@ interface RomanceShellProps {
  * Minimal, atmospheric shell for the Romance product - deliberately NOT
  * the B2B DashboardShell (no org switcher, no team nav; ADR-0001: a
  * Romance player never sees "organization"/"team" anywhere). Dark,
- * low-chrome, so the story itself is the focus.
+ * low-chrome, so the story itself is the focus. Header controls are
+ * real icon/pill buttons, not plain underlined text links - this is a
+ * paid consumer product, and its own header shouldn't look like an
+ * internal tool.
  */
 export function RomanceShell({
   displayName,
@@ -31,26 +35,28 @@ export function RomanceShell({
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
           <Link
             href={ROUTES.ROMANCE_LIBRARY}
-            className="font-serif text-lg tracking-wide text-[#f1e9f4] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c9a7e0]"
+            className="font-serif text-xl font-semibold tracking-wide text-[#f1e9f4] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c9a7e0]"
           >
             Thornbound
           </Link>
-          <div className="flex items-center gap-1 text-sm text-white/60 sm:gap-3">
+          <div className="flex items-center gap-1.5 text-sm text-white/60 sm:gap-2">
             <BillingShellControl isPremium={isPremium} />
             <NotificationBell unreadCount={unreadNotificationCount} />
             <Link
               href="/romance/admin"
-              className="hidden rounded-md px-2 py-1 underline hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c9a7e0] sm:inline"
+              aria-label="Admin"
+              className="hidden shrink-0 items-center justify-center rounded-full p-1.5 transition hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c9a7e0] sm:inline-flex"
             >
-              Admin
+              <Settings className="h-4 w-4" aria-hidden="true" />
             </Link>
-            <span className="hidden sm:inline">{displayName}</span>
-            <form action={signOutAction} className="inline">
+            <span className="hidden text-xs text-white/40 sm:inline">{displayName}</span>
+            <form action={signOutAction} className="inline-flex">
               <button
                 type="submit"
-                className="rounded-md px-2 py-1 underline hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c9a7e0]"
+                aria-label="Sign out"
+                className="inline-flex shrink-0 items-center justify-center rounded-full p-1.5 transition hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c9a7e0]"
               >
-                Sign out
+                <LogOut className="h-4 w-4" aria-hidden="true" />
               </button>
             </form>
           </div>

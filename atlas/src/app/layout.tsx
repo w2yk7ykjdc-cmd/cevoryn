@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Cormorant_Garamond } from "next/font/google";
 import Script from "next/script";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
@@ -7,6 +8,16 @@ import { Providers } from "@/components/providers";
 import { BRAND, BRAND_TITLE_TEMPLATE } from "@/lib/brand";
 
 import "./globals.css";
+
+// Only Romance/Thornbound uses the `font-serif` Tailwind utility this
+// defines (see tailwind.config.ts) - loaded here because that's where
+// font loading already lives, not because the rest of the app uses it.
+const romanceSerif = Cormorant_Garamond({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-romance-serif",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: {
@@ -47,7 +58,7 @@ export default async function RootLayout({
 
   return (
     <html lang={locale} suppressHydrationWarning>
-      <body className="font-sans">
+      <body className={`font-sans ${romanceSerif.variable}`}>
         <Script src="/theme-init.js" strategy="beforeInteractive" />
         <NextIntlClientProvider locale={locale} messages={messages}>
           <Providers>{children}</Providers>
