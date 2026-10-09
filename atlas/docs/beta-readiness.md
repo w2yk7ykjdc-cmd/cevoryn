@@ -8,9 +8,18 @@
 
 The branch must be considered beta-ready only when the latest Vercel Production deployment succeeds. Vercel's free-tier plan caps deployments at 100/day; if that cap is hit, pushes and merges stop reaching production silently until the cap resets or the plan is upgraded. Check the "Deployments" tab in the Vercel dashboard, not just CI, before assuming a merge shipped.
 
-### Cron limits (verified)
+### Cron limits (verified 2026-10-10)
 
-`vercel.json` defines exactly 2 cron jobs (`cleanup-usage-reservations` at `0 3 * * *`, `cleanup-billing-hardening-records` at `30 3 * * *`), both invoked once per day. This fits inside Vercel's Hobby plan cron limits (max 2 cron jobs, invoked at most once/day each) with no headroom to spare — adding a third cron job, or increasing either job's frequency past once/day, requires the Pro plan (up to 40 cron jobs, more frequent schedules) first. If a cron job silently stops running in production, check the current plan tier before assuming an application bug.
+Current `atlas/vercel.json` defines 4 daily cron jobs:
+
+- `/api/cron/cleanup-usage-reservations` — `0 3 * * *` (03:00 UTC)
+- `/api/cron/cleanup-billing-hardening-records` — `30 3 * * *` (03:30 UTC)
+- `/api/cron/radar-ingest` — `0 6 * * *` (06:00 UTC)
+- `/api/cron/learning-cycle` — `0 7 * * *` (07:00 UTC)
+
+Vercel's current documentation (updated January 2026) allows up to 100 cron jobs per project on every plan. The Hobby plan restriction is **frequency**, not a two-job total: each cron must run no more than once per day, with invocation timing only guaranteed within the configured hour (±59 minutes). Pro and Enterprise support per-minute scheduling precision and more frequent schedules. The four current expressions satisfy Hobby's once-per-day frequency rule; do not describe a third daily job alone as requiring Pro.
+
+Operational caveats: Vercel does not automatically retry a failed cron invocation, and cron requests do not follow redirects. Verify executions in Vercel Dashboard → Settings → Cron Jobs → View Logs; a green GitHub CI run does not prove that scheduled production invocations are firing. Sources: [Cron usage and pricing](https://vercel.com/docs/cron-jobs/usage-and-pricing) and [Cron management](https://vercel.com/docs/cron-jobs/manage-cron-jobs).
 
 ## Code-complete reliability work
 
