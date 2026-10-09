@@ -8,6 +8,10 @@ import type {
   StructuredSceneOutput,
 } from "../src/features/romance/engine/scene-generation-provider";
 import type { CanonContext } from "../src/features/romance/engine/types";
+import type {
+  SceneSafetyClassifier,
+  SceneSafetyContext,
+} from "../src/features/romance/engine/scene-safety-policy";
 
 function baseContext(): SceneGenerationContext {
   return {
@@ -35,6 +39,29 @@ function emptyCanonContext(): CanonContext {
     adultCharacterSlugs: new Set(),
   };
 }
+
+function safeSafetyContext(): SceneSafetyContext {
+  return {
+    characters: {
+      caelan: {
+        isAdult: true,
+        relationshipToPlayerSafety: "UNRELATED",
+      },
+    },
+  };
+}
+
+const safeSafetyClassifier: SceneSafetyClassifier = {
+  async classify() {
+    return {
+      sexualContentDetected: false,
+      involvedCharacterSlugs: [],
+      ageRisk: "NONE",
+      relationshipRisk: "NONE",
+      consentRisk: "CLEAR",
+    };
+  },
+};
 
 function validScene(narration = "A valid scene."): StructuredSceneOutput {
   return {
@@ -65,7 +92,9 @@ test("a valid first attempt is returned as-is, no recovery needed", async () => 
   const result = await generateValidatedScene(
     provider,
     baseContext(),
-    emptyCanonContext()
+    emptyCanonContext(),
+  safeSafetyContext(),
+  safeSafetyClassifier
   );
 
   assert.equal(result.valid, true);
@@ -84,7 +113,9 @@ test("an invalid first attempt that becomes valid on regenerate is accepted and 
   const result = await generateValidatedScene(
     provider,
     baseContext(),
-    emptyCanonContext()
+    emptyCanonContext(),
+  safeSafetyContext(),
+  safeSafetyClassifier
   );
 
   assert.equal(result.valid, true);
@@ -106,7 +137,9 @@ test("an invalid attempt that only becomes valid on the third (repair) try cites
   const result = await generateValidatedScene(
     provider,
     baseContext(),
-    emptyCanonContext()
+    emptyCanonContext(),
+  safeSafetyContext(),
+  safeSafetyClassifier
   );
 
   assert.equal(result.valid, true);
@@ -125,7 +158,9 @@ test("a scene that never validates falls back to the safe deterministic scene, n
   const result = await generateValidatedScene(
     provider,
     baseContext(),
-    emptyCanonContext()
+    emptyCanonContext(),
+  safeSafetyContext(),
+  safeSafetyClassifier
   );
 
   assert.equal(result.valid, true);
@@ -162,7 +197,9 @@ test("canon-valid but repetitive prose is rejected and regenerated, never shown 
   const result = await generateValidatedScene(
     provider,
     baseContext(),
-    emptyCanonContext()
+    emptyCanonContext(),
+  safeSafetyContext(),
+  safeSafetyClassifier
   );
 
   assert.equal(result.valid, true);
@@ -185,7 +222,9 @@ test("prose-quality issues from earlier attempts are cited in the repair (3rd) a
   const result = await generateValidatedScene(
     provider,
     baseContext(),
-    emptyCanonContext()
+    emptyCanonContext(),
+  safeSafetyContext(),
+  safeSafetyClassifier
   );
 
   assert.equal(result.valid, true);
