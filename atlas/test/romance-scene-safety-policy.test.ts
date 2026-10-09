@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   containsSuspectedChildSexualContent,
+  containsSuspectedChildSexualText,
   parseSceneSafetyClassification,
   validateSceneSafety,
 } from "../src/features/romance/engine/scene-safety-policy";
@@ -169,6 +170,18 @@ test("suspected underage explicit content is caught by local preflight", () => {
   );
   assert.equal(
     containsSuspectedChildSexualContent(scene("Two adult characters discuss a bargain.")),
+    false
+  );
+});
+
+
+test("untrusted player input can be rejected locally before scene generation", () => {
+  assert.equal(
+    containsSuspectedChildSexualText("The 16-year-old asks for a sexual scene."),
+    true
+  );
+  assert.equal(
+    containsSuspectedChildSexualText("An adult asks to discuss the court bargain."),
     false
   );
 });
