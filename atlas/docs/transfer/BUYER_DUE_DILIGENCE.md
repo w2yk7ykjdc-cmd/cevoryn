@@ -6,24 +6,32 @@ repository or this session's own production-testing history is marked
 
 ## Current status
 
-- Product is live and actively used at `www.cevoryn.com`.
-- All known code-level P0/P1/P2 issues from the project's own internal
-  audit history have been fixed and merged (see git log on `main`).
-- Fresh verification this session: TypeScript, ESLint, Prettier, 179/179
-  unit tests, and production build all pass — see
-  [`TEST_QUALITY_REPORT.md`](TEST_QUALITY_REPORT.md).
-- Google Calendar/Gmail integration and Polar billing (checkout **and**
-  cancellation) have each been tested end-to-end with real data/real
-  money at least once, in production, by the current owner.
+- The public website and app entry routes are reachable, but this does not
+  by itself prove that the current production deployment is serving the
+  latest `main` commit or that all authenticated workflows work.
+- The latest verified post-merge main CI run is
+  [run 38004848100](https://github.com/w2yk7ykjdc-cmd/cevoryn/actions/runs/38004848100),
+  which passed after PR #269. CI is evidence of the tested commit, not of
+  live production deployment or third-party service configuration.
+- The repository contains prior internal verification reports for type
+  checking, lint, formatting, tests, and production build. Do not repeat
+  historical test counts as a fresh run without checking the corresponding
+  report and current workflow.
+- Google Calendar/Gmail and Polar checkout/cancellation have historical
+  owner-reported end-to-end tests. They were not independently re-run in
+  this review. The current deployed Polar checkout, webhook, entitlement,
+  and cancellation path must be re-verified before making a buyer-facing
+  claim that billing is currently operational.
 
 ## Revenue
 
 **UNKNOWN.** This documentation pass has no access to the Polar dashboard
-or any billing export. What is confirmed from prior real-money testing
-this session: at least one real subscription checkout and one real
-cancellation were completed successfully end-to-end (webhook → database →
-entitlement all confirmed consistent). No aggregate revenue figure, MRR,
-or transaction count can be stated.
+or any billing export. Prior project notes report at least one real subscription checkout and
+one cancellation completed end-to-end, but this documentation pass did not
+independently verify those transactions against the current Polar
+dashboard or production database. No aggregate revenue figure, MRR, or
+transaction count can be stated. Treat current billing status as requiring
+live re-verification before buyer representations.
 
 ## Users
 
@@ -68,10 +76,11 @@ move each one to the buyer's own accounts.
   confirmed against Polar's actual SLA.
 - **No automated E2E/browser test suite** — only unit and integration
   (real-database) tests exist. UI regressions are not caught by CI.
-- **Vercel Hobby-tier cron limit** — the 2 currently-configured cron jobs
-  exactly fill the Hobby plan's cron allowance (2 jobs, daily only).
-  Adding a third job or a more frequent schedule requires upgrading to
-  Vercel Pro first.
+- **Vercel cron operations** — `atlas/vercel.json` currently defines four
+  daily cron jobs. Current Hobby restrictions concern per-cron frequency
+  (no more than once per day), not a two-job total. Vercel does not
+  automatically retry failed cron invocations; production execution logs
+  must be checked directly.
 - **English-only UI as of this session's most recent change** — Turkish
   UI infrastructure is intentionally retained (not deleted) for possible
   future re-activation, but is not currently active.

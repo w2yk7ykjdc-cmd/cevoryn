@@ -44,20 +44,36 @@ Operational caveats: Vercel does not automatically retry a failed cron invocatio
 - Sign-in succeeds.
 - Chat returns an AI response.
 - A new conversation can be created.
-- Production `/api/health` returns `200` with `services.database: "connected"`.
+- Historical manual check: production `/api/health` returned `200` with
+  `services.database: "connected"`. This is not a current-turn live
+  verification and must not be used as proof of present health. The
+  scheduled Production Smoke workflow is configured to probe the canonical
+  host, but no recent Production Smoke run was found in the Actions runs
+  inspected on 2026-10-10.
 - Historical check only: the former Paddle webhook endpoint returned a signature-verification response rather than a login redirect. The current webhook endpoint is `/api/billing/polar/webhook`; its live production delivery/signature path must be verified against the current deployment.
 
 ## Final manual acceptance checks
 
-These require a real browser, email delivery, and authenticated user interaction:
+These require a real browser, email delivery, and authenticated user interaction.
+Items marked historically complete are not proof of current production state.
+Before sale, repeat the critical checks against the currently deployed commit
+and retain timestamped evidence:
 
 1. [x] Rename a conversation and refresh the page - persists.
 2. [x] Archive a conversation and confirm it disappears from the active list - confirmed.
 3. [x] Request a password-reset email, open the link, set a new password, and sign in with it - confirmed end-to-end.
-4. [ ] Create, renew, and revoke a team invitation - now unblocked (a real ACTIVE subscription exists after the webhook fix below); not yet tested.
+4. [ ] Create, renew, and revoke a team invitation - not yet tested against the current production subscription state.
 5. [ ] Accept an invitation with a separate test account - not yet tested.
-6. [x] Verify mobile chat input remains visible above the keyboard - confirmed.
+6. [x] Verify mobile chat input remains visible above the keyboard - confirmed historically; repeat against the current deployment before sale.
 7. [x] Historical Paddle sandbox checkout and webhook synchronization were confirmed before the provider migration. This does **not** verify the current Polar checkout/webhook path; current live-provider acceptance must be tracked separately.
+8. [ ] Verify current production health probe and confirm its reported commit
+   matches the intended release; preserve the workflow run and response.
+9. [ ] Verify the current Polar checkout → signed webhook → database
+   subscription → entitlement flow, then cancellation/portal behavior, using
+   a controlled test account and retain provider/database evidence.
+10. [ ] Verify the live Thornbound 18+ route/action guard, configured safety
+    classifier behavior, user-facing rejection behavior, and production audit
+    logs (tracked in issue #260).
 
 ## Historical Paddle migration evidence (not the current billing provider)
 
