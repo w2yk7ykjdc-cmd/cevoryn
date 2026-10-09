@@ -1,21 +1,29 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { SceneGenerationError, TestSceneProvider } from "../src/features/romance/engine/scene-generation-provider";
+import {
+  SceneGenerationError,
+  TestSceneProvider,
+} from "../src/features/romance/engine/scene-generation-provider";
 import { selectSceneProvider } from "../src/features/romance/engine/scene-provider-selection";
 
-const realProvider = { name: "real-provider", generateScene: async () => ({
-  narration: "configured",
-  dialogueLines: [],
-  sceneClaims: [],
-  proposedRelationshipNudge: null,
-  proposedMemoryCandidates: [],
-}) };
+const realProvider = {
+  name: "real-provider",
+  generateScene: async () => ({
+    narration: "configured",
+    dialogueLines: [],
+    sceneClaims: [],
+    proposedRelationshipNudge: null,
+    proposedMemoryCandidates: [],
+  }),
+};
 
 test("production fails closed instead of silently returning placeholder scenes when OPENAI_API_KEY is missing", () => {
   assert.throws(
     () => selectSceneProvider({ NODE_ENV: "production" }, () => realProvider),
-    (error: unknown) => error instanceof SceneGenerationError && /OPENAI_API_KEY is missing/.test(error.message)
+    (error: unknown) =>
+      error instanceof SceneGenerationError &&
+      /OPENAI_API_KEY is missing/.test(error.message)
   );
 });
 
@@ -42,7 +50,10 @@ test("the test-provider opt-in cannot enable placeholder scenes in production", 
 test("a configured API key selects the real provider", () => {
   assert.equal(
     selectSceneProvider(
-      { NODE_ENV: "production", OPENAI_API_KEY: "test-key-not-used-for-network" },
+      {
+        NODE_ENV: "production",
+        OPENAI_API_KEY: "test-key-not-used-for-network",
+      },
       () => realProvider
     ),
     realProvider
@@ -51,6 +62,7 @@ test("a configured API key selects the real provider", () => {
 
 test("NODE_ENV=test explicitly permits the deterministic provider without a key", () => {
   assert.ok(
-    selectSceneProvider({ NODE_ENV: "test" }, () => realProvider) instanceof TestSceneProvider
+    selectSceneProvider({ NODE_ENV: "test" }, () => realProvider) instanceof
+      TestSceneProvider
   );
 });
