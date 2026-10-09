@@ -4,7 +4,6 @@ import { getAIProvider } from "@/features/ai/providers";
 
 import {
   SCENE_SYSTEM_PROMPT,
-  TestSceneProvider,
   buildSceneUserPrompt,
   parseStructuredSceneOutput,
 } from "./scene-generation-provider";
@@ -13,14 +12,13 @@ import type {
   SceneGenerationContext,
   StructuredSceneOutput,
 } from "./scene-generation-provider";
+import { selectSceneProvider } from "./scene-provider-selection";
 
 /**
  * Production scene provider - real code, wired through the existing
  * AIProvider interface (reused, not a new vendor SDK embedded directly
- * in domain logic - brief §26). NOT exercised against a real model in
- * this sandbox (no OPENAI_API_KEY) - see the final report's
- * known-limitations section. Never used by default in tests; tests
- * inject TestSceneProvider directly instead.
+ * in domain logic - brief §26). Real model calls require configured
+ * credentials and are verified separately from deterministic unit tests.
  */
 export class OpenAISceneProvider implements LLMProvider {
   readonly name = "openai-scene-provider";
@@ -41,13 +39,11 @@ export class OpenAISceneProvider implements LLMProvider {
   }
 }
 
-let cachedProvider: LLMProvider | null = null;
-
-/** Runtime default: TestSceneProvider when no real provider is configured, never a silent fake-as-real. */
+/**
+ * Runtime default. A deterministic test provider is permitted only in an
+ * explicit test context; a missing production API key must never silently
+ * turn a paid story session into placeholder fiction.
+ */
 export function getSceneProvider(): LLMProvider {
-  if (cachedProvider) return cachedProvider;
-  cachedProvider = process.env.OPENAI_API_KEY
-    ? new OpenAISceneProvider()
-    : new TestSceneProvider();
-  return cachedProvider;
+  return selectSceneProvider(process.env, () => new OpenAISceneProvider());
 }
