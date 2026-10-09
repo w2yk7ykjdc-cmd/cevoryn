@@ -313,15 +313,14 @@ The scene-return path now has three separate gates: canon-claim validation,
 narrative-quality validation, and a structured safety decision. Do not
 describe these as one `CANON-007` check: `CANON-007` rejects malformed or
 unknown canon claim types; the safety policy uses its own `SAFETY-001` through
-`SAFETY-013` decisions.
+`SAFETY-014` decisions.
 
 - The safety classifier receives generated narration/dialogue and trusted
   character-eligibility metadata. Raw player input is not sent to this
   classifier. Its JSON result is schema-checked; malformed output, provider
   failure, or timeout rejects that attempt and uses the regenerate/repair/
   safe-fallback path.
-- Deterministic checks independently require a valid server-side player 18+
-  verification and every classifier-identified character in intimate content
+- Deterministic checks independently require a valid server-side player 18+ self-attestation timestamp and every classifier-identified character in intimate content
   to have `isAdult = true` and `relationshipToPlayerSafety = UNRELATED`. False,
   missing, family, or unknown eligibility fails closed. Each identified character must also have
   the required `CHARACTER_INVOLVED_IN_SEXUAL_CONTENT` canon claim; missing or
