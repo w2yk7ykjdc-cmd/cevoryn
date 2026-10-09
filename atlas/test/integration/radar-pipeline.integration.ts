@@ -430,6 +430,29 @@ test("full chain: Signal -> Event -> Opportunity -> Action -> Outcome links reso
     0,
     "org B must not be able to update org A's opportunity"
   );
+
+  // Re-resolving a terminal opportunity must update the existing learning
+  // record rather than leave stale SUCCESS data after the status becomes LOST.
+  const lostStatusUpdate = await updateOpportunityStatus(
+    ORG_A_ID,
+    opportunity.id,
+    "LOST",
+    USER_ID
+  );
+  assert.equal(lostStatusUpdate.count, 1);
+
+  const persistedOpportunity = await prisma.opportunity.findFirst({
+    where: { id: opportunity.id, organizationId: ORG_A_ID },
+    select: { status: true },
+  });
+  const persistedOutcomes = await prisma.outcomeEvaluation.findMany({
+    where: { organizationId: ORG_A_ID, opportunityId: opportunity.id },
+  });
+
+  assert.equal(persistedOpportunity?.status, "LOST");
+  assert.equal(persistedOutcomes.length, 1);
+  assert.equal(persistedOutcomes[0].result, "FAILURE");
+  assert.equal(persistedOutcomes[0].outcomeScore, 0);
 });
 
 test("cascade delete: removing an Organization removes its entities, signals, events, and opportunities", async () => {
