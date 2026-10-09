@@ -24,9 +24,9 @@ import type {
 } from "./scene-generation-provider";
 import { selectValidSceneMemoryCandidates } from "./scene-memory-candidate-math";
 import { generateValidatedScene } from "./scene-pipeline.service";
+import type { SceneFailureReason } from "./scene-pipeline.service";
 import { containsSuspectedChildSexualText } from "./scene-safety-policy";
 import type { SceneSafetyClassifier, SceneSafetyContext } from "./scene-safety-policy";
-import type { SceneFailureReason } from "./scene-pipeline.service";
 import type {
   CanonContext,
   MemoryLite,
