@@ -94,8 +94,8 @@ test("a valid first attempt is returned as-is, no recovery needed", async () => 
     provider,
     baseContext(),
     emptyCanonContext(),
-  safeSafetyContext(),
-  safeSafetyClassifier
+    safeSafetyContext(),
+    safeSafetyClassifier,
   );
 
   assert.equal(result.valid, true);
@@ -115,8 +115,8 @@ test("an invalid first attempt that becomes valid on regenerate is accepted and 
     provider,
     baseContext(),
     emptyCanonContext(),
-  safeSafetyContext(),
-  safeSafetyClassifier
+    safeSafetyContext(),
+    safeSafetyClassifier,
   );
 
   assert.equal(result.valid, true);
@@ -139,8 +139,8 @@ test("an invalid attempt that only becomes valid on the third (repair) try cites
     provider,
     baseContext(),
     emptyCanonContext(),
-  safeSafetyContext(),
-  safeSafetyClassifier
+    safeSafetyContext(),
+    safeSafetyClassifier,
   );
 
   assert.equal(result.valid, true);
@@ -160,8 +160,8 @@ test("a scene that never validates falls back to the safe deterministic scene, n
     provider,
     baseContext(),
     emptyCanonContext(),
-  safeSafetyContext(),
-  safeSafetyClassifier
+    safeSafetyContext(),
+    safeSafetyClassifier,
   );
 
   assert.equal(result.valid, true);
@@ -199,8 +199,8 @@ test("canon-valid but repetitive prose is rejected and regenerated, never shown 
     provider,
     baseContext(),
     emptyCanonContext(),
-  safeSafetyContext(),
-  safeSafetyClassifier
+    safeSafetyContext(),
+    safeSafetyClassifier,
   );
 
   assert.equal(result.valid, true);
@@ -224,8 +224,8 @@ test("prose-quality issues from earlier attempts are cited in the repair (3rd) a
     provider,
     baseContext(),
     emptyCanonContext(),
-  safeSafetyContext(),
-  safeSafetyClassifier
+    safeSafetyContext(),
+    safeSafetyClassifier,
   );
 
   assert.equal(result.valid, true);
