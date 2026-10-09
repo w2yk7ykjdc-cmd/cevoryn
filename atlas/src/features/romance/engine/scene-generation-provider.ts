@@ -44,6 +44,14 @@ export interface StructuredSceneOutput {
   proposedMemoryCandidates: unknown[];
 }
 
+export interface CharacterVoiceContext {
+  speechStyle: string;
+  personalityTraits: string[];
+  goals: string[];
+  fears: string[];
+  values: string[];
+}
+
 export interface SceneGenerationContext {
   beatSlug: string;
   beatName: string;
@@ -59,6 +67,8 @@ export interface SceneGenerationContext {
   relationshipState: RelationshipDimensions | null;
   /** Character record trimmed to what this scene is allowed to use - never the full content row. */
   characterKnowledgeScope: string | null;
+  /** How this specific character sounds and what drives them - without this, every character's dialogue reads generic/interchangeable. */
+  characterVoice: CharacterVoiceContext | null;
   /** 1 on the first attempt; >1 on a regenerate/repair re-prompt after a canon-validation failure (see scene-pipeline.service.ts). */
   attemptNumber?: number;
   /** Set only on a "repair" attempt (attemptNumber 3): exactly which rules the prior attempt violated, so a real provider can correct for them. */
@@ -102,7 +112,27 @@ Rules you must never violate:
 provided context that it was revealed to them - otherwise never emit a CHARACTER_KNOWS_TRUE_NAME claim for them.
 - Never have a character reference a bargain or promise that is not listed in the provided context.
 - Never invent sexual content involving a character whose age is not explicitly established as an adult.
-- Never force romantic or intimate progression the player's input did not invite.`;
+- Never force romantic or intimate progression the player's input did not invite.
+
+Craft rules - this is premium interactive fiction, not a chatbot, and these are checked \
+automatically; violating them gets this scene discarded and regenerated:
+- Narration and dialogue must never say the same thing twice in different words. Narration \
+covers action, setting, and sensory detail; dialogue reveals character through word choice \
+and subtext. If the narration already conveys a feeling or fact, the dialogue must not restate \
+it - it must do new work (reveal information, make a choice, push back, deflect).
+- Dramatize, don't explain. Never write a sentence that names an emotion directly ("he felt \
+afraid," "the tension was palpable") - show it through a concrete action, a physical detail, or \
+what a character does or doesn't say.
+- When "characterVoice" is provided for the character being addressed, every line of their \
+dialogue must sound like THEM specifically: match their speechStyle literally (if it says they \
+rarely contract words, never contract their words), and let their goals/fears/values shape what \
+they choose to say or withhold. Two different characters in this universe must never sound \
+interchangeable.
+- Every scene must do real work: advance the plot, reveal new information, shift the \
+relationship, or introduce a genuine complication. Never a scene that only restates the status \
+quo the player already knows.
+- Be concise. Favor a handful of sentences with real weight over a paragraph that pads the same \
+beat. Pacing is part of the craft here, not an afterthought.`;
 
 export function buildSceneUserPrompt(context: SceneGenerationContext): string {
   return JSON.stringify({
@@ -113,6 +143,7 @@ export function buildSceneUserPrompt(context: SceneGenerationContext): string {
     relevantCanonFacts: context.relevantCanonFacts,
     relationshipState: context.relationshipState,
     characterKnowledgeScope: context.characterKnowledgeScope,
+    characterVoice: context.characterVoice,
     priorViolations: context.priorViolations ?? [],
   });
 }
