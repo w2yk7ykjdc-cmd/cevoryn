@@ -433,6 +433,23 @@ test("two concurrent relationship-changing actions against the same character do
   assert.equal(after?.tension, (before?.tension ?? 0) + 5);
 });
 
+test("new story characters default to not adult-eligible until explicitly verified", async () => {
+  const character = await prisma.storyCharacter.create({
+    data: {
+      universeId,
+      slug: `unverified-${randomUUID()}`,
+      name: "Unverified Character",
+      race: "FAE",
+      isVoiced: false,
+      speechStyle: "not configured",
+      knowledgeScopeRule: "not configured",
+    },
+  });
+
+  assert.equal(character.isAdult, false);
+  await prisma.storyCharacter.delete({ where: { id: character.id } });
+});
+
 test("audio-render idempotency is enforced at the schema level: a retried render for the same event+voice-version cannot duplicate", async () => {
   const character = await prisma.storyCharacter.create({
     data: {

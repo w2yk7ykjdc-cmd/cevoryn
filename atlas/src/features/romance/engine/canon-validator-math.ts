@@ -26,6 +26,22 @@ function validateClaim(
   claim: SceneClaim,
   context: CanonContext
 ): CanonViolation | null {
+  // Scene claims originate in untrusted model JSON. Guard malformed values
+  // before reading properties so null/primitive entries fail closed too.
+  const runtimeClaim = claim as unknown;
+  if (
+    typeof runtimeClaim !== "object" ||
+    runtimeClaim === null ||
+    typeof (runtimeClaim as { type?: unknown }).type !== "string" ||
+    typeof (runtimeClaim as { characterSlug?: unknown }).characterSlug !== "string"
+  ) {
+    return {
+      ruleId: "CANON-007",
+      message: "Malformed scene claim; refusing to treat untrusted claim data as safe.",
+      claim,
+    };
+  }
+
   switch (claim.type) {
     case "CHARACTER_KNOWS_TRUE_NAME": {
       if (!context.trueNameRevealedTo.has(claim.characterSlug)) {
@@ -67,8 +83,17 @@ function validateClaim(
       }
       return null;
     }
-    default:
-      return null;
+    default: {
+      // The provider output crosses a runtime JSON boundary; TypeScript's
+      // union cannot guarantee the model actually returned a known claim.
+      // Unknown claim types must fail closed rather than silently pass.
+      const unknownClaim = claim as unknown as { type?: unknown; characterSlug?: unknown };
+      return {
+        ruleId: "CANON-007",
+        message: `Unsupported scene claim type "${String(unknownClaim?.type)}"; refusing to treat an unrecognized claim as safe.`,
+        claim: claim as SceneClaim,
+      };
+    }
   }
 }
 

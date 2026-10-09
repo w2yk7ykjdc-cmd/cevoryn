@@ -1523,13 +1523,10 @@ model StoryCharacter {
   name               String
   race               FaeRace
   isVoiced           Boolean  @default(true) @map("is_voiced")
-  /// The single structural backstop against minor-sexualization: a scene's
-  /// CHARACTER_INVOLVED_IN_SEXUAL_CONTENT claim is checked against this
-  /// field by canon-validator-math (CANON-006), never against the LLM's
-  /// own judgment. Defaults true only because every seeded character today
-  /// is an adult by design - any future non-adult character must be seeded
-  /// with this explicitly false.
-  isAdult            Boolean  @default(true) @map("is_adult")
+  /// Sexual-content eligibility is opt-in and fails closed: a character
+  /// must be explicitly recorded as an adult before intimate content can pass
+  /// CANON-006. New or incompletely configured characters default to ineligible.
+  isAdult            Boolean  @default(false) @map("is_adult")
   personality        Json     @default("{}")
   goals              String[]
   fears              String[]

@@ -116,9 +116,32 @@ test("sexual content involving a character on record as an adult IS valid", () =
   assert.deepEqual(result.violations, []);
 });
 
+test("a malformed runtime scene claim fails closed instead of throwing", () => {
+  const malformedClaim = null as unknown as import("../src/features/romance/engine/types").SceneClaim;
+
+  const result = validateSceneClaims([malformedClaim], emptyContext());
+
+  assert.equal(result.valid, false);
+  assert.equal(result.violations[0]?.ruleId, "CANON-007");
+});
+
 test("a scene with zero claims is trivially valid", () => {
   assert.deepEqual(validateSceneClaims([], emptyContext()), {
     valid: true,
     violations: [],
   });
+});
+
+
+test("an unknown runtime scene-claim type fails closed (CANON-007)", () => {
+  const unknownClaim = {
+    type: "UNRECOGNIZED_SAFETY_CLAIM",
+    characterSlug: "caelan",
+  } as unknown as import("../src/features/romance/engine/types").SceneClaim;
+
+  const result = validateSceneClaims([unknownClaim], emptyContext());
+
+  assert.equal(result.valid, false);
+  assert.equal(result.violations.length, 1);
+  assert.equal(result.violations[0]?.ruleId, "CANON-007");
 });
