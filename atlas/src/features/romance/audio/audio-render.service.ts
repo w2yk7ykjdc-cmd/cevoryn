@@ -123,9 +123,9 @@ export async function renderSceneAudio(params: {
  * lines, keyed by line index, with a fresh signed playback URL.
  */
 export async function getAudioForStoryEvent(
-  storyEventId: string
+  storyEventId: string,
+  storageProvider: AudioStorageProvider = getAudioStorageProvider()
 ): Promise<Map<number, { playbackUrl: string; durationMs: number }>> {
-  const storageProvider = getAudioStorageProvider();
 
   const renders = await prisma.audioRender.findMany({
     where: { storyEventId, status: "COMPLETED" },

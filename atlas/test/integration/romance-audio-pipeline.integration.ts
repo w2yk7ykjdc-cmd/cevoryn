@@ -186,7 +186,7 @@ test("a voiced character's dialogue line is rendered and becomes playable", asyn
   assert.equal(rendered[0]!.status, "COMPLETED");
   assert.equal(rendered[0]!.lineIndex, 0);
 
-  const playable = await getAudioForStoryEvent(event.id);
+  const playable = await getAudioForStoryEvent(event.id, storageProvider);
   assert.equal(playable.size, 1);
   const line0 = playable.get(0);
   assert.ok(line0);
@@ -220,7 +220,7 @@ test("an unvoiced character's dialogue line is skipped entirely - no AudioRender
   const rendered = await prisma.audioRender.findMany({ where: { storyEventId: event.id } });
   assert.equal(rendered.length, 0);
 
-  const playable = await getAudioForStoryEvent(event.id);
+  const playable = await getAudioForStoryEvent(event.id, new TestAudioStorageProvider());
   assert.equal(playable.size, 0);
 });
 
@@ -317,6 +317,6 @@ test("two different voiced characters speaking in the same scene, both on voiceP
   assert.equal(rendered[0]!.lineIndex, 0);
   assert.equal(rendered[1]!.lineIndex, 1);
 
-  const playable = await getAudioForStoryEvent(event.id);
+  const playable = await getAudioForStoryEvent(event.id, new TestAudioStorageProvider());
   assert.equal(playable.size, 2);
 });

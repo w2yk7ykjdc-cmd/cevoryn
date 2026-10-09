@@ -14,15 +14,6 @@ async function startFlow(path: string): Promise<BillingResponse> {
   return (await response.json()) as BillingResponse;
 }
 
-/**
- * Header-level billing control for the Romance shell. In-world framing
- * only (Product Bible's UX principles: never "subscription"/"billing" as
- * raw system vocabulary) - "Unlock Premium Voices" names the actual
- * payoff (audio narration), not the transaction. A real filled pill
- * button, not a plain underlined text link - this is the product's one
- * monetization CTA and needs to read as one, especially on mobile where
- * it's the first thing a non-Premium player can act on.
- */
 export function BillingShellControl({ isPremium }: { isPremium: boolean }) {
   const [isPending, setIsPending] = useState(false);
 
@@ -45,38 +36,16 @@ export function BillingShellControl({ isPremium }: { isPremium: boolean }) {
     }
   }
 
-  if (isPremium) {
-    return (
-      <button
-        type="button"
-        onClick={handleClick}
-        disabled={isPending}
-        className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-[#c9a7e0]/40 bg-[#c9a7e0]/10 px-2.5 py-1 text-xs font-medium text-[#e4cdf2] transition hover:bg-[#c9a7e0]/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c9a7e0] disabled:opacity-60"
-      >
-        {isPending ? (
-          <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
-        ) : (
-          <Sparkles className="h-3 w-3" aria-hidden="true" />
-        )}
-        Premium
-      </button>
-    );
-  }
-
+  const label = isPremium ? "Premium" : "Unlock Premium";
   return (
     <button
       type="button"
       onClick={handleClick}
       disabled={isPending}
-      className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-gradient-to-r from-[#8a5cb8] to-[#5c3a73] px-2.5 py-1 text-xs font-medium text-white shadow-sm shadow-black/30 transition hover:from-[#9a6cc8] hover:to-[#6d4788] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c9a7e0] disabled:opacity-60"
+      className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-xs font-semibold text-white shadow-[0_5px_16px_rgba(185,54,89,0.18)] transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#bd4968] disabled:opacity-60 sm:px-4 ${isPremium ? "bg-[#8f5367] hover:bg-[#794456]" : "bg-gradient-to-r from-[#d75f7b] to-[#ad2e53] hover:from-[#c84e6b] hover:to-[#982647]"}`}
     >
-      {isPending ? (
-        <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
-      ) : (
-        <Sparkles className="h-3 w-3" aria-hidden="true" />
-      )}
-      <span className="sm:hidden">Premium</span>
-      <span className="hidden sm:inline">Unlock Premium Voices</span>
+      {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />}
+      <span>{isPending ? "Opening…" : label}</span>
     </button>
   );
 }
