@@ -13,6 +13,7 @@ import { canTransitionBargain } from "./commitment-fsm-math";
 import { parseFreeformIntent } from "./intent-parser-math";
 import { resolveMemoryWrite } from "./memory-dedup-math";
 import { getSceneProvider } from "./openai-scene-provider";
+import { getSceneSafetyClassifier } from "./openai-scene-safety-classifier";
 import { getRelationshipDelta } from "./relationship-transition-math";
 import type {
   LLMProvider,
@@ -21,6 +22,7 @@ import type {
 } from "./scene-generation-provider";
 import { selectValidSceneMemoryCandidates } from "./scene-memory-candidate-math";
 import { generateValidatedScene } from "./scene-pipeline.service";
+import type { SceneSafetyClassifier, SceneSafetyContext } from "./scene-safety-policy";
 import type { SceneFailureReason } from "./scene-pipeline.service";
 import type {
   CanonContext,
@@ -92,6 +94,8 @@ export interface SubmitPlayerInputParams {
   bargainBreachConsequence?: string;
   /** Swappable provider (brief §26) - defaults to getSceneProvider(). Tests inject a TestSceneProvider with a custom plan. */
   llmProvider?: LLMProvider;
+  /** Injectable structured safety classifier; absent in production, the configured classifier is required. */
+  sceneSafetyClassifier?: SceneSafetyClassifier;
   /** Client-generated key - a retried/duplicate submission (double-click, network retry) with the same key returns the original result instead of reprocessing. */
   idempotencyKey?: string;
 }
@@ -346,6 +350,32 @@ async function buildCanonContext(
     knownBargainIds: new Set(bargains.map((b) => b.id)),
     knownPromiseIds: new Set(promises.map((p) => p.id)),
     adultCharacterSlugs: new Set(adultCharacters.map((c) => c.slug)),
+  };
+}
+
+async function buildSceneSafetyContext(
+  tx: Prisma.TransactionClient,
+  universeId: string
+): Promise<SceneSafetyContext> {
+  const characters = await tx.storyCharacter.findMany({
+    where: { universeId },
+    select: {
+      slug: true,
+      isAdult: true,
+      relationshipToPlayerSafety: true,
+    },
+  });
+
+  return {
+    characters: Object.fromEntries(
+      characters.map((character) => [
+        character.slug,
+        {
+          isAdult: character.isAdult,
+          relationshipToPlayerSafety: character.relationshipToPlayerSafety,
+        },
+      ])
+    ),
   };
 }
 
@@ -744,7 +774,7 @@ export async function submitPlayerInput(
       const beatSlug = session.currentBeat?.slug ?? "unknown";
       const beatName = session.currentBeat?.name ?? "Unknown";
 
-      const [canonContext, sceneContext] = await Promise.all([
+      const [canonContext, sceneContext, safetyContext] = await Promise.all([
         buildCanonContext(tx, session.id, session.universeId),
         buildSceneGenerationContext(
           tx,
@@ -754,12 +784,15 @@ export async function submitPlayerInput(
           intent,
           targetCharacterSlug
         ),
+        buildSceneSafetyContext(tx, session.universeId),
       ]);
 
       const sceneResult = await generateValidatedScene(
         params.llmProvider ?? getSceneProvider(),
         sceneContext,
-        canonContext
+        canonContext,
+        safetyContext,
+        params.sceneSafetyClassifier ?? getSceneSafetyClassifier()
       );
 
       if (sceneResult.failureReason) {
