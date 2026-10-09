@@ -4,6 +4,8 @@ import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
+import { isPlausibleVerificationTimestamp } from "../player/age-gate-math";
+
 import {
   deriveBeatTransitionEventType,
   evaluateBeatTransition,
@@ -13,6 +15,7 @@ import { canTransitionBargain } from "./commitment-fsm-math";
 import { parseFreeformIntent } from "./intent-parser-math";
 import { resolveMemoryWrite } from "./memory-dedup-math";
 import { getSceneProvider } from "./openai-scene-provider";
+import { getSceneSafetyClassifier } from "./openai-scene-safety-classifier";
 import { getRelationshipDelta } from "./relationship-transition-math";
 import type {
   LLMProvider,
@@ -22,6 +25,8 @@ import type {
 import { selectValidSceneMemoryCandidates } from "./scene-memory-candidate-math";
 import { generateValidatedScene } from "./scene-pipeline.service";
 import type { SceneFailureReason } from "./scene-pipeline.service";
+import { containsSuspectedChildSexualText } from "./scene-safety-policy";
+import type { SceneSafetyClassifier, SceneSafetyContext } from "./scene-safety-policy";
 import type {
   CanonContext,
   MemoryLite,
@@ -92,6 +97,8 @@ export interface SubmitPlayerInputParams {
   bargainBreachConsequence?: string;
   /** Swappable provider (brief §26) - defaults to getSceneProvider(). Tests inject a TestSceneProvider with a custom plan. */
   llmProvider?: LLMProvider;
+  /** Injectable structured safety classifier; absent in production, the configured classifier is required. */
+  sceneSafetyClassifier?: SceneSafetyClassifier;
   /** Client-generated key - a retried/duplicate submission (double-click, network retry) with the same key returns the original result instead of reprocessing. */
   idempotencyKey?: string;
 }
@@ -349,6 +356,60 @@ async function buildCanonContext(
   };
 }
 
+async function buildSceneSafetyContext(
+  tx: Prisma.TransactionClient,
+  universeId: string,
+  playerId: string
+): Promise<SceneSafetyContext> {
+  const [characters, player] = await Promise.all([
+    tx.storyCharacter.findMany({
+      where: { universeId },
+      select: {
+        slug: true,
+        isAdult: true,
+        relationshipToPlayerSafety: true,
+      },
+    }),
+    tx.romancePlayer.findUnique({
+      where: { id: playerId },
+      select: { ageVerifiedAt: true },
+    }),
+  ]);
+
+  const characterEligibility: SceneSafetyContext["characters"] = {};
+  for (const character of characters) {
+    const existing = characterEligibility[character.slug];
+    if (!existing) {
+      characterEligibility[character.slug] = {
+        isAdult: character.isAdult,
+        relationshipToPlayerSafety: character.relationshipToPlayerSafety,
+      };
+      continue;
+    }
+
+    // Multiple content versions may share a slug. Conflicts must resolve to
+    // the stricter eligibility, never whichever row happened to be returned last.
+    characterEligibility[character.slug] = {
+      isAdult: existing.isAdult && character.isAdult,
+      relationshipToPlayerSafety:
+        existing.relationshipToPlayerSafety === "FAMILY_MEMBER" ||
+        character.relationshipToPlayerSafety === "FAMILY_MEMBER"
+          ? "FAMILY_MEMBER"
+          : existing.relationshipToPlayerSafety === "UNRELATED" &&
+              character.relationshipToPlayerSafety === "UNRELATED"
+            ? "UNRELATED"
+            : "UNKNOWN",
+    };
+  }
+
+  return {
+    playerAdultVerified: isPlausibleVerificationTimestamp(
+      player?.ageVerifiedAt ?? null
+    ),
+    characters: characterEligibility,
+  };
+}
+
 async function buildSceneGenerationContext(
   tx: Prisma.TransactionClient,
   session: { id: string; universeId: string },
@@ -523,6 +584,21 @@ export async function submitPlayerInput(
 
   const intent = parseFreeformIntent(params.rawInput);
   const beatId = session.currentBeatId;
+
+  // Reject likely age/intimacy combinations before any scene-generation API
+  // receives derived content. The deterministic parser runs locally only.
+  if (
+    typeof params.rawInput === "string" &&
+    containsSuspectedChildSexualText(params.rawInput)
+  ) {
+    return recordRejection(
+      session.id,
+      params.playerId,
+      beatId,
+      intent,
+      "safety:potential_age_intimacy"
+    );
+  }
 
   if (intent.type === "UNPARSEABLE") {
     return recordRejection(
@@ -744,7 +820,7 @@ export async function submitPlayerInput(
       const beatSlug = session.currentBeat?.slug ?? "unknown";
       const beatName = session.currentBeat?.name ?? "Unknown";
 
-      const [canonContext, sceneContext] = await Promise.all([
+      const [canonContext, sceneContext, safetyContext] = await Promise.all([
         buildCanonContext(tx, session.id, session.universeId),
         buildSceneGenerationContext(
           tx,
@@ -754,12 +830,15 @@ export async function submitPlayerInput(
           intent,
           targetCharacterSlug
         ),
+        buildSceneSafetyContext(tx, session.universeId, params.playerId),
       ]);
 
       const sceneResult = await generateValidatedScene(
         params.llmProvider ?? getSceneProvider(),
         sceneContext,
-        canonContext
+        canonContext,
+        safetyContext,
+        params.sceneSafetyClassifier ?? getSceneSafetyClassifier()
       );
 
       if (sceneResult.failureReason) {
@@ -775,6 +854,7 @@ export async function submitPlayerInput(
               failureReason: sceneResult.failureReason,
               violations: sceneResult.violationsEncountered,
               qualityIssues: sceneResult.qualityIssuesEncountered,
+              safetyViolations: sceneResult.safetyViolationsEncountered,
             }),
           },
         });

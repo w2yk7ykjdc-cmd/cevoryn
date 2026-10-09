@@ -8,6 +8,10 @@ import type {
   StructuredSceneOutput,
 } from "../src/features/romance/engine/scene-generation-provider";
 import type { CanonContext } from "../src/features/romance/engine/types";
+import type {
+  SceneSafetyClassifier,
+  SceneSafetyContext,
+} from "../src/features/romance/engine/scene-safety-policy";
 
 function baseContext(): SceneGenerationContext {
   return {
@@ -35,6 +39,30 @@ function emptyCanonContext(): CanonContext {
     adultCharacterSlugs: new Set(),
   };
 }
+
+function safeSafetyContext(): SceneSafetyContext {
+  return {
+    playerAdultVerified: true,
+    characters: {
+      caelan: {
+        isAdult: true,
+        relationshipToPlayerSafety: "UNRELATED",
+      },
+    },
+  };
+}
+
+const safeSafetyClassifier: SceneSafetyClassifier = {
+  async classify() {
+    return {
+      sexualContentDetected: false,
+      involvedCharacterSlugs: [],
+      ageRisk: "NONE",
+      relationshipRisk: "NONE",
+      consentRisk: "CLEAR",
+    };
+  },
+};
 
 function validScene(narration = "A valid scene."): StructuredSceneOutput {
   return {
@@ -65,7 +93,9 @@ test("a valid first attempt is returned as-is, no recovery needed", async () => 
   const result = await generateValidatedScene(
     provider,
     baseContext(),
-    emptyCanonContext()
+    emptyCanonContext(),
+    safeSafetyContext(),
+    safeSafetyClassifier,
   );
 
   assert.equal(result.valid, true);
@@ -84,7 +114,9 @@ test("an invalid first attempt that becomes valid on regenerate is accepted and 
   const result = await generateValidatedScene(
     provider,
     baseContext(),
-    emptyCanonContext()
+    emptyCanonContext(),
+    safeSafetyContext(),
+    safeSafetyClassifier,
   );
 
   assert.equal(result.valid, true);
@@ -106,7 +138,9 @@ test("an invalid attempt that only becomes valid on the third (repair) try cites
   const result = await generateValidatedScene(
     provider,
     baseContext(),
-    emptyCanonContext()
+    emptyCanonContext(),
+    safeSafetyContext(),
+    safeSafetyClassifier,
   );
 
   assert.equal(result.valid, true);
@@ -125,7 +159,9 @@ test("a scene that never validates falls back to the safe deterministic scene, n
   const result = await generateValidatedScene(
     provider,
     baseContext(),
-    emptyCanonContext()
+    emptyCanonContext(),
+    safeSafetyContext(),
+    safeSafetyClassifier,
   );
 
   assert.equal(result.valid, true);
@@ -162,7 +198,9 @@ test("canon-valid but repetitive prose is rejected and regenerated, never shown 
   const result = await generateValidatedScene(
     provider,
     baseContext(),
-    emptyCanonContext()
+    emptyCanonContext(),
+    safeSafetyContext(),
+    safeSafetyClassifier,
   );
 
   assert.equal(result.valid, true);
@@ -185,7 +223,9 @@ test("prose-quality issues from earlier attempts are cited in the repair (3rd) a
   const result = await generateValidatedScene(
     provider,
     baseContext(),
-    emptyCanonContext()
+    emptyCanonContext(),
+    safeSafetyContext(),
+    safeSafetyClassifier,
   );
 
   assert.equal(result.valid, true);
@@ -197,4 +237,185 @@ test("prose-quality issues from earlier attempts are cited in the repair (3rd) a
   assert.ok(
     thirdAttemptPriorViolations.some((v) => v.ruleId === "REPETITIVE_DIALOGUE")
   );
+});
+
+
+test("a transient safety-classifier failure rejects that attempt and retries before returning a valid scene", async () => {
+  let calls = 0;
+  const classifier: SceneSafetyClassifier = {
+    async classify() {
+      calls++;
+      if (calls === 1) throw new Error("classifier timeout");
+      return {
+        sexualContentDetected: false,
+        involvedCharacterSlugs: [],
+        ageRisk: "NONE",
+        relationshipRisk: "NONE",
+        consentRisk: "CLEAR",
+      };
+    },
+  };
+
+  const result = await generateValidatedScene(
+    new TestSceneProvider(() => validScene()),
+    baseContext(),
+    emptyCanonContext(),
+    safeSafetyContext(),
+    classifier
+  );
+
+  assert.equal(result.valid, true);
+  assert.equal(result.attempts, 2);
+  assert.equal(result.failureReason, "regenerated");
+  assert.ok(result.safetyViolationsEncountered.some((v) => v.ruleId === "SAFETY-012"));
+});
+
+test("repeated safety-classifier failures return only the policy-safe fallback", async () => {
+  let calls = 0;
+  const classifier: SceneSafetyClassifier = {
+    async classify() {
+      calls++;
+      throw new Error("classifier unavailable");
+    },
+  };
+
+  const result = await generateValidatedScene(
+    new TestSceneProvider(() => validScene("Never show this without classification.")),
+    baseContext(),
+    emptyCanonContext(),
+    safeSafetyContext(),
+    classifier
+  );
+
+  assert.equal(calls, 3);
+  assert.equal(result.valid, true);
+  assert.equal(result.failureReason, "fallback");
+  assert.equal(result.scene.narration.includes("Never show this"), false);
+  assert.ok(result.safetyViolationsEncountered.length >= 3);
+});
+
+test("potentially unsafe age/content combination is rejected before the classifier is called", async () => {
+  let classifierCalls = 0;
+  let providerCalls = 0;
+  const classifier: SceneSafetyClassifier = {
+    async classify() {
+      classifierCalls++;
+      return {
+        sexualContentDetected: false,
+        involvedCharacterSlugs: [],
+        ageRisk: "NONE",
+        relationshipRisk: "NONE",
+        consentRisk: "CLEAR",
+      };
+    },
+  };
+
+  const result = await generateValidatedScene(
+    new TestSceneProvider(() => {
+      providerCalls++;
+      return validScene("The 17-year-old describes a sexual encounter.");
+    }),
+    baseContext(),
+    emptyCanonContext(),
+    safeSafetyContext(),
+    classifier
+  );
+
+  assert.equal(providerCalls, 3);
+  assert.equal(classifierCalls, 0);
+  assert.equal(result.failureReason, "fallback");
+  assert.ok(result.safetyViolationsEncountered.some((v) => v.ruleId === "SAFETY-011"));
+});
+
+
+test("repeated scene-provider failures return the deterministic safe fallback", async () => {
+  let calls = 0;
+  const provider = new TestSceneProvider(() => {
+    calls++;
+    throw new Error("scene provider timeout");
+  });
+
+  const result = await generateValidatedScene(
+    provider,
+    baseContext(),
+    emptyCanonContext(),
+    safeSafetyContext(),
+    safeSafetyClassifier
+  );
+
+  assert.equal(calls, 3);
+  assert.equal(result.valid, true);
+  assert.equal(result.failureReason, "fallback");
+  assert.equal(result.scene.sceneClaims.length, 0);
+  assert.equal(result.scene.narration.includes("provider timeout"), false);
+});
+
+test("repair attempt receives prior safety-classifier failures", async () => {
+  let classifierCalls = 0;
+  let repairViolations: Array<{ ruleId: string; message: string }> | undefined;
+  const provider = new TestSceneProvider((context) => {
+    if (context.attemptNumber === 3) {
+      repairViolations = context.priorViolations;
+    }
+    return validScene();
+  });
+  const classifier: SceneSafetyClassifier = {
+    async classify() {
+      classifierCalls++;
+      if (classifierCalls < 3) throw new Error("classifier timeout");
+      return {
+        sexualContentDetected: false,
+        involvedCharacterSlugs: [],
+        ageRisk: "NONE",
+        relationshipRisk: "NONE",
+        consentRisk: "CLEAR",
+      };
+    },
+  };
+
+  const result = await generateValidatedScene(
+    provider,
+    baseContext(),
+    emptyCanonContext(),
+    safeSafetyContext(),
+    classifier
+  );
+
+  assert.equal(result.attempts, 3);
+  assert.equal(result.failureReason, "repaired");
+  assert.ok(repairViolations?.some((violation) => violation.ruleId === "SAFETY-012"));
+});
+
+
+test("malformed generated scene objects fail closed and are never sent to the classifier", async () => {
+  let classifierCalls = 0;
+  const malformedScene = {
+    ...validScene(),
+    sceneClaims: null,
+  } as unknown as StructuredSceneOutput;
+  const classifier: SceneSafetyClassifier = {
+    async classify() {
+      classifierCalls++;
+      return {
+        sexualContentDetected: false,
+        involvedCharacterSlugs: [],
+        ageRisk: "NONE",
+        relationshipRisk: "NONE",
+        consentRisk: "CLEAR",
+      };
+    },
+  };
+
+  const result = await generateValidatedScene(
+    new TestSceneProvider(() => malformedScene),
+    baseContext(),
+    emptyCanonContext(),
+    safeSafetyContext(),
+    classifier
+  );
+
+  assert.equal(classifierCalls, 0);
+  assert.equal(result.failureReason, "fallback");
+  assert.equal(result.scene.sceneClaims.length, 0);
+  assert.ok(result.safetyViolationsEncountered.some((v) => v.ruleId === "SAFETY-013"));
 });

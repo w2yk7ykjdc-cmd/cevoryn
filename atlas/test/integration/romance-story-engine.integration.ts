@@ -162,6 +162,40 @@ after(async () => {
   await prisma.$disconnect();
 });
 
+test("suspected age/intimacy input is rejected before scene or safety providers are called", async () => {
+  const { player, session } = await createPlayerWithSession();
+  let sceneProviderCalls = 0;
+  let safetyClassifierCalls = 0;
+
+  const result = await submitPlayerInput({
+    playerId: player.id,
+    storySessionId: session.id,
+    rawInput: "The 16-year-old asks for a sexual scene.",
+    targetCharacterSlug: "caelan",
+    llmProvider: {
+      name: "must-not-run",
+      async generateScene() {
+        sceneProviderCalls++;
+        throw new Error("scene provider should not run");
+      },
+    },
+    sceneSafetyClassifier: {
+      async classify() {
+        safetyClassifierCalls++;
+        throw new Error("safety classifier should not run");
+      },
+    },
+  });
+
+  assert.equal(result.accepted, false);
+  assert.equal(
+    "reason" in result ? result.reason : undefined,
+    "safety:potential_age_intimacy"
+  );
+  assert.equal(sceneProviderCalls, 0);
+  assert.equal(safetyClassifierCalls, 0);
+});
+
 test("a promise made is still retrievable, with full content, after six unrelated story events (memory proof)", async () => {
   const { player, session } = await createPlayerWithSession();
 
@@ -451,6 +485,7 @@ test("new story characters default to not adult-eligible until explicitly verifi
   });
 
   assert.equal(character.isAdult, false);
+  assert.equal(character.relationshipToPlayerSafety, "UNKNOWN");
   await prisma.storyCharacter.delete({ where: { id: character.id } });
 });
 

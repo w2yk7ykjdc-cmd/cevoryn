@@ -1227,6 +1227,13 @@ enum FaeRace {
   HALF_FAE
 }
 
+/// Relationship eligibility relative to the player character. UNKNOWN is fail-closed.
+enum RomanceRelationshipSafety {
+  UNRELATED
+  FAMILY_MEMBER
+  UNKNOWN
+}
+
 enum ContentStatus {
   DRAFT
   PUBLISHED
@@ -1517,29 +1524,31 @@ model SceneVariant {
 /// vocabulary - validated at the application layer against that
 /// universe's declared vocabulary, not the database layer.
 model StoryCharacter {
-  id                 String   @id @default(cuid())
-  universeId         String   @map("universe_id")
-  slug               String
-  name               String
-  race               FaeRace
-  isVoiced           Boolean  @default(true) @map("is_voiced")
+  id                         String   @id @default(cuid())
+  universeId                 String   @map("universe_id")
+  slug                       String
+  name                       String
+  race                       FaeRace
+  isVoiced                   Boolean  @default(true) @map("is_voiced")
   /// Sexual-content eligibility is opt-in and fails closed: a character
   /// must be explicitly recorded as an adult before intimate content can pass
   /// CANON-006. New or incompletely configured characters default to ineligible.
-  isAdult            Boolean  @default(false) @map("is_adult")
-  personality        Json     @default("{}")
-  goals              String[]
-  fears              String[]
-  values             String[]
-  speechStyle        String   @map("speech_style")
-  forbiddenBehavior  String[] @map("forbidden_behavior")
+  isAdult                    Boolean                   @default(false) @map("is_adult")
+  /// Sexual/romantic scenes require UNRELATED; FAMILY_MEMBER and UNKNOWN fail closed.
+  relationshipToPlayerSafety RomanceRelationshipSafety @default(UNKNOWN) @map("relationship_to_player_safety")
+  personality                Json     @default("{}")
+  goals                      String[]
+  fears                      String[]
+  values                     String[]
+  speechStyle                String   @map("speech_style")
+  forbiddenBehavior          String[] @map("forbidden_behavior")
   /// Human-readable rule reference (e.g. "common Fae-court knowledge,
   /// direct witness, or told in-fiction") - the enforceable check is
   /// CANON-003 in the Story Engine, not this text.
-  knowledgeScopeRule String   @map("knowledge_scope_rule")
-  version            Int      @default(1)
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
+  knowledgeScopeRule         String   @map("knowledge_scope_rule")
+  version                    Int      @default(1)
+  createdAt                  DateTime @default(now()) @map("created_at")
+  updatedAt                  DateTime @updatedAt @map("updated_at")
 
   universe     Universe          @relation(fields: [universeId], references: [id], onDelete: Restrict)
   secrets      CharacterSecret[]
