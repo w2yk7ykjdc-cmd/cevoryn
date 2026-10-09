@@ -320,10 +320,10 @@ unknown canon claim types; the safety policy uses its own `SAFETY-001` through
   classifier. Its JSON result is schema-checked; malformed output, provider
   failure, or timeout rejects that attempt and uses the regenerate/repair/
   safe-fallback path.
-- Deterministic checks independently require every classifier-identified
-  character in intimate content to have `isAdult = true` and
-  `relationshipToPlayerSafety = UNRELATED`. False, missing, family, or
-  unknown eligibility fails closed. Each identified character must also have
+- Deterministic checks independently require a valid server-side player 18+
+  verification and every classifier-identified character in intimate content
+  to have `isAdult = true` and `relationshipToPlayerSafety = UNRELATED`. False,
+  missing, family, or unknown eligibility fails closed. Each identified character must also have
   the required `CHARACTER_INVOLVED_IN_SEXUAL_CONTENT` canon claim; missing or
   conflicting claims reject the scene.
 - A conservative local preflight rejects potential age/intimacy combinations
