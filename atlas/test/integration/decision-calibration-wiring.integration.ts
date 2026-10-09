@@ -38,6 +38,7 @@ import type { generateDecisionCanvas as GenerateDecisionCanvasType } from "../..
 import type { applyDecisionConfidenceCalibration as ApplyDecisionConfidenceCalibrationType } from "../../src/features/brain/decisions/decision-scorer";
 import type { DecisionCanvas } from "../../src/features/brain/decisions/types";
 import type { computeCalibration as ComputeCalibrationType } from "../../src/features/brain/learning/confidence-calibrator";
+import type { createWatchedEntity as CreateWatchedEntityType } from "../../src/features/radar/entities/entity.service";
 import type { prisma as PrismaType } from "../../src/lib/prisma";
 
 const INTEGRATION_DATABASE_URL = process.env.INTEGRATION_DATABASE_URL;
@@ -64,11 +65,61 @@ const TEST_RUN_ID = randomUUID().slice(0, 8);
 const ORG_CALIBRATED_ID = `decision-calib-wiring-calibrated-${TEST_RUN_ID}`;
 const ORG_UNCALIBRATED_ID = `decision-calib-wiring-uncalibrated-${TEST_RUN_ID}`;
 const ORG_GENERATION_ID = `decision-calib-wiring-generation-${TEST_RUN_ID}`;
+const ORG_DOMAIN_ISOLATION_ID = `decision-calib-wiring-domain-isolation-${TEST_RUN_ID}`;
+const USER_ID = `decision-calib-wiring-user-${TEST_RUN_ID}`;
 
 let prisma: typeof PrismaType;
+let createWatchedEntity: typeof CreateWatchedEntityType;
 let computeCalibration: typeof ComputeCalibrationType;
 let applyDecisionConfidenceCalibration: typeof ApplyDecisionConfidenceCalibrationType;
 let generateDecisionCanvas: typeof GenerateDecisionCanvasType;
+
+async function createTestOpportunity(organizationId: string) {
+  const entity = await createWatchedEntity(organizationId, USER_ID, {
+    name: `Decision calibration domain isolation ${randomUUID().slice(0, 6)}`,
+    watchReason: "PROSPECT",
+    priority: 5,
+    tags: [],
+    notes: "",
+    metadata: {},
+  });
+  const event = await prisma.externalEvent.create({
+    data: {
+      organizationId,
+      externalEntityId: entity.id,
+      type: "NEW_FACILITY",
+      title: "Domain isolation test event",
+      description: "Test decoy opportunity for calibration isolation.",
+      occurredAt: new Date(),
+      confidence: 0.8,
+      evidence: [],
+      source: "test",
+    },
+  });
+  return prisma.opportunity.create({
+    data: {
+      organizationId,
+      externalEntityId: entity.id,
+      eventId: event.id,
+      polarity: "OPPORTUNITY",
+      title: "Cross-domain decoy opportunity",
+      description: "test",
+      probability: 0.9,
+      confidence: 0.9,
+      strategicFit: 0.6,
+      timeHorizon: "3-6 months",
+      reasoning: "test",
+      score: 0.6,
+      scoreBreakdown: {
+        relevance: 0.6,
+        strategicFit: 0.6,
+        economicPotential: 0.6,
+        timing: 0.6,
+        confidence: 0.6,
+      },
+    },
+  });
+}
 
 function mockAIProvider(confidenceDimensionScore: number): AIProvider {
   const response = {
@@ -159,6 +210,10 @@ before(async () => {
   applyDecisionConfidenceCalibration =
     decisionScorerModule.applyDecisionConfidenceCalibration;
 
+  const entityModule =
+    await import("../../src/features/radar/entities/entity.service");
+  createWatchedEntity = entityModule.createWatchedEntity;
+
   const decisionCanvasModule =
     await import("../../src/features/brain/decisions/decision-canvas");
   generateDecisionCanvas = decisionCanvasModule.generateDecisionCanvas;
@@ -169,6 +224,11 @@ before(async () => {
         id: ORG_GENERATION_ID,
         name: "Decision Calibration Generation Org",
         slug: `decision-calib-wiring-generation-${TEST_RUN_ID}`,
+      },
+      {
+        id: ORG_DOMAIN_ISOLATION_ID,
+        name: "Decision Calibration Domain Isolation Org",
+        slug: `decision-calib-wiring-domain-isolation-${TEST_RUN_ID}`,
       },
       {
         id: ORG_CALIBRATED_ID,
@@ -291,6 +351,38 @@ test("tenant isolation: ORG_UNCALIBRATED's calibration state is entirely unaffec
   assert.equal(calibration.adjustmentFactor, 1.0);
 });
 
+
+test("Decision calibration excludes outcomes that are also linked to an Opportunity", async () => {
+  const decisions = [];
+  for (let i = 0; i < 5; i += 1) {
+    decisions.push(
+      await createCompletedDecisionWithOutcome(
+        ORG_DOMAIN_ISOLATION_ID,
+        0.5,
+        0.5
+      )
+    );
+  }
+
+  const opportunity = await createTestOpportunity(ORG_DOMAIN_ISOLATION_ID);
+  await prisma.outcomeEvaluation.create({
+    data: {
+      organizationId: ORG_DOMAIN_ISOLATION_ID,
+      decisionId: decisions[0].id,
+      opportunityId: opportunity.id,
+      result: "FAILURE",
+      outcomeScore: 0,
+      confidence: 0.9,
+      explanation: "Deliberately malformed cross-domain sample",
+      evidence: [],
+    },
+  });
+
+  const calibration = await computeCalibration(ORG_DOMAIN_ISOLATION_ID);
+  assert.equal(calibration.dataPoints.length, 5);
+  assert.equal(calibration.adjustmentFactor, 1);
+  assert.equal(calibration.isCalibrated, true);
+});
 
 test("generateDecisionCanvas returns calibrated confidence from real DB outcomes without an external LLM", async () => {
   for (let i = 0; i < 5; i += 1) {
