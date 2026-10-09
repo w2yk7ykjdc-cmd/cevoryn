@@ -77,7 +77,8 @@ export interface SceneClaim {
   type:
     | "CHARACTER_KNOWS_TRUE_NAME"
     | "CHARACTER_CLAIMS_BARGAIN_FULFILLED_WITHOUT_CONSEQUENCE"
-    | "CHARACTER_REFERENCES_UNMADE_PROMISE";
+    | "CHARACTER_REFERENCES_UNMADE_PROMISE"
+    | "CHARACTER_INVOLVED_IN_SEXUAL_CONTENT";
   characterSlug: string;
   /** Present for CHARACTER_REFERENCES_UNMADE_PROMISE / bargain claims. */
   referenceId?: string;
@@ -90,6 +91,8 @@ export interface CanonContext {
   knownBargainIds: Set<string>;
   /** Promise ids that actually exist (MADE or later) in this session. */
   knownPromiseIds: Set<string>;
+  /** Character slugs on record (StoryCharacter.isAdult) as an adult - the only structural backstop against minor-sexualization; a scene must never emit CHARACTER_INVOLVED_IN_SEXUAL_CONTENT for anyone not in this set. */
+  adultCharacterSlugs: Set<string>;
 }
 
 export interface CanonViolation {

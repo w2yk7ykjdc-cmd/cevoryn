@@ -9,6 +9,7 @@ function emptyContext(): CanonContext {
     trueNameRevealedTo: new Set(),
     knownBargainIds: new Set(),
     knownPromiseIds: new Set(),
+    adultCharacterSlugs: new Set(),
   };
 }
 
@@ -92,6 +93,27 @@ test("a scene with multiple claims collects every violation, not just the first"
   );
   assert.equal(result.valid, false);
   assert.equal(result.violations.length, 2);
+});
+
+test("sexual content involving a character not on record as an adult is INVALID (CANON-006)", () => {
+  const result = validateSceneClaims(
+    [{ type: "CHARACTER_INVOLVED_IN_SEXUAL_CONTENT", characterSlug: "unverified-character" }],
+    emptyContext()
+  );
+  assert.equal(result.valid, false);
+  assert.equal(result.violations[0]?.ruleId, "CANON-006");
+});
+
+test("sexual content involving a character on record as an adult IS valid", () => {
+  const context = emptyContext();
+  context.adultCharacterSlugs.add("caelan");
+
+  const result = validateSceneClaims(
+    [{ type: "CHARACTER_INVOLVED_IN_SEXUAL_CONTENT", characterSlug: "caelan" }],
+    context
+  );
+  assert.equal(result.valid, true);
+  assert.deepEqual(result.violations, []);
 });
 
 test("a scene with zero claims is trivially valid", () => {

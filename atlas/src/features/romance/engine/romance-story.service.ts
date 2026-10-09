@@ -33,6 +33,13 @@ import type {
 /** CanonFact.content prefix written by REVEAL_TRUE_NAME - shared between the writer and the CanonContext reader below so they can never drift apart. */
 const TRUE_NAME_REVEAL_PREFIX = "player revealed true name:";
 
+/** StoryCharacter.personality is an untyped Json column (seed shape: `{ traits: string[], crackPoint?: string }`) - extracts just the traits array defensively, since a malformed/missing field here must never break scene generation. */
+function extractPersonalityTraits(personality: unknown): string[] {
+  if (typeof personality !== "object" || personality === null) return [];
+  const traits = (personality as Record<string, unknown>).traits;
+  return Array.isArray(traits) ? traits.filter((t): t is string => typeof t === "string") : [];
+}
+
 /**
  * Romance Story Engine orchestration - the server-only wrapper around the
  * pure deterministic layer (intent-parser-math, canon-validator-math,
@@ -314,9 +321,10 @@ function toJson(value: unknown): Prisma.InputJsonValue {
 
 async function buildCanonContext(
   tx: Prisma.TransactionClient,
-  storySessionId: string
+  storySessionId: string,
+  universeId: string
 ): Promise<CanonContext> {
-  const [trueNameFacts, bargains, promises] = await Promise.all([
+  const [trueNameFacts, bargains, promises, adultCharacters] = await Promise.all([
     tx.canonFact.findMany({
       where: {
         storySessionId,
@@ -327,12 +335,17 @@ async function buildCanonContext(
     }),
     tx.bargain.findMany({ where: { storySessionId }, select: { id: true } }),
     tx.promise.findMany({ where: { storySessionId }, select: { id: true } }),
+    tx.storyCharacter.findMany({
+      where: { universeId, isAdult: true },
+      select: { slug: true },
+    }),
   ]);
 
   return {
     trueNameRevealedTo: new Set(trueNameFacts.map((f) => f.subject)),
     knownBargainIds: new Set(bargains.map((b) => b.id)),
     knownPromiseIds: new Set(promises.map((p) => p.id)),
+    adultCharacterSlugs: new Set(adultCharacters.map((c) => c.slug)),
   };
 }
 
@@ -376,7 +389,14 @@ async function buildSceneGenerationContext(
     targetCharacterSlug
       ? tx.storyCharacter.findFirst({
           where: { universeId: session.universeId, slug: targetCharacterSlug },
-          select: { knowledgeScopeRule: true },
+          select: {
+            knowledgeScopeRule: true,
+            speechStyle: true,
+            personality: true,
+            goals: true,
+            fears: true,
+            values: true,
+          },
         })
       : Promise.resolve(null),
   ]);
@@ -395,6 +415,15 @@ async function buildSceneGenerationContext(
           fear: relationshipState.fear,
           loyalty: relationshipState.loyalty,
           tension: relationshipState.tension,
+        }
+      : null,
+    characterVoice: character
+      ? {
+          speechStyle: character.speechStyle,
+          personalityTraits: extractPersonalityTraits(character.personality),
+          goals: character.goals,
+          fears: character.fears,
+          values: character.values,
         }
       : null,
     characterKnowledgeScope: character?.knowledgeScopeRule ?? null,
@@ -716,7 +745,7 @@ export async function submitPlayerInput(
       const beatName = session.currentBeat?.name ?? "Unknown";
 
       const [canonContext, sceneContext] = await Promise.all([
-        buildCanonContext(tx, session.id),
+        buildCanonContext(tx, session.id, session.universeId),
         buildSceneGenerationContext(
           tx,
           session,
@@ -745,6 +774,7 @@ export async function submitPlayerInput(
               attempts: sceneResult.attempts,
               failureReason: sceneResult.failureReason,
               violations: sceneResult.violationsEncountered,
+              qualityIssues: sceneResult.qualityIssuesEncountered,
             }),
           },
         });

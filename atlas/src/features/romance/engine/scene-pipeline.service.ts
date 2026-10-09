@@ -12,6 +12,8 @@
  * validation is never returned to the caller - no exceptions.
  */
 import { validateSceneClaims } from "./canon-validator-math";
+import { evaluateNarrativeQuality } from "./narrative-quality-math";
+import type { NarrativeQualityIssue } from "./narrative-quality-math";
 import type {
   LLMProvider,
   SceneGenerationContext,
@@ -28,6 +30,8 @@ export interface ValidatedSceneResult {
   /** Non-null only when the final result required recovery (brief's "FailureMode" log). */
   failureReason: SceneFailureReason | null;
   violationsEncountered: CanonViolation[];
+  /** Prose-quality issues (repetitive dialogue, empty narration) hit along the way - separate from canon violations since these are style, not fact, problems. */
+  qualityIssuesEncountered: NarrativeQualityIssue[];
 }
 
 const MAX_ATTEMPTS = 3; // 1 = initial, 2 = regenerate (same plan), 3 = repair (cites prior violations); beyond this is the deterministic fallback.
@@ -60,17 +64,19 @@ export async function generateValidatedScene(
   canonContext: CanonContext
 ): Promise<ValidatedSceneResult> {
   const violationsEncountered: CanonViolation[] = [];
+  const qualityIssuesEncountered: NarrativeQualityIssue[] = [];
 
   for (let attemptNumber = 1; attemptNumber <= MAX_ATTEMPTS; attemptNumber++) {
     const attemptContext: SceneGenerationContext = {
       ...context,
       attemptNumber,
-      ...(attemptNumber === 3 && violationsEncountered.length > 0
+      ...(attemptNumber === 3 &&
+      (violationsEncountered.length > 0 || qualityIssuesEncountered.length > 0)
         ? {
-            priorViolations: violationsEncountered.map((v) => ({
-              ruleId: v.ruleId,
-              message: v.message,
-            })),
+            priorViolations: [
+              ...violationsEncountered.map((v) => ({ ruleId: v.ruleId, message: v.message })),
+              ...qualityIssuesEncountered.map((q) => ({ ruleId: q.code, message: q.message })),
+            ],
           }
         : {}),
     };
@@ -84,9 +90,13 @@ export async function generateValidatedScene(
       continue;
     }
 
-    const result = validateSceneClaims(scene.sceneClaims, canonContext);
+    const canonResult = validateSceneClaims(scene.sceneClaims, canonContext);
+    // Prose-quality gate alongside the hard canon gate: a scene can make
+    // no false claims and still just restate itself in different words
+    // (never shown to the player either - same recovery pipeline).
+    const qualityIssues = evaluateNarrativeQuality(scene);
 
-    if (result.valid) {
+    if (canonResult.valid && qualityIssues.length === 0) {
       return {
         scene,
         valid: true,
@@ -94,10 +104,12 @@ export async function generateValidatedScene(
         failureReason:
           attemptNumber === 1 ? null : attemptNumber === 2 ? "regenerated" : "repaired",
         violationsEncountered,
+        qualityIssuesEncountered,
       };
     }
 
-    violationsEncountered.push(...result.violations);
+    violationsEncountered.push(...canonResult.violations);
+    qualityIssuesEncountered.push(...qualityIssues);
   }
 
   return {
@@ -106,5 +118,6 @@ export async function generateValidatedScene(
     attempts: MAX_ATTEMPTS + 1,
     failureReason: "fallback",
     violationsEncountered,
+    qualityIssuesEncountered,
   };
 }
