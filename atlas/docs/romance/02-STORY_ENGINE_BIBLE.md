@@ -215,7 +215,7 @@ player sees it):
 | `CANON-004` | No generated line has a character use the player's true name unless the `SECRET`/`trueName` memory exists for that character (Fae Rule `FAE-003`'s precondition, checked in reverse — this is what the brief's own example describes verbatim). |
 | `CANON-005` | No generated line contradicts an `ACTIVE` `Promise`/`Bargain`/`Debt` term. |
 | `CANON-006` | No generated line changes `RelationshipState` directly in prose-implied terms beyond what the scene-plan's declared `relationshipDelta` allows (prevents the model from "acting as if" trust is high when it isn't). |
-| `CANON-007` | No generated content violates a Safety Rule (§10) — checked first, short-circuits the rest. |
+| `CANON-007` | Malformed or unknown scene-claim types are rejected instead of being treated as valid; safety policy is a separate gate (§10). |
 
 **On failure:** `regenerate` (same scene plan, new generation, same
 constraints — default, cheap) → if still failing, `repair` (surgical
@@ -306,23 +306,39 @@ ambience → music → effects → mix → final audio asset → cache`.
   asset) are separate interfaces (Stage 3/5) — human/licensed/AI voice is
   a `VoiceProfile.sourceType` field, not a code fork.
 
-## 10. Safety Rules (structural, never prompt-only)
+## 10. Safety Rules (structural, not prompt-only)
 
-Absolute prohibitions, each enforced by `CANON-007` before any other
-check runs, and backed by non-LLM heuristic/classifier checks on both
-input and output (never trust the model's own restraint alone):
+The scene-return path now has three separate gates: canon-claim validation,
+narrative-quality validation, and a structured safety decision. Do not
+describe these as one `CANON-007` check: `CANON-007` rejects malformed or
+unknown canon claim types; the safety policy uses its own `SAFETY-001` through
+`SAFETY-012` decisions.
 
-`SAFETY-001` no minor sexualization (age-gated at account level + no
-character or player-character can be tagged/implied minor in any sexual
-scene — structurally impossible, not just discouraged), `SAFETY-002` no
-incest sexualization, `SAFETY-003` no non-consensual sexual content
-(a scene-plan's intimacy step requires an explicit prior
-`consentConfirmed` state on the relevant `StoryEvent` chain), `SAFETY-004`
-no sexual-violence eroticization, `SAFETY-005` no exploitative content.
-Free-form user input is itself scanned pre-parse for prompt-injection
-patterns and safety-violating requests (§8's rejection path, not silently
-passed through). 18+ age gate is a precondition for the entire `(romance)`
-route group, checked server-side, not a client banner.
+- The safety classifier receives generated narration/dialogue and trusted
+  character-eligibility metadata. Raw player input is not sent to this
+  classifier. Its JSON result is schema-checked; malformed output, provider
+  failure, or timeout rejects that attempt and uses the regenerate/repair/
+  safe-fallback path.
+- Deterministic checks independently require every classifier-identified
+  character in intimate content to have `isAdult = true` and
+  `relationshipToPlayerSafety = UNRELATED`. False, missing, family, or
+  unknown eligibility fails closed. Each identified character must also have
+  the required `CHARACTER_INVOLVED_IN_SEXUAL_CONTENT` canon claim; missing or
+  conflicting claims reject the scene.
+- A conservative local preflight rejects a potential age/intimacy combination
+  before sending that generated scene to the remote classifier. It is defense
+  in depth, not the primary classifier. The implementation does not call the
+  OpenAI Moderation API.
+- The structured classifier checks age ambiguity, family/incest risk,
+  coercion/non-consent, and whether intimate content is present. Non-intimate
+  scenes do not require an adult-eligibility record, avoiding a blanket
+  false-positive block on ordinary dialogue.
+
+These controls are fail-closed safeguards, not a guarantee that a classifier
+is infallible. The integration path and classifier behavior still require
+CI/manual verification before release. The code in this engine does not by
+itself prove an account-level 18+ gate is enforced on every route; that must
+be verified separately.
 
 ## 11. State Transitions (summary — authoritative source is each model's own section above)
 
