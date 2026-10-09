@@ -5,7 +5,7 @@ export function NotificationBell({ unreadCount }: { unreadCount: number }) {
   return (
     <Link
       href="/romance/notifications"
-      className="relative hidden rounded-md px-2 py-1 underline hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c9a7e0] sm:inline"
+      className="relative shrink-0 whitespace-nowrap rounded-md px-1.5 py-1 underline hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c9a7e0]"
       aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
     >
       Notices
