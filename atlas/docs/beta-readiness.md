@@ -35,7 +35,7 @@ Operational caveats: Vercel does not automatically retry a failed cron invocatio
 - Expired invitations are excluded from active lists.
 - Member role changes and removals are organization-scoped and race-resistant.
 - Critical chat and team APIs use the shared safe API error format.
-- Paddle checkout, portal, and webhook routes are excluded from the session-auth middleware (they verify their own signature instead) so Paddle can actually deliver webhook events.
+- The active B2B billing flow is Polar: `/api/billing/polar/checkout`, `/api/billing/portal`, and `/api/billing/polar/webhook`. Middleware excludes the Polar webhook route so provider-signed events can reach its own signature verification. Paddle notes below are historical migration evidence, not the current provider.
 - Decision confidence calibration is exercised end-to-end in the real-Postgres integration suite: `generateDecisionCanvas()` is called with a deterministic provider and real stored outcomes, and the returned confidence is asserted to be calibrated. PR #266 CI passed; this proves the code path under test, not production-provider quality or live-production deployment.
 
 ## Confirmed manual checks
@@ -45,7 +45,7 @@ Operational caveats: Vercel does not automatically retry a failed cron invocatio
 - Chat returns an AI response.
 - A new conversation can be created.
 - Production `/api/health` returns `200` with `services.database: "connected"`.
-- Production `POST /api/billing/paddle/webhook` returns a signature-verification response instead of a login redirect.
+- Historical check only: the former Paddle webhook endpoint returned a signature-verification response rather than a login redirect. The current webhook endpoint is `/api/billing/polar/webhook`; its live production delivery/signature path must be verified against the current deployment.
 
 ## Final manual acceptance checks
 
@@ -57,9 +57,9 @@ These require a real browser, email delivery, and authenticated user interaction
 4. [ ] Create, renew, and revoke a team invitation - now unblocked (a real ACTIVE subscription exists after the webhook fix below); not yet tested.
 5. [ ] Accept an invitation with a separate test account - not yet tested.
 6. [x] Verify mobile chat input remains visible above the keyboard - confirmed.
-7. [x] Complete a Paddle sandbox checkout end-to-end and confirm the `subscriptions` row updates via the webhook - confirmed. A fresh checkout produced a `subscriptions` row (`plan: STARTER`, `subscription_status: ACTIVE`, real `paddle_subscription_id`).
+7. [x] Historical Paddle sandbox checkout and webhook synchronization were confirmed before the provider migration. This does **not** verify the current Polar checkout/webhook path; current live-provider acceptance must be tracked separately.
 
-## Billing readiness
+## Historical Paddle migration evidence (not the current billing provider)
 
 - [x] Ran `scripts/audit-stale-identifiers.sql` (queries 1, 5, and 4) against production via the Supabase SQL Editor. Found and fixed a real regression: `organizations` has a row with `name = "atlas"`, `slug = "atlas"` (the founder's own workspace) that the AI system prompt's "product owner" context depends on matching - see #48. No duplicate `subscriptions` rows per organization (0 rows) and no orphaned `subscriptions` rows with a missing organization (0 rows) - both clean.
 - [x] `prisma migrate deploy` confirmed applied to the production database - the `subscriptions` table queries above returned real data (not a "relation does not exist" error), confirming at least that migration is live.
@@ -81,10 +81,10 @@ These require a real browser, email delivery, and authenticated user interaction
 - [ ] **Team invitations:** create/renew/revoke and accept an invitation with a separate test account remain manual acceptance checks above.
 - [ ] **Cron execution:** all four configured jobs use daily schedules that satisfy Hobby frequency limits, but verify each job's actual production execution in Vercel Cron Jobs logs. Vercel does not automatically retry failed cron invocations.
 
-Historical cleanup: PR #37 (`feature/team-management-ui`) was closed as redundant because `/team` already exists; PR #35 (`feature/iyzico-subscriptions`) was closed because Paddle is the active billing provider. Issues #17, #4, and #1 were previously closed as superseded; the invite manual acceptance checks above remain valid.
+Historical cleanup: PR #37 (`feature/team-management-ui`) was closed as redundant because `/team` already exists; PR #35 (`feature/iyzico-subscriptions`) was closed because Paddle was the billing provider at that time. The current B2B billing code uses Polar. Issues #17, #4, and #1 were previously closed as superseded; the invite manual acceptance checks above remain valid.
 
 ## Release boundary
 
 Passing automated CI is necessary but not sufficient for a release. A controlled private beta requires the outstanding manual checks above and the Romance safety gate must remain explicitly marked incomplete until issue #260's acceptance criteria are implemented and verified. This document does not certify enterprise readiness, formal penetration testing, legal compliance, or large-scale production usage.
 
-**Billing status:** Paddle checkout, price display, and webhook-to-subscription synchronization were previously verified end-to-end in the sandbox. This is not evidence of a successful live-money transaction.
+**Current billing status (code review, 2026-10-10):** the B2B billing UI calls `/api/billing/polar/checkout`; portal calls `/api/billing/portal`; webhook processing is implemented at `/api/billing/polar/webhook`; middleware excludes that Polar webhook path. No `/api/billing/paddle/*` routes are present in the current route tree. `FEATURE_INVENTORY.md` records Polar payment and cancellation as previously tested with real money, but that historical assertion was not independently re-verified during this audit. Current live Polar checkout, cancellation, webhook delivery, and production deployment remain **not re-verified in this pass**.
