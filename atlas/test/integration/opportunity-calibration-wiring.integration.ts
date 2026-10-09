@@ -74,6 +74,7 @@ if (/supabase\.co/i.test(INTEGRATION_DATABASE_URL)) {
 const TEST_RUN_ID = randomUUID().slice(0, 8);
 const ORG_CALIBRATED_ID = `calib-wiring-org-calibrated-${TEST_RUN_ID}`;
 const ORG_UNCALIBRATED_ID = `calib-wiring-org-uncalibrated-${TEST_RUN_ID}`;
+const ORG_DOMAIN_ISOLATION_ID = `calib-wiring-org-domain-isolation-${TEST_RUN_ID}`;
 const USER_ID = `calib-wiring-user-${TEST_RUN_ID}`;
 
 let prisma: typeof PrismaType;
@@ -130,13 +131,22 @@ before(async () => {
         name: "Calibration Wiring Org (uncalibrated)",
         slug: `calib-wiring-uncalibrated-${TEST_RUN_ID}`,
       },
+      {
+        id: ORG_DOMAIN_ISOLATION_ID,
+        name: "Calibration Wiring Org (domain isolation)",
+        slug: `calib-wiring-domain-isolation-${TEST_RUN_ID}`,
+      },
     ],
   });
 });
 
 after(async () => {
   await prisma.organization.deleteMany({
-    where: { id: { in: [ORG_CALIBRATED_ID, ORG_UNCALIBRATED_ID] } },
+    where: {
+      id: {
+        in: [ORG_CALIBRATED_ID, ORG_UNCALIBRATED_ID, ORG_DOMAIN_ISOLATION_ID],
+      },
+    },
   });
   await prisma.$disconnect();
 });
@@ -215,6 +225,56 @@ test("uncalibrated organization (fewer than 5 real outcomes): applyOpportunityPr
   assert.equal(application.wasApplied, false);
   assert.equal(application.calibratedProbability, rawProbability);
   assert.equal(application.adjustmentFactor, 1.0);
+});
+
+test("opportunity calibration excludes outcomes that are also linked to a Decision", async () => {
+  const opportunities = await Promise.all(
+    Array.from({ length: 5 }, () =>
+      createTestOpportunity(ORG_DOMAIN_ISOLATION_ID, {
+        probability: 0.5,
+        confidence: 0.5,
+      })
+    )
+  );
+
+  for (const opportunity of opportunities) {
+    await prisma.outcomeEvaluation.create({
+      data: {
+        organizationId: ORG_DOMAIN_ISOLATION_ID,
+        decisionId: null,
+        opportunityId: opportunity.id,
+        result: "PARTIAL_SUCCESS",
+        outcomeScore: 0.5,
+        confidence: 0.5,
+        explanation: "Neutral calibration sample",
+        evidence: [],
+      },
+    });
+  }
+
+  const crossDomainOpportunity = await createTestOpportunity(
+    ORG_DOMAIN_ISOLATION_ID,
+    { probability: 0.9, confidence: 0.9 }
+  );
+  await prisma.outcomeEvaluation.create({
+    data: {
+      organizationId: ORG_DOMAIN_ISOLATION_ID,
+      decisionId: "cross-domain-decision-decoy",
+      opportunityId: crossDomainOpportunity.id,
+      result: "FAILURE",
+      outcomeScore: 0,
+      confidence: 0.9,
+      explanation: "Deliberately malformed cross-domain sample",
+      evidence: [],
+    },
+  });
+
+  const calibration = await computeOpportunityCalibration(
+    ORG_DOMAIN_ISOLATION_ID
+  );
+  assert.equal(calibration.dataPoints.length, 5);
+  assert.equal(calibration.adjustmentFactor, 1);
+  assert.equal(calibration.isCalibrated, true);
 });
 
 test("calibrated organization (>= 5 real, consistently-overconfident outcomes): applyOpportunityProbabilityCalibration genuinely reduces a fresh probability estimate", async () => {

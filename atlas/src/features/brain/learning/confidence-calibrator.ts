@@ -48,12 +48,13 @@ export async function computeCalibration(organizationId: string): Promise<{
   isCalibrated: boolean;
 }> {
   const evaluations = await prisma.outcomeEvaluation.findMany({
-    // decisionId is nullable because this table now also carries Radar
-    // Opportunity outcomes (see prisma/schema.prisma) - confidence
-    // calibration is specifically about Decision Canvas confidence scores,
-    // so Radar-sourced rows must be excluded here, not just filtered out
-    // downstream.
-    where: { organizationId, decisionId: { not: null } },
+    // Require an exclusive Decision link. Radar-only rows and malformed
+    // rows also linked to an Opportunity are excluded from this sample.
+    where: {
+      organizationId,
+      decisionId: { not: null },
+      opportunityId: null,
+    },
     orderBy: { createdAt: "desc" },
     take: 50,
     select: {
@@ -149,7 +150,11 @@ export async function computeOpportunityCalibration(
   organizationId: string
 ): Promise<CalibrationResult<OpportunityCalibrationData>> {
   const evaluations = await prisma.outcomeEvaluation.findMany({
-    where: { organizationId, opportunityId: { not: null } },
+    where: {
+      organizationId,
+      opportunityId: { not: null },
+      decisionId: null,
+    },
     orderBy: { createdAt: "desc" },
     take: 50,
     select: {
