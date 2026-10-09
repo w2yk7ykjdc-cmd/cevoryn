@@ -336,10 +336,10 @@ unknown canon claim types; the safety policy uses its own `SAFETY-001` through
   false-positive block on ordinary dialogue.
 
 These controls are fail-closed safeguards, not a guarantee that a classifier
-is infallible. The integration path and classifier behavior still require
-CI/manual verification before release. The code in this engine does not by
-itself prove an account-level 18+ gate is enforced on every route; that must
-be verified separately.
+is infallible. The separate server-side 18+ self-attestation gate lives in
+`romance-player-guards.ts`; this engine gate does not replace it. The full
+route/action coverage and classifier behavior still require CI/manual
+verification before release.
 
 ## 11. State Transitions (summary — authoritative source is each model's own section above)
 
