@@ -220,7 +220,7 @@ test("an unvoiced character's dialogue line is skipped entirely - no AudioRender
   const rendered = await prisma.audioRender.findMany({ where: { storyEventId: event.id } });
   assert.equal(rendered.length, 0);
 
-  const playable = await getAudioForStoryEvent(event.id, storageProvider);
+  const playable = await getAudioForStoryEvent(event.id, new TestAudioStorageProvider());
   assert.equal(playable.size, 0);
 });
 
