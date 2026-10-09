@@ -22,6 +22,7 @@ import type {
 } from "./scene-generation-provider";
 import { selectValidSceneMemoryCandidates } from "./scene-memory-candidate-math";
 import { generateValidatedScene } from "./scene-pipeline.service";
+import { containsSuspectedChildSexualText } from "./scene-safety-policy";
 import type { SceneSafetyClassifier, SceneSafetyContext } from "./scene-safety-policy";
 import type { SceneFailureReason } from "./scene-pipeline.service";
 import type {
@@ -553,6 +554,21 @@ export async function submitPlayerInput(
 
   const intent = parseFreeformIntent(params.rawInput);
   const beatId = session.currentBeatId;
+
+  // Reject likely age/intimacy combinations before any scene-generation API
+  // receives derived content. The deterministic parser runs locally only.
+  if (
+    typeof params.rawInput === "string" &&
+    containsSuspectedChildSexualText(params.rawInput)
+  ) {
+    return recordRejection(
+      session.id,
+      params.playerId,
+      beatId,
+      intent,
+      "safety:potential_age_intimacy"
+    );
+  }
 
   if (intent.type === "UNPARSEABLE") {
     return recordRejection(
