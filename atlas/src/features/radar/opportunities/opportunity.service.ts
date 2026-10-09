@@ -86,9 +86,65 @@ export async function updateOpportunityStatus(
   status: "REVIEWING" | "QUALIFIED" | "ACTED_ON" | "WON" | "LOST" | "DISMISSED",
   actorUserId: string
 ) {
-  const result = await prisma.opportunity.updateMany({
-    where: { id, organizationId },
-    data: { status },
+  // Lock the opportunity row before changing its status or outcome. Without
+  // this, concurrent WON/LOST requests can race between updateMany and the
+  // existing-outcome lookup, leaving the learning record inconsistent with
+  // the final status (or creating duplicate evaluations).
+  const result = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT "id"
+      FROM "opportunities"
+      WHERE "id" = ${id} AND "organization_id" = ${organizationId}
+      FOR UPDATE
+    `;
+
+    const updated = await tx.opportunity.updateMany({
+      where: { id, organizationId },
+      data: { status },
+    });
+
+    if (updated.count === 0) return updated;
+
+    const outcomeResult = TERMINAL_OUTCOME_RESULT[status];
+    if (outcomeResult) {
+      const opportunity = await tx.opportunity.findFirst({
+        where: { id, organizationId },
+        select: { title: true, confidence: true },
+      });
+
+      if (opportunity) {
+        const outcomeData = {
+          result: outcomeResult,
+          outcomeScore: outcomeResult === "SUCCESS" ? 1 : 0,
+          confidence: opportunity.confidence,
+          explanation: `Opportunity "${opportunity.title}" marked ${status} by user.`,
+        };
+
+        const existingOutcome = await tx.outcomeEvaluation.findFirst({
+          where: { organizationId, opportunityId: id },
+          select: { id: true },
+        });
+
+        if (existingOutcome) {
+          // A terminal status can change (e.g. WON -> LOST). Keep the
+          // learning record aligned with the latest persisted status.
+          await tx.outcomeEvaluation.update({
+            where: { id: existingOutcome.id },
+            data: outcomeData,
+          });
+        } else {
+          await tx.outcomeEvaluation.create({
+            data: {
+              organizationId,
+              opportunityId: id,
+              ...outcomeData,
+            },
+          });
+        }
+      }
+    }
+
+    return updated;
   });
 
   if (result.count > 0) {
@@ -101,32 +157,6 @@ export async function updateOpportunityStatus(
       resourceId: id,
       metadata: { status },
     });
-
-    const outcomeResult = TERMINAL_OUTCOME_RESULT[status];
-    if (outcomeResult) {
-      const existingOutcome = await prisma.outcomeEvaluation.findFirst({
-        where: { organizationId, opportunityId: id },
-        select: { id: true },
-      });
-      if (!existingOutcome) {
-        const opportunity = await prisma.opportunity.findFirst({
-          where: { id, organizationId },
-          select: { title: true, confidence: true },
-        });
-        if (opportunity) {
-          await prisma.outcomeEvaluation.create({
-            data: {
-              organizationId,
-              opportunityId: id,
-              result: outcomeResult,
-              outcomeScore: outcomeResult === "SUCCESS" ? 1 : 0,
-              confidence: opportunity.confidence,
-              explanation: `Opportunity "${opportunity.title}" marked ${status} by user.`,
-            },
-          });
-        }
-      }
-    }
   }
 
   return result;
