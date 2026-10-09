@@ -66,3 +66,13 @@ test("NODE_ENV=test explicitly permits the deterministic provider without a key"
       TestSceneProvider
   );
 });
+
+
+test("explicit test mode takes precedence over CI placeholder API keys", () => {
+  assert.ok(
+    selectSceneProvider(
+      { NODE_ENV: "test", OPENAI_API_KEY: "test-key-not-used-for-network" },
+      () => realProvider
+    ) instanceof TestSceneProvider
+  );
+});
