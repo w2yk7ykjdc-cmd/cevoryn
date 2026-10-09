@@ -84,7 +84,9 @@ export async function generateValidatedScene(
       ...context,
       attemptNumber,
       ...(attemptNumber === 3 &&
-      (violationsEncountered.length > 0 || qualityIssuesEncountered.length > 0)
+      (violationsEncountered.length > 0 ||
+        qualityIssuesEncountered.length > 0 ||
+        safetyViolationsEncountered.length > 0)
         ? {
             priorViolations: [
               ...violationsEncountered.map((v) => ({ ruleId: v.ruleId, message: v.message })),
