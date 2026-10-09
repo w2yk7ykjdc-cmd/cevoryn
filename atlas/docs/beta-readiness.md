@@ -36,6 +36,7 @@ Operational caveats: Vercel does not automatically retry a failed cron invocatio
 - Member role changes and removals are organization-scoped and race-resistant.
 - Critical chat and team APIs use the shared safe API error format.
 - Paddle checkout, portal, and webhook routes are excluded from the session-auth middleware (they verify their own signature instead) so Paddle can actually deliver webhook events.
+- Decision confidence calibration is exercised end-to-end in the real-Postgres integration suite: `generateDecisionCanvas()` is called with a deterministic provider and real stored outcomes, and the returned confidence is asserted to be calibrated. PR #266 CI passed; this proves the code path under test, not production-provider quality or live-production deployment.
 
 ## Confirmed manual checks
 
