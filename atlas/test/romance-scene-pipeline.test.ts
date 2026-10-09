@@ -348,3 +348,39 @@ test("repeated scene-provider failures return the deterministic safe fallback", 
   assert.equal(result.scene.sceneClaims.length, 0);
   assert.equal(result.scene.narration.includes("provider timeout"), false);
 });
+
+test("repair attempt receives prior safety-classifier failures", async () => {
+  let classifierCalls = 0;
+  let repairViolations: Array<{ ruleId: string; message: string }> | undefined;
+  const provider = new TestSceneProvider((context) => {
+    if (context.attemptNumber === 3) {
+      repairViolations = context.priorViolations;
+    }
+    return validScene();
+  });
+  const classifier: SceneSafetyClassifier = {
+    async classify() {
+      classifierCalls++;
+      if (classifierCalls < 3) throw new Error("classifier timeout");
+      return {
+        sexualContentDetected: false,
+        involvedCharacterSlugs: [],
+        ageRisk: "NONE",
+        relationshipRisk: "NONE",
+        consentRisk: "CLEAR",
+      };
+    },
+  };
+
+  const result = await generateValidatedScene(
+    provider,
+    baseContext(),
+    emptyCanonContext(),
+    safeSafetyContext(),
+    classifier
+  );
+
+  assert.equal(result.attempts, 3);
+  assert.equal(result.failureReason, "repaired");
+  assert.ok(repairViolations?.some((violation) => violation.ruleId === "SAFETY-012"));
+});
