@@ -313,7 +313,7 @@ The scene-return path now has three separate gates: canon-claim validation,
 narrative-quality validation, and a structured safety decision. Do not
 describe these as one `CANON-007` check: `CANON-007` rejects malformed or
 unknown canon claim types; the safety policy uses its own `SAFETY-001` through
-`SAFETY-012` decisions.
+`SAFETY-013` decisions.
 
 - The safety classifier receives generated narration/dialogue and trusted
   character-eligibility metadata. Raw player input is not sent to this
@@ -326,10 +326,10 @@ unknown canon claim types; the safety policy uses its own `SAFETY-001` through
   unknown eligibility fails closed. Each identified character must also have
   the required `CHARACTER_INVOLVED_IN_SEXUAL_CONTENT` canon claim; missing or
   conflicting claims reject the scene.
-- A conservative local preflight rejects a potential age/intimacy combination
-  before sending that generated scene to the remote classifier. It is defense
-  in depth, not the primary classifier. The implementation does not call the
-  OpenAI Moderation API.
+- A conservative local preflight rejects potential age/intimacy combinations
+  in raw player input before scene generation and in generated output before
+  remote classification. It is defense in depth, not the primary classifier.
+  The implementation does not call the OpenAI Moderation API.
 - The structured classifier checks age ambiguity, family/incest risk,
   coercion/non-consent, and whether intimate content is present. Non-intimate
   scenes do not require an adult-eligibility record, avoiding a blanket
