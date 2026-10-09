@@ -15,14 +15,14 @@ export function selectSceneProvider(
   env: SceneProviderEnvironment,
   createRealProvider: () => LLMProvider
 ): LLMProvider {
-  if (env.OPENAI_API_KEY?.trim()) return createRealProvider();
-
   const testProviderExplicitlyEnabled =
     env.NODE_ENV === "test" ||
     (env.NODE_ENV !== "production" &&
       env.ROMANCE_TEST_SCENE_PROVIDER === "true");
 
+  // Explicit test mode takes precedence over CI's placeholder API keys.
   if (testProviderExplicitlyEnabled) return new TestSceneProvider();
+  if (env.OPENAI_API_KEY?.trim()) return createRealProvider();
 
   throw new SceneGenerationError(
     "Romance scene generation is not configured: OPENAI_API_KEY is missing. " +
