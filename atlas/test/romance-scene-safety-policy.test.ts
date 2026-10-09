@@ -141,6 +141,7 @@ test("malformed or incomplete classifier output fails closed", () => {
     assert.ok(result.violations.some((v) => v.ruleId === "SAFETY-001"));
   }
   assert.equal(parseSceneSafetyClassification({}), null);
+  assert.equal(parseSceneSafetyClassification({ ...classification(), unexpected: true }), null);
 });
 
 test("sexual content missing the required canon claim fails closed", () => {
