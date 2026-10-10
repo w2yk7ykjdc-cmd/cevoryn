@@ -6,6 +6,14 @@ import { AUTH_ROUTES, PUBLIC_ROUTES, ROUTES } from "@/lib/constants";
 
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
+// These API handlers implement their own authentication and return API-shaped
+// 401/403 responses. Let them handle the request after the shared origin check
+// instead of converting an unauthenticated API call into a browser login redirect.
+const ROUTE_LEVEL_AUTH_API_ROUTES = new Set([
+  "/api/romance/billing/checkout",
+  "/api/romance/billing/portal",
+]);
+
 function isAllowedApiMutation(request: NextRequest) {
   if (!request.nextUrl.pathname.startsWith("/api/")) return true;
   if (!MUTATING_METHODS.has(request.method.toUpperCase())) return true;
@@ -49,6 +57,12 @@ export async function middleware(request: NextRequest) {
       },
       { status: 403 }
     );
+  }
+
+  // API handlers in this allowlist enforce auth themselves and need to return
+  // JSON 401/403 responses. Keep the shared cross-origin mutation guard above.
+  if (ROUTE_LEVEL_AUTH_API_ROUTES.has(pathname)) {
+    return NextResponse.next({ request });
   }
 
   const isPublicRoute = PUBLIC_ROUTES.some(
