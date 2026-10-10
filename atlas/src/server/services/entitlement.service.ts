@@ -115,7 +115,11 @@ export async function assertMemberCapacity(
   organizationId: string,
   additionalMembers = 1
 ): Promise<void> {
-  await withMemberCapacityLock(organizationId, additionalMembers, async () => {});
+  await withMemberCapacityLock(
+    organizationId,
+    additionalMembers,
+    async () => {}
+  );
 }
 
 export async function getCurrentMonthlyAiTokens(
