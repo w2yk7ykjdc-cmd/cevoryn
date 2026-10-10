@@ -38,7 +38,7 @@ function isAllowedApiMutation(request: NextRequest) {
   const forwardedHost = request.headers.get("x-forwarded-host");
   const forwardedProto = request.headers.get("x-forwarded-proto") ?? "https";
   if (forwardedHost) {
-    allowedOrigins.add(forwardedProto + "://" + forwardedHost);
+    allowedOrigins.add(`${forwardedProto}://${forwardedHost}`);
   }
 
   return allowedOrigins.has(origin);
@@ -66,7 +66,7 @@ export async function middleware(request: NextRequest) {
   }
 
   const isPublicRoute = PUBLIC_ROUTES.some(
-    (route) => pathname === route || pathname.startsWith(route + "/")
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
   );
 
   const isAuthRoute = AUTH_ROUTES.some(
@@ -75,7 +75,7 @@ export async function middleware(request: NextRequest) {
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const returnPath = pathname + search;
+  const returnPath = `${pathname}${search}`;
 
   if (!supabaseUrl || !supabaseAnonKey) {
     if (isPublicRoute) {
