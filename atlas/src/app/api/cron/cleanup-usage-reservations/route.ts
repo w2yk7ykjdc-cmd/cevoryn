@@ -11,7 +11,7 @@ export const runtime = "nodejs";
  * function being killed (maxDuration timeout, platform restart, etc.)
  * between reserving capacity and reconciling it with real usage — see
  * entitlement.service.ts's cleanupStaleAiTokenReservations for the full
- * explanation. Configured to run hourly via vercel.json's "crons" entry.
+ * explanation. Configured to run daily via vercel.json's "crons" entry.
  *
  * Vercel signs cron requests with an Authorization: Bearer header equal to
  * the CRON_SECRET environment variable — this route rejects anything else,
