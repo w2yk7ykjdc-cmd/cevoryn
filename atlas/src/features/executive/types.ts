@@ -8,6 +8,8 @@ export interface ExecutiveHomeData {
   greeting: string;
   dateLabel: string;
   state: ExecutiveState;
+  /** Whether the org's plan includes BRAIN (Insights/Decisions/Pulse/Actions). When false, every BRAIN-sourced field below is empty/null by construction - never real data a STARTER-tier org isn't billed for. */
+  brainEnabled: boolean;
 
   pulse: PulseStatus | null;
   topPriority: TopPriorityItem | null;

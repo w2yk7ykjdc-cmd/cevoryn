@@ -3,6 +3,7 @@
 import {
   ArrowRight,
   BrainCircuit,
+  Lock,
   ListChecks,
   MessageSquareText,
   Sparkles,
@@ -21,6 +22,7 @@ import { TodayActions } from "@/features/executive/components/today-actions";
 import { TopPriority } from "@/features/executive/components/top-priority";
 import type { ExecutiveHomeData } from "@/features/executive/types";
 import { sendAnalyticsEvent } from "@/lib/analytics";
+import { ROUTES } from "@/lib/constants";
 
 import { OnboardingGuide } from "./onboarding-guide";
 
@@ -103,23 +105,45 @@ export function ExecutiveHomeClient({ data }: ExecutiveHomeClientProps) {
         </Card>
       </div>
 
-      {data.state === "insufficient_data" && (
-        <InsufficientData reasons={data.insufficientDataReasons} />
-      )}
-
-      {data.state === "quiet" && (
-        <QuietState
-          message={data.quietMessage}
-          resolvedRecently={data.resolvedRecently}
-          memoryCount={data.memoryCount}
-        />
-      )}
-
-      {data.state === "active" && (
+      {!data.brainEnabled ? (
+        <Card className="border-amber-500/30">
+          <CardContent className="flex items-start gap-3 pt-6">
+            <Lock
+              className="mt-0.5 h-5 w-5 shrink-0 text-amber-600"
+              aria-hidden="true"
+            />
+            <div className="space-y-2">
+              <p className="font-semibold">{t("brainLocked.title")}</p>
+              <p className="text-sm text-muted-foreground">
+                {t("brainLocked.message")}
+              </p>
+              <Button asChild size="sm" variant="outline">
+                <Link href={ROUTES.PRICING}>{t("brainLocked.cta")}</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
         <>
-          {data.topPriority && <TopPriority item={data.topPriority} />}
-          <AttentionQueue items={data.attentionItems} />
-          <TodayActions actions={data.pendingActions} />
+          {data.state === "insufficient_data" && (
+            <InsufficientData reasons={data.insufficientDataReasons} />
+          )}
+
+          {data.state === "quiet" && (
+            <QuietState
+              message={data.quietMessage}
+              resolvedRecently={data.resolvedRecently}
+              memoryCount={data.memoryCount}
+            />
+          )}
+
+          {data.state === "active" && (
+            <>
+              {data.topPriority && <TopPriority item={data.topPriority} />}
+              <AttentionQueue items={data.attentionItems} />
+              <TodayActions actions={data.pendingActions} />
+            </>
+          )}
         </>
       )}
 

@@ -178,6 +178,11 @@
       "trendingDown": " Activity is trending down."
     },
     "quietMessage": "Nothing urgent requires your attention today. Focus on growth.",
+    "brainLocked": {
+      "title": "Unlock Insights, Decisions & Pulse",
+      "message": "AI-generated insights, decisions, and your company Pulse score require the Professional or Business plan. Upgrade to see them here.",
+      "cta": "View plans"
+    },
     "insufficientData": {
       "fewMessages": "Only {count} conversation {count, plural, one {message} other {messages}} this week. CEVORYN needs more conversations to identify patterns.",
       "limitedKnowledge": "Limited company knowledge stored. Use chat to share context about your business.",
@@ -528,6 +533,7 @@
     "openIntelligence": "Open Intelligence",
     "decisionCreateFailed": "Decision could not be created",
     "decisionSaved": "Decision saved to CEVORYN",
+    "decisionSavedDegraded": "Decision saved, but without full AI analysis - your plan's AI limit was reached.",
     "actionCreateFailed": "Action could not be created",
     "actionSaved": "Action saved to CEVORYN",
     "conversationCreateFailed": "Failed to create conversation",

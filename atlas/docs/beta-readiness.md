@@ -44,12 +44,12 @@ Operational caveats: Vercel does not automatically retry a failed cron invocatio
 - Sign-in succeeds.
 - Chat returns an AI response.
 - A new conversation can be created.
-- Historical manual check: production `/api/health` returned `200` with
-  `services.database: "connected"`. This is not a current-turn live
-  verification and must not be used as proof of present health. The
-  scheduled Production Smoke workflow is configured to probe the canonical
-  host, but no recent Production Smoke run was found in the Actions runs
-  inspected on 2026-10-10.
+- **Current-turn verified (2026-10-10, via GitHub Actions run [38052025787](https://github.com/w2yk7ykjdc-cmd/cevoryn/actions/runs/38052025787), job `health`, 12:27 UTC):** the scheduled Production Smoke workflow DID run successfully against live production - the prior note above ("no recent Production Smoke run was found") is now out of date. Real response captured from the job log:
+  ```json
+  {"status":"ok","timestamp":"2026-10-10T12:27:42.117Z","version":"unknown","commit":"16c905cd4e01","responseTimeMs":1776,"services":{"database":"connected"}}
+  ```
+  The workflow additionally confirmed production is serving commit `16c905cd4e01`, matching `main`'s HEAD at the time (`16c905cd4e016f3ef715dab2b49769d6a6275beb`) - this closes final-check item 8 below for that specific run. Not independently re-curled from this session (the sandbox's egress proxy blocks `www.cevoryn.com` - `connect_rejected (organization policy)` - so this is the real runner's own result, retrieved via the GitHub Actions API, not a sandbox-side request).
+- **Current-turn verified (same run, job `health`, step "Verify unauthenticated Romance billing requests are rejected"):** `POST /api/romance/billing/checkout` and `POST /api/romance/billing/portal` against live production both returned HTTP 401 with a body containing "sign in" - unauthenticated requests are correctly rejected, fail-closed. This is a real, automated, every-run production check (part of Production Smoke), not a one-off manual click-through.
 - Historical check only: the former Paddle webhook endpoint returned a signature-verification response rather than a login redirect. The current webhook endpoint is `/api/billing/polar/webhook`; its live production delivery/signature path must be verified against the current deployment.
 
 ## Final manual acceptance checks
@@ -66,8 +66,9 @@ and retain timestamped evidence:
 5. [ ] Accept an invitation with a separate test account - not yet tested.
 6. [x] Verify mobile chat input remains visible above the keyboard - confirmed historically; repeat against the current deployment before sale.
 7. [x] Historical Paddle sandbox checkout and webhook synchronization were confirmed before the provider migration. This does **not** verify the current Polar checkout/webhook path; current live-provider acceptance must be tracked separately.
-8. [ ] Verify current production health probe and confirm its reported commit
-   matches the intended release; preserve the workflow run and response.
+8. [x] Verify current production health probe and confirm its reported commit
+   matches the intended release; preserve the workflow run and response. -
+   confirmed 2026-10-10 via Actions run [38052025787](https://github.com/w2yk7ykjdc-cmd/cevoryn/actions/runs/38052025787): `{"status":"ok",...,"commit":"16c905cd4e01",...,"services":{"database":"connected"}}`, matching `main`'s HEAD at the time. Re-verify against whatever commit is actually live before sale, since `main` moves.
 9. [ ] Verify the current Polar checkout → signed webhook → database
    subscription → entitlement flow, then cancellation/portal behavior, using
    a controlled test account and retain provider/database evidence.
@@ -90,10 +91,18 @@ and retain timestamped evidence:
 - [x] `/settings/billing` is now reachable - it existed but had no link from the sidebar, mobile nav, or the Settings page itself (fixed in #52).
 - [x] Canonical redirect is configured in `atlas/next.config.ts`: requests whose host is `cevoryn.vercel.app` redirect to `https://www.cevoryn.com/:path*`. The current source does not establish that every arbitrary or per-deployment Vercel host is redirected; verify actual production host behavior separately before claiming broader canonicalization coverage.
 
+## Dependency security audit (2026-10-10)
+
+`npm audit --omit=dev` found 18 production vulnerabilities, including one **critical**: `next@15.5.20` carried multiple unpatched CVEs (unauthenticated RCE via AVIF image optimization, unauthenticated RCE on Windows-hosted servers, SSRF, cache poisoning, DoS). Fixed in [PR #284](https://github.com/w2yk7ykjdc-cmd/cevoryn/pull/284) by bumping to `next@15.5.27` (patch release) plus a plain `npm audit fix` for three other packages - no `--force`, no breaking changes. 13 production vulnerabilities remain (0 critical, 9 high, 4 moderate), all genuinely blocked on a tailwindcss v3→v4 or Prisma major-version migration, not on an available safe update.
+
+Also diagnosed (from real job logs on [PR #283](https://github.com/w2yk7ykjdc-cmd/cevoryn/pull/283)):
+- **CodeQL code scanning cannot run on this repo as configured.** Root cause (confirmed via the GitHub API): this is a private repository on a personal, non-Enterprise GitHub account, and GitHub Advanced Security - required for code scanning on private repos - isn't purchasable on that plan. No workflow or repo-settings change fixes this; it requires either making the repo public or upgrading to a GitHub plan with GHAS (a billing decision).
+- **Dependabot alerts are disabled** for the repository (confirmed via API). Unlike CodeQL, this is free and doesn't need GHAS, but enabling it is a one-click repo setting (Settings → Code security and analysis → Dependabot alerts) that this session's GitHub API access is explicitly blocked from toggling. Needs a manual click from the account owner.
+
 ## Current open verification and release blockers (2026-10-10)
 
 - [ ] **Romance safety gate requires CI and manual verification.** Issue [#260](https://github.com/w2yk7ykjdc-cmd/cevoryn/issues/260) remains open. PR [#262](https://github.com/w2yk7ykjdc-cmd/cevoryn/pull/262) added fail-closed adult eligibility and malformed/unknown canon-claim checks; PR [#265](https://github.com/w2yk7ykjdc-cmd/cevoryn/pull/265) adds typed relationship/family eligibility, structured safety classification, deterministic metadata checks, local preflight, and fail-closed retry/fallback behavior. Do not call the gate release-verified until the latest CI passes and live/manual acceptance checks are recorded.
-- [ ] **Production health check:** the previous Production Smoke failures were traced to probing the redirected `cevoryn.vercel.app` host. [PR #261](https://github.com/w2yk7ykjdc-cmd/cevoryn/pull/261) has been merged and its CI passed; the live health endpoint still needs a successful production smoke invocation to confirm the issue is resolved in production.
+- [x] **Production health check:** resolved and confirmed - see "Confirmed manual checks" above. Production Smoke run [38052025787](https://github.com/w2yk7ykjdc-cmd/cevoryn/actions/runs/38052025787) (2026-10-10) succeeded against the canonical `www.cevoryn.com` host with `services.database: "connected"`.
 - [ ] **Team invitations:** create/renew/revoke and accept an invitation with a separate test account remain manual acceptance checks above.
 - [ ] **Cron execution:** all four configured jobs use daily schedules that satisfy Hobby frequency limits, but verify each job's actual production execution in Vercel Cron Jobs logs. Vercel does not automatically retry failed cron invocations.
 
