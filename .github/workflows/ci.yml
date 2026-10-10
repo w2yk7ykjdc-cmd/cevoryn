@@ -13,7 +13,7 @@ concurrency:
 jobs:
   quality:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: atlas
@@ -38,8 +38,8 @@ jobs:
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/cevoryn
       NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
       NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
-      NEXT_PUBLIC_APP_URL: http://localhost:3000
-      OPENAI_API_KEY: test-openai-key
+      NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
+      OPENAI_API_KEY: sk-test-openai-key
       SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
 
     steps:
@@ -55,6 +55,9 @@ jobs:
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Validate Prisma schema
         run: npm run db:validate
@@ -104,3 +107,6 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Browser E2E smoke tests
+        run: npm run test:e2e
