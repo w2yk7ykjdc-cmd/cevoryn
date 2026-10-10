@@ -35,8 +35,10 @@ const TEST_RUN_ID = randomUUID().slice(0, 8);
 const ORG_ID = `member-capacity-race-${TEST_RUN_ID}`;
 
 let prisma: typeof PrismaType;
-let withMemberCapacityLock: typeof import("../../src/server/services/entitlement.service").withMemberCapacityLock;
-let PlanLimitError: typeof import("../../src/server/services/entitlement.service").PlanLimitError;
+type EntitlementService = typeof import("../../src/server/services/entitlement.service");
+
+let withMemberCapacityLock: EntitlementService["withMemberCapacityLock"];
+let PlanLimitError: EntitlementService["PlanLimitError"];
 
 before(async () => {
   process.env.DATABASE_URL = INTEGRATION_DATABASE_URL;
