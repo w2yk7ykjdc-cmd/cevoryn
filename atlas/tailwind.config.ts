@@ -56,12 +56,6 @@ const config: Config = {
       fontFamily: {
         sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
         mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "monospace"],
-        // Only ever used by Romance/Thornbound headings (verified: no other
-        // feature uses the font-serif utility) - loaded globally via
-        // next/font in the root layout since that's where font loading
-        // lives, but the visual effect stays scoped to where font-serif
-        // is actually applied.
-        serif: ["var(--font-romance-serif)", "Georgia", "serif"],
       },
       keyframes: {
         "accordion-down": {

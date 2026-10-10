@@ -18,8 +18,6 @@ export const ROUTES = {
   PRIVACY: "/privacy",
   REFUNDS: "/refunds",
   PRICING: "/pricing",
-  ROMANCE_LIBRARY: "/romance",
-  ROMANCE_AGE_GATE: "/romance/verify-age",
 } as const;
 
 export const PUBLIC_ROUTES: readonly string[] = [

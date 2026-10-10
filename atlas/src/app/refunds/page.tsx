@@ -19,18 +19,16 @@ export default function RefundsPage() {
         </header>
 
         <LegalSection title="Subscription billing">
-          Starter, Professional, and Business plans, and Thornbound Premium,
-          are billed monthly in advance through our payment provider, Polar.
-          Subscriptions renew automatically each billing period until
-          cancelled.
+          Starter, Professional, and Business plans are billed monthly in
+          advance through our payment provider, Polar. Subscriptions renew
+          automatically each billing period until cancelled.
         </LegalSection>
 
         <LegalSection title="Cancellations">
           Users can cancel their subscription at any time from the Billing
-          page (or, for Thornbound Premium, the &quot;✦ Premium&quot; control
-          in Thornbound&apos;s header). Cancelling stops future renewals;
-          access continues until the end of the current paid period. We do
-          not charge a cancellation fee.
+          page. Cancelling stops future renewals; access continues until the
+          end of the current paid period. We do not charge a cancellation
+          fee.
         </LegalSection>
 
         <LegalSection title="Refund requests">

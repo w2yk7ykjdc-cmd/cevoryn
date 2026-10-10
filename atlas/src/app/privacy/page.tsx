@@ -25,18 +25,6 @@ export default function PrivacyPage() {
           secure the service.
         </LegalSection>
 
-        <LegalSection title="Thornbound (18+ interactive fiction)">
-          Thornbound is a separate, 18+-only product within CEVORYN. It
-          processes a player&apos;s self-attested age-verification record,
-          chosen character details, story choices, and the resulting
-          relationship/memory state the story remembers. This data is kept
-          separate from any organization&apos;s business data and is never
-          visible to an organization admin, even if the same person also has
-          a CEVORYN business account. Export and deletion requests for
-          Thornbound data are handled the same way as described below,
-          scoped to the player&apos;s own data rather than an organization&apos;s.
-        </LegalSection>
-
         <LegalSection title="How information is used">
           Information is used to provide CEVORYN features, maintain account
           security, improve reliability, respond to support requests, measure
@@ -63,14 +51,13 @@ export default function PrivacyPage() {
         <LegalSection title="Retention, deletion, and data export">
           Information is retained while an account is active and as reasonably
           needed for security, legal, backup, and operational purposes. Beta
-          users may request a copy of their organization&apos;s (or, for
-          Thornbound, their own player) data, or its deletion, by contacting
-          the CEVORYN team at the email below. Export requests are fulfilled
-          as a structured data file covering account, conversation, and
-          product-usage records tied to the requesting organization or
-          player. Deletion requests remove that organization&apos;s or
-          player&apos;s associated data; we aim to complete verified requests
-          within 30 days.
+          users may request a copy of their organization&apos;s data, or its
+          deletion, by contacting the CEVORYN team at the email below. Export
+          requests are fulfilled as a structured data file covering account,
+          conversation, and product-usage records tied to the requesting
+          organization. Deletion requests remove that organization&apos;s
+          associated data; we aim to complete verified requests within 30
+          days.
         </LegalSection>
 
         <LegalSection title="Security">

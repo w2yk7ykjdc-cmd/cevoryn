@@ -14,9 +14,7 @@ export type AuthRateLimitAction =
   | "invite_accept_user"
   | "polar_checkout_org"
   | "billing_portal_org"
-  | "change_plan_org"
-  | "romance_polar_checkout"
-  | "romance_billing_portal";
+  | "change_plan_org";
 
 interface RateLimitRule {
   windowMs: number;
@@ -62,10 +60,6 @@ export const AUTH_RATE_LIMIT_RULES: Record<AuthRateLimitAction, RateLimitRule> =
     polar_checkout_org: { windowMs: 10 * 60 * 1000, limit: 10 },
     billing_portal_org: { windowMs: 10 * 60 * 1000, limit: 20 },
     change_plan_org: { windowMs: 10 * 60 * 1000, limit: 10 },
-    // Same reasoning as the three org actions above, keyed by playerId
-    // instead of organizationId.
-    romance_polar_checkout: { windowMs: 10 * 60 * 1000, limit: 10 },
-    romance_billing_portal: { windowMs: 10 * 60 * 1000, limit: 20 },
   };
 
 /** Minimal storage contract — implemented for real by Prisma, and by an

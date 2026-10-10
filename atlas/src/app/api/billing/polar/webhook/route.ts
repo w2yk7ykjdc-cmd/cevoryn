@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { Webhook, WebhookVerificationError } from "standardwebhooks";
 
-import { applyPolarRomanceSubscriptionEvent } from "@/features/romance/billing/romance-subscription.service";
 import { captureServerError } from "@/lib/error-reporting";
 import {
   SUPPORTED_POLAR_EVENT_TYPES,
@@ -96,15 +95,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
-    // Routed by which metadata key the checkout call set (checkout.ts /
-    // the Romance checkout route each set exactly one) - never by
-    // guessing from the product id, since that would require this one
-    // shared route to know about every product any checkout flow might
-    // ever add.
-    const isRomanceEvent = typeof event.data.metadata?.romancePlayerId === "string";
-    const processed = isRomanceEvent
-      ? await applyPolarRomanceSubscriptionEvent(eventId, event)
-      : await applyPolarSubscriptionEvent(eventId, event);
+    const processed = await applyPolarSubscriptionEvent(eventId, event);
 
     if (processed.processed && !processed.applied) {
       console.warn(
