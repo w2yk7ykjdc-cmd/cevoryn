@@ -14,10 +14,6 @@ import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
 
 import type { prisma as PrismaType } from "../../src/lib/prisma";
-import type {
-  withMemberCapacityLock as WithMemberCapacityLockType,
-  PlanLimitError as PlanLimitErrorType,
-} from "../../src/server/services/entitlement.service";
 
 const INTEGRATION_DATABASE_URL = process.env.INTEGRATION_DATABASE_URL;
 
@@ -39,8 +35,8 @@ const TEST_RUN_ID = randomUUID().slice(0, 8);
 const ORG_ID = `member-capacity-race-${TEST_RUN_ID}`;
 
 let prisma: typeof PrismaType;
-let withMemberCapacityLock: typeof WithMemberCapacityLockType;
-let PlanLimitError: typeof PlanLimitErrorType;
+let withMemberCapacityLock: typeof import("../../src/server/services/entitlement.service").withMemberCapacityLock;
+let PlanLimitError: typeof import("../../src/server/services/entitlement.service").PlanLimitError;
 
 before(async () => {
   process.env.DATABASE_URL = INTEGRATION_DATABASE_URL;
