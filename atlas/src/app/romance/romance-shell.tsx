@@ -29,15 +29,15 @@ export function RomanceShell({
         className="pointer-events-none fixed inset-0 -z-0 bg-[radial-gradient(ellipse_at_14%_8%,rgba(143,54,113,0.28),transparent_36%),radial-gradient(ellipse_at_88%_28%,rgba(95,53,150,0.22),transparent_34%),linear-gradient(180deg,#100817_0%,#0b0712_58%,#100813_100%)]"
       />
       <header className="sticky top-0 z-20 border-b border-white/10 bg-[#0c0813]/85 backdrop-blur-xl">
-        <div className="mx-auto flex min-h-[68px] max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex min-h-[68px] max-w-6xl items-center justify-between gap-1 px-2 py-3 sm:gap-3 sm:px-6">
           <Link
             href={ROUTES.ROMANCE_LIBRARY}
-            className="min-w-0 font-serif text-[1.4rem] tracking-[-0.035em] text-[#ffe7b0] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f18ab7] sm:text-2xl"
+            className="min-w-0 shrink font-serif text-[1.08rem] tracking-[-0.035em] text-[#ffe7b0] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f18ab7] sm:text-2xl"
           >
-            <span className="mr-2 text-[#f18ab7]" aria-hidden="true">✿</span>
+            <span className="mr-1.5 text-[#f18ab7] sm:mr-2" aria-hidden="true">✿</span>
             Thornbound
           </Link>
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-3">
             <Link
               href={ROUTES.ROMANCE_LIBRARY}
               className="hidden rounded-full px-3 py-2 text-sm text-[#d8c9df] transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f18ab7] sm:inline-flex"
