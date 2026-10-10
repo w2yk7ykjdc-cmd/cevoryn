@@ -184,27 +184,47 @@ export async function reserveAiTokenCapacity(params: {
   periodStart.setUTCHours(0, 0, 0, 0);
   const reservationId = randomUUID();
 
-  const inserted = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-    WITH lock_org AS (
-      SELECT pg_advisory_xact_lock(hashtext(${params.organizationId}))
-    ),
-    current_usage AS (
-      SELECT COALESCE(SUM("total_tokens"), 0) AS used
-      FROM "usage_records"
-      WHERE "organization_id" = ${params.organizationId}
-        AND "created_at" >= ${periodStart}
-    )
-    INSERT INTO "usage_records" (
-      "id", "organization_id", "user_id", "conversation_id", "model",
-      "input_tokens", "output_tokens", "total_tokens"
-    )
-    SELECT ${reservationId}, ${params.organizationId}, ${params.userId},
-      ${params.conversationId}, ${params.model}, 0, 0, ${params.estimatedTokens}
-    FROM current_usage, lock_org
-    WHERE current_usage.used + ${params.estimatedTokens} <= ${limits.monthlyAiTokens}
-    RETURNING "id"
-  `);
+  // Keep stale placeholders from consuming quota for up to a full cron
+  // interval. The scheduled sweep remains a backstop, but every new
+  // reservation also cleans this organization's expired placeholders while
+  // holding the same advisory lock used for the capacity check.
+  const staleReservationCutoff = new Date(Date.now() - 60 * 60 * 1000);
 
+  const inserted = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw(Prisma.sql`
+      SELECT pg_advisory_xact_lock(hashtext(${params.organizationId})) IS NULL AS lock_acquired
+    `);
+
+    await tx.$executeRaw`
+      DELETE FROM "usage_records"
+      WHERE "organization_id" = ${params.organizationId}
+        AND "input_tokens" = 0
+        AND "output_tokens" = 0
+        AND "total_tokens" > 0
+        AND "created_at" < ${staleReservationCutoff}
+    `;
+
+    return tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      WITH current_usage AS (
+        SELECT COALESCE(SUM("total_tokens"), 0) AS used
+        FROM "usage_records"
+        WHERE "organization_id" = ${params.organizationId}
+          AND "created_at" >= ${periodStart}
+      )
+      INSERT INTO "usage_records" (
+        "id", "organization_id", "user_id", "conversation_id", "model",
+        "input_tokens", "output_tokens", "total_tokens"
+      )
+      SELECT ${reservationId}, ${params.organizationId}, ${params.userId},
+        ${params.conversationId}, ${params.model}, 0, 0, ${params.estimatedTokens}
+      FROM current_usage
+      WHERE current_usage.used + ${params.estimatedTokens} <= ${limits.monthlyAiTokens}
+      RETURNING "id"
+    `);
+  });
+
+  // Return from the transaction before throwing so stale cleanup still commits
+  // when this request is rejected for insufficient remaining capacity.
   if (inserted.length === 0) {
     throw new PlanLimitError(
       "Your organization has reached its monthly AI usage limit."
