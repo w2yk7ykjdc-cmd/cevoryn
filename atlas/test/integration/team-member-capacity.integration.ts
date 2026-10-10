@@ -123,7 +123,9 @@ test(
       (result): result is PromiseRejectedResult => result.status === "rejected"
     );
     assert.equal(rejected.length, 1);
-    assert.ok(rejected[0].reason instanceof PlanLimitError);
+    const firstRejected = rejected[0];
+    assert.ok(firstRejected, "one invite must be rejected at capacity");
+    assert.ok(firstRejected.reason instanceof PlanLimitError);
   
     const [memberCount, pendingInviteCount] = await Promise.all([
       prisma.member.count({ where: { organizationId: ORG_ID } }),
