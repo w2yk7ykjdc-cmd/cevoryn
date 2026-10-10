@@ -50,7 +50,7 @@ export function StoryLibraryGrid({ universes }: StoryLibraryGridProps) {
               <div aria-hidden="true" className="absolute inset-2 rounded-t-[48%] rounded-b-[1rem] border border-[#7b5a70]/15" />
               <Sparkles className="h-9 w-9 text-[#9b6a37]" strokeWidth={1.3} aria-hidden="true" />
               <p className="mt-5 font-serif text-3xl leading-tight text-[#493449]">A world<br />beyond the ordinary</p>
-              <p className="mt-3 text-sm leading-6 text-[#725d73]">Secrets in every shadow.<br />A choice behind every door.</p>
+              <p className="mt-3 text-sm leading-6 text-[#6f596d]">Secrets in every shadow.<br />A choice behind every door.</p>
               <span aria-hidden="true" className="mt-6 h-px w-16 bg-gradient-to-r from-transparent via-[#f6d38b] to-transparent" />
             </div>
           </div>
@@ -93,19 +93,19 @@ export function StoryLibraryGrid({ universes }: StoryLibraryGridProps) {
               <Link
                 key={universe.slug}
                 href={`/romance/${universe.slug}`}
-                className="group relative isolate flex min-h-80 flex-col overflow-hidden rounded-2xl border border-[#e9a0c4]/20 bg-[#160d20]/90 p-6 shadow-[0_16px_45px_rgba(0,0,0,0.18)] transition duration-300 hover:-translate-y-1 hover:border-[#f4c978]/50 hover:shadow-[0_22px_55px_rgba(116,46,120,0.2)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f18ab7]"
+                className="group relative isolate flex min-h-80 flex-col overflow-hidden rounded-2xl border border-[#d8b9c8] bg-[#fffaf6] p-6 shadow-[0_16px_45px_rgba(100,60,80,0.10)] transition duration-300 hover:-translate-y-1 hover:border-[#bd8b58]/60 hover:shadow-[0_22px_55px_rgba(116,46,120,0.14)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#bd648d]"
               >
-                <div aria-hidden="true" className={`absolute inset-0 -z-10 opacity-80 transition duration-300 group-hover:opacity-100 ${index % 3 === 0 ? "bg-[radial-gradient(ellipse_at_80%_0%,rgba(221,122,135,0.24),transparent_50%),linear-gradient(145deg,#29132d,#110a19_75%)]" : index % 3 === 1 ? "bg-[radial-gradient(ellipse_at_85%_5%,rgba(136,88,214,0.3),transparent_48%),linear-gradient(145deg,#201432,#110a19_75%)]" : "bg-[radial-gradient(ellipse_at_85%_5%,rgba(71,119,161,0.25),transparent_48%),linear-gradient(145deg,#142033,#110a19_75%)]"}`} />
+                <div aria-hidden="true" className={`absolute inset-0 -z-10 opacity-80 transition duration-300 group-hover:opacity-100 ${index % 3 === 0 ? "bg-[radial-gradient(ellipse_at_80%_0%,rgba(235,178,190,0.30),transparent_50%),linear-gradient(145deg,#fffaf6,#f6e7ee_75%)]" : index % 3 === 1 ? "bg-[radial-gradient(ellipse_at_85%_5%,rgba(219,195,235,0.32),transparent_48%),linear-gradient(145deg,#fffaf6,#eee7f4_75%)]" : "bg-[radial-gradient(ellipse_at_85%_5%,rgba(185,211,222,0.32),transparent_48%),linear-gradient(145deg,#fffaf6,#eaf2f3_75%)]"}`} />
                 <div className="flex items-center justify-between">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#f4c978]/35 bg-black/15 text-[#9b6a37]">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#c9a77e]/55 bg-white/60 text-[#9b6a37]">
                     {index % 3 === 0 ? <Heart className="h-5 w-5" aria-hidden="true" /> : index % 3 === 1 ? <Sparkles className="h-5 w-5" aria-hidden="true" /> : <Crown className="h-5 w-5" aria-hidden="true" />}
                   </span>
-                  <span className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-[#d7bbd8]">Thornbound</span>
+                  <span className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-[#80627a]">Thornbound</span>
                 </div>
                 <div className="mt-auto pt-12">
-                  <h3 className="font-serif text-2xl leading-tight text-[#493449] group-hover:text-white">{universe.name}</h3>
-                  <p className="mt-3 line-clamp-4 text-sm leading-6 text-[#725d73]">{universe.description}</p>
-                  <span className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-full border border-[#f4c978]/35 bg-white/[0.035] px-4 text-sm font-medium text-[#ffe7b0] transition group-hover:border-[#f4c978]/70 group-hover:bg-[#f4c978]/10">
+                  <h3 className="font-serif text-2xl leading-tight text-[#493449] group-hover:text-[#382738]">{universe.name}</h3>
+                  <p className="mt-3 line-clamp-4 text-sm leading-6 text-[#6f596d]">{universe.description}</p>
+                  <span className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-full border border-[#c9a77e]/60 bg-white/70 px-4 text-sm font-medium text-[#77502c] transition group-hover:border-[#bd8b58]/80 group-hover:bg-[#f5e7cf]">
                     Enter story <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" aria-hidden="true" />
                   </span>
                 </div>
@@ -121,7 +121,7 @@ export function StoryLibraryGrid({ universes }: StoryLibraryGridProps) {
         <div className="mt-3 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="max-w-2xl font-serif text-3xl leading-tight text-[#382738] sm:text-4xl">Some choices change everything.</h2>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-[#725d73] sm:text-base">Enter a world where every secret matters and every decision moves the story forward.</p>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-[#6f596d] sm:text-base">Enter a world where every secret matters and every decision moves the story forward.</p>
           </div>
           <a href="#featured-stories" className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 self-start rounded-full bg-gradient-to-r from-[#ff9a91] via-[#ed5ca9] to-[#8b42e8] px-6 py-3 text-sm font-semibold text-white shadow-[0_8px_30px_rgba(205,73,177,0.24)] transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#ffe0a0] sm:self-auto">
             Explore stories <ArrowRight className="h-4 w-4" aria-hidden="true" />
