@@ -89,6 +89,7 @@ before(async () => {
 });
 
 after(async () => {
+  if (typeof prisma === "undefined") return;
   await prisma.organization.deleteMany({ where: { id: ORG_ID } });
   await prisma.$disconnect();
 });
@@ -108,12 +109,12 @@ test(
           },
         })
       );
-  
+
     const results = await Promise.allSettled([
       invite(`first-${TEST_RUN_ID}@example.com`),
       invite(`second-${TEST_RUN_ID}@example.com`),
     ]);
-  
+
     assert.equal(
       results.filter((result) => result.status === "fulfilled").length,
       1,
@@ -126,7 +127,7 @@ test(
     const firstRejected = rejected[0];
     assert.ok(firstRejected, "one invite must be rejected at capacity");
     assert.ok(firstRejected.reason instanceof PlanLimitError);
-  
+
     const [memberCount, pendingInviteCount] = await Promise.all([
       prisma.member.count({ where: { organizationId: ORG_ID } }),
       prisma.invite.count({
