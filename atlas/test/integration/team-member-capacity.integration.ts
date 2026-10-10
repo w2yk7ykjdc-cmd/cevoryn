@@ -24,7 +24,7 @@ if (!INTEGRATION_DATABASE_URL) {
   process.exit(1);
 }
 
-if (/supabase\\.co/i.test(INTEGRATION_DATABASE_URL)) {
+if (/supabase\.co/i.test(INTEGRATION_DATABASE_URL)) {
   console.error(
     "INTEGRATION_DATABASE_URL looks like a Supabase (production-shaped) host - refusing to run."
   );
@@ -35,7 +35,9 @@ const TEST_RUN_ID = randomUUID().slice(0, 8);
 const ORG_ID = `member-capacity-race-${TEST_RUN_ID}`;
 
 let prisma: typeof PrismaType;
-type EntitlementService = typeof import("../../src/server/services/entitlement.service");
+type EntitlementService = typeof import(
+  "../../src/server/services/entitlement.service"
+);
 
 let withMemberCapacityLock: EntitlementService["withMemberCapacityLock"];
 let PlanLimitError: EntitlementService["PlanLimitError"];
@@ -45,7 +47,10 @@ before(async () => {
   process.env.DIRECT_URL =
     process.env.INTEGRATION_DIRECT_URL ?? INTEGRATION_DATABASE_URL;
 
-  execSync("npx prisma migrate deploy", { stdio: "inherit", env: process.env });
+  execSync("npx prisma migrate deploy", {
+    stdio: "inherit",
+    env: process.env,
+  });
 
   const prismaModule = await import("../../src/lib/prisma");
   prisma = prismaModule.prisma;
@@ -88,7 +93,9 @@ after(async () => {
   await prisma.$disconnect();
 });
 
-test("concurrent invites cannot exceed the organization's member limit", async () => {
+test(
+  "concurrent invites cannot exceed the organization's member limit",
+  async () => {
   const invite = (email: string) =>
     withMemberCapacityLock(ORG_ID, 1, (tx) =>
       tx.invite.create({
@@ -129,4 +136,5 @@ test("concurrent invites cannot exceed the organization's member limit", async (
     }),
   ]);
   assert.equal(memberCount + pendingInviteCount, 3);
-});
+  }
+);
