@@ -62,6 +62,23 @@ test("returns an empty array for non-feed content", () => {
   assert.deepEqual(parseFeed(""), []);
 });
 
+test("does not double-decode a double-encoded entity into a live special character", () => {
+  // "&amp;quot;" is itself a literally-double-encoded form of a quote
+  // character (someone encoded " as &quot;, then encoded that result
+  // again). Decoding &amp; before &quot; would fully resolve this to a
+  // live " in one pass (CodeQL js/double-escaping); decoding &amp; last
+  // must leave it as the literal, still-escaped text "&quot;" instead.
+  const feed = `<rss><channel><item><title>Say &amp;quot;hi&amp;quot;</title><link>https://example.com/a</link></item></channel></rss>`;
+  const signals = parseFeed(feed);
+  assert.equal(signals[0]?.title, 'Say &quot;hi&quot;');
+});
+
+test("still fully decodes a normal (single-encoded) entity", () => {
+  const feed = `<rss><channel><item><title>Fish &amp; Chips</title><link>https://example.com/b</link></item></channel></rss>`;
+  const signals = parseFeed(feed);
+  assert.equal(signals[0]?.title, "Fish & Chips");
+});
+
 test("caps output at 20 items", () => {
   const items = Array.from(
     { length: 30 },
