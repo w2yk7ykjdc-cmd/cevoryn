@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
       console.warn("[cevoryn:radar-cron] partial errors", totalErrors);
     }
 
-    return NextResponse.json({
+    const response = {
       data: {
         organizationsProcessed: results.length,
         signalsIngested: results.reduce((sum, r) => sum + r.signalsIngested, 0),
@@ -49,6 +49,12 @@ export async function GET(request: NextRequest) {
         ),
         errorCount: totalErrors.length,
       },
+    };
+
+    // Preserve partial work/results, but report the cron invocation as failed
+    // so platform monitoring does not mistake a partially broken run for success.
+    return NextResponse.json(response, {
+      status: totalErrors.length > 0 ? 500 : 200,
     });
   } catch (error) {
     return internalErrorResponse(
