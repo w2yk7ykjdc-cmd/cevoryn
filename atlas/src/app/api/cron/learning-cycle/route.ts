@@ -68,13 +68,19 @@ export async function GET(request: NextRequest) {
       console.warn("[cevoryn:learning-cron] partial errors", errors);
     }
 
-    return NextResponse.json({
+    const response = {
       data: {
         organizationsEligible: organizations.length,
         organizationsProcessed,
         patternsExtracted,
         errorCount: errors.length,
       },
+    };
+
+    // Partial tenant failures must not look like a successful cron run to
+    // platform monitoring. Keep aggregate results in the response for diagnosis.
+    return NextResponse.json(response, {
+      status: errors.length > 0 ? 500 : 200,
     });
   } catch (error) {
     return internalErrorResponse(
