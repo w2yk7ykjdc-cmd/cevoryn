@@ -70,7 +70,7 @@ export async function middleware(request: NextRequest) {
   );
 
   const isAuthRoute = AUTH_ROUTES.some(
-    (route) => pathname === route || pathname.startsWith(route + "/")
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
   );
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
