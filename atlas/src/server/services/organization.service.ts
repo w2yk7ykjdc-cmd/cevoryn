@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import "server-only";
 
 import { prisma } from "@/lib/prisma";
@@ -57,6 +58,21 @@ export async function createOrganization(params: {
   const slug = await generateUniqueSlug(params.name);
 
   return prisma.$transaction(async (tx) => {
+    // Serializes concurrent onboarding submissions for the same user (a
+    // double-click, a client retry after a slow response, two open tabs).
+    // Without this, two transactions can both pass the "doesn't already
+    // belong to an org" check below before either commits - Member's only
+    // unique constraint is (userId, organizationId), and each concurrent
+    // attempt creates a *different* organizationId, so the DB itself
+    // never rejects the second insert. A dedicated namespace keeps this
+    // from colliding with other advisory-lock users that hash the raw
+    // user id (e.g. entitlement.service.ts's member-capacity lock).
+    await tx.$queryRaw(Prisma.sql`
+      SELECT pg_advisory_xact_lock(
+        hashtextextended(${`create-organization:${params.createdByUserId}`}, 0)
+      ) IS NULL AS lock_acquired
+    `);
+
     // Double-check the user doesn't already own an organization
     const existingMembership = await tx.member.findFirst({
       where: { userId: params.createdByUserId },

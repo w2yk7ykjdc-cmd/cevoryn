@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-import { FeatureAccessError } from "@/features/billing/config/plans";
 import {
   createProprietaryDataRecord,
   listProprietaryDataRecords,
@@ -16,7 +15,8 @@ import {
 } from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
-import { assertOrganizationFeatureAccess } from "@/server/services/entitlement.service";
+
+import { requireRadarFeature } from "./require-radar-feature";
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,23 +30,8 @@ export async function GET(request: NextRequest) {
       return forbiddenResponse("Insufficient permissions");
     }
 
-    try {
-      await assertOrganizationFeatureAccess(membership.organizationId, "RADAR");
-    } catch (error) {
-      if (error instanceof FeatureAccessError) {
-        return NextResponse.json(
-          {
-            error: {
-              code: error.code,
-              message:
-                "Proprietary data requires the Professional or Business plan.",
-            },
-          },
-          { status: 403 }
-        );
-      }
-      throw error;
-    }
+    const featureError = await requireRadarFeature(membership.organizationId);
+    if (featureError) return featureError;
 
     const query = new URL(request.url).searchParams.get("q")?.trim();
     const records = query
@@ -75,23 +60,8 @@ export async function POST(request: NextRequest) {
       return forbiddenResponse("Insufficient permissions");
     }
 
-    try {
-      await assertOrganizationFeatureAccess(membership.organizationId, "RADAR");
-    } catch (error) {
-      if (error instanceof FeatureAccessError) {
-        return NextResponse.json(
-          {
-            error: {
-              code: error.code,
-              message:
-                "Proprietary data requires the Professional or Business plan.",
-            },
-          },
-          { status: 403 }
-        );
-      }
-      throw error;
-    }
+    const featureError = await requireRadarFeature(membership.organizationId);
+    if (featureError) return featureError;
 
     let body: unknown;
     try {
