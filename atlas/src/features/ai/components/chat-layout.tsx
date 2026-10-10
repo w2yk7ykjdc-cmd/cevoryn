@@ -153,7 +153,11 @@ export function ChatLayout({
           throw new Error(message);
         }
 
-        showSavedToast(t("decisionSaved"));
+        if (payload?.data?.degraded) {
+          showSavedToast(t("decisionSavedDegraded"));
+        } else {
+          showSavedToast(t("decisionSaved"));
+        }
         await sendOptionalWorkflowSummary(
           t("decisionSummaryPrompt", { input })
         );

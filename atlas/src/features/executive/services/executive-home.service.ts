@@ -2,6 +2,7 @@ import "server-only";
 
 import { getLocale, getTranslations } from "next-intl/server";
 
+import { hasFeature } from "@/features/billing/config/plans";
 import { parsePulseMetrics } from "@/features/brain/core/json-schemas";
 import { parseDecisionCanvas } from "@/features/brain/decisions/json-schemas";
 import { computePulseScore } from "@/features/brain/pulse/pulse-scorer";
@@ -9,6 +10,7 @@ import { computePulse } from "@/features/brain/pulse/pulse.service";
 import { parseEvidence } from "@/features/brain/trust/json-schemas";
 import { countGoogleConnections } from "@/lib/google-connection";
 import { prisma } from "@/lib/prisma";
+import { getOrganizationPlan } from "@/server/services/entitlement.service";
 import type { MembershipContext } from "@/types";
 
 import type {
@@ -39,6 +41,9 @@ export async function loadExecutiveHome(
   const weekStart = new Date(now);
   weekStart.setDate(weekStart.getDate() - 7);
 
+  const plan = await getOrganizationPlan(orgId);
+  const brainEnabled = hasFeature(plan, "BRAIN");
+
   const [
     pulseMetrics,
     previousSnapshot,
@@ -53,27 +58,35 @@ export async function loadExecutiveHome(
     inviteCount,
     googleConnectionCount,
   ] = await Promise.all([
-    computePulse(orgId, dayStart, now),
-    prisma.pulseSnapshot.findFirst({
-      where: { organizationId: orgId, period: "DAILY" },
-      orderBy: { createdAt: "desc" },
-      select: { metrics: true },
-    }),
-    prisma.insight.findMany({
-      where: { organizationId: orgId, status: "NEW" },
-      orderBy: [{ priority: "desc" }, { severity: "desc" }],
-      take: 4,
-    }),
-    prisma.decision.findMany({
-      where: { organizationId: orgId, status: "PROPOSED" },
-      orderBy: { priorityScore: "desc" },
-      take: 3,
-    }),
-    prisma.preparedAction.findMany({
-      where: { organizationId: orgId, status: "PENDING" },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-    }),
+    brainEnabled ? computePulse(orgId, dayStart, now) : null,
+    brainEnabled
+      ? prisma.pulseSnapshot.findFirst({
+          where: { organizationId: orgId, period: "DAILY" },
+          orderBy: { createdAt: "desc" },
+          select: { metrics: true },
+        })
+      : null,
+    brainEnabled
+      ? prisma.insight.findMany({
+          where: { organizationId: orgId, status: "NEW" },
+          orderBy: [{ priority: "desc" }, { severity: "desc" }],
+          take: 4,
+        })
+      : [],
+    brainEnabled
+      ? prisma.decision.findMany({
+          where: { organizationId: orgId, status: "PROPOSED" },
+          orderBy: { priorityScore: "desc" },
+          take: 3,
+        })
+      : [],
+    brainEnabled
+      ? prisma.preparedAction.findMany({
+          where: { organizationId: orgId, status: "PENDING" },
+          orderBy: { createdAt: "desc" },
+          take: 5,
+        })
+      : [],
     prisma.memory.count({ where: { organizationId: orgId, isActive: true } }),
     prisma.message.count({
       where: {
@@ -114,20 +127,22 @@ export async function loadExecutiveHome(
   const previousMetrics = previousSnapshot
     ? parsePulseMetrics(previousSnapshot.metrics)
     : null;
-  const pulseScore = computePulseScore(pulseMetrics, previousMetrics);
 
   const pulse: PulseStatus | null =
-    state !== "insufficient_data"
-      ? {
-          score: pulseScore.score,
-          trend: pulseScore.trend,
-          statement: buildPulseStatement(
-            pulseScore.score,
-            pulseScore.trend,
-            topInsights.length,
-            t
-          ),
-        }
+    brainEnabled && pulseMetrics && state !== "insufficient_data"
+      ? (() => {
+          const pulseScore = computePulseScore(pulseMetrics, previousMetrics);
+          return {
+            score: pulseScore.score,
+            trend: pulseScore.trend,
+            statement: buildPulseStatement(
+              pulseScore.score,
+              pulseScore.trend,
+              topInsights.length,
+              t
+            ),
+          };
+        })()
       : null;
 
   const topPriority = buildTopPriority(topInsights, pendingDecisions);
@@ -190,6 +205,7 @@ export async function loadExecutiveHome(
     greeting,
     dateLabel,
     state,
+    brainEnabled,
     pulse,
     topPriority,
     attentionItems,

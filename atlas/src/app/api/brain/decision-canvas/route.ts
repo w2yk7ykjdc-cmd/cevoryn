@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+import { runWithAIUsageContext } from "@/features/ai/usage-context";
 import { generateDecisionCanvas } from "@/features/brain/decisions/decision-canvas";
 import { createDecisionSchema } from "@/features/brain/decisions/schemas";
+import { internalErrorResponse } from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import {
@@ -79,21 +81,33 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const envelope = await generateDecisionCanvas({
-    organizationId: membership.organizationId,
-    problemDescription: parsed.data.problemDescription,
-    evidence: [],
-  });
+  try {
+    const envelope = await runWithAIUsageContext(
+      { organizationId: membership.organizationId, userId: user.id },
+      () =>
+        generateDecisionCanvas({
+          organizationId: membership.organizationId,
+          problemDescription: parsed.data.problemDescription,
+          evidence: [],
+        })
+    );
 
-  return NextResponse.json({
-    data: {
-      canvas: envelope.data,
-      trust: {
-        confidence: envelope.confidence,
-        reasoning: envelope.reasoning,
-        missingInformation: envelope.missingInformation,
-        dataFreshness: envelope.dataFreshness,
+    return NextResponse.json({
+      data: {
+        canvas: envelope.data,
+        trust: {
+          confidence: envelope.confidence,
+          reasoning: envelope.reasoning,
+          missingInformation: envelope.missingInformation,
+          dataFreshness: envelope.dataFreshness,
+        },
       },
-    },
-  });
+    });
+  } catch (error) {
+    return internalErrorResponse(
+      "Decision canvas POST",
+      error,
+      "Failed to generate decision canvas"
+    );
+  }
 }

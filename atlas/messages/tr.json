@@ -178,6 +178,11 @@
       "trendingDown": " Aktivite düşüş trendinde."
     },
     "quietMessage": "Bugün dikkat gerektiren acil bir şey yok. Büyümeye odaklan.",
+    "brainLocked": {
+      "title": "İçgörüler, Kararlar ve Nabız'ı aç",
+      "message": "Yapay zeka destekli içgörüler, kararlar ve şirket Nabız puanı Professional veya Business plan gerektirir. Burada görmek için yükselt.",
+      "cta": "Planları görüntüle"
+    },
     "insufficientData": {
       "fewMessages": "Bu hafta sadece {count} sohbet mesajı var. CEVORYN'in örüntüleri tespit edebilmesi için daha fazla konuşmaya ihtiyacı var.",
       "limitedKnowledge": "Şirket bilgisi sınırlı. İşin hakkında bağlam paylaşmak için sohbeti kullan.",
@@ -528,6 +533,7 @@
     "openIntelligence": "Intelligence'ı aç",
     "decisionCreateFailed": "Karar oluşturulamadı",
     "decisionSaved": "Karar CEVORYN'e kaydedildi",
+    "decisionSavedDegraded": "Karar kaydedildi, ancak tam yapay zeka analizi yapılamadı - planınızın yapay zeka limiti doldu.",
     "actionCreateFailed": "Aksiyon oluşturulamadı",
     "actionSaved": "Aksiyon CEVORYN'e kaydedildi",
     "conversationCreateFailed": "Konuşma oluşturulamadı",
