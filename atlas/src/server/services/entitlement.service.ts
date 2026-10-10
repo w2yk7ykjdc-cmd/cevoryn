@@ -83,7 +83,7 @@ export async function withMemberCapacityLock<T>(
     await tx.$queryRaw(Prisma.sql`
       SELECT pg_advisory_xact_lock(
         hashtextextended(${`member-capacity:${organizationId}`}, 0)
-      )
+      ) IS NULL AS lock_acquired
     `);
 
     const [memberCount, pendingInviteCount] = await Promise.all([
