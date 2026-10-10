@@ -14,8 +14,8 @@ interface RomanceShellProps {
   children: ReactNode;
 }
 
-/** Consumer-facing shell for Thornbound. Warm editorial palette, restrained
- * rose accents and high-contrast controls; no internal SaaS navigation. */
+/** Consumer-facing shell for Thornbound. Cinematic plum tones, warm gold
+ * details and high-contrast controls, separate from Cevoryn's SaaS chrome. */
 export function RomanceShell({
   displayName,
   isPremium,
@@ -23,35 +23,44 @@ export function RomanceShell({
   children,
 }: RomanceShellProps) {
   return (
-    <div className="min-h-screen overflow-x-clip bg-[#fbf7f3] text-[#2d211f]">
-      <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-0 bg-[radial-gradient(ellipse_at_top_right,rgba(221,151,158,0.15),transparent_38%),linear-gradient(180deg,#fffdfa_0%,#fbf5f1_58%,#f7eeea_100%)]" />
-      <header className="sticky top-0 z-20 border-b border-[#eadbd5]/80 bg-[#fffdfa]/90 backdrop-blur-xl">
-        <div className="mx-auto flex min-h-[68px] max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+    <div className="relative min-h-screen overflow-x-clip bg-[#0b0712] text-[#f8edf5]">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 -z-0 bg-[radial-gradient(ellipse_at_14%_8%,rgba(143,54,113,0.28),transparent_36%),radial-gradient(ellipse_at_88%_28%,rgba(95,53,150,0.22),transparent_34%),linear-gradient(180deg,#100817_0%,#0b0712_58%,#100813_100%)]"
+      />
+      <header className="sticky top-0 z-20 border-b border-white/10 bg-[#0c0813]/85 backdrop-blur-xl">
+        <div className="mx-auto flex min-h-[68px] max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <Link
             href={ROUTES.ROMANCE_LIBRARY}
-            className="min-w-0 font-serif text-[1.35rem] tracking-[-0.035em] text-[#342421] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#bd4968] sm:text-2xl"
+            className="min-w-0 font-serif text-[1.4rem] tracking-[-0.035em] text-[#ffe7b0] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f18ab7] sm:text-2xl"
           >
-            <span className="mr-2 text-[#bd4968]" aria-hidden="true">♡</span>
+            <span className="mr-2 text-[#f18ab7]" aria-hidden="true">✿</span>
             Thornbound
           </Link>
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            <Link
+              href={ROUTES.ROMANCE_LIBRARY}
+              className="hidden rounded-full px-3 py-2 text-sm text-[#d8c9df] transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f18ab7] sm:inline-flex"
+            >
+              Stories
+            </Link>
             <BillingShellControl isPremium={isPremium} />
             <NotificationBell unreadCount={unreadNotificationCount} />
             <Link
               href="/romance/admin"
               aria-label="Admin"
               title="Admin"
-              className="hidden h-9 w-9 items-center justify-center rounded-full border border-[#eadbd5] text-[#705d58] transition hover:border-[#bd4968]/40 hover:bg-[#faedf0] hover:text-[#a52f50] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#bd4968] sm:inline-flex"
+              className="hidden h-9 w-9 items-center justify-center rounded-full border border-white/15 text-[#e5d3e5] transition hover:border-[#f18ab7]/60 hover:bg-white/5 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f18ab7] sm:inline-flex"
             >
               <Settings className="h-4 w-4" aria-hidden="true" />
             </Link>
-            <span className="hidden max-w-28 truncate text-xs text-[#887671] lg:inline">{displayName}</span>
+            <span className="hidden max-w-28 truncate text-xs text-[#b6a4bc] lg:inline">{displayName}</span>
             <form action={signOutAction} className="inline-flex">
               <button
                 type="submit"
                 aria-label="Sign out"
                 title="Sign out"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#eadbd5] text-[#705d58] transition hover:border-[#bd4968]/40 hover:bg-[#faedf0] hover:text-[#a52f50] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#bd4968]"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-[#e5d3e5] transition hover:border-[#f18ab7]/60 hover:bg-white/5 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f18ab7]"
               >
                 <LogOut className="h-4 w-4" aria-hidden="true" />
               </button>
@@ -59,7 +68,7 @@ export function RomanceShell({
           </div>
         </div>
       </header>
-      <main className="relative z-10 mx-auto min-h-[calc(100svh-68px)] w-full max-w-5xl px-4 pb-12 pt-7 sm:px-6 sm:pt-10">
+      <main className="relative z-10 mx-auto min-h-[calc(100svh-68px)] w-full max-w-6xl px-4 pb-14 pt-7 sm:px-6 sm:pt-10">
         {children}
       </main>
     </div>
