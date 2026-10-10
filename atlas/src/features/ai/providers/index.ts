@@ -1,25 +1,22 @@
 import "server-only";
 
+import { LocalAIProvider } from "./local";
 import { OpenAIProvider } from "./openai";
 import type { AIProvider } from "./types";
 
-export type ProviderName = "openai";
+export type ProviderName = "openai" | "local";
 
 let cachedProvider: AIProvider | null = null;
 
-/**
- * Get the configured AI provider.
- * Currently supports OpenAI. The factory pattern makes it trivial
- * to add Anthropic, Gemini, or local models later.
- */
 export function getAIProvider(name: ProviderName = "openai"): AIProvider {
-  if (cachedProvider && cachedProvider.name === name) {
-    return cachedProvider;
-  }
+  if (cachedProvider && cachedProvider.name === name) return cachedProvider;
 
   switch (name) {
     case "openai":
       cachedProvider = new OpenAIProvider();
+      break;
+    case "local":
+      cachedProvider = new LocalAIProvider();
       break;
     default: {
       const _exhaustive: never = name;
