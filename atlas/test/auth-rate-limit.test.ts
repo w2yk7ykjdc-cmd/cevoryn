@@ -120,6 +120,33 @@ test("forgot_password_email allows up to the configured limit, then blocks", asy
   );
 });
 
+test("resend_confirmation_email allows up to the configured limit, then blocks", async () => {
+  const store = createFakeStore();
+  const limit = AUTH_RATE_LIMIT_RULES.resend_confirmation_email.limit;
+
+  for (let i = 0; i < limit; i++) {
+    assert.equal(
+      await tryRecordAuthAttempt(
+        store,
+        "resend_confirmation_email",
+        "someone@example.com"
+      ),
+      true,
+      `attempt ${i + 1} should be allowed and recorded`
+    );
+  }
+
+  assert.equal(
+    await tryRecordAuthAttempt(
+      store,
+      "resend_confirmation_email",
+      "someone@example.com"
+    ),
+    false,
+    "the limit-th+1 attempt must be blocked and not recorded"
+  );
+});
+
 test("a window expiry lifts the limit once old attempts age out", async () => {
   const store = createFakeStore();
   const rule = AUTH_RATE_LIMIT_RULES.login_email;

@@ -74,11 +74,17 @@ export async function POST(request: NextRequest) {
       // Empty or invalid JSON defaults to a daily brief.
     }
 
-    const rateLimit = await checkRateLimit(membership.organizationId);
+    const rateLimit = await checkRateLimit(membership.organizationId, user.id);
     if (!rateLimit.allowed) {
       return NextResponse.json(
         {
-          error: { code: "RATE_LIMITED", message: "Daily token limit reached" },
+          error: {
+            code: "RATE_LIMITED",
+            message:
+              rateLimit.exceededScope === "user"
+                ? "Your daily AI usage limit has been reached"
+                : "Daily token limit reached",
+          },
         },
         { status: 429 }
       );

@@ -13,6 +13,7 @@ import {
   getClientIp,
   isAuthRateLimited,
   recordAuthAttempt,
+  tryRecordAuthAttempt,
 } from "@/server/services/auth-rate-limit.service";
 import type { ActionResult } from "@/types";
 
@@ -241,8 +242,17 @@ export async function signupAction(
       emailRedirectTo: `${appUrl}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(nextPath)}`,
     },
   });
-  if (error)
+  if (error) {
+    const normalized = error.message.toLowerCase();
+    const alreadyRegistered =
+      normalized.includes("already registered") ||
+      normalized.includes("already exists");
+    // Must never reveal whether this email already has an account - same
+    // generic "check your email" response a fresh signup gets, mirroring
+    // forgotPasswordAction's own anti-enumeration design below.
+    if (alreadyRegistered) return { success: true, data: undefined };
     return { success: false, error: sanitizeAuthError(error.message, t) };
+  }
   if (data.session) redirect(nextPath);
   return { success: true, data: undefined };
 }
@@ -262,18 +272,29 @@ export async function resendConfirmationAction(
         string[]
       >,
     };
-  const nextPath = getConfirmationRedirectPath(redirectTo);
-  const appUrl = await getAppUrl();
-  const supabase = await createClient();
-  const { error } = await supabase.auth.resend({
-    type: "signup",
-    email: parsed.data.email,
-    options: {
-      emailRedirectTo: `${appUrl}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(nextPath)}`,
-    },
-  });
-  if (error)
-    return { success: false, error: sanitizeAuthError(error.message, t) };
+  const email = parsed.data.email;
+
+  // Same anti-abuse posture as forgotPasswordAction: a rate-limited
+  // request still returns success, never revealing whether this email is
+  // registered or whether it's being throttled. Unlike before, an actual
+  // Supabase error (e.g. already confirmed) is no longer surfaced either,
+  // for the same reason. tryRecordAuthAttempt (atomic check-and-record)
+  // rather than the two-step isAuthRateLimited+recordAuthAttempt pattern,
+  // since every attempt here counts regardless of outcome - the same
+  // check-then-act race those two calls would otherwise open.
+  if (await tryRecordAuthAttempt("resend_confirmation_email", email)) {
+    const nextPath = getConfirmationRedirectPath(redirectTo);
+    const appUrl = await getAppUrl();
+    const supabase = await createClient();
+    await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: {
+        emailRedirectTo: `${appUrl}${ROUTES.AUTH_CALLBACK}?next=${encodeURIComponent(nextPath)}`,
+      },
+    });
+  }
+
   return { success: true, data: undefined };
 }
 

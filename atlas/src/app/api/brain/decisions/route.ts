@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const rateLimit = await checkRateLimit(membership.organizationId);
+    const rateLimit = await checkRateLimit(membership.organizationId, user.id);
 
     if (!rateLimit.allowed) {
       const canvas = createFallbackCanvas(parsed.data.problemDescription);
@@ -134,7 +134,9 @@ export async function POST(request: NextRequest) {
             trust: {
               confidence: canvas.confidenceScore,
               reasoning:
-                "Decision saved without AI analysis because the daily AI limit was reached.",
+                rateLimit.exceededScope === "user"
+                  ? "Decision saved without AI analysis because your personal daily AI limit was reached."
+                  : "Decision saved without AI analysis because the daily AI limit was reached.",
               missingInformation: [
                 "Full AI analysis will be available after the usage limit resets.",
               ],
