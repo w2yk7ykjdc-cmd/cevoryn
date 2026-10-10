@@ -45,6 +45,28 @@ export async function getOrgUsage(
 }
 
 /**
+ * Get total tokens used by a single user within an organization in a date
+ * range — the per-user half of the daily rate limit, alongside
+ * getOrgUsage's org-wide half.
+ */
+export async function getUserUsage(
+  organizationId: string,
+  userId: string,
+  since: Date
+): Promise<number> {
+  const result = await prisma.usageRecord.aggregate({
+    where: {
+      organizationId,
+      userId,
+      createdAt: { gte: since },
+    },
+    _sum: { totalTokens: true },
+  });
+
+  return result._sum.totalTokens ?? 0;
+}
+
+/**
  * Get per-user usage breakdown for an organization.
  */
 export async function getOrgUsageByUser(

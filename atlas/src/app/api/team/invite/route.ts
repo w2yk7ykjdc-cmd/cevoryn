@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { z } from "zod";
@@ -111,6 +113,12 @@ export async function POST(request: NextRequest) {
               role: parsed.data.role,
               invitedBy: membership.userId,
               expiresAt: getInviteExpiresAt(),
+              // The schema's @default(cuid()) is not a CSPRNG - a cuid
+              // encodes a counter/timestamp and is far more guessable than
+              // this token needs to be for something that grants org
+              // access. Generated explicitly here to match the renewal
+              // path ([id]/route.ts), which already does this correctly.
+              token: randomUUID().replaceAll("-", ""),
             },
           })
       );

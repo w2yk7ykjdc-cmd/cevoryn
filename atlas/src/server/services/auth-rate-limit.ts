@@ -10,6 +10,8 @@ export type AuthRateLimitAction =
   | "login_ip"
   | "signup_ip"
   | "forgot_password_email"
+  | "resend_confirmation_email"
+  | "invite_accept_user"
   | "polar_checkout_org"
   | "billing_portal_org"
   | "change_plan_org"
@@ -52,6 +54,11 @@ export const AUTH_RATE_LIMIT_RULES: Record<AuthRateLimitAction, RateLimitRule> =
     login_ip: { windowMs: 15 * 60 * 1000, limit: 20 },
     signup_ip: { windowMs: 60 * 60 * 1000, limit: 5 },
     forgot_password_email: { windowMs: 60 * 60 * 1000, limit: 3 },
+    resend_confirmation_email: { windowMs: 60 * 60 * 1000, limit: 3 },
+    // Keyed by the authenticated user's id (not email/IP) - invite tokens
+    // are already unguessable CSPRNG values, so this bounds brute-force
+    // token guessing by a signed-in account rather than enumeration.
+    invite_accept_user: { windowMs: 10 * 60 * 1000, limit: 10 },
     polar_checkout_org: { windowMs: 10 * 60 * 1000, limit: 10 },
     billing_portal_org: { windowMs: 10 * 60 * 1000, limit: 20 },
     change_plan_org: { windowMs: 10 * 60 * 1000, limit: 10 },

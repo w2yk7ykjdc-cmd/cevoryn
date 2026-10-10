@@ -8,10 +8,12 @@ import {
   badRequestResponse,
   internalErrorResponse,
   notFoundResponse,
+  tooManyRequestsResponse,
   unauthorizedResponse,
 } from "@/lib/api-utils";
 import { ACTIVE_ORGANIZATION_COOKIE, getUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { tryRecordAuthAttempt } from "@/server/services/auth-rate-limit.service";
 import {
   withMemberCapacityLock,
   PlanLimitError,
@@ -25,6 +27,17 @@ export async function POST(request: Request) {
   try {
     const user = await getUser();
     if (!user) return unauthorizedResponse();
+
+    // The token itself is an unguessable CSPRNG value, but with no limit
+    // here a signed-in account could brute-force-guess tokens (or just
+    // hammer the endpoint) at unlimited speed. Keyed by user.id rather
+    // than email/IP since the caller is already authenticated.
+    if (!(await tryRecordAuthAttempt("invite_accept_user", user.id))) {
+      return tooManyRequestsResponse(
+        "Too many invite attempts. Please try again later.",
+        10 * 60
+      );
+    }
 
     const body = await request.json().catch(() => null);
     const parsed = acceptInviteSchema.safeParse(body);

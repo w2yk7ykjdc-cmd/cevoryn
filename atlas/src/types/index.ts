@@ -124,4 +124,6 @@ export interface RateLimitResult {
   remaining: number;
   dailyLimit: number;
   resetAt: Date;
+  /** Which budget caused `allowed: false`; null when allowed. */
+  exceededScope: "organization" | "user" | null;
 }

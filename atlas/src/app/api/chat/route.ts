@@ -20,7 +20,6 @@ import {
   releaseAiTokenReservation,
   reserveAiTokenCapacity,
 } from "@/server/services/entitlement.service";
-import { checkRateLimit } from "@/server/services/rate-limit.service";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -65,22 +64,14 @@ export async function POST(request: NextRequest) {
     );
     if (!conversation) return notFoundResponse("Conversation not found");
 
-    const rateLimit = await checkRateLimit(membership.organizationId);
-    if (!rateLimit.allowed) {
-      return NextResponse.json(
-        {
-          error: { code: "RATE_LIMITED", message: "Daily token limit reached" },
-        },
-        { status: 429 }
-      );
-    }
-
     let reservationId: string;
     try {
-      // Reserves a conservative worst-case token estimate atomically, closing
-      // the check-then-act race a plain "check usage, act later" read would
-      // have against concurrent requests for the same organization. Reconciled
-      // to the real usage (or released) once the stream finishes below.
+      // Reserves a conservative worst-case token estimate atomically,
+      // checking the monthly org cap and the daily org/per-user caps in
+      // the same locked transaction - closing the check-then-act race a
+      // plain "check usage, act later" read would have against concurrent
+      // requests for the same organization or user. Reconciled to the
+      // real usage (or released) once the stream finishes below.
       reservationId = await reserveAiTokenCapacity({
         organizationId: membership.organizationId,
         userId: membership.userId,

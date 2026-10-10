@@ -64,6 +64,14 @@ export const AI_CONFIG = {
   dailyTokenLimitPerOrg: Number(
     process.env.DAILY_TOKEN_LIMIT_PER_ORG ?? "500000"
   ),
+  // Without this, a single member could consume an entire organization's
+  // daily budget alone, locking out every teammate for the rest of the
+  // day. 150000 (30% of the default org limit) is a starting estimate,
+  // not a calibrated figure - same caveat as the billing rate limits in
+  // auth-rate-limit.ts.
+  dailyTokenLimitPerUser: Number(
+    process.env.DAILY_TOKEN_LIMIT_PER_USER ?? "150000"
+  ),
   /** Extension points for future modules */
   enabledModules: [] as readonly string[],
 } as const;

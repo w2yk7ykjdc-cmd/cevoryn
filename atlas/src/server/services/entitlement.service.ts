@@ -11,6 +11,7 @@ import {
   type PlanLimits,
 } from "@/features/billing/config/plans";
 import { isSubscriptionActive } from "@/features/billing/types";
+import { AI_CONFIG } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getOrganizationSubscription } from "@/server/services/billing.service";
 import type { TokenUsage } from "@/types";
@@ -163,9 +164,21 @@ export async function assertAiTokenCapacity(
  * same pre-increment usage and both pass, since neither's usage is recorded
  * until well after the check. This closes that gap by inserting a
  * placeholder UsageRecord for `estimatedTokens` as part of the same
- * statement that re-checks the cap, serialized per-organization via a
+ * transaction that re-checks every cap, serialized per-organization via a
  * transaction-scoped Postgres advisory lock (held only for this one
- * statement, not across the AI call).
+ * transaction, not across the AI call).
+ *
+ * Three caps are enforced here, all under the same lock: the plan's
+ * monthly org-wide limit, and the daily org-wide and daily per-user limits
+ * (AI_CONFIG.dailyTokenLimitPerOrg/PerUser) that used to be checked
+ * separately and non-atomically via rate-limit.service.ts's
+ * checkRateLimit — called redundantly once in the chat route and again in
+ * ai.service.ts's sendMessage, with a check-then-act race identical to the
+ * one this function was originally written to close for the monthly cap.
+ * Folding them in here closes that race the same way and removes the
+ * redundant second call (ai.service.ts no longer calls checkRateLimit at
+ * all; by the time sendMessage runs, this reservation has already proven
+ * every cap was satisfied).
  *
  * On success, call `reconcileAiTokenReservation` with the real usage once
  * the AI call completes. On failure, call `releaseAiTokenReservation` so
@@ -179,9 +192,11 @@ export async function reserveAiTokenCapacity(params: {
   estimatedTokens: number;
 }): Promise<string> {
   const { limits } = await getOrganizationEntitlements(params.organizationId);
-  const periodStart = new Date();
-  periodStart.setUTCDate(1);
-  periodStart.setUTCHours(0, 0, 0, 0);
+  const monthStart = new Date();
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0, 0, 0, 0);
+  const dayStart = new Date();
+  dayStart.setUTCHours(0, 0, 0, 0);
   const reservationId = randomUUID();
 
   // Keep stale placeholders from consuming quota for up to a full cron
@@ -190,7 +205,10 @@ export async function reserveAiTokenCapacity(params: {
   // holding the same advisory lock used for the capacity check.
   const staleReservationCutoff = new Date(Date.now() - 60 * 60 * 1000);
 
-  const inserted = await prisma.$transaction(async (tx) => {
+  // Returned (not thrown) from inside the transaction so the stale-cleanup
+  // DELETE above still commits even when the reservation itself is
+  // rejected - throwing here would roll that cleanup back too.
+  const result = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw(Prisma.sql`
       SELECT pg_advisory_xact_lock(hashtext(${params.organizationId})) IS NULL AS lock_acquired
     `);
@@ -204,30 +222,75 @@ export async function reserveAiTokenCapacity(params: {
         AND "created_at" < ${staleReservationCutoff}
     `;
 
-    return tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-      WITH current_usage AS (
-        SELECT COALESCE(SUM("total_tokens"), 0) AS used
-        FROM "usage_records"
-        WHERE "organization_id" = ${params.organizationId}
-          AND "created_at" >= ${periodStart}
-      )
-      INSERT INTO "usage_records" (
-        "id", "organization_id", "user_id", "conversation_id", "model",
-        "input_tokens", "output_tokens", "total_tokens"
-      )
-      SELECT ${reservationId}, ${params.organizationId}, ${params.userId},
-        ${params.conversationId}, ${params.model}, 0, 0, ${params.estimatedTokens}
-      FROM current_usage
-      WHERE current_usage.used + ${params.estimatedTokens} <= ${limits.monthlyAiTokens}
-      RETURNING "id"
-    `);
+    const [monthlyUsage, dailyOrgUsage, dailyUserUsage] = await Promise.all([
+      tx.usageRecord.aggregate({
+        where: {
+          organizationId: params.organizationId,
+          createdAt: { gte: monthStart },
+        },
+        _sum: { totalTokens: true },
+      }),
+      tx.usageRecord.aggregate({
+        where: {
+          organizationId: params.organizationId,
+          createdAt: { gte: dayStart },
+        },
+        _sum: { totalTokens: true },
+      }),
+      tx.usageRecord.aggregate({
+        where: {
+          organizationId: params.organizationId,
+          userId: params.userId,
+          createdAt: { gte: dayStart },
+        },
+        _sum: { totalTokens: true },
+      }),
+    ]);
+
+    const monthlyUsed = monthlyUsage._sum.totalTokens ?? 0;
+    const dailyOrgUsed = dailyOrgUsage._sum.totalTokens ?? 0;
+    const dailyUserUsed = dailyUserUsage._sum.totalTokens ?? 0;
+    const estimated = params.estimatedTokens;
+
+    if (monthlyUsed + estimated > limits.monthlyAiTokens) {
+      return { ok: false as const, reason: "monthly" as const };
+    }
+    if (dailyOrgUsed + estimated > AI_CONFIG.dailyTokenLimitPerOrg) {
+      return { ok: false as const, reason: "daily_org" as const };
+    }
+    if (dailyUserUsed + estimated > AI_CONFIG.dailyTokenLimitPerUser) {
+      return { ok: false as const, reason: "daily_user" as const };
+    }
+
+    await tx.usageRecord.create({
+      data: {
+        id: reservationId,
+        organizationId: params.organizationId,
+        userId: params.userId,
+        conversationId: params.conversationId,
+        model: params.model,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: estimated,
+      },
+    });
+
+    return { ok: true as const };
   });
 
-  // Return from the transaction before throwing so stale cleanup still commits
-  // when this request is rejected for insufficient remaining capacity.
-  if (inserted.length === 0) {
+  if (!result.ok) {
+    if (result.reason === "monthly") {
+      throw new PlanLimitError(
+        "Your organization has reached its monthly AI usage limit."
+      );
+    }
+    if (result.reason === "daily_org") {
+      throw new PlanLimitError(
+        `Daily token limit reached (${AI_CONFIG.dailyTokenLimitPerOrg.toLocaleString()} tokens). Resets at midnight.`
+      );
+    }
     throw new PlanLimitError(
-      "Your organization has reached its monthly AI usage limit."
+      `You've reached your personal daily AI usage limit (${AI_CONFIG.dailyTokenLimitPerUser.toLocaleString()} tokens). Resets at midnight.`
     );
   }
 
