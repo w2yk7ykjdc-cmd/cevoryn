@@ -11,13 +11,23 @@ const MAX_ITEMS = 20;
  * "skip this item" rather than throwing on anything it can't parse.
  */
 function decodeEntities(value: string): string {
+  // &amp; is decoded last, after every other entity. Decoding it earlier
+  // lets a double-encoded entity (e.g. a feed that literally contains
+  // "&amp;quot;") fully resolve to a live special character in this one
+  // pass: &amp; -> & turns "&amp;quot;" into "&quot;", which the
+  // still-pending &quot; replacement below then decodes again into a raw
+  // ". Doing &amp; last means every other step has already run by the
+  // time it produces new "&xxx;"-shaped text, so that text is never
+  // reprocessed - a double-encoded entity stays conservatively
+  // under-decoded instead of fully resolving (flagged by CodeQL as
+  // js/double-escaping).
   return value
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
-    .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
