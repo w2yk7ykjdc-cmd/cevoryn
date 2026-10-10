@@ -96,45 +96,45 @@ after(async () => {
 test(
   "concurrent invites cannot exceed the organization's member limit",
   async () => {
-  const invite = (email: string) =>
-    withMemberCapacityLock(ORG_ID, 1, (tx) =>
-      tx.invite.create({
-        data: {
-          organizationId: ORG_ID,
-          email,
-          role: "MEMBER",
-          invitedBy: `capacity-owner-${TEST_RUN_ID}`,
-          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
-        },
-      })
+    const invite = (email: string) =>
+      withMemberCapacityLock(ORG_ID, 1, (tx) =>
+        tx.invite.create({
+          data: {
+            organizationId: ORG_ID,
+            email,
+            role: "MEMBER",
+            invitedBy: `capacity-owner-${TEST_RUN_ID}`,
+            expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+          },
+        })
+      );
+  
+    const results = await Promise.allSettled([
+      invite(`first-${TEST_RUN_ID}@example.com`),
+      invite(`second-${TEST_RUN_ID}@example.com`),
+    ]);
+  
+    assert.equal(
+      results.filter((result) => result.status === "fulfilled").length,
+      1,
+      "exactly one invite should fit in the final available slot"
     );
-
-  const results = await Promise.allSettled([
-    invite(`first-${TEST_RUN_ID}@example.com`),
-    invite(`second-${TEST_RUN_ID}@example.com`),
-  ]);
-
-  assert.equal(
-    results.filter((result) => result.status === "fulfilled").length,
-    1,
-    "exactly one invite should fit in the final available slot"
-  );
-  const rejected = results.filter(
-    (result): result is PromiseRejectedResult => result.status === "rejected"
-  );
-  assert.equal(rejected.length, 1);
-  assert.ok(rejected[0].reason instanceof PlanLimitError);
-
-  const [memberCount, pendingInviteCount] = await Promise.all([
-    prisma.member.count({ where: { organizationId: ORG_ID } }),
-    prisma.invite.count({
-      where: {
-        organizationId: ORG_ID,
-        status: "PENDING",
-        expiresAt: { gt: new Date() },
-      },
-    }),
-  ]);
-  assert.equal(memberCount + pendingInviteCount, 3);
+    const rejected = results.filter(
+      (result): result is PromiseRejectedResult => result.status === "rejected"
+    );
+    assert.equal(rejected.length, 1);
+    assert.ok(rejected[0].reason instanceof PlanLimitError);
+  
+    const [memberCount, pendingInviteCount] = await Promise.all([
+      prisma.member.count({ where: { organizationId: ORG_ID } }),
+      prisma.invite.count({
+        where: {
+          organizationId: ORG_ID,
+          status: "PENDING",
+          expiresAt: { gt: new Date() },
+        },
+      }),
+    ]);
+    assert.equal(memberCount + pendingInviteCount, 3);
   }
 );
