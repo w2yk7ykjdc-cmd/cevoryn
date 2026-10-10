@@ -33,10 +33,10 @@ jobs:
           node -e '
             const fs = require("fs");
             const health = JSON.parse(fs.readFileSync("health.json", "utf8"));
-            if (health.status !== "ok") throw new Error("Health status is " + health.status);
+            if (health.status !== "ok") throw new Error(`Health status is ${health.status}`);
             if (health.services?.database !== "connected") throw new Error("Database is not connected");
             if (typeof health.responseTimeMs !== "number") throw new Error("Missing response time");
-            console.log("Production healthy in " + health.responseTimeMs + "ms");
+            console.log(`Production healthy in ${health.responseTimeMs}ms`);
           '
 
       # Live auth probes are skipped for pull requests because their code is not
@@ -75,8 +75,11 @@ jobs:
             echo "## Cevoryn production smoke"
             echo
             if [ -f health.json ]; then
-              echo "JSON response:"
+              echo 'JSON response:'
+              echo ' ```json'
               cat health.json
+              echo
+              echo ' ```'
             else
               echo "Health endpoint did not return a usable response."
             fi
