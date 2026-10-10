@@ -30,11 +30,36 @@ jobs:
           node -e '
             const fs = require("fs");
             const health = JSON.parse(fs.readFileSync("health.json", "utf8"));
-            if (health.status !== "ok") throw new Error(`Health status is ${health.status}`);
+            if (health.status !== "ok") throw new Error("Health status is " + health.status);
             if (health.services?.database !== "connected") throw new Error("Database is not connected");
             if (typeof health.responseTimeMs !== "number") throw new Error("Missing response time");
-            console.log(`Production healthy in ${health.responseTimeMs}ms`);
+            console.log("Production healthy in " + health.responseTimeMs + "ms");
           '
+
+      - name: Verify unauthenticated Romance billing requests are rejected
+        env:
+          CHECKOUT_URL: https://www.cevoryn.com/api/romance/billing/checkout
+          PORTAL_URL: https://www.cevoryn.com/api/romance/billing/portal
+        run: |
+          set -euo pipefail
+          for endpoint in "$CHECKOUT_URL" "$PORTAL_URL"; do
+            body_file="$(mktemp)"
+            status="$(curl --silent --show-error --max-time 20 --output "$body_file" --write-out '%{http_code}' --request POST "$endpoint")"
+            echo "$endpoint -> HTTP $status"
+            if [ "$status" != "401" ]; then
+              cat "$body_file"
+              echo "Expected unauthenticated request to be rejected with HTTP 401."
+              exit 1
+            fi
+            node -e '
+              const fs = require("fs");
+              const body = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+              if (typeof body.error !== "string" || !body.error.toLowerCase().includes("sign in")) {
+                throw new Error("Unexpected unauthenticated response body");
+              }
+            ' "$body_file"
+            rm -f "$body_file"
+          done
 
       - name: Publish summary
         if: always()
@@ -43,11 +68,8 @@ jobs:
             echo "## Cevoryn production smoke"
             echo
             if [ -f health.json ]; then
-              echo 'JSON response:'
-              echo ' ```json'
+              echo "JSON response:"
               cat health.json
-              echo
-              echo ' ```'
             else
               echo "Health endpoint did not return a usable response."
             fi
