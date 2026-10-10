@@ -4,6 +4,9 @@ on:
   schedule:
     - cron: "17 * * * *"
   workflow_dispatch:
+  push:
+    branches:
+      - main
   pull_request:
     paths:
       - ".github/workflows/production-smoke.yml"
@@ -18,7 +21,7 @@ concurrency:
 jobs:
   health:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
     steps:
       - name: Verify production health
         env:
@@ -38,6 +41,33 @@ jobs:
             if (typeof health.responseTimeMs !== "number") throw new Error("Missing response time");
             console.log(`Production healthy in ${health.responseTimeMs}ms`);
           '
+
+      # For push/schedule/manual runs, wait until Vercel serves this exact commit
+      # before checking route behavior. A healthy but stale deployment is not enough.
+      - name: Wait for production to serve this commit
+        if: github.event_name != 'pull_request'
+        env:
+          HEALTH_URL: https://www.cevoryn.com/api/health
+          EXPECTED_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          expected="${EXPECTED_COMMIT:0:12}"
+          for attempt in $(seq 1 30); do
+            if body="$(curl --location --fail --silent --show-error --max-time 20 --max-redirs 5 "$HEALTH_URL")"; then
+              echo "$body" | tee health.json
+              actual="$(printf '%s' "$body" | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).commit || ""')"
+              if [ "$actual" = "$expected" ]; then
+                echo "Production serves commit $actual"
+                exit 0
+              fi
+              echo "Attempt $attempt/30: production serves $actual; waiting for $expected."
+            else
+              echo "Attempt $attempt/30: production health endpoint is not ready."
+            fi
+            if [ "$attempt" -lt 30 ]; then sleep 10; fi
+          done
+          echo "Production did not serve expected commit $expected."
+          exit 1
 
       # Live auth probes are skipped for pull requests because their code is not
       # deployed yet; CI covers the middleware logic and the hourly smoke checks
