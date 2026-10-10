@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-import { FeatureAccessError } from "@/features/billing/config/plans";
 import {
   deleteProprietaryDataRecord,
   updateProprietaryDataRecord,
@@ -16,29 +15,8 @@ import {
 } from "@/lib/api-utils";
 import { getMembership, getUser } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
-import { assertOrganizationFeatureAccess } from "@/server/services/entitlement.service";
 
-async function requireRadarFeature(
-  organizationId: string
-): Promise<NextResponse | null> {
-  try {
-    await assertOrganizationFeatureAccess(organizationId, "RADAR");
-    return null;
-  } catch (error) {
-    if (error instanceof FeatureAccessError) {
-      return NextResponse.json(
-        {
-          error: {
-            code: error.code,
-            message: "Proprietary data requires the Professional or Business plan.",
-          },
-        },
-        { status: 403 }
-      );
-    }
-    throw error;
-  }
-}
+import { requireRadarFeature } from "../require-radar-feature";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
