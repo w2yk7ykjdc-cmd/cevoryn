@@ -24,7 +24,7 @@ if (!INTEGRATION_DATABASE_URL) {
   process.exit(1);
 }
 
-if (/supabase\\.co/i.test(INTEGRATION_DATABASE_URL)) {
+if (/supabase\.co/i.test(INTEGRATION_DATABASE_URL)) {
   console.error(
     "INTEGRATION_DATABASE_URL looks like a Supabase (production-shaped) host - refusing to run."
   );
