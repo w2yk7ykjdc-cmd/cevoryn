@@ -19,7 +19,7 @@ import { getMembership, getUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/rbac";
 import {
-  assertMemberCapacity,
+  withMemberCapacityLock,
   PlanLimitError,
 } from "@/server/services/entitlement.service";
 
@@ -98,24 +98,28 @@ export async function POST(request: NextRequest) {
       return badRequestResponse(eligibility.message);
     }
 
+    let invite;
     try {
-      await assertMemberCapacity(membership.organizationId);
+      invite = await withMemberCapacityLock(
+        membership.organizationId,
+        1,
+        (tx) =>
+          tx.invite.create({
+            data: {
+              organizationId: membership.organizationId,
+              email: parsed.data.email,
+              role: parsed.data.role,
+              invitedBy: membership.userId,
+              expiresAt: getInviteExpiresAt(),
+            },
+          })
+      );
     } catch (error) {
       if (error instanceof PlanLimitError) {
         return badRequestResponse(error.message);
       }
       throw error;
     }
-
-    const invite = await prisma.invite.create({
-      data: {
-        organizationId: membership.organizationId,
-        email: parsed.data.email,
-        role: parsed.data.role,
-        invitedBy: membership.userId,
-        expiresAt: getInviteExpiresAt(),
-      },
-    });
 
     const acceptPath = getInviteAcceptPath(invite.token);
     const emailResult = await sendTeamInviteEmail({

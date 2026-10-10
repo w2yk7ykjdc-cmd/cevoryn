@@ -63,30 +63,63 @@ export async function assertOrganizationFeatureAccess(
   return entitlements.plan;
 }
 
+/**
+ * Serialize capacity-sensitive member/invite writes per organization.
+ *
+ * The plan check and the write must share this transaction; checking capacity
+ * before a separate create/accept operation allows concurrent requests to
+ * exceed the configured member limit.
+ */
+export async function withMemberCapacityLock<T>(
+  organizationId: string,
+  additionalMembers: number,
+  operation: (tx: Prisma.TransactionClient) => Promise<T>
+): Promise<T> {
+  const { limits } = await getOrganizationEntitlements(organizationId);
+
+  return prisma.$transaction(async (tx) => {
+    // Use a dedicated namespace so this lock cannot collide with other
+    // advisory-lock users that hash the raw organization ID.
+    await tx.$queryRaw(Prisma.sql`
+      SELECT pg_advisory_xact_lock(
+        hashtextextended(${`member-capacity:${organizationId}`}, 0)
+      ) IS NULL AS lock_acquired
+    `);
+
+    const [memberCount, pendingInviteCount] = await Promise.all([
+      tx.member.count({ where: { organizationId } }),
+      tx.invite.count({
+        where: {
+          organizationId,
+          status: "PENDING",
+          expiresAt: { gt: new Date() },
+        },
+      }),
+    ]);
+
+    if (
+      memberCount + pendingInviteCount + additionalMembers >
+      limits.maxMembers
+    ) {
+      throw new PlanLimitError(
+        `Your current plan supports up to ${limits.maxMembers} team member${limits.maxMembers === 1 ? "" : "s"}.`
+      );
+    }
+
+    return operation(tx);
+  });
+}
+
+/** Read-only capacity assertion retained for callers that only need a check. */
 export async function assertMemberCapacity(
   organizationId: string,
   additionalMembers = 1
 ): Promise<void> {
-  const [{ limits }, memberCount, pendingInviteCount] = await Promise.all([
-    getOrganizationEntitlements(organizationId),
-    prisma.member.count({ where: { organizationId } }),
-    prisma.invite.count({
-      where: {
-        organizationId,
-        status: "PENDING",
-        expiresAt: { gt: new Date() },
-      },
-    }),
-  ]);
-
-  if (
-    memberCount + pendingInviteCount + additionalMembers >
-    limits.maxMembers
-  ) {
-    throw new PlanLimitError(
-      `Your current plan supports up to ${limits.maxMembers} team member${limits.maxMembers === 1 ? "" : "s"}.`
-    );
-  }
+  await withMemberCapacityLock(
+    organizationId,
+    additionalMembers,
+    async () => {}
+  );
 }
 
 export async function getCurrentMonthlyAiTokens(

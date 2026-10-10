@@ -13,7 +13,7 @@ import {
 import { ACTIVE_ORGANIZATION_COOKIE, getUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
-  assertMemberCapacity,
+  withMemberCapacityLock,
   PlanLimitError,
 } from "@/server/services/entitlement.service";
 
@@ -64,12 +64,45 @@ export async function POST(request: Request) {
       return badRequestResponse(eligibility.message);
     }
 
+    let accepted: boolean;
     try {
-      // additionalMembers: 0 - this invite is already counted as a pending
-      // invite; accepting it converts it to a member without changing the
-      // total, so this only rejects when the org is already over its
-      // current plan's limit (e.g. after a downgrade since the invite was sent).
-      await assertMemberCapacity(invite.organizationId, 0);
+      accepted = await withMemberCapacityLock(
+        invite.organizationId,
+        0,
+        async (tx) => {
+          // The pending invite is already included in the capacity count.
+          // Claiming it and creating the member happen under the same org lock,
+          // so concurrent acceptances cannot overrun the plan limit.
+          const claimed = await tx.invite.updateMany({
+            where: {
+              id: invite.id,
+              status: "PENDING",
+              expiresAt: { gt: new Date() },
+            },
+            data: { status: "ACCEPTED" },
+          });
+
+          if (claimed.count !== 1) return false;
+
+          await tx.member.upsert({
+            where: {
+              userId_organizationId: {
+                userId: user.id,
+                organizationId: invite.organizationId,
+              },
+            },
+            update: {},
+            create: {
+              userId: user.id,
+              organizationId: invite.organizationId,
+              role: invite.role,
+              displayName: user.email.split("@")[0] || user.email,
+            },
+          });
+
+          return true;
+        }
+      );
     } catch (error) {
       if (error instanceof PlanLimitError) {
         return badRequestResponse(
@@ -78,37 +111,6 @@ export async function POST(request: Request) {
       }
       throw error;
     }
-
-    const accepted = await prisma.$transaction(async (tx) => {
-      const claimed = await tx.invite.updateMany({
-        where: {
-          id: invite.id,
-          status: "PENDING",
-          expiresAt: { gt: new Date() },
-        },
-        data: { status: "ACCEPTED" },
-      });
-
-      if (claimed.count !== 1) return false;
-
-      await tx.member.upsert({
-        where: {
-          userId_organizationId: {
-            userId: user.id,
-            organizationId: invite.organizationId,
-          },
-        },
-        update: {},
-        create: {
-          userId: user.id,
-          organizationId: invite.organizationId,
-          role: invite.role,
-          displayName: user.email.split("@")[0] || user.email,
-        },
-      });
-
-      return true;
-    });
 
     if (!accepted) {
       return badRequestResponse("This invite has already been used or expired");
