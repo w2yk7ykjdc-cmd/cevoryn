@@ -6,6 +6,14 @@ on:
   pull_request:
     branches: [main]
 
+# Least-privilege default: this workflow only checks out code, installs
+# deps, and runs tests/build - it never writes to the repo, PRs, or
+# issues, so GITHUB_TOKEN needs nothing beyond read access to contents.
+# Without this, the token falls back to the repository's (possibly
+# broader) default permissions.
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
