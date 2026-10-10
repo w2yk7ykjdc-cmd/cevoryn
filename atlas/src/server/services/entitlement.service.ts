@@ -192,7 +192,7 @@ export async function reserveAiTokenCapacity(params: {
 
   const inserted = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw(Prisma.sql`
-      SELECT pg_advisory_xact_lock(hashtext(${params.organizationId}))
+      SELECT pg_advisory_xact_lock(hashtext(${params.organizationId})) IS NULL AS lock_acquired
     `);
 
     await tx.$executeRaw`
