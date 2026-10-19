@@ -32,12 +32,11 @@ Example: [{"type":"HIRING_ACCELERATION","title":"Company X is rapidly hiring eng
 If nothing to extract: []`;
 
 /**
- * Runs LLM classification over one entity's PENDING signals, creates
- * ExternalEvent rows for whatever survives validation, and marks every
- * signal in the batch PROCESSED regardless of outcome (a signal that
- * didn't produce an event has still been considered - re-processing it on
- * the next run would just waste tokens re-deriving the same "nothing here"
- * conclusion).
+ * Runs LLM classification over one entity's PENDING signals. A batch is
+ * marked PROCESSED only after the provider returns and all candidate writes
+ * finish successfully. Provider/DB failures leave signals PENDING so the
+ * next scheduled run can retry them instead of silently losing the batch.
+ * A valid empty array is a successful analysis and is processed normally.
  */
 export async function extractEventsForEntity(
   organizationId: string,
@@ -74,14 +73,20 @@ export async function extractEventsForEntity(
     });
 
     const cleaned = content.trim();
+    let extracted: unknown = [];
     if (cleaned && cleaned !== "[]") {
-      let extracted: unknown;
       try {
         extracted = JSON.parse(cleaned);
-      } catch (_parseError) {
-        extracted = null;
+      } catch {
+        throw new Error("Event extraction provider returned invalid JSON");
       }
+    }
 
+    if (!Array.isArray(extracted)) {
+      throw new Error("Event extraction provider response must be a JSON array");
+    }
+
+    {
       const candidates = selectValidEvents(extracted, signals.length);
 
       for (const candidate of candidates) {
@@ -117,15 +122,14 @@ export async function extractEventsForEntity(
     console.error(
       `Event extraction failed for entity ${externalEntityId}: ${msg}`
     );
-  } finally {
-    // Mark the whole batch processed even on failure - a persistent LLM
-    // failure should surface as "no events generated", not an ever-growing
-    // PENDING backlog re-attempted every ingestion cycle.
-    await prisma.externalSignal.updateMany({
-      where: { id: { in: signals.map((s) => s.id) }, organizationId },
-      data: { status: "PROCESSED" },
-    });
+    // Keep the batch PENDING. The next scheduled run can retry it.
+    return { created };
   }
+
+  await prisma.externalSignal.updateMany({
+    where: { id: { in: signals.map((s) => s.id) }, organizationId },
+    data: { status: "PROCESSED" },
+  });
 
   return { created };
 }
