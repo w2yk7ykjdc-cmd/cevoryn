@@ -64,7 +64,8 @@ export const secEdgarAdapter: SignalAdapter = {
         timeoutMs: FETCH_TIMEOUT_MS,
         headers: { "User-Agent": userAgent, Accept: "application/json" },
       });
-      if (!response || !response.ok) return [];
+      if (!response) throw new Error("SEC EDGAR adapter request failed after retries");
+      if (!response.ok) throw new Error(`SEC EDGAR adapter returned HTTP ${response.status}`);
 
       const data = (await response.json()) as EdgarSearchResponse;
       const hits = data.hits?.hits ?? [];
@@ -95,8 +96,8 @@ export const secEdgarAdapter: SignalAdapter = {
       }
 
       return signals;
-    } catch (_error) {
-      return [];
+    } catch (error) {
+      throw error instanceof Error ? error : new Error("SEC EDGAR request failed");
     }
   },
 };
