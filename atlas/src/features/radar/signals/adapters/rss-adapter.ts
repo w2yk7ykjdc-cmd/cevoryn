@@ -21,18 +21,17 @@ export const rssAdapter: SignalAdapter = {
             "application/rss+xml, application/atom+xml, application/xml, text/xml",
         },
       });
-      if (!response || !response.ok) return [];
+      if (!response) throw new Error("RSS adapter request failed after retries");
+      if (!response.ok) throw new Error(`RSS adapter returned HTTP ${response.status}`);
 
       const xml = await response.text();
       return parseFeed(xml);
     } catch (error) {
-      // Transport/timeout/parse failure - or a rejected unsafe URL - for
-      // this one entity's feed. Never let a single misconfigured or dead
-      // feed fail the whole ingestion run.
+      // Ingestion catches this per adapter and persists it in the pipeline run.
       if (error instanceof UnsafeUrlError) {
         console.warn(`[cevoryn:radar] rss adapter: ${error.message}`);
       }
-      return [];
+      throw error instanceof Error ? error : new Error("RSS feed request failed");
     }
   },
 };
