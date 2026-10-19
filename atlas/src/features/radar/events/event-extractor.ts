@@ -73,22 +73,27 @@ export async function extractEventsForEntity(
     });
 
     const cleaned = content.trim();
-    let extracted: unknown = [];
-    if (cleaned && cleaned !== "[]") {
-      try {
-        extracted = JSON.parse(cleaned);
-      } catch {
-        throw new Error("Event extraction provider returned invalid JSON");
-      }
+    if (!cleaned) {
+      throw new Error("Event extraction provider returned an empty response");
+    }
+
+    let extracted: unknown;
+    try {
+      extracted = JSON.parse(cleaned);
+    } catch {
+      throw new Error("Event extraction provider returned invalid JSON");
     }
 
     if (!Array.isArray(extracted)) {
       throw new Error("Event extraction provider response must be a JSON array");
     }
 
-    {
-      const candidates = selectValidEvents(extracted, signals.length);
+    const candidates = selectValidEvents(extracted, signals.length);
 
+    // Event writes and signal status transition must commit atomically. If
+    // any write fails, Prisma rolls back the events and the PENDING batch can
+    // be retried without duplicating events created earlier in this batch.
+    await prisma.$transaction(async (tx) => {
       for (const candidate of candidates) {
         const evidence: EvidenceItem[] = candidate.signalIndexes.map(
           (index) => {
@@ -101,7 +106,7 @@ export async function extractEventsForEntity(
           }
         );
 
-        await prisma.externalEvent.create({
+        await tx.externalEvent.create({
           data: {
             organizationId,
             externalEntityId,
@@ -116,20 +121,20 @@ export async function extractEventsForEntity(
         });
         created += 1;
       }
-    }
+
+      await tx.externalSignal.updateMany({
+        where: { id: { in: signals.map((s) => s.id) }, organizationId },
+        data: { status: "PROCESSED" },
+      });
+    });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "unknown";
     console.error(
       `Event extraction failed for entity ${externalEntityId}: ${msg}`
     );
     // Keep the batch PENDING. The next scheduled run can retry it.
-    return { created };
+    return { created: 0 };
   }
-
-  await prisma.externalSignal.updateMany({
-    where: { id: { in: signals.map((s) => s.id) }, organizationId },
-    data: { status: "PROCESSED" },
-  });
 
   return { created };
 }
