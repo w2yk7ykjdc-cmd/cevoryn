@@ -43,7 +43,8 @@ export const jobsAdapter: SignalAdapter = {
         timeoutMs: FETCH_TIMEOUT_MS,
         headers: { Accept: "application/json" },
       });
-      if (!response || !response.ok) return [];
+      if (!response) throw new Error("jobs adapter request failed after retries");
+      if (!response.ok) throw new Error(`jobs adapter returned HTTP ${response.status}`);
 
       const data = (await response.json()) as GreenhouseBoardResponse;
       const jobs = data.jobs ?? [];
@@ -59,8 +60,8 @@ export const jobsAdapter: SignalAdapter = {
           publishedAt: Number.isNaN(publishedAt.getTime()) ? null : publishedAt,
         };
       });
-    } catch (_error) {
-      return [];
+    } catch (error) {
+      throw error instanceof Error ? error : new Error("Greenhouse jobs request failed");
     }
   },
 };
