@@ -13,14 +13,15 @@ export default function TermsPage() {
           </p>
           <h1 className="text-3xl font-bold tracking-tight">Terms of use</h1>
           <p className="text-muted-foreground">
-            These terms apply to the CEVORYN private beta.
+            These terms apply to use of CEVORYN.
           </p>
         </header>
 
-        <LegalSection title="Beta service">
-          CEVORYN is a pre-release product. Features may change, be interrupted,
-          or be removed. The service may contain defects and should not be
-          treated as the sole system of record for critical business operations.
+        <LegalSection title="Service availability">
+          CEVORYN is an actively developed product. Features may change, be
+          interrupted, or be removed. The service may contain defects and
+          should not be treated as the sole system of record for critical
+          business operations.
         </LegalSection>
 
         <LegalSection title="Account responsibility">
@@ -70,7 +71,7 @@ export default function TermsPage() {
         </LegalSection>
 
         <LegalSection title="No warranty">
-          The beta is provided on an “as is” and “as available” basis to the
+          CEVORYN is provided on an “as is” and “as available” basis to the
           extent permitted by law, without guarantees of uninterrupted
           operation, accuracy, fitness for a particular purpose, or error-free
           results.
@@ -78,8 +79,8 @@ export default function TermsPage() {
 
         <LegalSection title="Suspension and termination">
           Access may be suspended or ended for security reasons, misuse, legal
-          requirements, prolonged inactivity, or termination of the beta
-          program. Users may stop using CEVORYN at any time.
+          requirements, or prolonged inactivity. Users may stop using CEVORYN
+          at any time.
         </LegalSection>
 
         <LegalSection title="Contact">
