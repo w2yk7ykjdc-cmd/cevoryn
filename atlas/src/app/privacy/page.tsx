@@ -13,8 +13,7 @@ export default function PrivacyPage() {
           </p>
           <h1 className="text-3xl font-bold tracking-tight">Privacy notice</h1>
           <p className="text-muted-foreground">
-            This notice explains how CEVORYN handles information during the
-            private beta.
+            This notice explains how CEVORYN handles information.
           </p>
         </header>
 
@@ -62,8 +61,8 @@ export default function PrivacyPage() {
 
         <LegalSection title="Retention, deletion, and data export">
           Information is retained while an account is active and as reasonably
-          needed for security, legal, backup, and operational purposes. Beta
-          users may request a copy of their organization&apos;s (or, for
+          needed for security, legal, backup, and operational purposes. Users
+          may request a copy of their organization&apos;s (or, for
           Thornbound, their own player) data, or its deletion, by contacting
           the CEVORYN team at the email below. Export requests are fulfilled
           as a structured data file covering account, conversation, and
