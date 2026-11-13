@@ -20,7 +20,14 @@ concurrency:
 
 jobs:
   quality:
-    runs-on: ubuntu-latest
+    # Pinned rather than ubuntu-latest: GitHub's "latest" label moved to
+    # ubuntu-26.04 before @playwright/test's browser installer added
+    # support for it ("Playwright does not support chromium on
+    # ubuntu26.04-x64"), which broke the "Install Playwright Chromium"
+    # step on every PR/push regardless of code changes. 24.04 is still a
+    # supported LTS runner image and matches what Playwright's installer
+    # already knows how to provision.
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     defaults:
       run:
