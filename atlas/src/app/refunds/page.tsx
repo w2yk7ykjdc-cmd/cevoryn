@@ -8,13 +8,12 @@ export default function RefundsPage() {
     <main className="mx-auto max-w-3xl px-5 py-12 sm:py-16">
       <div className="space-y-8">
         <header className="space-y-2">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             Last updated: July 28, 2026
           </p>
           <h1 className="text-3xl font-bold tracking-tight">Refund policy</h1>
           <p className="text-muted-foreground">
-            This policy applies to paid CEVORYN subscriptions during the private
-            beta.
+            This policy applies to paid CEVORYN subscriptions.
           </p>
         </header>
 
@@ -25,10 +24,9 @@ export default function RefundsPage() {
         </LegalSection>
 
         <LegalSection title="Cancellations">
-          Users can cancel their subscription at any time from the Billing
-          page. Cancelling stops future renewals; access continues until the
-          end of the current paid period. We do not charge a cancellation
-          fee.
+          Users can cancel their subscription at any time from the Billing page.
+          Cancelling stops future renewals; access continues until the end of
+          the current paid period. We do not charge a cancellation fee.
         </LegalSection>
 
         <LegalSection title="Refund requests">
@@ -48,7 +46,7 @@ export default function RefundsPage() {
           kemalkiyak06@icloud.com.
         </LegalSection>
 
-        <div className="border-t pt-6 text-sm text-muted-foreground">
+        <div className="text-muted-foreground border-t pt-6 text-sm">
           <Link className="underline underline-offset-4" href="/terms">
             Terms of use
           </Link>
@@ -76,7 +74,7 @@ function LegalSection({
   return (
     <section className="space-y-2">
       <h2 className="text-lg font-semibold">{title}</h2>
-      <p className="leading-7 text-muted-foreground">{children}</p>
+      <p className="text-muted-foreground leading-7">{children}</p>
     </section>
   );
 }

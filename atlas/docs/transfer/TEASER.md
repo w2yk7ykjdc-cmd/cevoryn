@@ -1,9 +1,9 @@
 # CEVORYN — AI Chief of Staff for Small Teams
 
-**Asset sale.** Full codebase, domain, and brand. Pre-revenue, private beta.
-This teaser is deliberately plain about that — no revenue multiple, no
-customer-count claim. What's for sale is a working, tested, secured
-product, not a customer base.
+**Asset sale.** Full codebase, domain, and brand. Pre-revenue: zero
+verified customers and zero verified revenue. This teaser makes no
+revenue-multiple or traction claim. Current production and third-party
+service status must be re-verified before buyer representations.
 
 ## What it is
 
@@ -46,23 +46,20 @@ companies.
 
 ## Quality signals
 
-- 307 automated tests, CI-gated on every PR (GitHub Actions)
-- TypeScript strict mode, zero `tsc`/lint errors
+- CI-verified on this exact sale-branch commit: 307/307 unit tests, 126/126 integration tests (real Postgres), 3/3 Playwright browser smoke tests, clean production build — see `TEST_QUALITY_REPORT.md`
+- TypeScript strict mode; current type-check/lint status is not represented as freshly verified
 - Security review covering auth, RBAC, tenant isolation, secrets
   handling, webhook signature verification, rate limiting, input
   validation (zod on all mutating routes), and CSRF/cross-origin
   protection — see `SECURITY_DUE_DILIGENCE.md`
-- CodeQL + Dependabot enabled on the repository; findings fixed, not
-  deferred
+- Security review findings and known unverified areas are disclosed in `SECURITY_DUE_DILIGENCE.md`; repository-level scanner status must be checked in GitHub before making a buyer claim
 - Non-squashed git history — the actual development process is visible,
   not a single snapshot commit
 
 ## Honest current state
 
-- **Zero customers, zero revenue.** This is a pre-release product in
-  private beta, not a business with traction. See
-  `BUYER_DUE_DILIGENCE.md` for the full, unhedged disclosure.
-- No automated browser/E2E test suite (unit + integration only).
+- **Zero verified customers, zero verified revenue.** This is an asset acquisition, not a business with demonstrated traction. See `BUYER_DUE_DILIGENCE.md`.
+- Playwright browser smoke tests (3, unauthenticated public pages) are CI-verified passing; comprehensive authenticated end-to-end coverage (login, chat, billing flows) has not been established.
 - Cost-optimized AI model (`gpt-4o-mini`) by default — configurable.
 - Runs on free/hobby tiers (Supabase, Vercel) — no automatic DB backups
   until upgraded.
@@ -83,10 +80,9 @@ product only.
 
 ## Suggested starting point for discussion
 
-No revenue to multiply, so this isn't priced off ARR. A reasonable
-starting range, grounded in engineering cost-to-rebuild at a steep
-pre-revenue/no-traction discount, is **$15,000–$25,000** — set by the
-seller, not a platform-generated valuation. Open to offers.
+No revenue to multiply, so this isn't priced off ARR. Any asking price is a seller decision, not a verified market valuation.
+The historical valuation report is dated 2026-10-12 and must be refreshed
+before relying on its figures or presenting them as current.
 
 ## Full due-diligence package
 

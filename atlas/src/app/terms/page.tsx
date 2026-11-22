@@ -8,19 +8,20 @@ export default function TermsPage() {
     <main className="mx-auto max-w-3xl px-5 py-12 sm:py-16">
       <div className="space-y-8">
         <header className="space-y-2">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             Last updated: July 22, 2026
           </p>
           <h1 className="text-3xl font-bold tracking-tight">Terms of use</h1>
           <p className="text-muted-foreground">
-            These terms apply to the CEVORYN private beta.
+            These terms apply to use of CEVORYN.
           </p>
         </header>
 
-        <LegalSection title="Beta service">
-          CEVORYN is a pre-release product. Features may change, be interrupted,
-          or be removed. The service may contain defects and should not be
-          treated as the sole system of record for critical business operations.
+        <LegalSection title="Service availability">
+          CEVORYN is an actively developed product. Features may change, be
+          interrupted, or be removed. The service may contain defects and should
+          not be treated as the sole system of record for critical business
+          operations.
         </LegalSection>
 
         <LegalSection title="Account responsibility">
@@ -56,7 +57,7 @@ export default function TermsPage() {
         </LegalSection>
 
         <LegalSection title="No warranty">
-          The beta is provided on an “as is” and “as available” basis to the
+          CEVORYN is provided on an “as is” and “as available” basis to the
           extent permitted by law, without guarantees of uninterrupted
           operation, accuracy, fitness for a particular purpose, or error-free
           results.
@@ -64,15 +65,15 @@ export default function TermsPage() {
 
         <LegalSection title="Suspension and termination">
           Access may be suspended or ended for security reasons, misuse, legal
-          requirements, prolonged inactivity, or termination of the beta
-          program. Users may stop using CEVORYN at any time.
+          requirements, or prolonged inactivity. Users may stop using CEVORYN at
+          any time.
         </LegalSection>
 
         <LegalSection title="Contact">
           Questions about these terms can be sent to kemalkiyak06@icloud.com.
         </LegalSection>
 
-        <div className="border-t pt-6 text-sm text-muted-foreground">
+        <div className="text-muted-foreground border-t pt-6 text-sm">
           <Link className="underline underline-offset-4" href="/privacy">
             Privacy notice
           </Link>
@@ -100,7 +101,7 @@ function LegalSection({
   return (
     <section className="space-y-2">
       <h2 className="text-lg font-semibold">{title}</h2>
-      <p className="leading-7 text-muted-foreground">{children}</p>
+      <p className="text-muted-foreground leading-7">{children}</p>
     </section>
   );
 }
