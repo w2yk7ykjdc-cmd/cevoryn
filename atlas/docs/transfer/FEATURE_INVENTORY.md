@@ -37,4 +37,4 @@ re-verified live during this documentation pass."
   history note below).
 - No Stripe/Paddle integration — billing is Polar-only.
 - No admin analytics dashboard UI (raw events are logged, not visualized).
-- A Playwright browser smoke-test command is configured in `package.json` and CI. This does not establish comprehensive authenticated end-to-end coverage; the current suite must be run on this sale branch before buyer claims.
+- Playwright browser smoke tests: 3 tests (signup/login field rendering, private-beta language regression guard), CI-verified passing on commit `f2218d2` (see `TEST_QUALITY_REPORT.md`). This covers unauthenticated public pages only — it does not establish comprehensive authenticated end-to-end coverage (login, chat, billing flows are not exercised).

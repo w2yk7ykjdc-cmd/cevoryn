@@ -46,7 +46,7 @@ companies.
 
 ## Quality signals
 
-- Automated unit and integration test suites are configured in CI; current pass counts are intentionally omitted until the sale branch is freshly tested
+- CI-verified on this exact sale-branch commit: 307/307 unit tests, 126/126 integration tests (real Postgres), 3/3 Playwright browser smoke tests, clean production build — see `TEST_QUALITY_REPORT.md`
 - TypeScript strict mode; current type-check/lint status is not represented as freshly verified
 - Security review covering auth, RBAC, tenant isolation, secrets
   handling, webhook signature verification, rate limiting, input
@@ -59,7 +59,7 @@ companies.
 ## Honest current state
 
 - **Zero verified customers, zero verified revenue.** This is an asset acquisition, not a business with demonstrated traction. See `BUYER_DUE_DILIGENCE.md`.
-- Playwright browser smoke tests are configured in CI; comprehensive authenticated end-to-end coverage has not been established by this review.
+- Playwright browser smoke tests (3, unauthenticated public pages) are CI-verified passing; comprehensive authenticated end-to-end coverage (login, chat, billing flows) has not been established.
 - Cost-optimized AI model (`gpt-4o-mini`) by default — configurable.
 - Runs on free/hobby tiers (Supabase, Vercel) — no automatic DB backups
   until upgraded.
