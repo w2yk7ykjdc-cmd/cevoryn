@@ -1,69 +1,59 @@
 # Test & Quality Report
 
-All results below were freshly run against the current `main` branch
-during this documentation pass (not carried over from an earlier session).
+## Current verification status
 
-## TypeScript
+**NOT RUN in this review.** No current test result is claimed for
+`sale/cevoryn-without-romance` or this readiness-fixes branch.
 
-```
-$ npx tsc --noEmit -p .
-```
-**PASS** — 0 errors.
+The historical results below were present in earlier repository
+documentation. They are not evidence that the current branch passes.
 
-## ESLint
+## Historical snapshot (not current)
 
-```
-$ npm run lint
-```
-**PASS** — 0 errors, 2 pre-existing warnings (both unrelated to this
-documentation pass, present before this work started):
-- `src/components/layout/sidebar.tsx:100` — `react-hooks/exhaustive-deps`
-  (missing `visibleItems` dependency)
-- `src/instrumentation.ts:15` — `no-console` (an intentional `console.log`
-  not in the allowed `warn`/`error` set)
+An earlier report recorded:
+- TypeScript: pass
+- ESLint: pass with 2 warnings
+- Prettier: pass
+- Unit tests: 179/179
+- Production build: pass, 65 routes
+- Integration tests: wired into CI but not re-run in that report
 
-## Prettier
+A separate valuation report dated 2026-10-12 recorded 307/307 unit tests
+and an 81-route build for a prior sale snapshot. These counts conflict
+with the earlier 179-test report and have not been reproduced against
+the current branch. Neither count should be used in buyer-facing
+materials as a current result.
 
-```
-$ npm run format:check
-```
-**PASS** — all files conform.
+## CI configuration
 
-## Unit tests
+The sale-readiness branch configures the quality workflow to run on
+pushes and pull requests for the sale branch and `main`. The workflow
+contains these gates:
 
-```
-$ npm test
-```
-**PASS** — 179/179 tests, 0 failures, 0 skipped.
+1. Prisma schema validation
+2. Destructive migration check
+3. TypeScript type-check
+4. ESLint
+5. Prettier check for changed source files
+6. Unit tests
+7. Integration tests against PostgreSQL 16
+8. Production build
+9. Playwright Chromium browser smoke tests
 
-## Integration tests
+Configuration is not execution evidence. The GitHub Actions run must
+complete successfully on the exact candidate commit before the product
+is described as passing CI.
 
-Run against a real Postgres instance in CI (service container). 4
-integration test files exist:
-`test/integration/{cleanup,health-database,polar-webhook,rate-limit}.integration.ts`.
-Not re-run in this documentation pass (would require standing up a local
-Postgres instance and setting `INTEGRATION_DATABASE_URL`) — verified as
-present and wired into CI instead (see below).
+## Required release evidence
 
-## Build
+Before publishing buyer-facing quality claims, record the exact commit
+SHA and successful run URLs for:
+- TypeScript
+- Lint and formatting
+- Unit tests (actual count from the run)
+- PostgreSQL integration tests
+- Production build
+- Playwright browser smoke tests
 
-```
-$ npm run build
-```
-**PASS** — production build succeeds, all 65 routes compile.
-
-## CI (`.github/workflows/ci.yml`)
-
-Runs automatically on every push/PR to `main`. Single job (`quality`),
-against a real `postgres:16` service container:
-1. `npm run db:validate` — Prisma schema validation
-2. `npm run type-check`
-3. `npm run lint`
-4. format check (full repo on push, changed-files-only on PR)
-5. `npm test`
-6. `npm run test:integration` (against the real Postgres container)
-7. `npm run build`
-
-This is the same gate every PR merged during this project's development
-had to pass — confirmed by this session's own PR history (each PR
-required a green CI run before merge).
+If any gate fails or is skipped, disclose it here. Do not replace a
+failed or unavailable check with a historical count.
