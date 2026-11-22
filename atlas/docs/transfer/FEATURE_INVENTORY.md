@@ -37,4 +37,4 @@ re-verified live during this documentation pass."
   history note below).
 - No Stripe/Paddle integration — billing is Polar-only.
 - No admin analytics dashboard UI (raw events are logged, not visualized).
-- No automated E2E/browser test suite (unit + integration tests only).
+- A Playwright browser smoke-test command is configured in `package.json` and CI. This does not establish comprehensive authenticated end-to-end coverage; the current suite must be run on this sale branch before buyer claims.
