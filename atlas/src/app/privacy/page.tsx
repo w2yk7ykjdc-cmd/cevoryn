@@ -8,13 +8,12 @@ export default function PrivacyPage() {
     <main className="mx-auto max-w-3xl px-5 py-12 sm:py-16">
       <div className="space-y-8">
         <header className="space-y-2">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             Last updated: July 22, 2026
           </p>
           <h1 className="text-3xl font-bold tracking-tight">Privacy notice</h1>
           <p className="text-muted-foreground">
-            This notice explains how CEVORYN handles information during the
-            private beta.
+            This notice explains how CEVORYN handles information.
           </p>
         </header>
 
@@ -50,14 +49,13 @@ export default function PrivacyPage() {
 
         <LegalSection title="Retention, deletion, and data export">
           Information is retained while an account is active and as reasonably
-          needed for security, legal, backup, and operational purposes. Beta
-          users may request a copy of their organization&apos;s data, or its
-          deletion, by contacting the CEVORYN team at the email below. Export
-          requests are fulfilled as a structured data file covering account,
-          conversation, and product-usage records tied to the requesting
-          organization. Deletion requests remove that organization&apos;s
-          associated data; we aim to complete verified requests within 30
-          days.
+          needed for security, legal, backup, and operational purposes. Users
+          may request a copy of their organization&apos;s data, or its deletion,
+          by contacting the CEVORYN team at the email below. Export requests are
+          fulfilled as a structured data file covering account, conversation,
+          and product-usage records tied to the requesting organization.
+          Deletion requests remove that organization&apos;s associated data; we
+          aim to complete verified requests within 30 days.
         </LegalSection>
 
         <LegalSection title="Security">
@@ -71,7 +69,7 @@ export default function PrivacyPage() {
           kemalkiyak06@icloud.com.
         </LegalSection>
 
-        <div className="border-t pt-6 text-sm text-muted-foreground">
+        <div className="text-muted-foreground border-t pt-6 text-sm">
           <Link className="underline underline-offset-4" href="/terms">
             Terms of use
           </Link>
@@ -99,7 +97,7 @@ function LegalSection({
   return (
     <section className="space-y-2">
       <h2 className="text-lg font-semibold">{title}</h2>
-      <p className="leading-7 text-muted-foreground">{children}</p>
+      <p className="text-muted-foreground leading-7">{children}</p>
     </section>
   );
 }
